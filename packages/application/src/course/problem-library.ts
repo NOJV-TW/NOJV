@@ -1,3 +1,4 @@
+import { ensurePublicProblemImageInventories } from "../shared/uploaded-image";
 import {
   courseProblemRepo,
   courseRepo,
@@ -152,6 +153,8 @@ export async function addCourseProblems(
   courseId: string,
   problemIds: string[],
 ): Promise<{ problemIds: string[] }> {
+  await runTransaction((tx) => lockCourseForStaffMutation(tx, actor, courseId));
+  await ensurePublicProblemImageInventories(problemIds);
   return runTransaction(async (tx) => {
     await lockCourseForStaffMutation(tx, actor, courseId);
     const problems = await resolveActivityProblems(tx, actor, [...new Set(problemIds)], {

@@ -1,25 +1,16 @@
-import type { RequestEvent } from "@sveltejs/kit";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { apiConsume, fetchConsume, readCachedRemoteImage, cacheRemoteImage, fetchRemoteImage } =
-  vi.hoisted(() => ({
-    apiConsume: vi.fn(),
-    fetchConsume: vi.fn(),
-    readCachedRemoteImage: vi.fn(),
-    cacheRemoteImage: vi.fn(),
-    fetchRemoteImage: vi.fn(),
-  }));
+const { apiConsume, fetchConsume, fetchRemoteImage } = vi.hoisted(() => ({
+  apiConsume: vi.fn(),
+  fetchConsume: vi.fn(),
+  fetchRemoteImage: vi.fn(),
+}));
 
 vi.mock("$lib/server/shared/rate-limiter", () => ({
   apiRateLimiter: { consume: apiConsume },
   writeApiRateLimiter: { consume: vi.fn() },
   registryTokenRateLimiter: { consume: vi.fn() },
   remoteAssetFetchRateLimiter: { consume: fetchConsume },
-}));
-
-vi.mock("$lib/server/storage/remote-image", () => ({
-  readCachedRemoteImage,
-  cacheRemoteImage,
 }));
 
 vi.mock("$lib/server/remote-image", () => ({
@@ -35,62 +26,71 @@ const PNG = Buffer.from([
 ]);
 const IMAGE = { body: PNG, contentType: "image/png" };
 
-function event(query = "?url=https%3A%2F%2Fimages.example%2Fcat.png"): RequestEvent {
+function event(
+  query = "?url=https%3A%2F%2Fimages.example%2Fcat.png",
+  authenticated = true,
+): Parameters<typeof GET>[0] {
   const url = new URL(`https://nojv.example/api/images/proxy${query}`);
   return {
     getClientAddress: () => "203.0.113.5",
-    locals: { sessionUser: null, apiTokenActor: null },
+    locals: {
+      sessionUser: authenticated
+        ? {
+            id: "viewer",
+            name: "Viewer",
+            email: "viewer@example.com",
+            emailVerified: true,
+            username: null,
+            platformRole: "student",
+          }
+        : null,
+      apiTokenActor: null,
+    },
     request: new Request(url),
     url,
-  } as unknown as RequestEvent;
+  } as unknown as Parameters<typeof GET>[0];
 }
 
 beforeEach(() => {
   vi.clearAllMocks();
   apiConsume.mockResolvedValue("allowed");
   fetchConsume.mockResolvedValue("allowed");
-  readCachedRemoteImage.mockResolvedValue(IMAGE);
-  cacheRemoteImage.mockResolvedValue(IMAGE);
   fetchRemoteImage.mockResolvedValue(IMAGE);
 });
 
 describe("remote image proxy route", () => {
-  it("serves a cached image without an outbound request", async () => {
+  it("relays for an authenticated viewer without requiring a completed profile", async () => {
     const response = await GET(event());
 
     expect(response.status).toBe(200);
     expect(Buffer.from(await response.arrayBuffer())).toEqual(PNG);
     expect(response.headers.get("content-type")).toBe("image/png");
-    expect(response.headers.get("cache-control")).toContain("immutable");
+    expect(response.headers.get("cache-control")).toBe("private, max-age=300");
     expect(response.headers.get("cross-origin-resource-policy")).toBe("same-origin");
-    expect(fetchRemoteImage).not.toHaveBeenCalled();
-    expect(fetchConsume).not.toHaveBeenCalled();
-  });
-
-  it("fetches and atomically caches a miss", async () => {
-    readCachedRemoteImage.mockResolvedValue(null);
-
-    const response = await GET(event());
-
-    expect(response.status).toBe(200);
-    expect(fetchConsume).toHaveBeenCalledOnce();
+    expect(fetchConsume).toHaveBeenCalledWith("u:viewer");
     expect(fetchRemoteImage).toHaveBeenCalledWith(
       "https://images.example/cat.png",
       expect.objectContaining({ forbiddenHostname: "nojv.example" }),
     );
-    expect(cacheRemoteImage).toHaveBeenCalledWith(
-      "https://images.example/cat.png",
-      PNG,
-      "image/png",
-    );
   });
 
-  it("fails closed for a missing URL or unavailable miss limiter", async () => {
+  it("rejects anonymous viewers before an outbound request", async () => {
+    expect(await GET(event(undefined, false))).toMatchObject({ status: 401 });
+    expect(fetchRemoteImage).not.toHaveBeenCalled();
+    expect(fetchConsume).not.toHaveBeenCalled();
+  });
+
+  it("fails closed for a missing URL or unavailable relay limiter", async () => {
     await expect(GET(event(""))).resolves.toMatchObject({ status: 400 });
 
-    readCachedRemoteImage.mockResolvedValue(null);
     fetchConsume.mockResolvedValue("unavailable");
     await expect(GET(event())).resolves.toMatchObject({ status: 503 });
+    expect(fetchRemoteImage).not.toHaveBeenCalled();
+  });
+
+  it("bounds relay requests per viewer", async () => {
+    fetchConsume.mockResolvedValue("limited");
+    expect(await GET(event())).toMatchObject({ status: 429 });
     expect(fetchRemoteImage).not.toHaveBeenCalled();
   });
 
@@ -101,7 +101,6 @@ describe("remote image proxy route", () => {
       status: 307,
       location: "https://nojv.example/api/storage/image.png",
     });
-    expect(readCachedRemoteImage).not.toHaveBeenCalled();
     expect(fetchRemoteImage).not.toHaveBeenCalled();
   });
 });

@@ -105,6 +105,9 @@ function imageReferences(file, line, index, lines) {
   }
 
   if (SOURCE_EXTENSIONS.has(extname(file)) && !file.endsWith(".sh")) {
+    if (/^\s*(?:(?:import|export)\b.*\bfrom|\}\s*from|import)\s*["']/u.test(line)) {
+      return [];
+    }
     const context = lines.slice(Math.max(0, index - 8), index + 1).join("\n");
     if (!/(?:docker|image(?:Name|Ref)?)/iu.test(context)) return [];
     return literalImageReferences(line);

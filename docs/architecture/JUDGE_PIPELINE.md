@@ -687,14 +687,22 @@ test.
   driver `readonly`.
 - `special_env` — [Advanced Mode](#advanced-mode-pipeline).
 
-`ProblemWorkspaceFile.visibility` is whole-file and enforced by
-`mergeSandboxSources()`:
+`ProblemWorkspaceFile.visibility` controls whole-file editor presentation and
+which submitted contents `mergeSandboxSources()` accepts:
 
 | Visibility | Shown in UI | Student edits | In sandbox |
 | ---------- | ----------- | ------------- | ---------- |
 | `editable` | yes         | yes           | yes        |
 | `readonly` | greyed out  | no            | yes        |
 | `hidden`   | no          | no            | yes        |
+
+Hidden files support helpers, drivers or an implementation behind an API the
+student is expected to use without an editor view. Student-facing problem/API
+reads omit their content while retaining metadata such as path and description.
+Official compilation and execution receive the complete merged workspace,
+including hidden files; student code can read or inspect that workspace. Hidden
+visibility provides no runtime confidentiality. Authors must not store secrets
+or testcase answers in any workspace file (PRB-01).
 
 ## Adjustment rules
 

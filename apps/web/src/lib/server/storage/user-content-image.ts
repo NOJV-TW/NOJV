@@ -1,7 +1,7 @@
+import { userDomain } from "@nojv/application";
 import {
   createStorageClient,
   downloadUserContentImage as storageDownload,
-  uploadUserContentImage as storageUpload,
 } from "@nojv/storage";
 
 function userContentImageUrl(userId: string, key: string): string {
@@ -18,8 +18,7 @@ export async function uploadUserContentImage(
   buffer: Buffer,
   contentType: string,
 ): Promise<string> {
-  const client = createStorageClient();
-  const key = await storageUpload(client, userId, buffer, contentType);
+  const key = await userDomain.uploadUserContentImage(userId, buffer, contentType);
   return userContentImageUrl(userId, key);
 }
 

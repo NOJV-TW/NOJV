@@ -49,10 +49,11 @@ model Problem {
 
   advancedRequiredPaths String[] @default([])
 
-  storageGeneration  Int   @default(0)
-  activeStorageBytes Int   @default(0)
-  checkerStorage     Json?
-  interactorStorage  Json?
+  imageInventoryComplete Boolean @default(false)
+  storageGeneration      Int     @default(0)
+  activeStorageBytes     Int     @default(0)
+  checkerStorage         Json?
+  interactorStorage      Json?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -60,6 +61,7 @@ model Problem {
   author                        User                   @relation("ProblemAuthor", fields: [authorId], references: [id], onDelete: Restrict)
   forkedFromProblem             Problem?               @relation("ProblemForks", fields: [forkedFromProblemId], references: [id], onDelete: SetNull)
   forks                         Problem[]              @relation("ProblemForks")
+  uploadedImages                UploadedImage[]
   statement                     ProblemStatement?
   testcaseSets                  TestcaseSet[]
   workspaceFiles                ProblemWorkspaceFile[]

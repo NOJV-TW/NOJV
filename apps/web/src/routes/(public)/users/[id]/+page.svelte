@@ -21,6 +21,7 @@
 
   const profile = $derived(data.profile);
   const user = $derived(data.profile.user);
+  const profileImage = $derived(user.image ? avatarSrc(user.image, !!data.user) : undefined);
   const initial = $derived(user.name.trim().charAt(0).toUpperCase() || "?");
 
   let profilePublic = $state(false);
@@ -231,8 +232,8 @@
         <div
           class="flex size-16 shrink-0 items-center justify-center overflow-hidden rounded-full border border-border-subtle bg-primary text-title font-semibold text-primary-foreground"
         >
-          {#if user.image}
-            <img src={avatarSrc(user.image)} alt={user.name} class="size-full object-cover" />
+          {#if profileImage}
+            <img src={profileImage} alt={user.name} class="size-full object-cover" />
           {:else}
             {initial}
           {/if}

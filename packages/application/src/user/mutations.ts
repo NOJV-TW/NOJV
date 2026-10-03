@@ -3,6 +3,7 @@ import { isReservedUsername, userHandleSchema } from "@nojv/core";
 
 import { lockRosterIdentity, bindPendingMemberships } from "../course/roster";
 
+import { ensureUserImagesForDeletion, retireUploadedImages } from "../shared/uploaded-image";
 import { ConflictError, ForbiddenError, ValidationError } from "../shared/errors";
 
 const NAME_MAX_LENGTH = 64;
@@ -16,6 +17,7 @@ export async function deleteUser(
   actorIsSuperAdmin: boolean,
   userId: string,
 ): Promise<DeleteUserResult | null> {
+  await ensureUserImagesForDeletion(userId);
   return runTransaction(async (tx) => {
     await lockRosterIdentity(tx);
     await tx.$queryRaw`SELECT id FROM "User" WHERE id = ${userId} FOR UPDATE`;
@@ -36,10 +38,16 @@ export async function deleteUser(
 
     const blockers = await users.countDeletionBlockers(userId);
     if (blockers > 0) {
+      const images = await tx.uploadedImage.findMany({
+        where: { userId, OR: [{ kind: "avatar" }, { ready: false }] },
+      });
+      await retireUploadedImages(tx, images);
       await users.anonymizeAndDisable(userId);
       return { mode: "soft", name: user.name };
     }
 
+    const images = await tx.uploadedImage.findMany({ where: { userId } });
+    await retireUploadedImages(tx, images);
     await users.delete(userId);
     return { mode: "hard", name: user.name };
   });
@@ -51,10 +59,6 @@ export async function renameName(userId: string, newName: string): Promise<void>
     throw new ValidationError("INVALID_NAME");
   }
   await userRepo.update(userId, { name: trimmed });
-}
-
-export async function setUserAvatar(userId: string, imageUrl: string | null): Promise<void> {
-  await userRepo.update(userId, { image: imageUrl });
 }
 
 export async function markPasswordChanged(userId: string): Promise<void> {

@@ -4,6 +4,7 @@ import {
   DurableWorkInvariantError,
   durableWorkRepo,
   prismaAdapterClient,
+  runTransaction,
   type Prisma,
   type TransactionClient,
 } from "@nojv/db";
@@ -47,13 +48,30 @@ function uniquePointers(pointers: readonly StorageObjectPointer[]): StorageObjec
 export async function guardStorageObjectWrites(
   pointers: readonly StorageObjectPointer[],
   now = new Date(),
+  tx?: TransactionClient,
 ): Promise<void> {
   const unique = uniquePointers(pointers);
   if (unique.length === 0) return;
   const availableAt = new Date(now.getTime() + READER_GRACE_MS);
-  await durableWorkRepo.enqueueMany(
+  await (tx ? durableWorkRepo.withTx(tx) : durableWorkRepo).enqueueMany(
     unique.map((pointer) => cleanupInput(pointer, availableAt)),
   );
+}
+
+export async function cancelPendingStorageWriteGuard(
+  tx: TransactionClient,
+  key: string,
+): Promise<void> {
+  const result = await tx.durableWork.updateMany({
+    where: {
+      kind: STORAGE_OBJECT_CLEANUP_KIND,
+      dedupeKey: cleanupDedupeKey(key),
+      status: "pending",
+    },
+    data: { status: "cancelled", completedAt: new Date(), updatedAt: new Date() },
+  });
+  if (result.count !== 1)
+    throw new Error(`Storage write guard is no longer pending for ${key}`);
 }
 
 export async function commitStoragePointerSwap(
@@ -128,6 +146,10 @@ export function parseStorageObjectCleanupPayload(value: unknown): StorageObjectC
 
 export async function cleanupUnreferencedStorageObject(rawPayload: unknown): Promise<void> {
   const { pointer } = parseStorageObjectCleanupPayload(rawPayload);
+  const imageKey = /^(?:problems\/[^/]+\/images\/|users\/[^/]+\/images\/|avatars\/)/.test(
+    pointer.key,
+  );
+  if (imageKey) await invalidatePendingImages(pointer.key);
   if (await storageObjectIsReferenced(pointer.key)) return;
 
   const client = storage();
@@ -137,10 +159,14 @@ export async function cleanupUnreferencedStorageObject(rawPayload: unknown): Pro
     try {
       await getVerifiedObject(client, pointer);
     } catch (reason) {
-      if (isStorageObjectNotFoundError(reason)) return;
+      if (isStorageObjectNotFoundError(reason)) {
+        if (imageKey) await releasePendingImages(pointer.key);
+        return;
+      }
       throw reason;
     }
     await deleteBlob(client, pointer.key);
+    if (imageKey) await releasePendingImages(pointer.key);
     return;
   }
 
@@ -192,7 +218,42 @@ async function storageObjectIsReferenced(key: string): Promise<boolean> {
       SELECT 1 FROM "JudgeExecutionObject" WHERE "key" = ${key}
       UNION ALL
       SELECT 1 FROM "JudgeStage" WHERE "result" ->> 'key' = ${key}
+      UNION ALL
+      SELECT 1 FROM "UploadedImage" WHERE "key" = ${key} AND "ready"
     ) AS referenced
   `;
   return row?.referenced === true;
+}
+
+async function lockImageOwners(tx: TransactionClient, key: string): Promise<void> {
+  const images = await tx.uploadedImage.findMany({
+    where: { key },
+    select: { userId: true, problemId: true },
+  });
+  const problems = [
+    ...new Set(images.flatMap((image) => (image.problemId ? [image.problemId] : []))),
+  ].sort();
+  const users = [
+    ...new Set(images.flatMap((image) => (image.userId ? [image.userId] : []))),
+  ].sort();
+  for (const id of problems)
+    await tx.$queryRaw`SELECT id FROM "Problem" WHERE id = ${id} FOR UPDATE`;
+  for (const id of users) await tx.$queryRaw`SELECT id FROM "User" WHERE id = ${id} FOR UPDATE`;
+}
+
+async function invalidatePendingImages(key: string): Promise<void> {
+  await runTransaction(async (tx) => {
+    await lockImageOwners(tx, key);
+    await tx.uploadedImage.updateMany({
+      where: { key, ready: false },
+      data: { cleanupStarted: true },
+    });
+  });
+}
+
+async function releasePendingImages(key: string): Promise<void> {
+  await runTransaction(async (tx) => {
+    await lockImageOwners(tx, key);
+    await tx.uploadedImage.deleteMany({ where: { key, ready: false, cleanupStarted: true } });
+  });
 }

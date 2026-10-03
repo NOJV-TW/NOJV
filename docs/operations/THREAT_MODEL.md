@@ -143,9 +143,10 @@ Controls: [Content and Uploads](SECURITY.md#content-and-uploads).
 - **Polyglot or spoofed-type upload; SVG script** — Magic-byte check, png/jpeg/gif/webp only, `nosniff`.
 - **Path traversal in storage keys or bundles** — Server-built keys; bundle path validation.
 - **Stored XSS or CSS injection via Markdown / KaTeX** — DOMPurify, nonce-scoped KaTeX trust, CSP.
-- **Reader tracking via remote Markdown images** — Same-origin image proxy with cache.
+- **Reader tracking via remote Markdown images** — Authenticated same-origin relay with short private caching; browsers never contact upstream hosts.
 - **SSRF via the image proxy (private IPs, rebinding, redirects)** — Public-only DNS pinning, redirect revalidation, HTTPS/443 only.
-- **Storage or bandwidth exhaustion** — Size caps, per-problem budget for author files, remote-fetch limiter, URL-keyed cache. _Residual:_ Uploaded images and remote-image cache objects have no aggregate quota or lifecycle expiry.
+- **Storage or bandwidth exhaustion** — Shared 50 MiB problem budget including images, 50 MiB user content-image budget, atomic capacity reservations including pending writes, bounded avatar replacement, and remote-fetch limiting. Reader GET requests create no permanent storage; author URL imports consume the owner's quota. _Residual:_ Existing over-quota content is retained; remote references remain dependent on upstream availability unless imported.
+- **Hidden workspace file read by student code** — Hidden controls editor/API presentation for helpers, drivers and opaque assumed APIs. Official compilation/execution receives the file; authors must not put secrets or answers there (PRB-01).
 
 ### Exam and contest integrity
 
@@ -179,14 +180,13 @@ Controls: [Infrastructure](SECURITY.md#infrastructure).
 
 ## Open Gaps
 
-| Gap                                         | Current state                                                                                                                               | Recommendation                                                 | Priority |
-| ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- | -------- |
-| No aggregate image storage quota            | Images are capped per file (5 MB) and rate-limited, but not counted against any per-user or per-problem budget; remote-image cache likewise | Count image bytes in a budget if growth warrants               | Medium   |
-| SSE concurrency caps are per replica        | `acquireSseSlot` caps 5 streams per user per stream type and 2000 per replica, in memory; SSE routes are not rate-limited                   | Move counters to Redis if a global cap is needed               | Low      |
-| No per-account sign-in lockout              | Password sign-in is limited per IP (and per username for exam passwords)                                                                    | Add a per-account limiter if distributed brute force appears   | Low      |
-| Redis unauthenticated                       | Compose and the in-cluster chart Redis have no password; GKE uses external Redis                                                            | Add Redis auth for single-machine deployments                  | Low      |
-| Browser tab / device switching not detected | Page lock covers NOJV server routes only                                                                                                    | Only if remote proctoring becomes a requirement                | Low      |
-| No plagiarism concurrency cap               | Dolos runs in-process per activity, bounded by one target's submissions and the activity timeout                                            | Add an activity concurrency limit if parser contention appears | Low      |
+| Gap                                         | Current state                                                                                                             | Recommendation                                                 | Priority |
+| ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- | -------- |
+| SSE concurrency caps are per replica        | `acquireSseSlot` caps 5 streams per user per stream type and 2000 per replica, in memory; SSE routes are not rate-limited | Move counters to Redis if a global cap is needed               | Low      |
+| No per-account sign-in lockout              | Password sign-in is limited per IP (and per username for exam passwords)                                                  | Add a per-account limiter if distributed brute force appears   | Low      |
+| Redis unauthenticated                       | Compose and the in-cluster chart Redis have no password; GKE uses external Redis                                          | Add Redis auth for single-machine deployments                  | Low      |
+| Browser tab / device switching not detected | Page lock covers NOJV server routes only                                                                                  | Only if remote proctoring becomes a requirement                | Low      |
+| No plagiarism concurrency cap               | Dolos runs in-process per activity, bounded by one target's submissions and the activity timeout                          | Add an activity concurrency limit if parser contention appears | Low      |
 
 ## Related Docs
 

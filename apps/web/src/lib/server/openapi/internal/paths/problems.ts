@@ -160,7 +160,7 @@ export const problemsPaths = {
   "/api/problems/{id}/images": {
     post: {
       tags: ["Problems Management"],
-      summary: "Upload problem image",
+      summary: "Upload or import a problem image",
       operationId: "uploadProblemImage",
       parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
       requestBody: {
@@ -174,8 +174,14 @@ export const problemsPaths = {
                   type: "string",
                   format: "binary",
                 },
+                url: {
+                  type: "string",
+                  format: "uri",
+                  maxLength: 2048,
+                  description: "HTTPS URL to copy into the problem's image storage",
+                },
               },
-              required: ["image"],
+              oneOf: [{ required: ["image"] }, { required: ["url"] }],
             },
           },
         },

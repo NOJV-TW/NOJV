@@ -9,6 +9,7 @@ import { m } from "$lib/paraglide/messages.js";
 vi.mock("@lucide/svelte", () => ({
   Eye: EmptyComponent,
   ImagePlus: EmptyComponent,
+  Link: EmptyComponent,
   Pencil: EmptyComponent,
 }));
 

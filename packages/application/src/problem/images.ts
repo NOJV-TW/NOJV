@@ -1,8 +1,16 @@
-import { runTransaction } from "@nojv/db";
-import { deleteBlob, uploadProblemImage as storageUpload } from "@nojv/storage";
+import { randomUUID } from "node:crypto";
 
-import { ValidationError } from "../shared/errors";
+import { runTransaction } from "@nojv/db";
+import { problemImageKey, putImmutableObject, storagePointerFor } from "@nojv/storage";
+
 import { storage } from "../shared/storage-singleton";
+import {
+  ensureProblemImageInventory,
+  finalizeUploadedImage,
+  reserveUploadedImage,
+  validateContentImage,
+} from "../shared/uploaded-image";
+import { assertProblemStorageBudget } from "./storage-budget";
 import {
   assertProblemEditAccess,
   lockProblemForEdit,
@@ -15,23 +23,25 @@ export async function uploadProblemImage(
   buffer: Buffer,
   contentType: string,
 ): Promise<string> {
-  if (
-    !["image/png", "image/jpeg", "image/gif", "image/webp"].includes(contentType) ||
-    buffer.length === 0 ||
-    buffer.length > 5 * 1024 * 1024
-  ) {
-    throw new ValidationError("Expected an image of at most 5 MB.");
-  }
+  validateContentImage(buffer, contentType);
   await assertProblemEditAccess(actor, problemId);
-  const client = storage();
-  const key = await storageUpload(client, problemId, buffer, contentType);
-  try {
-    await runTransaction(async (tx) => {
-      await lockProblemForEdit(tx, actor, problemId);
-    });
-  } catch (error) {
-    await deleteBlob(client, key);
-    throw error;
-  }
-  return key;
+  await ensureProblemImageInventory(problemId);
+  const pointer = storagePointerFor(
+    problemImageKey(problemId, `${randomUUID()}.${contentType.slice("image/".length)}`),
+    buffer,
+  );
+  const image = await runTransaction(async (tx) => {
+    await lockProblemForEdit(tx, actor, problemId);
+    await assertProblemStorageBudget(problemId, buffer.length, tx);
+    return reserveUploadedImage(tx, { pointer, contentType, kind: "problem", problemId });
+  });
+  await putImmutableObject(storage(), pointer.key, buffer, {
+    contentType,
+    abortSignal: AbortSignal.timeout(60_000),
+  });
+  await runTransaction(async (tx) => {
+    await lockProblemForEdit(tx, actor, problemId);
+    await finalizeUploadedImage(tx, image.id);
+  });
+  return pointer.key;
 }

@@ -54,3 +54,9 @@ export const submissionSourceManifestKey = (submissionId: string, generation: st
 
 export const submissionVerdictDetailKey = (submissionId: string, judgeRunId: string): string =>
   `submissions/${submissionId}/judge-runs/${versionSegment(judgeRunId)}/verdict-detail.json`;
+
+export const problemImageKey = (problemId: string, filename: string): string =>
+  `problems/${versionSegment(problemId)}/images/${versionSegment(filename)}`;
+
+export const userContentImageKey = (userId: string, filename: string): string =>
+  `users/${versionSegment(userId)}/images/${versionSegment(filename)}`;

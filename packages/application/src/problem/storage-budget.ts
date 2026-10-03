@@ -1,22 +1,26 @@
-import { problemRepo } from "@nojv/db";
+import { prismaAdapterClient, type TransactionClient } from "@nojv/db";
 
-import { ConflictError } from "../shared/errors";
+import { ConflictError, NotFoundError } from "../shared/errors";
+import { ensureProblemImageInventory } from "../shared/uploaded-image";
 
 export const PROBLEM_STORAGE_BUDGET_BYTES = 50 * 1024 * 1024;
 
 export async function assertProblemStorageBudget(
   problemId: string,
   deltaBytes: number,
+  tx?: TransactionClient,
 ): Promise<void> {
-  if (deltaBytes < 0) {
-    throw new Error("assertProblemStorageBudget: deltaBytes must be non-negative");
-  }
-  const problem = await problemRepo.findById(problemId);
-  if (!problem) throw new Error(`Problem not found: ${problemId}`);
-  const current = problem.activeStorageBytes;
-  if (current + deltaBytes > PROBLEM_STORAGE_BUDGET_BYTES) {
+  const client = tx ?? prismaAdapterClient;
+  const problem = await client.problem.findUnique({ where: { id: problemId } });
+  if (!problem) throw new NotFoundError(`Problem not found: ${problemId}`);
+  const images = await client.uploadedImage.aggregate({
+    where: { problemId },
+    _sum: { size: true },
+  });
+  const projected = problem.activeStorageBytes + (images._sum.size ?? 0) + deltaBytes;
+  if (deltaBytes > 0 && projected > PROBLEM_STORAGE_BUDGET_BYTES) {
     throw new ConflictError(
-      `Problem ${problemId} storage budget exceeded: ${String(current + deltaBytes)} > ${String(PROBLEM_STORAGE_BUDGET_BYTES)} bytes.`,
+      `Problem ${problemId} storage budget exceeded: ${String(projected)} > ${String(PROBLEM_STORAGE_BUDGET_BYTES)} bytes.`,
     );
   }
 }
@@ -24,7 +28,15 @@ export async function assertProblemStorageBudget(
 export async function getProblemStorageUsage(
   problemId: string,
 ): Promise<{ used: number; limit: number }> {
-  const problem = await problemRepo.findById(problemId);
-  if (!problem) throw new Error(`Problem not found: ${problemId}`);
-  return { used: problem.activeStorageBytes, limit: PROBLEM_STORAGE_BUDGET_BYTES };
+  await ensureProblemImageInventory(problemId);
+  const problem = await prismaAdapterClient.problem.findUnique({ where: { id: problemId } });
+  if (!problem) throw new NotFoundError(`Problem not found: ${problemId}`);
+  const images = await prismaAdapterClient.uploadedImage.aggregate({
+    where: { problemId },
+    _sum: { size: true },
+  });
+  return {
+    used: problem.activeStorageBytes + (images._sum.size ?? 0),
+    limit: PROBLEM_STORAGE_BUDGET_BYTES,
+  };
 }

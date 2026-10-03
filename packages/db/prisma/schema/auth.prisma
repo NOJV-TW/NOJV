@@ -10,13 +10,15 @@ enum ApiTokenStatus {
 }
 
 model User {
-  id              String  @id @default(cuid())
-  email           String  @unique
-  username        String? @unique
-  displayUsername String?
-  name            String
-  emailVerified   Boolean @default(false)
-  image           String?
+  id                      String  @id @default(cuid())
+  email                   String  @unique
+  username                String? @unique
+  displayUsername         String?
+  name                    String
+  emailVerified           Boolean @default(false)
+  image                   String?
+  imageInventoryComplete  Boolean @default(false)
+  avatarInventoryComplete Boolean @default(false)
 
   platformRole              PlatformRole @default(student)
   isSuperAdmin              Boolean      @default(false)
@@ -34,6 +36,7 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  uploadedImages                 UploadedImage[]
   sessions                       Session[]
   accounts                       Account[]
   schoolVerifications            SchoolVerificationToken[]

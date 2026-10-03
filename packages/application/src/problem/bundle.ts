@@ -1,3 +1,5 @@
+import { ensureProblemImageInventory } from "../shared/uploaded-image";
+import { assertProblemStorageBudget } from "./storage-budget";
 import { randomUUID } from "node:crypto";
 import { PassThrough, Readable } from "node:stream";
 
@@ -306,6 +308,7 @@ export async function importBundle(
   zipBuffer: Buffer,
 ): Promise<{ id: string; testcaseCount: number; workspaceCount: number }> {
   await assertProblemEditAccess(actor, problemId);
+  await ensureProblemImageInventory(problemId);
 
   const parsed = await parseBundle(zipBuffer);
 
@@ -339,6 +342,16 @@ export async function importBundle(
 
   const result = await runTransaction(async (tx) => {
     const problem = await lockProblemForEdit(tx, actor, problemId);
+    const nextBytes =
+      preparedTestcases.reduce(
+        (total, testcase) =>
+          total + testcase.inputStorage.size + (testcase.outputStorage?.size ?? 0),
+        0,
+      ) +
+      preparedWorkspace.reduce((total, file) => total + file.contentStorage.size, 0) +
+      (checkerStorage?.size ?? 0) +
+      (interactorStorage?.size ?? 0);
+    await assertProblemStorageBudget(problem.id, nextBytes - problem.activeStorageBytes, tx);
     const currentCfg = parsePersistedJudgeConfig(problem.judgeConfig, problem.id);
     const [existingSets, existingWorkspace] = await Promise.all([
       testcaseSetRepo.withTx(tx).findByProblemId(problem.id),
@@ -404,15 +417,7 @@ export async function importBundle(
       judgeConfig: nextCfg,
       checkerStorage: checkerStorage ?? Prisma.DbNull,
       interactorStorage: interactorStorage ?? Prisma.DbNull,
-      activeStorageBytes:
-        preparedTestcases.reduce(
-          (total, testcase) =>
-            total + testcase.inputStorage.size + (testcase.outputStorage?.size ?? 0),
-          0,
-        ) +
-        preparedWorkspace.reduce((total, file) => total + file.contentStorage.size, 0) +
-        (checkerStorage?.size ?? 0) +
-        (interactorStorage?.size ?? 0),
+      activeStorageBytes: nextBytes,
       storageGeneration: { increment: 1 },
     });
     await commitStoragePointerSwap(tx, {

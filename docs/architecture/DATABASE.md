@@ -8,9 +8,9 @@ type, enum value, relation and index is in the generated
 
 ## Key code
 
-- `packages/db/prisma/schema/*.prisma` — schema (`auth`, `clarification`, `contest`, `course`, `exam-credential`, `notification`, `ops`, `plagiarism`, `problem`, `submission`; `config.prisma` holds generator/datasource)
+- `packages/db/prisma/schema/*.prisma` — schema (`auth`, `clarification`, `contest`, `course`, `exam-credential`, `notification`, `ops`, `plagiarism`, `problem`, `submission`, `uploaded-image`; `config.prisma` holds generator/datasource)
 - `packages/db/prisma/migrations/` — applied migrations; CHECK constraints and partial indexes live here
-- `packages/db/src/repositories/` — the only data-access surface (DAT-01); `src/index.ts` also exports `runTransaction`, `Prisma` and `prismaAdapterClient` (better-auth only)
+- `packages/db/src/repositories/` — domain data-access surface (DAT-01); `src/index.ts` also exports `runTransaction`, `Prisma` and the `prismaAdapterClient` escape hatch for better-auth and narrow ownership/transaction code
 - `packages/db/prisma/seed.ts`, `prisma/seeds/` — development seed
 - `scripts/check-migrations.mjs` (`pnpm lint:migrations`) — migration naming and expand/contract guard
 - `scripts/generate-schema-docs.mjs` — generates `DATABASE.generated.md`
@@ -29,6 +29,7 @@ Production migration and schema-contract fences:
 | Identity and auth  | `User`, `Session`, `Account`, `Verification`, `TwoFactor`, `Passkey`, `ApiToken`, `RegistryCredential`, `SchoolVerificationToken` (`auth`) |
 | Exam credentials   | `ExamCredential`, `ExamCredentialSession` (`exam-credential`)                                                                              |
 | Problems           | `Problem`, `ProblemStatement`, `TestcaseSet`, `Testcase`, `ProblemWorkspaceFile`, `ProblemBookmark` (`problem`)                            |
+| Uploaded images    | `UploadedImage`, `UploadedImageKind` (`uploaded-image`); owned by a `User` or `Problem`                                                    |
 | Submissions        | `Submission`, `JudgeExecution`, `JudgeExecutionObject`, `JudgeStage`, `SubmissionRejudgeLog`, `CodeDraft` (`submission`)                   |
 | Grading            | `ScoreOverride`, `ScoreOverrideAuditLog`, `SubmissionFeedback`, `SubmissionFeedbackAuditLog` (`submission`)                                |
 | Community          | `ProblemPost`, `PostVote`, `PostComment`, `ContentReport` (`submission`)                                                                   |
@@ -87,6 +88,7 @@ erDiagram
 | `ContentReport_target_check`                                                                                    | A report targets exactly one post or comment                                                                                                                           |
 | `*_storage_pointer_chk`                                                                                         | Storage pointer JSON has the pointer shape on `Submission`, `Testcase`, `ProblemWorkspaceFile`, `Problem` checker/interactor                                           |
 | `Problem_storage_accounting_chk`, `Submission_judge_generation_chk`, `User_security_generation_nonnegative_chk` | Non-negative storage accounting and generation counters                                                                                                                |
+| `UploadedImage_owner_check`, `UploadedImage_size_check`                                                         | Problem images have only a `problemId`; content images and avatars have only a `userId`; size is non-negative                                                          |
 | `*_effective_time_window_chk`, `*_schedule_identity_chk` (`Assessment`, `Contest`, `Exam`)                      | Valid schedule windows and lifecycle schedule identity                                                                                                                 |
 | `AssessmentProblem_points_nonnegative`, `ExamProblem_points_nonnegative`                                        | Allocated points are ≥ 0                                                                                                                                               |
 | `ExamCredential_*_check`, `DurableWork_*_chk`                                                                   | Credential material/revision/email status and durable-work state/attempt consistency                                                                                   |
@@ -145,13 +147,40 @@ erDiagram
 - Every `TestcaseSet` is a graded subtask (`weight`, `ordinal`); samples live in
   `Problem.samples`, not testcases (PRB-03). `Testcase` and
   `ProblemWorkspaceFile` bodies are storage pointers (PRB-04). Workspace
-  `visibility` is `editable` / `readonly` / `hidden`; readonly and hidden files
-  are protected server-side at merge time.
+  `visibility` is `editable` / `readonly` / `hidden`; submitted contents cannot
+  override readonly or hidden files at merge time. Hidden content is omitted from
+  student editor/API reads (metadata can remain), but compilation and execution
+  still receive it. Visibility provides no runtime confidentiality; workspace
+  files must not hold secrets or testcase answers (PRB-01).
 - `special_env` problems use `advancedConfig` and `advancedRequiredPaths` and no
   testcase rows (PRB-12, PRB-13).
 - `CourseProblem` (PK `(courseId, problemId)`) is the course library. Sharing
   never changes ownership; deleting a course removes its links, and a link
   blocks deleting the problem. `addedByUserId` is null for historical links.
+
+### Uploaded images
+
+- `UploadedImage` records the immutable key, byte size, SHA-256, content type
+  and owner. `kind` is `problem`, `content` or `avatar`; keys are unique per
+  owner, so forks can own separate records for the same storage object.
+- Reservation creates a `ready = false` row and durable storage cleanup work
+  before the object write. Finalization cancels the pending guard and sets
+  `ready = true`. Cleanup sets `cleanupStarted` to prevent late finalization;
+  pending rows remain charged until object deletion or absence is confirmed.
+  S3 writes have a 60-second deadline; retiring an unfinished upload retains
+  the one-hour cleanup grace. Owner deletion queues cleanup before cascading
+  image rows. A ready ownership record prevents deletion of a shared object.
+- Problem capacity is `activeStorageBytes` plus all owned image sizes,
+  including pending uploads, with a shared 50 MiB limit (PRB-06). User content
+  images have a separate 50 MiB total. Avatar uploads are WebP up to 1 MiB,
+  with one current image and at most one replacement awaiting cleanup
+  (PRB-05). Capacity checks and reservations hold the owner row lock.
+- `Problem.imageInventoryComplete`, `User.imageInventoryComplete` and
+  `User.avatarInventoryComplete` record completed inventory of existing
+  objects before new uploads. Inventory preserves existing content even when
+  over quota; increases are rejected. Problem inventory also records managed
+  image keys referenced in its Markdown, including shared fork images.
+  Removing a Markdown reference does not delete ownership or free capacity.
 
 ### Courses and grading subjects
 

@@ -31,7 +31,11 @@ const {
   problemUpdate: vi.fn(),
   putImmutableText: vi.fn(),
   runTransaction: vi.fn(async (fn: (tx: unknown) => Promise<unknown>) =>
-    fn({ testcaseSet: { update: testcaseSetUpdate } }),
+    fn({
+      problem: { findUnique: problemFindById },
+      uploadedImage: { aggregate: vi.fn().mockResolvedValue({ _sum: { size: 0 } }) },
+      testcaseSet: { update: testcaseSetUpdate },
+    }),
   ),
   testcaseCreateMany: vi.fn(),
   testcaseDelete: vi.fn(),
@@ -53,6 +57,11 @@ vi.mock("@nojv/storage", async (importOriginal) => {
 vi.mock("../../../packages/application/src/shared/storage-object-lifecycle", () => ({
   commitStoragePointerSwap,
   guardStorageObjectWrites,
+}));
+
+vi.mock("../../../packages/application/src/shared/uploaded-image", () => ({
+  ensurePublicProblemImageInventories: vi.fn(),
+  ensureProblemImageInventory: vi.fn(),
 }));
 
 vi.mock("@nojv/db", () => ({
@@ -234,7 +243,7 @@ describe("testcase immutable object mutations", () => {
       }),
     ).rejects.toThrow(/storage budget exceeded/);
 
-    expect(putImmutableText).not.toHaveBeenCalled();
+    expect(guardStorageObjectWrites).toHaveBeenCalled();
     expect(testcaseCreateMany).not.toHaveBeenCalled();
   });
 
@@ -246,10 +255,10 @@ describe("testcase immutable object mutations", () => {
     });
 
     await expect(
-      updateTestcaseRecord(actor, "prob_1", "tc_1", { input: "12" }),
+      updateTestcaseRecord(actor, "prob_1", "tc_1", { input: "1234567" }),
     ).rejects.toThrow(/storage budget exceeded/);
 
-    expect(putImmutableText).not.toHaveBeenCalled();
+    expect(guardStorageObjectWrites).toHaveBeenCalled();
     expect(testcaseUpdate).not.toHaveBeenCalled();
   });
 

@@ -59,7 +59,7 @@ the `DomainOrchestrationAdapter` port; `apps/web` and `apps/worker` call
 | `@nojv/temporal` | `src/lib/server/domain-orchestration.ts`                                                                                                                             |
 | `@nojv/db`       | `src/lib/auth.server.ts` (better-auth Prisma adapter via `prismaAdapterClient`)                                                                                      |
 | `@nojv/redis`    | `src/lib/auth.server.ts`, `src/lib/server/shared/{rate-limiter,sse-hub}.ts`, `src/routes/api/events/stream/+server.ts`, `src/routes/**/scoreboard/stream/+server.ts` |
-| `@nojv/storage`  | `src/lib/server/storage/**` adapters (avatar, problem/user-content/remote images)                                                                                    |
+| `@nojv/storage`  | `src/lib/server/storage/**` adapters (avatar, problem/user-content images)                                                                                           |
 
 Svelte components (`src/lib/components/**`) may not import `db`, `redis` or
 `storage`, and may only `import type` from `@nojv/application`.

@@ -7,7 +7,7 @@
 > in [DATABASE.md](./DATABASE.md); this file is the exhaustive
 > field-level reference.
 
-_55 models and 37 enums across 10 schema files._
+_56 models and 38 enums across 11 schema files._
 
 ## `auth.prisma`
 
@@ -157,6 +157,8 @@ Indexes & constraints: `@@unique([userId])`, `@@index([secret])`
 | `name` | `String` | — |
 | `emailVerified` | `Boolean` | `@default(false)` |
 | `image` | `String?` | — |
+| `imageInventoryComplete` | `Boolean` | `@default(false)` |
+| `avatarInventoryComplete` | `Boolean` | `@default(false)` |
 | `platformRole` | `PlatformRole` | `@default(student)` |
 | `isSuperAdmin` | `Boolean` | `@default(false)` |
 | `disabled` | `Boolean` | `@default(false)` |
@@ -171,6 +173,7 @@ Indexes & constraints: `@@unique([userId])`, `@@index([secret])`
 | `schoolVerifiedAt` | `DateTime?` | — |
 | `createdAt` | `DateTime` | `@default(now())` |
 | `updatedAt` | `DateTime` | `@updatedAt` |
+| `uploadedImages` | `UploadedImage[]` | — |
 | `sessions` | `Session[]` | — |
 | `accounts` | `Account[]` | — |
 | `schoolVerifications` | `SchoolVerificationToken[]` | — |
@@ -937,6 +940,7 @@ Indexes & constraints: `@@index([contextType, contextId, triggeredAt(sort: Desc)
 | `samples` | `Json?` | — |
 | `advancedConfig` | `Json?` | — |
 | `advancedRequiredPaths` | `String[]` | `@default([])` |
+| `imageInventoryComplete` | `Boolean` | `@default(false)` |
 | `storageGeneration` | `Int` | `@default(0)` |
 | `activeStorageBytes` | `Int` | `@default(0)` |
 | `checkerStorage` | `Json?` | — |
@@ -946,6 +950,7 @@ Indexes & constraints: `@@index([contextType, contextId, triggeredAt(sort: Desc)
 | `author` | `User` | `@relation("ProblemAuthor", fields: [authorId], references: [id], onDelete: Restrict)` |
 | `forkedFromProblem` | `Problem?` | `@relation("ProblemForks", fields: [forkedFromProblemId], references: [id], onDelete: SetNull)` |
 | `forks` | `Problem[]` | `@relation("ProblemForks")` |
+| `uploadedImages` | `UploadedImage[]` | — |
 | `statement` | `ProblemStatement?` | — |
 | `testcaseSets` | `TestcaseSet[]` | — |
 | `workspaceFiles` | `ProblemWorkspaceFile[]` | — |
@@ -1375,4 +1380,34 @@ Indexes & constraints: `@@index([assessmentId, problemId, createdAt(sort: Desc)]
 | `rejudgedBy` | `User?` | `@relation(fields: [rejudgedByUserId], references: [id], onDelete: SetNull)` |
 
 Indexes & constraints: `@@unique([submissionId, rejudgeRunId])`, `@@index([submissionId, createdAt(sort: Desc)])`, `@@index([rejudgedByUserId, createdAt(sort: Desc)])`, `@@index([createdAt(sort: Desc)])`
+
+## `uploaded-image.prisma`
+
+### Enums
+
+#### `UploadedImageKind`
+
+`problem` · `content` · `avatar`
+
+### Models
+
+#### `UploadedImage`
+
+| Field | Type | Attributes |
+| ----- | ---- | ---------- |
+| `id` | `String` | `@id @default(cuid())` |
+| `key` | `String` | — |
+| `size` | `Int` | — |
+| `sha256` | `String` | — |
+| `contentType` | `String` | — |
+| `kind` | `UploadedImageKind` | — |
+| `ready` | `Boolean` | `@default(false)` |
+| `cleanupStarted` | `Boolean` | `@default(false)` |
+| `userId` | `String?` | — |
+| `problemId` | `String?` | — |
+| `createdAt` | `DateTime` | `@default(now())` |
+| `user` | `User?` | `@relation(fields: [userId], references: [id], onDelete: Cascade)` |
+| `problem` | `Problem?` | `@relation(fields: [problemId], references: [id], onDelete: Cascade)` |
+
+Indexes & constraints: `@@unique([userId, key])`, `@@unique([problemId, key])`, `@@index([key, ready])`, `@@index([userId, kind, ready])`
 

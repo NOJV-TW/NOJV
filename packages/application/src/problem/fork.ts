@@ -9,7 +9,13 @@ import {
 } from "@nojv/db";
 import { compareCodeUnits, type PlatformRole } from "@nojv/core";
 
-import { ForbiddenError, NotFoundError, ValidationError } from "../shared/errors";
+import { ensureProblemImageInventory } from "../shared/uploaded-image";
+import {
+  ConflictError,
+  ForbiddenError,
+  NotFoundError,
+  ValidationError,
+} from "../shared/errors";
 
 import type { ProblemActorContext } from "./permissions";
 import { isCourseStaffTx } from "../shared/permissions";
@@ -40,6 +46,7 @@ export async function forkProblemInTransaction(
   const source = await tx.problem.findUnique({
     where: { id: sourceProblemId },
     include: {
+      uploadedImages: { where: { ready: true } },
       referenceSolutionSubmission: true,
       statement: true,
       testcaseSets: {
@@ -59,6 +66,9 @@ export async function forkProblemInTransaction(
     throw new ForbiddenError("Only published public problems can be forked.");
   }
 
+  if (!source.imageInventoryComplete)
+    throw new ConflictError("Problem image inventory changed. Retry the operation.");
+
   let displayId: number | null = null;
   if (options.published) {
     await problemRepo.withTx(tx).acquireDisplayIdLock();
@@ -69,6 +79,7 @@ export async function forkProblemInTransaction(
   const fork = await tx.problem.create({
     data: {
       activeStorageBytes: source.activeStorageBytes,
+      imageInventoryComplete: true,
       adminMayPublish: false,
       advancedConfig: nullableJson(source.advancedConfig),
       advancedRequiredPaths: source.advancedRequiredPaths,
@@ -89,6 +100,18 @@ export async function forkProblemInTransaction(
       type: source.type,
       visibility: options.published ? "public" : "private",
     },
+  });
+
+  await tx.uploadedImage.createMany({
+    data: source.uploadedImages.map(({ key, size, sha256, contentType }) => ({
+      key,
+      size,
+      sha256,
+      contentType,
+      kind: "problem",
+      problemId: fork.id,
+      ready: true,
+    })),
   });
 
   if (source.statement) {
@@ -193,6 +216,12 @@ export async function forkProblemRecord(actor: ProblemActorContext, sourceProble
   if (!(await canForkProblems(actor))) {
     throw new ForbiddenError("Only teachers, admins, and active course TAs can fork problems.");
   }
+
+  const preflight = await problemRepo.findById(sourceProblemId);
+  if (!preflight) throw new NotFoundError(`Problem not found: ${sourceProblemId}`);
+  if (preflight.visibility !== "public" || preflight.status !== "published")
+    throw new ForbiddenError("Only published public problems can be forked.");
+  await ensureProblemImageInventory(sourceProblemId);
 
   return runTransaction(async (tx) => {
     const source = await problemRepo.withTx(tx).findById(sourceProblemId);

@@ -1,3 +1,5 @@
+import { ensureProblemImageInventory } from "../../shared/uploaded-image";
+import { assertProblemStorageBudget } from "../storage-budget";
 import {
   Prisma,
   problemRepo,
@@ -42,6 +44,7 @@ export async function saveProblemJudgeConfig(
   const problem = await problemRepo.findById(problemId);
   if (!problem) throw new NotFoundError(`Problem not found: ${problemId}`);
   await assertProblemEditAccess(actor, problemId);
+  await ensureProblemImageInventory(problemId);
 
   const { type } = input.judgeConfig;
   const checkerBody =
@@ -72,6 +75,7 @@ export async function saveProblemJudgeConfig(
       optionalPointerSize(current.checkerStorage) +
       optionalPointerSize(current.interactorStorage);
     const nextBytes = (checkerStorage?.size ?? 0) + (interactorStorage?.size ?? 0);
+    await assertProblemStorageBudget(problemId, nextBytes - previousBytes, tx);
     await problemRepo.withTx(tx).update(problemId, {
       referenceSolutionSubmissionId: null,
       judgeConfig,

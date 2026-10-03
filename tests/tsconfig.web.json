@@ -20,6 +20,14 @@
     }
   },
   "include": [
+    "component/web/image-drop-zone.test.ts",
+    "unit/web/image-upload.test.ts",
+    "unit/web/image-upload-routes.test.ts",
+    "unit/web/remote-image-route.test.ts",
+    "unit/web/remote-image.test.ts",
+    "unit/web/avatar-src.test.ts",
+    "unit/web/image-upload-response.test.ts",
+    "unit/web/rate-limiter.test.ts",
     "../apps/web/.svelte-kit/ambient.d.ts",
     "../apps/web/.svelte-kit/env.d.ts",
     "../apps/web/.svelte-kit/non-ambient.d.ts",

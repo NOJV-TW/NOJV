@@ -32,6 +32,7 @@ import {
   lockProblemForEdit,
   type ProblemActorContext,
 } from "./permissions";
+import { ensureProblemImageInventory } from "../shared/uploaded-image";
 import { assertProblemStorageBudget } from "./storage-budget";
 
 const MAX_TESTCASE_SETS_PER_PROBLEM = 20;
@@ -92,14 +93,7 @@ export async function createProblemTestcaseSetRecord(
   payload: ProblemTestcaseSetCreate,
 ) {
   await assertProblemEditAccess(actor, problemId);
-  await assertProblemStorageBudget(
-    problemId,
-    payload.cases.reduce(
-      (total, tc) =>
-        total + Buffer.byteLength(tc.input, "utf8") + Buffer.byteLength(tc.output, "utf8"),
-      0,
-    ),
-  );
+  await ensureProblemImageInventory(problemId);
 
   interface PreparedCase {
     id: string;
@@ -120,6 +114,12 @@ export async function createProblemTestcaseSetRecord(
 
   return runTransaction(async (tx) => {
     const problem = await lockProblemForEdit(tx, actor, problemId);
+
+    await assertProblemStorageBudget(
+      problem.id,
+      prepared.reduce((total, entry) => total + testcasePointersSize(entry.blobPointers), 0),
+      tx,
+    );
 
     const existingCount = await testcaseSetRepo.withTx(tx).countByProblem(problem.id);
     if (existingCount >= MAX_TESTCASE_SETS_PER_PROBLEM) {
@@ -234,11 +234,7 @@ export async function updateTestcaseRecord(
   payload: TestcaseUpdate,
 ) {
   await assertProblemEditAccess(actor, problemId);
-  await assertProblemStorageBudget(
-    problemId,
-    (payload.input === undefined ? 0 : Buffer.byteLength(payload.input, "utf8")) +
-      (payload.output === undefined ? 0 : Buffer.byteLength(payload.output, "utf8")),
-  );
+  await ensureProblemImageInventory(problemId);
 
   const staged: Partial<Record<"input" | "output", StorageObjectPointer>> = {};
   if (payload.input !== undefined) {
@@ -271,6 +267,7 @@ export async function updateTestcaseRecord(
       }
     }
     if (Object.keys(data).length > 0) {
+      await assertProblemStorageBudget(problem.id, deltaBytes, tx);
       await testcaseRepo.withTx(tx).update(testcaseId, data);
       await problemRepo.withTx(tx).update(problem.id, {
         referenceSolutionSubmissionId: null,

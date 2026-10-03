@@ -1,3 +1,7 @@
+import {
+  ensureProblemImageInventory,
+  ensureProblemImageDependents,
+} from "../../shared/uploaded-image";
 import { isDeepStrictEqual } from "node:util";
 import {
   Prisma,
@@ -27,6 +31,7 @@ import { requireUser } from "../../shared/require";
 import { commitStoragePointerSwap } from "../../shared/storage-object-lifecycle";
 import {
   assertCanCreateAdvancedProblems,
+  assertProblemEditAccess,
   canPublishPublicProblems,
   assertProblemOwnership,
   lockProblemForEdit,
@@ -62,6 +67,7 @@ export async function createProblemDefinition(
 
   const createData: Prisma.ProblemUncheckedCreateInput = {
     authorId: input.authorId,
+    imageInventoryComplete: true,
     title: input.title,
     difficulty: input.difficulty ?? "medium",
     memoryLimitMb: input.memoryLimitMb ?? 256,
@@ -94,11 +100,16 @@ export async function createProblemDefinition(
 }
 
 export async function deleteProblemRecord(actor: ProblemActorContext, problemId: string) {
+  const source = await problemRepo.findById(problemId);
+  if (!source) throw new NotFoundError(`Problem not found: ${problemId}`);
+  assertProblemOwnership(source, actor);
+  await ensureProblemImageDependents(problemId);
   return runTransaction(async (tx) => {
     await problemRepo.withTx(tx).lockForUpdate(problemId);
     const problem = await tx.problem.findUnique({
       where: { id: problemId },
       include: {
+        uploadedImages: true,
         workspaceFiles: true,
         testcaseSets: { include: { testcases: true } },
       },
@@ -184,6 +195,7 @@ export async function deleteProblemRecord(actor: ProblemActorContext, problemId:
       },
     });
     const removed = [
+      ...problem.uploadedImages.map(({ key, size, sha256 }) => ({ key, size, sha256 })),
       ...problemStoragePointers(problem),
       ...references.flatMap(({ sourceStorage, verdictDetailStorage, judgeExecutions }) =>
         [
@@ -283,6 +295,8 @@ export async function updateProblemRecord(
   problemId: string,
   payload: ProblemUpdate,
 ) {
+  await assertProblemEditAccess(actor, problemId);
+  await ensureProblemImageInventory(problemId);
   return runTransaction(async (tx) => {
     const problem = await lockProblemForEdit(tx, actor, problemId);
     if ((payload.type ?? problem.type) === "special_env") {

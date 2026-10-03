@@ -12,15 +12,15 @@ export {
   type StorageObjectPointer,
 } from "./object";
 export {
-  uploadProblemImage,
-  uploadUserContentImage,
   downloadProblemImage,
-  downloadRemoteImage,
   downloadUserContentImage,
-  cacheRemoteImage,
+  listImageObjectInventory,
+  readImageObjectInventory,
 } from "./images";
-export { uploadUserAvatar, downloadUserAvatar, deleteUserAvatar } from "./avatar";
+export { downloadUserAvatar } from "./avatar";
 export {
+  problemImageKey,
+  userContentImageKey,
   testcaseInputKey,
   testcaseOutputKey,
   testcaseInputFileKey,

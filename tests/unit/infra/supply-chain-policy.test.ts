@@ -38,6 +38,22 @@ describe("supply-chain policy scanner", () => {
     ).toEqual([]);
   });
 
+  it("distinguishes module imports near image helpers from actual container references", () => {
+    const source = [
+      'import { ensureImage } from "./image";',
+      'import { randomUUID } from "node:crypto";',
+      "import {",
+      "  Readable,",
+      '} from "node:stream";',
+      'export { inspect } from "node:util";',
+      'import "node:events";',
+      'export const image = "node:24";',
+    ].join("\n");
+    expect(checkSupplyChainFile("packages/application/src/images.ts", source)).toEqual([
+      expect.objectContaining({ line: 8, message: expect.stringContaining("manifest digest") }),
+    ]);
+  });
+
   it("accepts status-only HTTPS probes that discard every response body", () => {
     expect(
       checkSupplyChainFile(

@@ -116,13 +116,14 @@ KaTeX output is wrapped with a per-render random nonce and DOMPurify keeps `styl
 
 ### SEC-11 Third-party Markdown images go through a same-origin SSRF-safe proxy
 
-**Decided:** 2026-07 · **Source:** [2026-07-20-markdown-image-proxy](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-07-20-markdown-image-proxy.md)
+**Decided:** 2026-07, revised 2026-10 · **Source:** [2026-07-20-markdown-image-proxy](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-07-20-markdown-image-proxy.md), [#628](https://github.com/NOJV-TW/NOJV/pull/628)
 
-The DOMPurify hook rewrites remote `img src`/`srcset` to `/api/images/proxy` at render time, which fetches over HTTPS:443 with pinned all-public DNS, bounded redirects/time/size, accepts only PNG/JPEG/GIF/WebP by magic bytes, and caches first-write-wins in S3. CSP `img-src` excludes arbitrary HTTPS so a missed rewrite fails closed. Readers' browsers never contact third-party hosts.
+The DOMPurify hook rewrites remote `img src` to `/api/images/proxy` at render time and strips `srcset`. The authenticated relay fetches over HTTPS:443 with pinned all-public DNS, bounded redirects/time/size, and accepts only PNG/JPEG/GIF/WebP by magic bytes. It writes no permanent objects and uses short private browser caching. Authors explicitly import a URL through the image-upload flow when they need a permanent copy; the copy consumes their problem or user budget (PRB-05, PRB-06). CSP `img-src` excludes arbitrary HTTPS so a missed rewrite fails closed. Readers' browsers never contact third-party hosts.
 
-- Rejected: direct third-party loads (previous accepted privacy leak); redirecting to upstream on failure.
-- Rule: never trust upstream Content-Type; read the cache before any fetch; rate-limit with the read limiter.
+- Rejected: direct third-party loads (previous accepted privacy leak); redirecting to upstream on failure; anonymous GET requests populating an unlimited permanent S3 cache.
+- Rule: never trust upstream Content-Type; require authentication and bound remote fetches before contacting the host. Raw remote Markdown links remain transient; permanent import is an author action.
 - Rule: third-party OAuth avatars render through the proxy too (`avatarSrc`); site-wide COEP `require-corp` blocks a direct load when the host sends no CORP header, as Google does, and CSP `img-src` no longer lists `*.googleusercontent.com`.
+- Rule: anonymous public-profile readers see initials for external avatars; owned uploaded avatars remain publicly readable.
 - Code: `apps/web/src/routes/api/images/proxy/+server.ts`, `packages/storage/src/images.ts`, `apps/web/svelte.config.js`, `apps/web/src/lib/utils/avatar-src.ts`
 
 ### SEC-12 Graded testcase data never reaches non-staff

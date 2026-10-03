@@ -11,7 +11,11 @@ const PNG = Buffer.from([
   0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00, 0x0d,
 ]);
 
-function publicResolver(addresses = [{ address: "203.0.114.10", family: 4 as const }]) {
+function publicResolver(
+  addresses: Awaited<ReturnType<RemoteImageResolver>> = [
+    { address: "203.0.114.10", family: 4 },
+  ],
+) {
   return vi.fn<RemoteImageResolver>().mockResolvedValue(addresses);
 }
 

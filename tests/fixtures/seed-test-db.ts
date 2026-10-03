@@ -10,6 +10,7 @@ export const TABLES = [
   "JudgeStage",
   "JudgeExecutionObject",
   "JudgeExecution",
+  "UploadedImage",
   "DurableWork",
   "AdminAuditLog",
   "Clarification",

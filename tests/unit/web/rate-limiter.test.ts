@@ -286,6 +286,7 @@ describe("rate limiter key prefixes", () => {
       mod.otpSendRateLimiter,
       mod.stepUpAttemptRateLimiter,
       mod.registryTokenRateLimiter,
+      mod.remoteAssetFetchRateLimiter,
     ]).toMatchObject([
       { keyPrefix: "rl:api", points: 300, duration: 60 },
       { keyPrefix: "rl:write", points: 10, duration: 60 },
@@ -295,6 +296,7 @@ describe("rate limiter key prefixes", () => {
       { keyPrefix: "rl:2fa-otp", points: 3, duration: 600 },
       { keyPrefix: "rl:stepup", points: 5, duration: 600 },
       { keyPrefix: "rl:registry-token", points: 60, duration: 60 },
+      { keyPrefix: "rl:remote-fetch", points: 120, duration: 60 },
     ]);
   });
 });

@@ -20,21 +20,21 @@ Security controls as implemented: what must hold and where it is enforced. Attac
 
 ## Sensitive Data
 
-| Data                     | Storage                                                 | Protection                                                                                |
-| ------------------------ | ------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
-| Credential passwords     | `Account.password`                                      | bcrypt (cost 10) via `emailAndPassword.password.hash`                                     |
-| Temporary exam passwords | `ExamCredential.passwordHash` / `passwordCiphertext`    | scrypt hash + ciphertext keyed by `BETTER_AUTH_SECRET`; staff reveal; hard expiry         |
-| OAuth provider tokens    | `Account.accessToken` / `refreshToken`                  | Encrypted with `BETTER_AUTH_SECRET` (`account.encryptOAuthTokens`); never read by NOJV    |
-| Session tokens           | `Session.token`                                         | httpOnly cookie; checked every request (no cookie cache)                                  |
-| API tokens               | `ApiToken` prefix + sha256 hash                         | Shown once, mandatory expiry (SEC-07)                                                     |
-| TOTP enrollment material | Redis, pending until confirmed                          | Encrypted; committed atomically with backup codes on confirmation                         |
-| Submission source        | Object storage `submissions/<id>/sources/<path>`        | Read only via domain helpers and the worker                                               |
-| Graded testcases         | `TestcaseSet` / `Testcase` + object storage             | Never reach non-staff (SEC-12); only `Problem.samples` is rendered                        |
-| Hidden workspace files   | `ProblemWorkspaceFile` (`visibility = hidden`)          | Hidden in student editor/API reads; readable by student code during compilation/execution |
-| Advanced grade images    | Registry `t/<username>/…`                               | Hold answers; namespace-scoped registry tokens ([Sandbox](#sandbox-isolation))            |
-| Code drafts              | `CodeDraft` rows; unsynced edits in `localStorage`      | Owner-only; local edits sealed ([Integrity](#exam-and-contest-integrity))                 |
-| Problem / user images    | Object storage, served same-origin via `/api/storage/*` | Public read; never store secret material there (PRB-05)                                   |
-| Runtime secrets          | `.env` locally; chart Secret `nojv-runtime-secrets`     | `.env` untracked; `.env.example` shape-only                                               |
+| Data                     | Storage                                                 | Protection                                                                                                                        |
+| ------------------------ | ------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| Credential passwords     | `Account.password`                                      | bcrypt (cost 10) via `emailAndPassword.password.hash`                                                                             |
+| Temporary exam passwords | `ExamCredential.passwordHash` / `passwordCiphertext`    | scrypt hash + ciphertext keyed by `BETTER_AUTH_SECRET`; staff reveal; hard expiry                                                 |
+| OAuth provider tokens    | `Account.accessToken` / `refreshToken`                  | Encrypted with `BETTER_AUTH_SECRET` (`account.encryptOAuthTokens`); never read by NOJV                                            |
+| Session tokens           | `Session.token`                                         | httpOnly cookie; checked every request (no cookie cache)                                                                          |
+| API tokens               | `ApiToken` prefix + sha256 hash                         | Shown once, mandatory expiry (SEC-07)                                                                                             |
+| TOTP enrollment material | Redis, pending until confirmed                          | Encrypted; committed atomically with backup codes on confirmation                                                                 |
+| Submission source        | Object storage `submissions/<id>/sources/<path>`        | Read only via domain helpers and the worker                                                                                       |
+| Graded testcases         | `TestcaseSet` / `Testcase` + object storage             | Never reach non-staff (SEC-12); only `Problem.samples` is rendered                                                                |
+| Hidden workspace files   | `ProblemWorkspaceFile` (`visibility = hidden`)          | Presentation only for packaged helpers/drivers or opaque APIs; compile/run can read them. Never store secrets or answers (PRB-01) |
+| Advanced grade images    | Registry `t/<username>/…`                               | Hold answers; namespace-scoped registry tokens ([Sandbox](#sandbox-isolation))                                                    |
+| Code drafts              | `CodeDraft` rows; unsynced edits in `localStorage`      | Owner-only; local edits sealed ([Integrity](#exam-and-contest-integrity))                                                         |
+| Problem / user images    | Object storage, served same-origin via `/api/storage/*` | Public read; never store secret material there (PRB-05)                                                                           |
+| Runtime secrets          | `.env` locally; chart Secret `nojv-runtime-secrets`     | `.env` untracked; `.env.example` shape-only                                                                                       |
 
 ## Request Boundary
 
@@ -88,7 +88,7 @@ SvelteKit `csrf.checkOrigin` is disabled so `/api/registry/token` can accept the
 | `otpSendRateLimiter`          | 3 / 10 min | Email OTP sends                                                             |
 | `stepUpAttemptRateLimiter`    | 5 / 10 min | Step-up verification attempts                                               |
 | `registryTokenRateLimiter`    | 60 / min   | `/api/registry/token`                                                       |
-| `remoteAssetFetchRateLimiter` | 10 / min   | Image-proxy cache misses                                                    |
+| `remoteAssetFetchRateLimiter` | 120 / min  | Authenticated remote-image relay, keyed by user                             |
 
 ¹ Students sharing a classroom IP do not consume each other's quota; invalid usernames share one bucket per IP.
 
@@ -133,9 +133,10 @@ Behavior specs: [Login and security verification](../features/login-security.md)
 ## Content and Uploads
 
 - User Markdown is sanitized with DOMPurify in `$lib/utils/markdown.ts`. KaTeX output is trusted only inside a per-render random nonce wrapper; never use author-controllable markup as a trust signal (SEC-10).
-- Image uploads (`/api/problems/[id]/images` with problem-edit access and in-transaction recheck; `/api/uploads/image` for any signed-in user): png/jpeg/gif/webp, ≤ 5 MB, `detectImageMime(buffer)` magic bytes must match; the client `file.type` is never trusted alone. Keys are server-built (`problems/<problemId>/images/<uuid>.<ext>`). Avatars: webp only, ≤ 1 MB, magic-byte checked.
-- Testcase, checker, interactor and workspace-file uploads count against a 50 MB per-problem budget (`assertProblemStorageBudget`); bundles are ≤ 60 MB uploaded, ≤ 50 MB inflated, ≤ 200 entries and reject `..` and absolute paths (PRB-06). Images are not budgeted. ZIP entry inflation is stopped and its upstream inflater destroyed immediately when the remaining byte budget is exceeded.
-- Remote Markdown images and OAuth avatars (SEC-11): the sanitizer rewrites remote `src`/`srcset` to `/api/images/proxy`, and `avatarSrc` does the same for third-party profile images (site-wide COEP `require-corp` blocks images without a CORP header, which Google avatars lack); CSP blocks any missed rewrite. The proxy accepts canonical HTTPS on 443 only (URL ≤ 2048 chars, no credentials), requires every DNS answer to be public (mixed answers fail), pins the validated address into the TLS request, revalidates each redirect (max 3), times out at 5 s, stops at 5 MB, and accepts only magic-byte-verified png/jpeg/gif/webp (upstream MIME ignored). The first success is cached under `remote-images/<sha256(url)>`; hits never contact the remote host. Errors never redirect the viewer upstream.
+- Image uploads (`/api/problems/[id]/images` with problem-edit access and in-transaction recheck; `/api/uploads/image` for any signed-in user): file upload or explicit URL import, png/jpeg/gif/webp, ≤ 5 MiB, `detectImageMime(buffer)` magic bytes must match; the client `file.type` is never trusted alone. Keys are server-built. Permanent URL imports follow the same owner and quota checks as files.
+- Problem images, testcases, checker, interactor and workspace-file uploads share a 50 MiB per-problem budget. Each user's content/discussion images share a 50 MiB budget. Owner locks serialize capacity reservations; pending writes count until confirmed cleanup. Existing objects are inventoried before new writes and existing over-quota content remains readable. Forks copy image ownership references. Avatars are WebP, ≤ 1 MiB, magic-byte checked, with one current version and at most one pending/retired replacement; obsolete versions are reclaimed through durable cleanup.
+- Bundles are ≤ 60 MiB uploaded, ≤ 50 MiB inflated, ≤ 200 entries and reject `..` and absolute paths (PRB-06). ZIP entry inflation is stopped and its upstream inflater destroyed immediately when the remaining byte budget is exceeded.
+- Remote Markdown images and OAuth avatars (SEC-11): the sanitizer rewrites remote `src` to `/api/images/proxy` and strips `srcset`; `avatarSrc` also proxies third-party profile images. The relay requires authentication and writes no permanent storage. It accepts canonical HTTPS on 443 only (URL ≤ 2048 chars, no credentials), requires every DNS answer to be public (mixed answers fail), pins the validated address into the TLS request, revalidates each redirect (max 3), times out at 5 s, stops at 5 MiB, and accepts only magic-byte-verified png/jpeg/gif/webp (upstream MIME ignored). Responses use short private caching; errors never redirect upstream. Authors use explicit image import to preserve an external image permanently; raw remote Markdown URLs remain transient. Anonymous public profiles use initials for external avatars.
 - `/docs?api=full` and `/api/openapi.internal.json` are public by design; they hold no credentials and grant nothing.
 
 ## Exam and Contest Integrity

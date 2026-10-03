@@ -1,5 +1,6 @@
 export * from "./queries";
 export * from "./mutations";
+export * from "./avatar";
 export { getSubmissionActivity, type SubmissionActivityEvent } from "./activity";
 export * from "./profile";
 export { linkUserCourseRoster } from "./identity";
@@ -12,3 +13,4 @@ export {
   type PeekSchoolResult,
   type VerifySchoolResult,
 } from "./verification";
+export { uploadUserContentImage } from "./images";
