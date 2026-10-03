@@ -183,6 +183,7 @@ A per-minute cron workflow moves non-terminal submissions whose `updatedAt` exce
 Rejudge and score operations share one matrix: practice by admins and the problem author; assignment/exam by admins and that course's teachers/TAs; contest by admins and the organizer. The problem author has no authority over submissions made inside an activity.
 
 - Rule: a batch rejudge must be authorized for every matched submission or is rejected whole.
+- Rule: teacher rejudge receives the authenticated actor, locks the requester and exact course membership/activity, problem and submission scope, and rechecks current authority in the transaction that commits all executions and dispatch work; ownership or staff revocation during snapshot preparation rejects the entire operation. Stored admin role never enables an inactive admin actor.
 - Rule: a batch without a context scope is limited to the problem author and reaches only practice submissions.
 - Code: `packages/application/src/submission/permissions.ts`
 

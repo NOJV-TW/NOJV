@@ -9,6 +9,7 @@ import * as submissionHistoryRoute from "../../../apps/web/src/routes/api/submis
 import * as submissionPointRoute from "../../../apps/web/src/routes/api/submissions/[id]/+server";
 import * as submissionRejudgeRoute from "../../../apps/web/src/routes/api/submissions/[id]/rejudge/+server";
 import * as submissionSourceRoute from "../../../apps/web/src/routes/api/submissions/[id]/source/+server";
+import * as draftsRoute from "../../../apps/web/src/routes/api/drafts/+server";
 import {
   createTestCourse,
   createTestExam,
@@ -77,6 +78,78 @@ async function createActiveExamFixture(pageLockEnabled = true) {
   });
   return { current, hidden, student, currentExam, course, problem };
 }
+
+describe("exam work is denied by the domain even with page lock disabled", () => {
+  it.each(["not_started", "not_enrolled", "course_archived", "not_published", "ip_binding"])(
+    "denies submissions and draft reads/writes after %s",
+    async (reason) => {
+      const { student, currentExam, course, problem } = await createActiveExamFixture(false);
+      if (reason === "not_started")
+        await testPrisma.exam.update({
+          where: { id: currentExam.id },
+          data: { startsAt: new Date(Date.now() + 120_000) },
+        });
+      if (reason === "not_published")
+        await testPrisma.exam.update({
+          where: { id: currentExam.id },
+          data: { status: "draft" },
+        });
+      if (reason === "course_archived")
+        await testPrisma.course.update({ where: { id: course.id }, data: { archived: true } });
+      if (reason === "not_enrolled")
+        await testPrisma.courseMembership.updateMany({
+          where: { userId: student.id, courseId: course.id },
+          data: { status: "removed" },
+        });
+      if (reason === "ip_binding") {
+        await testPrisma.exam.update({
+          where: { id: currentExam.id },
+          data: { ipBindingEnabled: true, ipViolationMode: "block" },
+        });
+        await testPrisma.participation.create({
+          data: {
+            type: "exam",
+            userId: student.id,
+            examId: currentExam.id,
+            status: "active",
+            ipPin: "198.51.100.1",
+          },
+        });
+      }
+      const context = { type: "exam", examId: currentExam.id };
+      const body = {
+        context,
+        problemId: problem.id,
+        language: "python",
+        sourceCode: "print(1)",
+      };
+      const requests = [
+        await callRoute({
+          path: "/api/submissions",
+          method: "POST",
+          user: student,
+          module: submissionHistoryRoute,
+          body: { ...body, sampleOnly: true },
+        }),
+        await callRoute({
+          path: "/api/drafts",
+          method: "PUT",
+          user: student,
+          module: draftsRoute,
+          body,
+        }),
+        await callRoute({
+          path: `/api/drafts?problemId=${problem.id}&context=${encodeURIComponent(JSON.stringify(context))}`,
+          user: student,
+          module: draftsRoute,
+        }),
+      ];
+      for (const response of requests) expect([403, 404]).toContain(response.status);
+      expect(await testPrisma.codeDraft.count()).toBe(0);
+      expect(await testPrisma.submission.count({ where: { examId: currentExam.id } })).toBe(1);
+    },
+  );
+});
 
 describe("page-lock setting at the real hooks boundary", () => {
   it("changes navigation and API access immediately without ending the exam session", async () => {

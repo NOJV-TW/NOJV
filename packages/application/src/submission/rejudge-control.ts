@@ -6,7 +6,15 @@ import { randomUUID } from "node:crypto";
 
 import type { RejudgeInput, RejudgeProgress, RejudgeTrackingProgress } from "@nojv/core";
 import { submissionOperationStatusSchema } from "@nojv/core";
-import { durableWorkRepo, prismaAdapterClient as db } from "@nojv/db";
+import {
+  assessmentRepo,
+  contestRepo,
+  courseRepo,
+  durableWorkRepo,
+  examRepo,
+  prismaAdapterClient as db,
+  type TransactionClient,
+} from "@nojv/db";
 import { z } from "zod";
 
 import {
@@ -18,6 +26,7 @@ import {
 } from "../shared/errors";
 import type { ActorContext } from "../shared/actor-context";
 import { toJsonValue } from "../shared/to-json-value";
+import { assertBatchRejudgeAccess, assertCanOperateOnSubmission } from "./permissions";
 
 const REJUDGE_WORKFLOW_PREFIX = "rejudge-";
 export const REJUDGE_DISPATCH_WORK_KIND = "submission.rejudge.dispatch";
@@ -293,9 +302,57 @@ async function requireRejudgeTarget(submissionId: string) {
   return target;
 }
 
-export async function dispatchRejudge(input: RejudgeInput): Promise<{ workflowId: string }> {
+interface RejudgeScope {
+  contestId?: string | null;
+  assessmentId?: string | null;
+  examId?: string | null;
+}
+
+async function lockRejudgeScopes(
+  tx: TransactionClient,
+  actor: RejudgeActor,
+  scopes: RejudgeScope[],
+) {
+  const assessments = new Set(
+    scopes.flatMap((scope) => (scope.assessmentId ? [scope.assessmentId] : [])),
+  );
+  const exams = new Set(scopes.flatMap((scope) => (scope.examId ? [scope.examId] : [])));
+  const contexts = [];
+  for (const id of [...assessments].sort()) {
+    const current = await assessmentRepo.withTx(tx).findById(id);
+    if (!current) throw new NotFoundError("Assignment not found.");
+    contexts.push({ type: "assignment" as const, id, courseId: current.courseId });
+  }
+  for (const id of [...exams].sort()) {
+    const current = await examRepo.withTx(tx).findById(id);
+    if (!current) throw new NotFoundError("Exam not found.");
+    contexts.push({ type: "exam" as const, id, courseId: current.courseId });
+  }
+  const courseIds = [...new Set(contexts.map((context) => context.courseId))].sort();
+  for (const courseId of courseIds) await courseRepo.withTx(tx).lockForUpdate(courseId);
+  for (const courseId of courseIds)
+    await tx.$queryRaw`SELECT id FROM "CourseMembership" WHERE "courseId" = ${courseId} AND "userId" = ${actor.userId} FOR UPDATE`;
+  for (const context of contexts) {
+    const repo =
+      context.type === "assignment" ? assessmentRepo.withTx(tx) : examRepo.withTx(tx);
+    await repo.lockForUpdate(context.id);
+    const current = await repo.findById(context.id);
+    if (current?.courseId !== context.courseId)
+      throw new ConflictError("Rejudge scope changed during preparation. Please retry.");
+  }
+  for (const id of [
+    ...new Set(scopes.flatMap((scope) => (scope.contestId ? [scope.contestId] : []))),
+  ].sort())
+    await contestRepo.withTx(tx).lockForUpdate(id);
+}
+
+export async function dispatchRejudge(
+  input: RejudgeInput,
+  actor: RejudgeActor,
+): Promise<{ workflowId: string }> {
   const workflowId = `${REJUDGE_WORKFLOW_PREFIX}${randomUUID()}`;
-  if (!input.triggeredByUserId)
+  rejudgeInputSchema.parse(input);
+  if (!input.triggeredByUserId || input.triggeredByUserId !== actor.userId)
     throw new ForbiddenError("Only an explicit teacher rejudge selects a new version.");
   const triggeredByUserId = input.triggeredByUserId;
   const targets =
@@ -310,6 +367,22 @@ export async function dispatchRejudge(input: RejudgeInput): Promise<{ workflowId
           ...(input.since ? { since: new Date(input.since) } : {}),
           ...(input.until ? { until: new Date(input.until) } : {}),
         });
+  const selected = await db.submission.findMany({
+    where: { id: { in: targets.map((target) => target.submissionId) } },
+    select: {
+      id: true,
+      userId: true,
+      problemId: true,
+      contestId: true,
+      assessmentId: true,
+      examId: true,
+    },
+  });
+  const selectedById = new Map(selected.map((submission) => [submission.id, submission]));
+  if (selected.length !== targets.length)
+    throw new ConflictError("Rejudge targets changed during preparation. Please retry.");
+  if (input.mode === "batch") await assertBatchRejudgeAccess(actor, input);
+  for (const submission of selected) await assertCanOperateOnSubmission(actor, submission);
   const prepared: {
     target: (typeof targets)[number];
     snapshot: Awaited<ReturnType<typeof prepareJudgeSnapshot>>;
@@ -330,19 +403,66 @@ export async function dispatchRejudge(input: RejudgeInput): Promise<{ workflowId
   }
   await db.$transaction(
     async (tx) => {
-      for (const [problemId, generation] of [...versions].sort(([a], [b]) =>
-        a.localeCompare(b),
-      )) {
+      await lockRejudgeScopes(tx, actor, [
+        ...selected,
+        ...(input.mode === "batch" ? [input] : []),
+      ]);
+      const problemIds = new Set([
+        ...versions.keys(),
+        ...(input.mode === "batch" ? [input.problemId] : []),
+      ]);
+      for (const problemId of [...problemIds].sort()) {
         await tx.$queryRaw`SELECT id FROM "Problem" WHERE id = ${problemId} FOR UPDATE`;
         const current = await tx.problem.findUniqueOrThrow({
           where: { id: problemId },
           select: { storageGeneration: true },
         });
-        if (current.storageGeneration !== generation)
+        const generation = versions.get(problemId);
+        if (generation !== undefined && current.storageGeneration !== generation)
           throw new ServiceUnavailableError(
             "Problem changed during batch preparation. Please retry.",
           );
       }
+      if (input.mode === "batch") await assertBatchRejudgeAccess(actor, input, tx);
+      for (const item of [...prepared].sort((a, b) =>
+        a.target.submissionId.localeCompare(b.target.submissionId),
+      )) {
+        const submissionId = item.target.submissionId;
+        await tx.$queryRaw`SELECT id FROM "Submission" WHERE id = ${submissionId} FOR UPDATE`;
+        const current = await tx.submission.findUniqueOrThrow({ where: { id: submissionId } });
+        const original = selectedById.get(submissionId);
+        if (
+          current.problemId !== original?.problemId ||
+          current.userId !== original.userId ||
+          current.contestId !== original.contestId ||
+          current.assessmentId !== original.assessmentId ||
+          current.examId !== original.examId ||
+          current.problemId !== item.target.draft.problemId ||
+          current.userId !== item.target.studentId ||
+          (input.mode === "batch" &&
+            ((input.contestId && current.contestId !== input.contestId) ||
+              (input.assessmentId && current.assessmentId !== input.assessmentId) ||
+              (input.examId && current.examId !== input.examId)))
+        )
+          throw new ConflictError("Rejudge scope changed during preparation. Please retry.");
+        if (
+          current.isReferenceSolution ||
+          ["pending_upload", "queued", "compiling", "running"].includes(current.status)
+        )
+          throw new ConflictError("Rejudge target changed during preparation. Please retry.");
+        await assertCanOperateOnSubmission(actor, current, tx);
+      }
+      await tx.$queryRaw`SELECT id FROM "User" WHERE id = ${actor.userId} FOR SHARE`;
+      const requester = await tx.user.findUnique({
+        where: { id: actor.userId },
+        select: { disabled: true, platformRole: true },
+      });
+      if (
+        !requester ||
+        requester.disabled ||
+        (actor.platformRole === "admin" && requester.platformRole !== "admin")
+      )
+        throw new ForbiddenError("Rejudge requester no longer has permission.");
       for (const item of prepared)
         await createJudgeExecution(tx, {
           submissionId: item.target.submissionId,

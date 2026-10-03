@@ -88,6 +88,9 @@ const fakeExam = {
   courseId: "course_os_lab",
   pageLockEnabled: true,
   title: "Midterm",
+  status: "published",
+  startsAt: new Date("2020-01-01"),
+  endsAt: new Date("2099-01-01"),
 };
 
 const fakeActor = {
@@ -110,9 +113,11 @@ function setupEnrolledStudent({ archived = false }: { archived?: boolean } = {})
   txCourseFindUnique.mockResolvedValue({ archived });
 }
 
-describe("examDomain.session.startSession", () => {
+describe("examDomain.session.startSessionWithGate — lifecycle", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    gateInTx.mockResolvedValue({ ok: true });
+    sessionFindActiveForUser.mockResolvedValue(null);
   });
 
   it("creates a new session and records an enter event when none exists", async () => {
@@ -125,11 +130,11 @@ describe("examDomain.session.startSession", () => {
       endedAt: null,
     });
 
-    const result = await session.startSession(fakeActor, {
+    const result = await session.startSessionWithGate(fakeActor, {
       examId: fakeExam.id,
     });
 
-    expect(result.id).toBe("sess_1");
+    expect(result.session.id).toBe("sess_1");
     expect(sessionCreate).toHaveBeenCalledTimes(1);
     expect(sessionCreate).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -153,9 +158,9 @@ describe("examDomain.session.startSession", () => {
     };
     sessionFindByUserAndExam.mockResolvedValue(existing);
 
-    const result = await session.startSession(fakeActor, { examId: fakeExam.id });
+    const result = await session.startSessionWithGate(fakeActor, { examId: fakeExam.id });
 
-    expect(result).toEqual(existing);
+    expect(result.session).toEqual(existing);
     expect(sessionCreate).not.toHaveBeenCalled();
     expect(sessionUpdate).not.toHaveBeenCalled();
     expect(sessionRecordEvent).not.toHaveBeenCalled();
@@ -177,7 +182,7 @@ describe("examDomain.session.startSession", () => {
       endedAt: null,
     });
 
-    await session.startSession(fakeActor, { examId: fakeExam.id });
+    await session.startSessionWithGate(fakeActor, { examId: fakeExam.id });
 
     expect(sessionUpdate).toHaveBeenCalledWith(
       "sess_old",
@@ -205,9 +210,9 @@ describe("examDomain.session.startSession", () => {
         status: source === "participation" ? "submitted" : "active",
       });
 
-      await expect(session.startSession(fakeActor, { examId: fakeExam.id })).rejects.toThrow(
-        "You have already submitted this exam.",
-      );
+      await expect(
+        session.startSessionWithGate(fakeActor, { examId: fakeExam.id }),
+      ).rejects.toThrow("You have already submitted this exam.");
       expect(sessionUpdate).not.toHaveBeenCalled();
       expect(participationUpsertExamActive).not.toHaveBeenCalled();
       expect(sessionRecordEvent).not.toHaveBeenCalled();
@@ -219,7 +224,7 @@ describe("examDomain.session.startSession", () => {
     membershipFindByComposite.mockResolvedValue(null);
 
     await expect(
-      session.startSession(fakeActor, { examId: fakeExam.id }),
+      session.startSessionWithGate(fakeActor, { examId: fakeExam.id }),
     ).rejects.toBeInstanceOf(ForbiddenError);
 
     expect(sessionCreate).not.toHaveBeenCalled();
@@ -236,7 +241,7 @@ describe("examDomain.session.startSession", () => {
     });
 
     await expect(
-      session.startSession(fakeActor, { examId: fakeExam.id }),
+      session.startSessionWithGate(fakeActor, { examId: fakeExam.id }),
     ).rejects.toBeInstanceOf(ForbiddenError);
   });
 
@@ -244,7 +249,7 @@ describe("examDomain.session.startSession", () => {
     examFindById.mockResolvedValue(null);
 
     await expect(
-      session.startSession(fakeActor, { examId: "exam_ghost" }),
+      session.startSessionWithGate(fakeActor, { examId: "exam_ghost" }),
     ).rejects.toBeInstanceOf(NotFoundError);
   });
 });
@@ -277,6 +282,16 @@ describe("examDomain.session.startSessionWithGate", () => {
     gateInTx.mockResolvedValue({ ok: true });
   });
 
+  it("rejects entry even one millisecond before the official start", async () => {
+    await expect(
+      session.startSessionWithGate(fakeActor, {
+        examId: gatedExam.id,
+        now: new Date(gatedExam.startsAt.getTime() - 1),
+      }),
+    ).rejects.toThrow("Exam has not started yet.");
+    expect(sessionCreate).not.toHaveBeenCalled();
+  });
+
   it.each([
     ["ip_binding", ForbiddenError, /IP restrictions/],
     ["ip_whitelist", ForbiddenError, /IP restrictions/],
@@ -301,7 +316,6 @@ describe("examDomain.session.startSessionWithGate", () => {
         userId: fakeActor.userId,
         ip: "198.51.100.20",
         now,
-        startGraceMs: session.START_GRACE_MS,
       });
       expect(participationUpsertExamActive).not.toHaveBeenCalled();
       expect(sessionCreate).not.toHaveBeenCalled();

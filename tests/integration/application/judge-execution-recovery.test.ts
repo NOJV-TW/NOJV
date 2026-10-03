@@ -292,11 +292,14 @@ describe("immutable judge execution recovery", () => {
       "recovering",
       "machine_failure",
     );
-    const operation = await judge.dispatchRejudge({
-      mode: "single",
-      submissionId: submission.id,
-      triggeredByUserId: teacher.id,
-    });
+    const operation = await judge.dispatchRejudge(
+      {
+        mode: "single",
+        submissionId: submission.id,
+        triggeredByUserId: teacher.id,
+      },
+      { userId: teacher.id, platformRole: "teacher" },
+    );
     const next = await db.judgeExecution.findFirstOrThrow({
       where: { operationId: operation.workflowId },
     });
@@ -331,11 +334,14 @@ describe("immutable judge execution recovery", () => {
     expect(claimed.status).toBe("claimed");
     if (claimed.status !== "claimed") throw new Error("not claimed");
     await judge.setJudgeExecutionState(execution.id, execution.workflowId, "recovering");
-    await judge.dispatchRejudge({
-      mode: "single",
-      submissionId: submission.id,
-      triggeredByUserId: teacher.id,
-    });
+    await judge.dispatchRejudge(
+      {
+        mode: "single",
+        submissionId: submission.id,
+        triggeredByUserId: teacher.id,
+      },
+      { userId: teacher.id, platformRole: "teacher" },
+    );
     await expect(
       judge.saveJudgeStage(
         execution.id,
@@ -404,11 +410,14 @@ describe("immutable judge execution recovery", () => {
     await judge.setJudgeExecutionState(execution.id, execution.workflowId, "running");
     await judge.completeJudgeExecution(execution.id, execution.workflowId, ac);
     await judge.finishJudgeExecution(execution.id, execution.workflowId);
-    const operation = await judge.dispatchRejudge({
-      mode: "single",
-      submissionId: submission.id,
-      triggeredByUserId: teacher.id,
-    });
+    const operation = await judge.dispatchRejudge(
+      {
+        mode: "single",
+        submissionId: submission.id,
+        triggeredByUserId: teacher.id,
+      },
+      { userId: teacher.id, platformRole: "teacher" },
+    );
     const next = await db.judgeExecution.findFirstOrThrow({
       where: { operationId: operation.workflowId },
     });
@@ -469,11 +478,14 @@ describe("immutable judge execution recovery", () => {
     const { execution, submission, teacher } = await fixture();
     await judge.completeJudgeExecution(execution.id, execution.workflowId, ac);
     await judge.finishJudgeExecution(execution.id, execution.workflowId);
-    const operation = await judge.dispatchRejudge({
-      mode: "single",
-      submissionId: submission.id,
-      triggeredByUserId: teacher.id,
-    });
+    const operation = await judge.dispatchRejudge(
+      {
+        mode: "single",
+        submissionId: submission.id,
+        triggeredByUserId: teacher.id,
+      },
+      { userId: teacher.id, platformRole: "teacher" },
+    );
     const next = await db.judgeExecution.findFirstOrThrow({
       where: { operationId: operation.workflowId },
     });
@@ -489,11 +501,14 @@ describe("immutable judge execution recovery", () => {
       state: "finalizing",
     });
     await expect(
-      judge.dispatchRejudge({
-        mode: "single",
-        submissionId: submission.id,
-        triggeredByUserId: teacher.id,
-      }),
+      judge.dispatchRejudge(
+        {
+          mode: "single",
+          submissionId: submission.id,
+          triggeredByUserId: teacher.id,
+        },
+        { userId: teacher.id, platformRole: "teacher" },
+      ),
     ).rejects.toThrow("still being finalized");
     expect(
       await judge.completeJudgeExecution(next.id, next.workflowId, { ...ac, score: 75 }),
@@ -580,11 +595,14 @@ describe("immutable judge execution recovery", () => {
     const { execution, submission, teacher } = await fixture();
     await judge.completeJudgeExecution(execution.id, execution.workflowId, ac);
     await judge.finishJudgeExecution(execution.id, execution.workflowId);
-    const operation = await judge.dispatchRejudge({
-      mode: "single",
-      submissionId: submission.id,
-      triggeredByUserId: teacher.id,
-    });
+    const operation = await judge.dispatchRejudge(
+      {
+        mode: "single",
+        submissionId: submission.id,
+        triggeredByUserId: teacher.id,
+      },
+      { userId: teacher.id, platformRole: "teacher" },
+    );
     const run = await db.judgeExecution.findFirstOrThrow({
       where: { operationId: operation.workflowId },
     });
@@ -734,11 +752,14 @@ describe("journal-backed submission tracking", () => {
       status: "accepted",
       score: 80,
     });
-    const { workflowId } = await judge.dispatchRejudge({
-      mode: "batch",
-      problemId: f.problem.id,
-      triggeredByUserId: f.teacher.id,
-    });
+    const { workflowId } = await judge.dispatchRejudge(
+      {
+        mode: "batch",
+        problemId: f.problem.id,
+        triggeredByUserId: f.teacher.id,
+      },
+      { userId: f.teacher.id, platformRole: "teacher" },
+    );
     await db.durableWork.update({
       where: { kind_dedupeKey: { kind: "submission.rejudge.dispatch", dedupeKey: workflowId } },
       data: { status: "succeeded", attempt: 1, completedAt: new Date() },
@@ -757,11 +778,14 @@ describe("journal-backed submission tracking", () => {
     expect(
       (await judge.getSubmissionOperation(actor(f.user), nonTarget.id)).execution,
     ).toBeNull();
-    await judge.dispatchRejudge({
-      mode: "single",
-      submissionId: f.submission.id,
-      triggeredByUserId: f.teacher.id,
-    });
+    await judge.dispatchRejudge(
+      {
+        mode: "single",
+        submissionId: f.submission.id,
+        triggeredByUserId: f.teacher.id,
+      },
+      { userId: f.teacher.id, platformRole: "teacher" },
+    );
     const requester = { userId: f.teacher.id, platformRole: "teacher" as const };
     expect(await judge.queryRejudgeProgress(requester, workflowId)).toMatchObject({
       status: "running",

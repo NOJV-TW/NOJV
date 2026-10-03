@@ -1,10 +1,11 @@
+import { constants } from "node:fs";
 import {
   chmod,
   copyFile,
   lstat,
   mkdir,
+  open,
   readdir,
-  readFile,
   stat,
   writeFile,
 } from "node:fs/promises";
@@ -35,6 +36,7 @@ import { buildDockerResourceLabels, dockerLabelArgs } from "./resource";
 import { executionAbortReason } from "../shared/execution-abort";
 import {
   ADVANCED_OUTPUT_MAX_FILES,
+  ADVANCED_RESULT_MAX_BYTES,
   ADVANCED_WORKSPACE_MAX_BYTES,
   advancedRunMeta,
   type AdvancedGradeMeta,
@@ -112,6 +114,30 @@ export function exceedsWorkspaceCaps(
   caps: { maxBytes: number; maxFiles: number },
 ): boolean {
   return stats.bytes > caps.maxBytes || stats.files > caps.maxFiles;
+}
+
+export async function readAdvancedResult(path: string): Promise<unknown> {
+  const file = await open(
+    path,
+    constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK,
+  );
+  try {
+    const info = await file.stat();
+    if (!info.isFile()) throw new Error("Advanced result.json must be a regular file.");
+    if (info.size > ADVANCED_RESULT_MAX_BYTES)
+      throw new Error("Advanced result.json exceeded the size limit.");
+    const buffer = Buffer.alloc(info.size + 1);
+    let bytes = 0;
+    while (bytes < buffer.length) {
+      const { bytesRead } = await file.read(buffer, bytes, buffer.length - bytes);
+      if (bytesRead === 0) break;
+      bytes += bytesRead;
+    }
+    if (bytes > info.size) throw new Error("Advanced result.json grew during collection.");
+    return JSON.parse(buffer.subarray(0, bytes).toString("utf8"));
+  } finally {
+    await file.close();
+  }
 }
 
 export class SafeCopyLimitError extends Error {
@@ -314,7 +340,7 @@ interface SpawnContainerParams {
   containerName: string;
   outerTimeoutMs: number;
   signal: AbortSignal;
-  watchDir?: string;
+  watchDir: string;
 }
 
 function spawnContainer(params: SpawnContainerParams): Promise<ContainerOutcome> {
@@ -323,19 +349,15 @@ function spawnContainer(params: SpawnContainerParams): Promise<ContainerOutcome>
     containerName: params.containerName,
     outerTimeoutMs: params.outerTimeoutMs,
     signal: params.signal,
-    ...(params.watchDir
-      ? {
-          watch: {
-            dir: params.watchDir,
-            intervalMs: WORKSPACE_POLL_INTERVAL_MS,
-            exceeds: async (dir: string) =>
-              exceedsWorkspaceCaps(await dirStats(dir), {
-                maxBytes: ADVANCED_WORKSPACE_MAX_BYTES,
-                maxFiles: ADVANCED_OUTPUT_MAX_FILES,
-              }),
-          },
-        }
-      : {}),
+    watch: {
+      dir: params.watchDir,
+      intervalMs: WORKSPACE_POLL_INTERVAL_MS,
+      exceeds: async (dir: string) =>
+        exceedsWorkspaceCaps(await dirStats(dir), {
+          maxBytes: ADVANCED_WORKSPACE_MAX_BYTES,
+          maxFiles: ADVANCED_OUTPUT_MAX_FILES,
+        }),
+    },
   }).then((r) => ({
     exitCode: r.exitCode,
     stderr: r.spawnError ? `spawn failed: ${r.spawnError}` : r.stderr,
@@ -421,16 +443,18 @@ export class AdvancedModeExecutor {
     if (gradeOutcome.timedOut) {
       return sandboxSystemError("Advanced grade image timed out.");
     }
+    if (gradeOutcome.sizeExceeded) {
+      return sandboxSystemError("Advanced grade image exceeded the workspace file/size limit.");
+    }
 
     let resultJson: unknown;
     try {
-      const raw = await readFile(join(gradeDir, "output", "result.json"), "utf8");
+      resultJson = await readAdvancedResult(join(gradeDir, "output", "result.json"));
       execution.signal.throwIfAborted();
-      resultJson = JSON.parse(raw);
-    } catch {
+    } catch (error) {
       execution.signal.throwIfAborted();
       return sandboxSystemError(
-        `Advanced grade image did not write result.json. exit=${String(gradeOutcome.exitCode)}\n${gradeOutcome.stderr}`.trim(),
+        `Advanced grade result.json collection failed: ${error instanceof Error ? error.message : String(error)}. exit=${String(gradeOutcome.exitCode)}\n${gradeOutcome.stderr}`.trim(),
       );
     }
 
@@ -632,6 +656,7 @@ export class AdvancedModeExecutor {
       containerName,
       outerTimeoutMs: advanced.totalTimeMs + 30_000,
       signal: execution.signal,
+      watchDir: gradeDir,
     });
   }
 }

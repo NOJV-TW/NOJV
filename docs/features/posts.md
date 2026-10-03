@@ -1,6 +1,6 @@
 # Feature: Problem Posts (Editorials and Discussions)
 
-Acceptance spec for community posts on a problem. One `ProblemPost` model has two types: `editorial` (visible after solving) and `discussion` (any signed-in user). Both have titles, Markdown content, votes, two-level comments and reports feeding one admin moderation queue. Everything lives in the practice workspace's left panel; there are no standalone post pages. Decisions: UI-04, UI-05, UI-06.
+Acceptance spec for community posts on a problem. One `ProblemPost` model has two types: `editorial` (visible after solving) and `discussion` (signed-in users who can view the parent problem). Both have titles, Markdown content, votes, two-level comments and reports feeding one admin moderation queue. Everything lives in the practice workspace's left panel; there are no standalone post pages. Decisions: UI-04, UI-05, UI-06.
 
 ## Key code
 
@@ -36,11 +36,13 @@ All endpoints require a session (`requireApiAuth`, 401 otherwise). Invalid paylo
 
 ### Gates
 
+- Parent visibility comes first on every read and mutation: the shared problem-access policy checks the trusted effective actor, including private problem ownership, staff permissions and historical participant access. Knowing a problem or post ID grants nothing.
+
 - Context gate: `resolveActiveContextForUser` finds live contests, assignments and exams containing the problem for this user and picks the one ending last. Until it ends, every post, comment, vote and report call fails 403 `"Posts are unavailable until the active contest, assignment, or exam ends."`, for both types. The client cannot supply the context; practice URLs do not bypass it.
 - Editorial gate (after the context gate): the user has an accepted non-sample submission on the problem, or authored a non-deleted editorial there. Otherwise 403 `"Solve this problem first to view editorials."` (read) or `"Solve this problem first to post an editorial."` (create). Authorship never opens a live context.
-- Discussion gate: any signed-in user once the context gate is open.
+- Discussion gate: a signed-in user who can view the parent problem, once the context gate is open.
 - Voting, commenting and reporting rerun the same per-type gate for the post's problem.
-- Admins bypass the view and context gates for moderation.
+- Effective admins bypass the context and AC gates for moderation; a stored admin role without active admin mode grants no bypass.
 - Unknown problem: `NotFoundError("Problem not found.")`.
 - An editorial reader whose only AC is rejudged away loses access on the next fetch; an author keeps it.
 - In an active exam session with page lock enabled, the hook blocks `/api/posts/*`, `/api/comments/*` and `/api/problems/[id]/posts` for every problem ([Proctoring](proctoring.md#page-lock)).
@@ -48,6 +50,7 @@ All endpoints require a session (`requireApiAuth`, 401 otherwise). Invalid paylo
 ### Posts
 
 - A user may write any number of posts per problem.
+- Author edits and deletions rerun parent visibility, then author/admin ownership; they retain their exemption from context and AC gates.
 - PATCH updates title/content and `updatedAt`; a PATCH with unchanged values returns the existing row.
 - Non-author, non-admin PATCH or DELETE is `ForbiddenError`.
 - DELETE stamps `deletedAt`; the post disappears from all list and detail reads; a second DELETE is `NotFoundError`.

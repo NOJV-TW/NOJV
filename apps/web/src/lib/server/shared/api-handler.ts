@@ -28,33 +28,47 @@ export function assertJsonBodyWithinLimit(
   }
 }
 
-async function readBodyTextWithinLimit(request: Request, maxBytes: number): Promise<string> {
+export async function readBodyWithinLimit(
+  request: Request,
+  maxBytes: number,
+): Promise<Buffer<ArrayBuffer>> {
+  const declared = Number(request.headers.get("content-length"));
+  if (Number.isFinite(declared) && declared > maxBytes) error(413, "Request body too large");
   const stream = request.body;
-  if (stream === null) return request.text();
+  if (stream === null) return Buffer.alloc(0);
 
   const reader = stream.getReader();
-  const decoder = new TextDecoder();
   let received = 0;
-  let text = "";
-  for (;;) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    received += value.byteLength;
-    if (received > maxBytes) {
-      await reader.cancel();
-      error(413, "Request body too large");
+  const chunks: Uint8Array[] = [];
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      received += value.byteLength;
+      if (received > maxBytes) {
+        await reader.cancel();
+        error(413, "Request body too large");
+      }
+      chunks.push(value);
     }
-    text += decoder.decode(value, { stream: true });
+  } finally {
+    reader.releaseLock();
   }
-  text += decoder.decode();
-  return text;
+  return Buffer.concat(chunks, received);
+}
+
+export async function readFormData(event: RequestEvent, maxBytes: number): Promise<FormData> {
+  const body = await readBodyWithinLimit(event.request, maxBytes);
+  return new Response(body, { headers: event.request.headers }).formData().catch(() => {
+    error(400, "Invalid request body: expected form data.");
+  });
 }
 
 export async function readJsonBody(
   event: RequestEvent,
   maxBytes: number = JSON_BODY_LIMIT_BYTES,
 ): Promise<unknown> {
-  const text = await readBodyTextWithinLimit(event.request, maxBytes);
+  const text = new TextDecoder().decode(await readBodyWithinLimit(event.request, maxBytes));
   try {
     return JSON.parse(text);
   } catch (reason) {

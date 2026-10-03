@@ -4,14 +4,14 @@ import type { RequestHandler } from "./$types";
 import { userDomain } from "@nojv/application";
 
 import { requireApiAuth } from "$lib/server/auth";
-import { writeApiHandler } from "$lib/server/shared/api-handler";
+import { readFormData, writeApiHandler } from "$lib/server/shared/api-handler";
 import { detectImageMime } from "$lib/server/shared/file-validation";
 import { deleteAvatar, MAX_AVATAR_BYTES, uploadAvatar } from "$lib/server/storage/avatar";
 
 export const PUT: RequestHandler = writeApiHandler(async (event) => {
   const actor = requireApiAuth(event);
 
-  const formData = await event.request.formData();
+  const formData = await readFormData(event, MAX_AVATAR_BYTES + 64 * 1024);
   const file = formData.get("file");
 
   if (!(file instanceof File)) {

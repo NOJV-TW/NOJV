@@ -4,6 +4,8 @@ import type { ResolvedSourceFile } from "./source-files";
 
 export const ADVANCED_WORKSPACE_MAX_BYTES = 1024 * 1024 * 1024;
 export const ADVANCED_OUTPUT_MAX_FILES = 100_000;
+export const ADVANCED_RESULT_MAX_BYTES = 32 * 1024 * 1024;
+export const ADVANCED_RESULT_LOG_MAX_BYTES = ADVANCED_RESULT_MAX_BYTES + 1024;
 
 export type RunState = "exited" | "timed_out" | "oom_killed";
 

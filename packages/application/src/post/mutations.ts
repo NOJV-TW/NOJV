@@ -1,16 +1,30 @@
-import { postRepo, postVoteRepo } from "@nojv/db";
+import { postRepo, postVoteRepo, problemRepo } from "@nojv/db";
 import type { ProblemPostType } from "@nojv/core";
 
 import type { ActorContext } from "../shared/actor-context";
 import { ForbiddenError, NotFoundError } from "../shared/errors";
 import { canViewPosts, contextGateOpen, resolveActiveContextForUser } from "./queries";
+import { assertProblemViewAccess, type ProblemActorContext } from "../problem/permissions";
+
+export async function assertPostProblemViewAccess(
+  actor: ProblemActorContext,
+  problemId: string,
+) {
+  const problem = await problemRepo.findById(problemId);
+  if (!problem) throw new NotFoundError("Problem not found.");
+  await assertProblemViewAccess(problem, actor);
+  return problem;
+}
 
 export async function assertCanInteractWithPosts(
-  userId: string,
+  actor: ProblemActorContext,
   problemId: string,
   type: ProblemPostType,
   message: string,
 ) {
+  const problem = await assertPostProblemViewAccess(actor, problemId);
+  if (actor.platformRole === "admin") return problem;
+  const { userId } = actor;
   const context = await resolveActiveContextForUser(userId, problemId, new Date());
   if (!(await contextGateOpen(context))) {
     throw new ForbiddenError(
@@ -21,6 +35,7 @@ export async function assertCanInteractWithPosts(
   if (!allowed) {
     throw new ForbiddenError(message);
   }
+  return problem;
 }
 
 export function assertAuthorOrAdmin(actor: ActorContext, authorId: string, message: string) {
@@ -38,7 +53,7 @@ export interface CreatePostInput {
 
 export async function createPost(actor: ActorContext, input: CreatePostInput) {
   await assertCanInteractWithPosts(
-    actor.userId,
+    actor,
     input.problemId,
     input.type,
     input.type === "editorial"
@@ -66,6 +81,7 @@ export async function updatePost(actor: ActorContext, id: string, input: UpdateP
     throw new NotFoundError("Post not found.");
   }
 
+  await assertPostProblemViewAccess(actor, existing.problemId);
   assertAuthorOrAdmin(
     actor,
     existing.authorId,
@@ -92,6 +108,7 @@ export async function softDeletePost(actor: ActorContext, id: string) {
     throw new NotFoundError("Post not found.");
   }
 
+  await assertPostProblemViewAccess(actor, existing.problemId);
   assertAuthorOrAdmin(
     actor,
     existing.authorId,
@@ -121,7 +138,7 @@ export async function castPostVote(
   }
 
   await assertCanInteractWithPosts(
-    actor.userId,
+    actor,
     existing.problemId,
     existing.type,
     "You cannot vote on this post right now.",

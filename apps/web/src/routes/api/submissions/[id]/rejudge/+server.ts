@@ -15,12 +15,14 @@ export const POST: RequestHandler = writeApiHandler(async (event) => {
   const submission = await submissionDomain.getSubmissionById(id);
   if (!submission) throw new NotFoundError("Submission not found.");
 
-  await submissionDomain.assertCanOperateOnSubmission(actor, submission);
-  const { workflowId } = await submissionDomain.dispatchRejudge({
-    mode: "single",
-    submissionId: submission.id,
-    triggeredByUserId: actor.userId,
-  });
+  const { workflowId } = await submissionDomain.dispatchRejudge(
+    {
+      mode: "single",
+      submissionId: submission.id,
+      triggeredByUserId: actor.userId,
+    },
+    actor,
+  );
 
   return json({ workflowId, status: "queued" }, { status: 202 });
 });

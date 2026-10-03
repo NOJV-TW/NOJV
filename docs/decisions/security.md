@@ -69,7 +69,7 @@ The UI never shows "super admin"; only a super admin may disable, delete or chan
 
 - Rejected: auto-submitting role `<select>`; badge-as-button role editing.
 - Rule: the server rejects self role change, self-disable and self-delete.
-- Rule: power decisions use the effective `actor.platformRole`, never the stored session role.
+- Rule: power decisions use the effective `actor.platformRole`, never the stored session role. Disabling a user atomically revokes all sessions; direct Auth API calls reject disabled users before dispatch.
 - Code: `packages/application/src/user/mutations.ts`, `apps/web/src/routes/(app)/admin/users/+page.server.ts`, `packages/db/prisma/schema/ops.prisma`
 
 ### SEC-07 API tokens: hashed bearer secrets gated by whitelist, scope and owner role
@@ -79,7 +79,7 @@ The UI never shows "super admin"; only a super admin may disable, delete or chan
 Tokens (`nojv_live_<prefix>.<secret>`) are stored as prefix plus `sha256` hash, shown once, and must expire (30/90/365 days). A request must pass the central method/path whitelist, then the token scope, then the owner's role; domain checks still enforce object access. Only whitelisted routes accept tokens and skip the CSRF header.
 
 - Rejected: implicit token access for documented routes; never-expiring tokens. Earlier: HMAC with `API_TOKEN_PEPPER` — removed as redundant for 256-bit secrets (CodeQL `js/insufficient-password-hash` is a false positive).
-- Rule: appearing in docs does not grant token access; internal APIs stay session-only unless whitelisted.
+- Rule: appearing in docs does not grant token access; internal APIs stay session-only unless whitelisted. Whitelisted bearer attempts consume a strict IP rate limit before token database lookup.
 - Rule: no pepper for high-entropy secrets; low-entropy secrets need attempt caps and TTLs.
 - Code: `packages/application/src/api-token/acl.ts`, `packages/application/src/api-token/lifecycle.ts`
 
@@ -108,7 +108,7 @@ One helper resolves the client IP for IP locks and rate limits. In production it
 
 **Decided:** 2026-06 · **Source:** [2026-06-12-full-audit-remediation](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-06-12-full-audit-remediation.md), [2026-07-07-system-health-check-remediation](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/active/2026-07-07-system-health-check-remediation.md)
 
-KaTeX output is wrapped with a per-render random nonce and DOMPurify keeps `style` only inside that subtree. JSON bodies are read through `readJsonBody`, which counts bytes while streaming and returns 413 regardless of `content-length`. Upload MIME is checked by magic bytes. A forgeable `katex` class allowed CSS injection, and chunked bodies bypassed header checks.
+KaTeX output is wrapped with a per-render random nonce and DOMPurify keeps `style` only inside that subtree. JSON bodies are read through `readJsonBody`, which counts bytes while streaming and returns 413 regardless of `content-length`. Small multipart uploads and credential forms use the same bounded reader before FormData parsing; Auth API bodies are capped before username parsing. Upload MIME is checked by magic bytes. A forgeable `katex` class allowed CSS injection, and chunked bodies bypassed header checks.
 
 - Rejected: trusting author-controllable class names; header-only size checks.
 - Rule: never use author-controllable markup as a trust signal.

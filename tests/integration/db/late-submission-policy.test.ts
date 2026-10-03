@@ -114,7 +114,7 @@ async function fixture(kind: "assignment" | "exam") {
   await testPrisma.examProblem.create({
     data: { examId: exam.id, problemId: problem.id, ordinal: 1, points: 100 },
   });
-  await examDomain.session.startSession(actor(student), { examId: exam.id });
+  await examDomain.session.startSessionWithGate(actor(student), { examId: exam.id });
   return {
     teacher,
     student,

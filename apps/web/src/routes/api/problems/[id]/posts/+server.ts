@@ -12,10 +12,9 @@ import {
   readJsonBody,
 } from "$lib/server/shared/api-handler";
 import { requireProblemPostAccess } from "$lib/server/post-access";
-import { postDomain, problemDomain, NotFoundError } from "@nojv/application";
+import { postDomain } from "@nojv/application";
 
 const { createPost, listPostsPage } = postDomain;
-const { getProblemRowById } = problemDomain;
 
 const listQuerySchema = z.object({
   type: problemPostTypeSchema,
@@ -35,7 +34,7 @@ export const GET: RequestHandler = apiHandler(async (event) => {
 
   const query = listQuerySchema.parse(Object.fromEntries(event.url.searchParams));
 
-  await requireProblemPostAccess(actor.userId, id, query.type, actor.platformRole === "admin");
+  await requireProblemPostAccess(actor, id, query.type);
 
   const page = await listPostsPage({
     problemId: id,
@@ -57,9 +56,6 @@ export const POST: RequestHandler = writeApiHandler(async (event) => {
   if (!id) return json({ message: "Missing problem ID." }, { status: 400 });
 
   const payload = postCreateBodySchema.parse(await readJsonBody(event));
-
-  const problem = await getProblemRowById(id);
-  if (!problem) throw new NotFoundError("Problem not found.");
 
   const post = await createPost(actor, {
     type: payload.type,

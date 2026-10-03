@@ -12,12 +12,16 @@ const {
   signInConsumeSpy,
   examSignInConsumeSpy,
   signOutSpy,
+  apiTokenConsumeSpy,
+  verifyTokenSpy,
 } = vi.hoisted(() => ({
   resolveAdminAccessSpy: vi.fn(),
   authConsumeSpy: vi.fn(),
   signInConsumeSpy: vi.fn(),
   examSignInConsumeSpy: vi.fn(),
   signOutSpy: vi.fn(),
+  apiTokenConsumeSpy: vi.fn(),
+  verifyTokenSpy: vi.fn(),
 }));
 
 vi.mock("$lib/server/shared/rate-limiter", async () => {
@@ -27,6 +31,7 @@ vi.mock("$lib/server/shared/rate-limiter", async () => {
   return {
     ...actual,
     authRateLimiter: { ...actual.authRateLimiter, consume: authConsumeSpy },
+    apiTokenAuthRateLimiter: { ...actual.apiTokenAuthRateLimiter, consume: apiTokenConsumeSpy },
     signInRateLimiter: { ...actual.signInRateLimiter, consume: signInConsumeSpy },
     examSignInRateLimiter: { ...actual.examSignInRateLimiter, consume: examSignInConsumeSpy },
   };
@@ -35,7 +40,12 @@ vi.mock("$lib/server/shared/rate-limiter", async () => {
 vi.mock("@nojv/application", async () => {
   const actual = await vi.importActual<typeof import("@nojv/application")>("@nojv/application");
   resolveAdminAccessSpy.mockImplementation(actual.resolveAdminAccess);
-  return { ...actual, resolveAdminAccess: resolveAdminAccessSpy };
+  verifyTokenSpy.mockImplementation(actual.apiTokenDomain.verifyApiTokenForRoute);
+  return {
+    ...actual,
+    resolveAdminAccess: resolveAdminAccessSpy,
+    apiTokenDomain: { ...actual.apiTokenDomain, verifyApiTokenForRoute: verifyTokenSpy },
+  };
 });
 
 vi.mock("$lib/auth.server", () => ({
@@ -74,6 +84,8 @@ const inspectAdminMode: RequestHandler = (event) =>
 beforeEach(() => {
   resolveAdminAccessSpy.mockClear();
   authConsumeSpy.mockReset().mockResolvedValue("allowed");
+  apiTokenConsumeSpy.mockReset().mockResolvedValue("allowed");
+  verifyTokenSpy.mockClear();
   signInConsumeSpy.mockReset().mockResolvedValue("allowed");
   examSignInConsumeSpy.mockReset().mockResolvedValue("allowed");
   signOutSpy.mockReset().mockResolvedValue({
@@ -84,6 +96,57 @@ beforeEach(() => {
 });
 
 describe("hooks.server guard chain (request-layer redirects)", () => {
+  it.each([
+    ["limited", 429],
+    ["unavailable", 503],
+  ] as const)(
+    "rejects bearer authentication before database work when limiting is %s",
+    async (state, status) => {
+      apiTokenConsumeSpy.mockResolvedValue(state);
+      const handler = vi.fn();
+      const response = await callRoute({
+        path: "/api/submissions",
+        module: { GET: handler },
+        headers: {
+          authorization: "Bearer nojv_live_abcdefgh.abcdefghijklmnopqrstuvwxyz012345",
+        },
+      });
+      expect(response.status).toBe(status);
+      expect(verifyTokenSpy).not.toHaveBeenCalled();
+      expect(handler).not.toHaveBeenCalled();
+    },
+  );
+
+  it("rejects an oversized exam sign-in body before JSON parsing or dispatch", async () => {
+    const handler = vi.fn();
+    const response = await callRoute({
+      path: "/api/auth/sign-in/exam-password",
+      method: "POST",
+      body: { username: "student", padding: "x".repeat(64 * 1024) },
+      module: { POST: handler },
+    });
+    expect(response.status).toBe(413);
+    expect(examSignInConsumeSpy).not.toHaveBeenCalled();
+    expect(handler).not.toHaveBeenCalled();
+  });
+
+  it.each(["get-session", "list-sessions", "update-user", "change-password"])(
+    "rejects a disabled principal before Better Auth %s",
+    async (endpoint) => {
+      const user = await createTestUser({ username: "disabled_auth", disabled: true });
+      const handler = vi.fn();
+      const response = await callRoute({
+        path: `/api/auth/${endpoint}`,
+        method: "POST",
+        user,
+        module: { POST: handler },
+      });
+      expect(response.status).toBe(403);
+      expect(handler).not.toHaveBeenCalled();
+      expect(signOutSpy).toHaveBeenCalledOnce();
+      expect(response.headers.get("set-cookie")).toContain("Max-Age=0");
+    },
+  );
   it("returns 429 when the general authentication quota is exhausted", async () => {
     authConsumeSpy.mockResolvedValue("limited");
     const handler = vi.fn().mockResolvedValue(new Response(null, { status: 302 }));

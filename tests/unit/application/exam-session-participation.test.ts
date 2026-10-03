@@ -26,10 +26,11 @@ const {
 
 vi.mock("@nojv/db", () => ({
   Prisma: {},
-  examRepo: { withTx: () => ({ findById: examFindById }) },
+  examRepo: { findById: examFindById, withTx: () => ({ findById: examFindById }) },
   courseRepo: { withTx: () => ({ findArchivedById: courseFindUnique }) },
   courseMembershipRepo: { withTx: () => ({ findByComposite: membershipFindByComposite }) },
   examSessionRepo: {
+    findActiveForUser: sessionFindActiveForUser,
     withTx: () => ({
       findActiveForUser: sessionFindActiveForUser,
       findByUserAndExam: sessionFindByUserAndExam,
@@ -51,9 +52,13 @@ vi.mock("@nojv/db", () => ({
     }),
 }));
 
+vi.mock("../../../packages/application/src/proctoring/gate", () => ({
+  checkProctoringGateInTx: vi.fn().mockResolvedValue({ ok: true }),
+}));
+
 import { examDomain } from "@nojv/application";
 
-const { startSession } = examDomain.session;
+const { startSessionWithGate } = examDomain.session;
 
 const studentActor = {
   userId: "usr_student",
@@ -63,10 +68,16 @@ const studentActor = {
   platformRole: "student" as const,
 };
 
-describe("startSession — Participation creation", () => {
+describe("startSessionWithGate — Participation creation", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    examFindById.mockResolvedValue({ id: "exm_1", courseId: "crs_1" });
+    examFindById.mockResolvedValue({
+      id: "exm_1",
+      courseId: "crs_1",
+      status: "published",
+      startsAt: new Date("2020-01-01"),
+      endsAt: new Date("2099-01-01"),
+    });
     membershipFindByComposite.mockResolvedValue({ role: "student", status: "active" });
     courseFindUnique.mockResolvedValue({ archived: false });
     sessionFindActiveForUser.mockResolvedValue(null);
@@ -78,7 +89,7 @@ describe("startSession — Participation creation", () => {
     sessionFindByUserAndExam.mockResolvedValue(null);
     sessionCreate.mockResolvedValue({ id: "ses_1", examId: "exm_1", userId: "usr_student" });
 
-    await startSession(studentActor, { examId: "exm_1" });
+    await startSessionWithGate(studentActor, { examId: "exm_1" });
 
     expect(participationUpsertExamActive).toHaveBeenCalledTimes(1);
     const [examId, userId] = participationUpsertExamActive.mock.calls[0];
@@ -94,7 +105,7 @@ describe("startSession — Participation creation", () => {
       endedAt: null,
     });
 
-    await startSession(studentActor, { examId: "exm_1" });
+    await startSessionWithGate(studentActor, { examId: "exm_1" });
 
     expect(participationUpsertExamActive).toHaveBeenCalledTimes(1);
   });
@@ -107,7 +118,7 @@ describe("startSession — Participation creation", () => {
     sessionFindByUserAndExam.mockResolvedValue(null);
     sessionCreate.mockResolvedValue({ id: "ses_1", examId: "exm_1", userId: "usr_student" });
 
-    await startSession(studentActor, { examId: "exm_1" });
+    await startSessionWithGate(studentActor, { examId: "exm_1" });
 
     expect(participationUpsertExamActive).toHaveBeenCalledTimes(1);
     const activateOnEntry = participationUpsertExamActive.mock.calls[0][2];
@@ -119,7 +130,7 @@ describe("startSession — Participation creation", () => {
     sessionFindByUserAndExam.mockResolvedValue(null);
     sessionCreate.mockResolvedValue({ id: "ses_1", examId: "exm_1", userId: "usr_student" });
 
-    await startSession(studentActor, { examId: "exm_1" });
+    await startSessionWithGate(studentActor, { examId: "exm_1" });
 
     const activateOnEntry = participationUpsertExamActive.mock.calls[0][2];
     expect(activateOnEntry).toBe(true);

@@ -40,11 +40,13 @@ import { classifyError, classifyRequestError } from "$lib/server/shared/handle-a
 import { getClientIp } from "$lib/server/shared/client-ip";
 import {
   authRateLimiter,
+  apiTokenAuthRateLimiter,
   examSignInRateLimiter,
   examSignInRateLimitKey,
   signInRateLimiter,
   type RateLimitResult,
 } from "$lib/server/shared/rate-limiter";
+import { readBodyWithinLimit } from "$lib/server/shared/api-handler";
 import {
   deriveRequestId,
   enforceCsrf,
@@ -158,8 +160,15 @@ async function authenticateApiToken(
   }
 
   try {
+    const ip = getClientIp(event);
+    const denied = blockedAuthRateLimitResponse(
+      await apiTokenAuthRateLimiter.consume(ip),
+      event.locals.requestId,
+      "Too many API authentication requests. Try again later.",
+    );
+    if (denied) return denied;
     const verified = await apiTokenDomain.verifyApiTokenForRoute({
-      ip: getClientIp(event),
+      ip,
       route,
       token,
     });
@@ -193,6 +202,27 @@ async function handleApiAuthRoute(
     event.locals.requestId,
   );
   if (authRateLimitResponse) return authRateLimitResponse;
+
+  if (event.request.body) {
+    const body = await readBodyWithinLimit(event.request, 64 * 1024);
+    event.request = new Request(event.request, { body });
+  }
+
+  await loadSession(event);
+  if (event.locals.sessionUser?.disabled && cleanPath !== "/api/auth/sign-out") {
+    const { headers } = await getAuth().api.signOut({
+      headers: event.request.headers,
+      returnHeaders: true,
+    });
+    const denied = jsonErrorResponse({
+      code: "account_disabled",
+      message: "This account has been disabled.",
+      requestId: event.locals.requestId,
+      status: 403,
+    });
+    for (const cookie of headers.getSetCookie()) denied.headers.append("set-cookie", cookie);
+    return denied;
+  }
 
   const isExamPasswordSignIn =
     event.request.method === "POST" && cleanPath === "/api/auth/sign-in/exam-password";

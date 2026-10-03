@@ -71,7 +71,6 @@ type ActiveExamSessionRow = NonNullable<
 interface EntryGate {
   ip: string | null;
   now: Date;
-  startGraceMs: number;
 }
 
 type OpenSessionResult =
@@ -86,7 +85,7 @@ async function openSessionInTx(
   tx: Prisma.TransactionClient,
   actor: ActorContext,
   examId: string,
-  gate: EntryGate | null,
+  gate: EntryGate,
 ): Promise<OpenSessionResult> {
   await lockUserExamSessions(tx, actor.userId);
 
@@ -108,17 +107,14 @@ async function openSessionInTx(
     throw new ForbiddenError("You have already submitted this exam.");
   }
 
-  if (gate) {
-    const verdict = await checkProctoringGateInTx(tx, {
-      entityKind: "exam",
-      entityId: examId,
-      userId: actor.userId,
-      ip: gate.ip,
-      now: gate.now,
-      startGraceMs: gate.startGraceMs,
-    });
-    if (!verdict.ok) return { ok: false, reason: verdict.reason };
-  }
+  const verdict = await checkProctoringGateInTx(tx, {
+    entityKind: "exam",
+    entityId: examId,
+    userId: actor.userId,
+    ip: gate.ip,
+    now: gate.now,
+  });
+  if (!verdict.ok) return { ok: false, reason: verdict.reason };
 
   const activateOnEntry =
     !existingParticipation || existingParticipation.status === "registered";
@@ -126,7 +122,7 @@ async function openSessionInTx(
     .withTx(tx)
     .upsertExamActive(examId, actor.userId, activateOnEntry, new Date());
 
-  if (gate?.ip && exam.ipBindingEnabled && !existingParticipation) {
+  if (gate.ip && exam.ipBindingEnabled && !existingParticipation) {
     const bound = await participationRepo
       .withTx(tx)
       .bindExamIpPinIfUnset(participation.id, gate.ip);
@@ -178,12 +174,6 @@ function entryDenialError(examId: string, reason: ProctoringDenialReason): HttpE
         "Exam entry blocked: your network does not match the exam's IP restrictions.",
       );
   }
-}
-
-export async function startSession(actor: ActorContext, { examId }: { examId: string }) {
-  const result = await runTransaction((tx) => openSessionInTx(tx, actor, examId, null));
-  if (!result.ok) throw entryDenialError(examId, result.reason);
-  return result.session;
 }
 
 export async function endSession(
@@ -335,8 +325,6 @@ export async function requireActiveSessionForUserExam(userId: string, examId: st
   return session;
 }
 
-export const START_GRACE_MS = 5 * 60 * 1000;
-
 export interface StartSessionResult {
   session: {
     id: string;
@@ -358,18 +346,16 @@ export async function startSessionWithGate(
     examId: string;
     ip?: string | null;
     now?: Date;
-    gracePeriodMs?: number;
   },
 ): Promise<StartSessionResult> {
   const now = options.now ?? new Date();
-  const grace = options.gracePeriodMs ?? START_GRACE_MS;
 
   const exam = await examRepo.findById(options.examId);
   if (exam?.status !== "published") {
     throw new NotFoundError(`Exam not found: ${options.examId}`);
   }
 
-  if (now.getTime() < exam.startsAt.getTime() - grace) {
+  if (now.getTime() < exam.startsAt.getTime()) {
     throw new HttpError("Exam has not started yet.", 410);
   }
   if (now.getTime() >= exam.endsAt.getTime()) {
@@ -386,7 +372,6 @@ export async function startSessionWithGate(
     openSessionInTx(tx, actor, options.examId, {
       ip: options.ip ?? null,
       now,
-      startGraceMs: grace,
     }),
   );
   if (!result.ok) throw entryDenialError(options.examId, result.reason);

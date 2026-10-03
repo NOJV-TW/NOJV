@@ -25,6 +25,9 @@ const {
 }));
 
 vi.mock("@nojv/db", () => ({
+  problemRepo: {
+    findById: (id: string) => Promise.resolve({ id, visibility: "public", authorId: "owner" }),
+  },
   postRepo: {
     findById: postFindById,
     create: postCreate,

@@ -148,6 +148,7 @@ export const writeApiRateLimiter = createRateLimiter("rl:write", 10, 60);
 export const draftApiRateLimiter = createRateLimiter("rl:draft", 60, 60);
 const formActionRateLimiter = createRateLimiter("rl:form", 20, 60);
 export const authRateLimiter = createRateLimiter("rl:auth", 60, 60);
+export const apiTokenAuthRateLimiter = createRateLimiter("rl:api-token-auth", 300, 60);
 
 export const signInRateLimiter = createRateLimiter("rl:signin", 5, 900);
 export const examSignInRateLimiter = createRateLimiter("rl:exam-signin", 5, 900);

@@ -174,10 +174,22 @@ describe("resolveExamGateDenial", () => {
     }
   });
 
-  it("does NOT block ended / not_started (auto-close + submit gate own those)", () => {
-    for (const reason of ["ended", "not_started"] as const) {
-      expect(resolveExamGateDenial({ ok: false, reason }, "/api/submissions")).toBeNull();
-      expect(resolveExamGateDenial({ ok: false, reason }, "/exams/exam-1")).toBeNull();
-    }
+  it("blocks pre-start APIs while leaving the overview countdown accessible", () => {
+    expect(
+      resolveExamGateDenial({ ok: false, reason: "not_started" }, "/api/submissions"),
+    ).toEqual({
+      scope: "api",
+      status: 403,
+      code: "exam_not_started",
+    });
+    expect(
+      resolveExamGateDenial({ ok: false, reason: "not_started" }, "/exams/exam-1"),
+    ).toBeNull();
+  });
+
+  it("lets ended sessions reach cleanup; writes enforce their own time gate", () => {
+    expect(
+      resolveExamGateDenial({ ok: false, reason: "ended" }, "/api/submissions"),
+    ).toBeNull();
   });
 });

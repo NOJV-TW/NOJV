@@ -127,6 +127,7 @@ Recovery is generation-guarded; at most one active judge workflow per submission
 
 ### Rejudge
 
+- Dispatch receives the authenticated effective actor. Snapshot preparation stays outside the transaction; commit locks course/membership, activity, problem and submission rows and rechecks current authority and exact target scope, then locks and rechecks the requester before any execution or outbox write. The resource-before-user order matches roster binding. Revoked membership, disabled accounts, lost admin role or changed activity ownership abort the operation.
 - A teacher rejudge pins the latest effective problem version at commit, creates a
   new generation, cancels older non-terminal executions and writes a
   `SubmissionRejudgeLog` (JDG-10, PRB-18). Rejudges run in the `background` class.
@@ -636,8 +637,17 @@ The run container is single-homed with no internet route (JDG-17).
 | network             | its service only, or none | none        | ingress from run only |
 | holds answers       | never                     | yes (baked) | never                 |
 
-Writes are allowed only to `/tmp` and `/workspace`. A watchdog kills the run when its
-workspace exceeds 1 GiB or 100,000 files.
+Writes are allowed only to `/tmp` and `/workspace`. Docker polls both run and grade
+workspaces every 2 seconds and kills the container above 1 GiB or 100,000 files;
+the grade workspace count includes its captured read-only run output. Kubernetes
+limits the writable workspace emptyDir to 1 GiB.
+
+`result.json` is limited to 32 MiB before parsing. Docker and the Kubernetes
+result-emitting sidecar open only regular files without following the final
+symlink, read at most the inspected size plus one byte, and reject a growing
+file. The sidecar emits a small failure marker on invalid or oversized results;
+the worker requests at most 32 MiB plus 1 KiB of marker overhead from the
+Kubernetes log API. Collection failures become SE.
 
 ### Capture gate
 

@@ -201,6 +201,7 @@ export class KubernetesExecutionObserver {
     namespace: string,
     container: string,
     signal: AbortSignal,
+    limitBytes?: number,
   ): Promise<string> {
     signal.throwIfAborted();
     try {
@@ -208,6 +209,7 @@ export class KubernetesExecutionObserver {
         container,
         name: podName,
         namespace,
+        ...(limitBytes === undefined ? {} : { limitBytes }),
       });
       signal.throwIfAborted();
       return logs;

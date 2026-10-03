@@ -4,7 +4,9 @@ import {
   mkdirSync,
   readFileSync,
   readdirSync,
+  rmSync,
   symlinkSync,
+  truncateSync,
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
@@ -13,11 +15,11 @@ import { join, relative } from "node:path";
 import type { SandboxRequest } from "@nojv/core";
 import { describe, expect, it, vi } from "vitest";
 
+import { safeCopyTree } from "../../../apps/worker/src/sandbox/docker/advanced-mode-executor";
 import {
   ADVANCED_OUTPUT_MAX_FILES,
   ADVANCED_WORKSPACE_MAX_BYTES,
-  safeCopyTree,
-} from "../../../apps/worker/src/sandbox/docker/advanced-mode-executor";
+} from "../../../apps/worker/src/sandbox/shared/advanced-execution";
 
 import {
   ADVANCED_RESULT_MARKER_BEGIN,
@@ -482,6 +484,89 @@ describe("buildAdvancedTailScript", () => {
     expect(script).toContain(ADVANCED_RESULT_MARKER_END);
     expect(script).toContain("90");
     expect(script).toContain('{"missing":true}');
+  });
+
+  it("emits a small failure payload for an oversized result instead of logging the file", () => {
+    const dir = mkdtempSync(join(tmpdir(), "nojv-grade-tail-"));
+    const resultPath = join(dir, "result.json");
+    try {
+      writeFileSync(resultPath, '{"score":100,"verdict":"accepted"}');
+      truncateSync(resultPath, 32 * 1024 * 1024 + 1);
+      const script = buildAdvancedTailScript(1_000).replace(
+        "/workspace/output/result.json",
+        resultPath,
+      );
+      const logs = execFileSync("sh", ["-c", script], {
+        encoding: "utf8",
+        maxBuffer: 64 * 1024,
+        timeout: 2_000,
+      });
+      expect(parseAdvancedResultLog(logs)).toEqual({ sizeExceeded: true });
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("rejects a result symlink without emitting its target", () => {
+    const dir = mkdtempSync(join(tmpdir(), "nojv-grade-tail-link-"));
+    const resultPath = join(dir, "result.json");
+    try {
+      const target = join(dir, "other.json");
+      writeFileSync(target, '{"score":100,"verdict":"accepted"}');
+      symlinkSync(target, resultPath);
+      const logs = execFileSync(
+        "sh",
+        [
+          "-c",
+          buildAdvancedTailScript(1_000).replace("/workspace/output/result.json", resultPath),
+        ],
+        { encoding: "utf8", timeout: 2_000 },
+      );
+      expect(parseAdvancedResultLog(logs)).toEqual({ invalid: true });
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("bounds emission when result.json grows after stat", () => {
+    const dir = mkdtempSync(join(tmpdir(), "nojv-grade-tail-growth-"));
+    const resultPath = join(dir, "result.json");
+    try {
+      writeFileSync(resultPath, '{"score":100,"verdict":"accepted"}');
+      const script = buildAdvancedTailScript(1_000)
+        .replace("/workspace/output/result.json", resultPath)
+        .replace(
+          "const info = fs.fstatSync(fd);",
+          "const info = fs.fstatSync(fd); fs.truncateSync(path, limit + 1);",
+        );
+      const logs = execFileSync("sh", ["-c", script], {
+        encoding: "utf8",
+        maxBuffer: 64 * 1024,
+        timeout: 2_000,
+      });
+      expect(parseAdvancedResultLog(logs)).toEqual({ invalid: true });
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("emits regular result JSON at the exact byte cap", () => {
+    const dir = mkdtempSync(join(tmpdir(), "nojv-grade-tail-boundary-"));
+    const resultPath = join(dir, "result.json");
+    try {
+      writeFileSync(resultPath, '{"score":100,"verdict":"accepted"}'.padEnd(32 * 1024 * 1024));
+      const logs = execFileSync(
+        "sh",
+        [
+          "-c",
+          buildAdvancedTailScript(1_000).replace("/workspace/output/result.json", resultPath),
+        ],
+        { encoding: "utf8", maxBuffer: 32 * 1024 * 1024 + 1024, timeout: 2_000 },
+      );
+      expect(parseAdvancedResultLog(logs)).toEqual({ score: 100, verdict: "accepted" });
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 });
 
@@ -1117,6 +1202,30 @@ describe("K8sExecutor.execute(advanced) — registry source two-Job/PVC orchestr
     });
     expect(record.jobsDeleted).toHaveLength(2);
     expect(record.pvcsDeleted).toHaveLength(1);
+  });
+
+  it("limits the Advanced result log read at the Kubernetes API", async () => {
+    const record = emptyRecord();
+    const clients = buildFakeClients(record, {
+      sidecarLog: buildSidecarLog({ score: 100, verdict: "accepted" }),
+    });
+    await execute(new K8sExecutor(EXEC_CONFIG, clients), makeAdvancedRequest());
+    expect(clients.coreApi.readNamespacedPodLog).toHaveBeenCalledWith(
+      expect.objectContaining({
+        container: ADVANCED_SIDECAR_NAME,
+        limitBytes: 32 * 1024 * 1024 + 1024,
+      }),
+    );
+  });
+
+  it("reports oversized Advanced results as SE with a limit diagnostic", async () => {
+    const record = emptyRecord();
+    const clients = buildFakeClients(record, {
+      sidecarLog: buildSidecarLog({ sizeExceeded: true }),
+    });
+    const result = await execute(new K8sExecutor(EXEC_CONFIG, clients), makeAdvancedRequest());
+    expect(result.testcaseResults[0]?.verdict).toBe("SE");
+    expect(result.testcaseResults[0]?.stderr).toMatch(/result\.json.*limit/i);
   });
 
   it.each([

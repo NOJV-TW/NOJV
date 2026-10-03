@@ -16,7 +16,6 @@ import type { SandboxRequest } from "@nojv/core";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import {
-  ADVANCED_WORKSPACE_MAX_BYTES,
   buildAdvancedDockerArgs,
   deriveRunStatus,
   dirStats,
@@ -27,6 +26,7 @@ import {
   SafeCopyLimitError,
   type ContainerOutcome,
 } from "../../../apps/worker/src/sandbox/docker/advanced-mode-executor";
+import { ADVANCED_WORKSPACE_MAX_BYTES } from "../../../apps/worker/src/sandbox/shared/advanced-execution";
 
 const runArgs = (
   overrides: Partial<Parameters<typeof buildAdvancedDockerArgs>[0]> = {},

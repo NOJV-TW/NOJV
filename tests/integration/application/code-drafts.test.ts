@@ -54,23 +54,35 @@ describe("codeDraftDomain", () => {
     const problem = await createTestProblem();
     const scope = { context: { type: "practice" as const }, problemId: problem.id };
 
-    await codeDraftDomain.saveCodeDraft(student, {
-      ...scope,
-      language: "python",
-      sourceCode: "print(1)",
-    });
-    await codeDraftDomain.saveCodeDraft(student, {
-      ...scope,
-      language: "python",
-      sourceCode: "print(2)",
-    });
-    await codeDraftDomain.saveCodeDraft(student, {
-      ...scope,
-      language: "cpp",
-      sourceFiles: [{ path: "main.cpp", content: "int main(){}" }],
-    });
+    await codeDraftDomain.saveCodeDraft(
+      student,
+      {
+        ...scope,
+        language: "python",
+        sourceCode: "print(1)",
+      },
+      "127.0.0.1",
+    );
+    await codeDraftDomain.saveCodeDraft(
+      student,
+      {
+        ...scope,
+        language: "python",
+        sourceCode: "print(2)",
+      },
+      "127.0.0.1",
+    );
+    await codeDraftDomain.saveCodeDraft(
+      student,
+      {
+        ...scope,
+        language: "cpp",
+        sourceFiles: [{ path: "main.cpp", content: "int main(){}" }],
+      },
+      "127.0.0.1",
+    );
 
-    const drafts = await codeDraftDomain.listCodeDrafts(student, scope);
+    const drafts = await codeDraftDomain.listCodeDrafts(student, scope, "127.0.0.1");
     expect(
       drafts.map(({ language, sourceCode, sourceFiles }) => ({
         language,
@@ -87,7 +99,9 @@ describe("codeDraftDomain", () => {
         },
       ]),
     );
-    expect(await codeDraftDomain.listCodeDrafts(await buildStudent(), scope)).toEqual([]);
+    expect(
+      await codeDraftDomain.listCodeDrafts(await buildStudent(), scope, "127.0.0.1"),
+    ).toEqual([]);
   });
 
   it("rejects exam drafts before the student has an active session", async () => {
@@ -95,64 +109,86 @@ describe("codeDraftDomain", () => {
     const { exam, problem } = await runningExamWithProblem(student.userId);
 
     await expect(
-      codeDraftDomain.saveCodeDraft(student, {
-        context: { type: "exam", examId: exam.id },
-        problemId: problem.id,
-        language: "c",
-        sourceCode: "prepared in advance",
-      }),
+      codeDraftDomain.saveCodeDraft(
+        student,
+        {
+          context: { type: "exam", examId: exam.id },
+          problemId: problem.id,
+          language: "c",
+          sourceCode: "prepared in advance",
+        },
+        "127.0.0.1",
+      ),
     ).rejects.toBeInstanceOf(ForbiddenError);
   });
 
   it("keeps a student inside the exam context while the session is active", async () => {
     const student = await buildStudent();
     const { exam, problem } = await runningExamWithProblem(student.userId);
-    await examDomain.session.startSession(student, { examId: exam.id });
+    await examDomain.session.startSessionWithGate(student, { examId: exam.id });
     const examScope = {
       context: { type: "exam" as const, examId: exam.id },
       problemId: problem.id,
     };
 
-    await codeDraftDomain.saveCodeDraft(student, {
-      ...examScope,
-      language: "c",
-      sourceCode: "int main(void){}",
-    });
+    await codeDraftDomain.saveCodeDraft(
+      student,
+      {
+        ...examScope,
+        language: "c",
+        sourceCode: "int main(void){}",
+      },
+      "127.0.0.1",
+    );
     expect(
-      (await codeDraftDomain.listCodeDrafts(student, examScope)).map((d) => d.sourceCode),
+      (await codeDraftDomain.listCodeDrafts(student, examScope, "127.0.0.1")).map(
+        (d) => d.sourceCode,
+      ),
     ).toEqual(["int main(void){}"]);
 
     const practiceProblem = await createTestProblem();
     await expect(
-      codeDraftDomain.listCodeDrafts(student, {
-        context: { type: "practice" },
-        problemId: practiceProblem.id,
-      }),
+      codeDraftDomain.listCodeDrafts(
+        student,
+        {
+          context: { type: "practice" },
+          problemId: practiceProblem.id,
+        },
+        "127.0.0.1",
+      ),
     ).rejects.toBeInstanceOf(ForbiddenError);
 
     await examDomain.session.endSession(student, { examId: exam.id, reason: "submitted" });
     await expect(
-      codeDraftDomain.saveCodeDraft(student, {
-        ...examScope,
-        language: "c",
-        sourceCode: "after hand-in",
-      }),
+      codeDraftDomain.saveCodeDraft(
+        student,
+        {
+          ...examScope,
+          language: "c",
+          sourceCode: "after hand-in",
+        },
+        "127.0.0.1",
+      ),
     ).rejects.toBeInstanceOf(ForbiddenError);
   });
 
   it("rejects exam drafts for a problem outside the exam", async () => {
     const student = await buildStudent();
     const { exam } = await runningExamWithProblem(student.userId);
-    await examDomain.session.startSession(student, { examId: exam.id });
+    await examDomain.session.startSessionWithGate(student, { examId: exam.id });
     const other = await createTestProblem();
 
     await expect(
-      codeDraftDomain.saveCodeDraft(student, {
-        context: { type: "exam", examId: exam.id },
-        problemId: other.id,
-        language: "c",
-        sourceCode: "x",
-      }),
+      codeDraftDomain.saveCodeDraft(
+        student,
+        {
+          context: { type: "exam", examId: exam.id },
+          problemId: other.id,
+          language: "c",
+          sourceCode: "x",
+        },
+        "127.0.0.1",
+      ),
     ).rejects.toBeInstanceOf(ForbiddenError);
   });
 
@@ -161,12 +197,16 @@ describe("codeDraftDomain", () => {
     const problem = await createTestProblem({ visibility: "private" });
 
     await expect(
-      codeDraftDomain.saveCodeDraft(student, {
-        context: { type: "practice" },
-        problemId: problem.id,
-        language: "python",
-        sourceCode: "x",
-      }),
+      codeDraftDomain.saveCodeDraft(
+        student,
+        {
+          context: { type: "practice" },
+          problemId: problem.id,
+          language: "python",
+          sourceCode: "x",
+        },
+        "127.0.0.1",
+      ),
     ).rejects.toBeInstanceOf(NotFoundError);
   });
 });

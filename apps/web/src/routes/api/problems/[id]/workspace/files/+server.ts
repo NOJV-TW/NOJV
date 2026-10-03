@@ -4,7 +4,7 @@ import type { RequestHandler } from "./$types";
 import { problemDomain } from "@nojv/application";
 
 import { requireApiAuth } from "$lib/server/auth";
-import { writeApiHandler } from "$lib/server/shared/api-handler";
+import { readFormData, writeApiHandler } from "$lib/server/shared/api-handler";
 
 const MAX_WORKSPACE_FILE_SIZE = 5 * 1024 * 1024;
 
@@ -16,12 +16,7 @@ export const POST: RequestHandler = writeApiHandler(async (event) => {
 
   await problemDomain.assertProblemEditAccess(actor, problemId);
 
-  const contentLength = Number(event.request.headers.get("content-length"));
-  if (Number.isFinite(contentLength) && contentLength > MAX_WORKSPACE_FILE_SIZE * 2) {
-    error(413, "File too large");
-  }
-
-  const formData = await event.request.formData();
+  const formData = await readFormData(event, MAX_WORKSPACE_FILE_SIZE + 64 * 1024);
   const file = formData.get("file");
   if (!(file instanceof Blob)) {
     error(400, "file required");

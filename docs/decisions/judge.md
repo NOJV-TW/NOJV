@@ -186,6 +186,7 @@ Standard-mode Test for sample and custom cases runs client-side in all eight lan
 - Rule: grade never coexists with student code; run never holds answers; Docker and K8s both stay supported.
 - Rule: the grade harness owns the verdict; the worker raises SE only on infrastructure failure (spawn, size cap, grade timeout, missing/invalid `result.json`, transfer-sidecar failure).
 - Rule: run output crosses to grade only through the capped, symlink-safe capture gate (see SEC-14 in security.md); per-submission resources are torn down in `finally` and swept as orphans.
+- Rule: grade workspace writes are bounded like run writes, and result collection has a 32 MiB byte cap on actual reads and log emission. The cap covers the schema's 1,000 testcase feedback strings of 4,000 code units, even when JSON escapes every character (about 24 MiB); checking file size alone is insufficient while the grader can still write. Growing, non-regular or oversized results fail as SE.
 - Code: `packages/core/src/schemas/advanced-mode.ts`, `apps/worker/src/sandbox/docker/advanced-mode-executor.ts`, `apps/worker/src/sandbox/kubernetes/advanced-executor.ts`
 
 ### JDG-17 Advanced network is none or service; answer-bearing containers have no egress

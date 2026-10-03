@@ -57,7 +57,7 @@ describe("resetStudentIpBinding — live gate", () => {
       ipBindingEnabled: true,
       ipViolationMode: "block",
     });
-    await examDomain.session.startSession(student, { examId: exam.id });
+    await examDomain.session.startSessionWithGate(student, { examId: exam.id });
 
     expect(await gate(exam.id, student.userId, "203.0.113.10")).toEqual({ ok: true });
     expect(await gate(exam.id, student.userId, "198.51.100.20")).toEqual({
