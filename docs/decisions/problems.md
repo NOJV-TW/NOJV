@@ -178,7 +178,7 @@ A per-minute cron workflow moves non-terminal submissions whose `updatedAt` exce
 
 ### PRB-17 Operation authority follows the submission's context
 
-**Decided:** 2026-04 · **Source:** [2026-04-19-rejudge-and-score-override-design](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-04-19-rejudge-and-score-override-design.md), [2026-04-19-rejudge-and-score-override-plan](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-04-19-rejudge-and-score-override-plan.md)
+**Decided:** 2026-04 · **Source:** [2026-04-19-rejudge-and-score-override-design](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-04-19-rejudge-and-score-override-design.md), [2026-04-19-rejudge-and-score-override-plan](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-04-19-rejudge-and-score-override-plan.md), [Security remediation PR #628](https://github.com/NOJV-TW/NOJV/pull/628)
 
 Rejudge and score operations share one matrix: practice by admins and the problem author; assignment/exam by admins and that course's teachers/TAs; contest by admins and the organizer. The problem author has no authority over submissions made inside an activity.
 

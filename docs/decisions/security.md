@@ -63,7 +63,7 @@ Regular-admin sessions stay de-elevated until admin mode is granted with a fresh
 
 ### SEC-06 Admin hierarchy is server-enforced, deliberate and audited
 
-**Decided:** 2026-04 · **Source:** [2026-04-11-admin-users-ux-refinement-design](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-04-11-admin-users-ux-refinement-design.md), [2026-07-07-admin-account-ux-overhaul](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/active/2026-07-07-admin-account-ux-overhaul.md)
+**Decided:** 2026-04 · **Source:** [2026-04-11-admin-users-ux-refinement-design](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-04-11-admin-users-ux-refinement-design.md), [2026-07-07-admin-account-ux-overhaul](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/active/2026-07-07-admin-account-ux-overhaul.md), [Security remediation PR #628](https://github.com/NOJV-TW/NOJV/pull/628)
 
 The UI never shows "super admin"; only a super admin may disable, delete or change another admin. Role changes are explicit edit → pick → save, with `ConfirmDialog` for high-risk changes and disabling. Important actions are written to `AdminAuditLog`. A single mis-click once changed platform roles, and hiding a control is not enforcement.
 
@@ -74,7 +74,7 @@ The UI never shows "super admin"; only a super admin may disable, delete or chan
 
 ### SEC-07 API tokens: hashed bearer secrets gated by whitelist, scope and owner role
 
-**Decided:** 2026-06 · **Source:** [2026-06-09-api-token-auth](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-06-09-api-token-auth.md), [2026-06-24-passwordless-stepup-2fa](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-06-24-passwordless-stepup-2fa.md)
+**Decided:** 2026-06 · **Source:** [2026-06-09-api-token-auth](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-06-09-api-token-auth.md), [2026-06-24-passwordless-stepup-2fa](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-06-24-passwordless-stepup-2fa.md), [Security remediation PR #628](https://github.com/NOJV-TW/NOJV/pull/628)
 
 Tokens (`nojv_live_<prefix>.<secret>`) are stored as prefix plus `sha256` hash, shown once, and must expire (30/90/365 days). A request must pass the central method/path whitelist, then the token scope, then the owner's role; domain checks still enforce object access. Only whitelisted routes accept tokens and skip the CSRF header.
 
@@ -106,7 +106,7 @@ One helper resolves the client IP for IP locks and rate limits. In production it
 
 ### SEC-10 Markdown trust is nonce-based; body limits count streamed bytes
 
-**Decided:** 2026-06 · **Source:** [2026-06-12-full-audit-remediation](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-06-12-full-audit-remediation.md), [2026-07-07-system-health-check-remediation](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/active/2026-07-07-system-health-check-remediation.md)
+**Decided:** 2026-06 · **Source:** [2026-06-12-full-audit-remediation](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-06-12-full-audit-remediation.md), [2026-07-07-system-health-check-remediation](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/active/2026-07-07-system-health-check-remediation.md), [Security remediation PR #628](https://github.com/NOJV-TW/NOJV/pull/628)
 
 KaTeX output is wrapped with a per-render random nonce and DOMPurify keeps `style` only inside that subtree. JSON bodies are read through `readJsonBody`, which counts bytes while streaming and returns 413 regardless of `content-length`. Small multipart uploads and credential forms use the same bounded reader before FormData parsing; Auth API bodies are capped before username parsing. Upload MIME is checked by magic bytes. A forgeable `katex` class allowed CSS injection, and chunked bodies bypassed header checks.
 

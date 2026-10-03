@@ -57,6 +57,7 @@ export interface AdvancedModeConfig {
 
 const logger = createLogger("advanced-mode-executor");
 
+// ponytail: 2s polling can overshoot; use filesystem quotas for a hard disk ceiling.
 const WORKSPACE_POLL_INTERVAL_MS = 2_000;
 const RUN_USER = "10001:10001";
 
