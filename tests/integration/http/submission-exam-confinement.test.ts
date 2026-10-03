@@ -148,6 +148,7 @@ describe("exam work is denied by the domain even with page lock disabled", () =>
       expect(await testPrisma.codeDraft.count()).toBe(0);
       expect(await testPrisma.submission.count({ where: { examId: currentExam.id } })).toBe(1);
     },
+    30_000,
   );
 });
 

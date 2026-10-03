@@ -241,7 +241,7 @@ describe("problem forks", () => {
       status: "published",
       visibility: "private",
     });
-    const foreign = await createTestProblem();
+    const foreign = await createTestProblem({ imageInventoryComplete: true });
     const foreignPrivate = await createTestProblem({
       status: "draft",
       visibility: "private",
