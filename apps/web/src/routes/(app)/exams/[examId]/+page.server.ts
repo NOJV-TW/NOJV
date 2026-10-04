@@ -84,6 +84,27 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
   };
 });
 
+function parseSettingsUpdate(data: ExamSettingsForm) {
+  return examUpdateSchema.safeParse({
+    title: data.title,
+    examPasswordEnabled: data.examPasswordEnabled,
+    summary: data.summary,
+    startsAt: toIsoOrUndefined(data.startsAt),
+    endsAt: toIsoOrUndefined(data.allowLateSubmissions ? data.endsAt : data.dueAt),
+    dueAt: toIsoOrUndefined(data.dueAt),
+    adjustmentRules: data.allowLateSubmissions && data.latePenalty ? [data.latePenalty] : [],
+    scoringMode: data.scoringMode,
+    scoreboardMode: data.scoreboardMode,
+    allowedLanguages: data.allowedLanguages,
+    submitCooldownSec: data.submitCooldownSec,
+    pageLockEnabled: data.pageLockEnabled,
+    ipBindingEnabled: data.ipBindingEnabled,
+    ipViolationMode: data.ipViolationMode,
+    ipWhitelistEnabled: data.ipWhitelistEnabled,
+    ipWhitelist: data.ipWhitelistEnabled ? parseIpWhitelistText(data.ipWhitelistText) : [],
+  });
+}
+
 export const actions = {
   updateCredentialPassword: withAction(async (event) => {
     const actor = requireAuth(event);
@@ -159,29 +180,7 @@ export const actions = {
       return fail(400, { form });
     }
 
-    const parsed = examUpdateSchema.safeParse({
-      title: form.data.title,
-      examPasswordEnabled: form.data.examPasswordEnabled,
-      summary: form.data.summary ? form.data.summary : undefined,
-      startsAt: toIsoOrUndefined(form.data.startsAt),
-      endsAt: toIsoOrUndefined(
-        form.data.allowLateSubmissions ? form.data.endsAt : form.data.dueAt,
-      ),
-      dueAt: toIsoOrUndefined(form.data.dueAt),
-      adjustmentRules:
-        form.data.allowLateSubmissions && form.data.latePenalty ? [form.data.latePenalty] : [],
-      scoringMode: form.data.scoringMode,
-      scoreboardMode: form.data.scoreboardMode,
-      allowedLanguages: form.data.allowedLanguages,
-      submitCooldownSec: form.data.submitCooldownSec,
-      pageLockEnabled: form.data.pageLockEnabled,
-      ipBindingEnabled: form.data.ipBindingEnabled,
-      ipViolationMode: form.data.ipViolationMode,
-      ipWhitelistEnabled: form.data.ipWhitelistEnabled,
-      ipWhitelist: form.data.ipWhitelistEnabled
-        ? parseIpWhitelistText(form.data.ipWhitelistText)
-        : [],
-    });
+    const parsed = parseSettingsUpdate(form.data);
     if (!parsed.success) {
       return message<FormMessage>(
         form,
@@ -213,7 +212,19 @@ export const actions = {
       event,
       zod4(examSettingsFormSchema),
     );
+    if (!form.valid) {
+      return fail(400, { form });
+    }
+    const parsed = parseSettingsUpdate(form.data);
+    if (!parsed.success) {
+      return message<FormMessage>(
+        form,
+        { kind: "error", text: parsed.error.issues[0]?.message ?? "validation_failed" },
+        { status: 400 },
+      );
+    }
     try {
+      await updateExamRecord(actor, event.params.examId, parsed.data);
       await publishExam(actor, event.params.examId);
     } catch (err) {
       const classified = classifyRequestError(err, event);
@@ -223,7 +234,7 @@ export const actions = {
         { status: classified.status },
       );
     }
-    return { success: true };
+    return message<FormMessage>(form, { kind: "success", text: "Published." });
   }),
 
   deleteExam: withAction(async (event) => {

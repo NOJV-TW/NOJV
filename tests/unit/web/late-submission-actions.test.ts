@@ -117,6 +117,24 @@ describe("late submission form actions", () => {
     },
   );
 
+  it("clears an emptied summary and accepts the create form's short titles", async () => {
+    const cleared = event(false, "") as { testForm: Record<string, unknown> };
+    cleared.testForm.title = "HW";
+    cleared.testForm.summary = "";
+    await examSettings.updateSettings(cleared as never);
+    await assignmentSettings.updateSettings(cleared as never);
+    for (const [mock, id] of [
+      [mocks.updateExam, "exam_1"],
+      [mocks.updateAssignment, "assignment_1"],
+    ] as const) {
+      expect(mock).toHaveBeenCalledWith(
+        expect.anything(),
+        id,
+        expect.objectContaining({ title: "HW", summary: "" }),
+      );
+    }
+  });
+
   it("rejects missing final collection when late submissions are enabled", async () => {
     for (const action of [
       examCreate.saveDraft,

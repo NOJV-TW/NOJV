@@ -39,6 +39,7 @@ Out of scope: proctoring, course membership gating, score overrides and feedback
 ### Publish and delete
 
 - `publishContest` requires a draft (`"Only draft contests can be published."`), ≥1 problem (`"Add at least one problem before publishing."`), ≥1 language (`"Select at least one allowed language before publishing."`), `startsAt < endsAt` and `endsAt > now` (`"End time must be in the future."`).
+- The settings tab's Publish button saves the submitted settings first, then publishes; a failed save publishes nothing.
 - `deleteContestDraft` deletes only drafts (`"Only draft contests can be deleted."`) and cancels lifecycle work.
 
 ### Update

@@ -69,6 +69,22 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
   };
 });
 
+function parseSettingsUpdate(data: ContestSettingsForm) {
+  return contestUpdateSchema.safeParse({
+    title: data.title,
+    summary: data.summary ? data.summary : undefined,
+    startsAt: toIsoOrUndefined(data.startsAt),
+    endsAt: toIsoOrUndefined(data.endsAt),
+    frozenAt: toIsoOrUndefined(data.frozenAt),
+    problems: data.problems,
+    scoringMode: data.scoringMode,
+    scoreboardMode: data.scoreboardMode,
+    allowedLanguages: data.allowedLanguages,
+    submitCooldownSec: data.submitCooldownSec,
+    penaltyMinutesPerWrong: data.penaltyMinutesPerWrong,
+  });
+}
+
 export const actions: Actions = {
   updateSettings: withAction(async (event) => {
     const actor = requireAuth(event);
@@ -80,19 +96,7 @@ export const actions: Actions = {
       return fail(400, { form });
     }
 
-    const parsed = contestUpdateSchema.safeParse({
-      title: form.data.title,
-      summary: form.data.summary ? form.data.summary : undefined,
-      startsAt: toIsoOrUndefined(form.data.startsAt),
-      endsAt: toIsoOrUndefined(form.data.endsAt),
-      frozenAt: toIsoOrUndefined(form.data.frozenAt),
-      problems: form.data.problems,
-      scoringMode: form.data.scoringMode,
-      scoreboardMode: form.data.scoreboardMode,
-      allowedLanguages: form.data.allowedLanguages,
-      submitCooldownSec: form.data.submitCooldownSec,
-      penaltyMinutesPerWrong: form.data.penaltyMinutesPerWrong,
-    });
+    const parsed = parseSettingsUpdate(form.data);
     if (!parsed.success) {
       return message<FormMessage>(
         form,
@@ -127,7 +131,19 @@ export const actions: Actions = {
       event,
       zod4(contestSettingsFormSchema),
     );
+    if (!form.valid) {
+      return fail(400, { form });
+    }
+    const parsed = parseSettingsUpdate(form.data);
+    if (!parsed.success) {
+      return message<FormMessage>(
+        form,
+        { kind: "error", text: parsed.error.issues[0]?.message ?? "validation_failed" },
+        { status: 400 },
+      );
+    }
     try {
+      await updateContestRecord(actor, event.params.contestId, parsed.data);
       await publishContest(actor, event.params.contestId);
     } catch (err) {
       const classified = classifyRequestError(err, event);
@@ -137,7 +153,7 @@ export const actions: Actions = {
         { status: classified.status },
       );
     }
-    return { success: true };
+    return message<FormMessage>(form, { kind: "success", text: "Published." });
   }),
 
   deleteContest: withAction(async (event) => {

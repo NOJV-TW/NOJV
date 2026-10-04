@@ -66,6 +66,7 @@ Rules come from PRB-10 and PRB-11; data model in [Database](../architecture/DATA
 - Check and write run in one locked transaction, so a concurrent second publish fails with the not-draft error.
 - A draft with no `dueAt` publishes; the window check applies only when `dueAt` is set.
 - Creating with `status: "published"` inserts a draft and runs the same publish transition in the create transaction: the same checks and failures apply, a `publish` audit row is written, and any failure rolls back the whole create.
+- The settings tab's Publish button saves the submitted settings first (`updateSettings` rules), then publishes; a failed save publishes nothing. Publish and revert return the settings form so the tab refreshes.
 
 ### Revert to draft and delete draft
 

@@ -48,6 +48,7 @@ Decision: ASM-22. Security model: [Security](../operations/SECURITY.md).
 - Auto-close is ensured only after the create or publish transaction commits.
 - `publishExam` requires a draft (`"Only draft exams can be published."`), a positive allocation total (`"Add at least one problem worth points before publishing or saving a published activity."`, which also covers an exam with no problems), ≥1 language (`"Select at least one allowed language before publishing."`), a valid window (`"endsAt must be later than startsAt."`), a valid late policy, and `endsAt > now` (`"End time must be in the future."`).
 - Creating with `status: "published"` inserts a draft and runs the same publish transition in the create transaction, so every `publishExam` check above applies and any failure rolls back the whole create.
+- The settings tab's Publish button saves the submitted settings first, then publishes; a failed save publishes nothing.
 - `deleteExamDraft` on a non-draft fails with `"Only draft exams can be deleted."`.
 
 ### Late collection

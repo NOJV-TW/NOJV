@@ -53,52 +53,6 @@ export const assessmentContextSchema = z.object({
   courseId: z.string().trim().min(1),
 });
 
-export const assessmentCreateSchema = z
-  .object({
-    adjustmentRules: adjustmentRulesSchema.optional(),
-    allowedLanguages: z.array(languageSchema).max(8).default([]),
-    closesAt: isoDateTimeSchema,
-    courseId: z.string().trim().min(1),
-    dueAt: isoDateTimeSchema.optional(),
-    maxAttemptsPerDay: z.coerce.number().int().min(1).max(999).nullish(),
-    attemptResetMinuteOfDay: z.coerce.number().int().min(0).max(1439).nullish(),
-    opensAt: isoDateTimeSchema,
-    problems: activityProblemsSchema.default([]),
-    id: slugSchema,
-    summary: z.string().trim().min(8).max(2_000),
-    title: z.string().trim().min(3).max(120),
-  })
-  .superRefine((value, ctx) => {
-    const opensAt = new Date(value.opensAt);
-    const closesAt = new Date(value.closesAt);
-
-    if (opensAt >= closesAt) {
-      ctx.addIssue({
-        code: "custom",
-        message: "closesAt must be later than opensAt",
-        path: ["closesAt"],
-      });
-    }
-
-    if (value.dueAt !== undefined) {
-      const dueAt = new Date(value.dueAt);
-      if (opensAt >= dueAt) {
-        ctx.addIssue({
-          code: "custom",
-          message: "dueAt must be later than opensAt",
-          path: ["dueAt"],
-        });
-      }
-      if (dueAt > closesAt) {
-        ctx.addIssue({
-          code: "custom",
-          message: "closesAt must be later than or equal to dueAt",
-          path: ["closesAt"],
-        });
-      }
-    }
-  });
-
 export const courseAssignmentFormSchema = z
   .object({
     allowedLanguages: z.array(languageSchema).max(8).default([]),
@@ -162,7 +116,7 @@ export const assessmentUpdateSchema = z
     adjustmentRules: adjustmentRulesSchema.optional(),
     latePenalty: latePenaltyRuleSchema.nullable().optional(),
     summary: z.string().trim().max(2_000).optional(),
-    title: z.string().trim().min(3).max(120).optional(),
+    title: z.string().trim().min(1).max(120).optional(),
   })
   .superRefine((value, ctx) => {
     if (value.adjustmentRules !== undefined && value.latePenalty !== undefined) {
@@ -209,7 +163,7 @@ export const assessmentUpdateSchema = z
 
 export const assessmentSettingsFormSchema = z
   .object({
-    title: z.string().trim().min(3).max(120),
+    title: z.string().trim().min(1).max(120),
     summary: z.string().trim().max(2_000).default(""),
     opensAt: z.string().trim().min(1),
     dueAt: z.string().trim().min(1),
