@@ -13,12 +13,8 @@ import {
   mapProblemPickerCandidate,
   type ProblemPickerGroups,
 } from "../problem/picker";
-import {
-  ConflictError,
-  ForbiddenError,
-  NotFoundError,
-  ValidationError,
-} from "../shared/errors";
+import { ConflictError, ForbiddenError, NotFoundError } from "../shared/errors";
+import { assertCourseWritable } from "../shared/course-writable";
 import { isCourseStaffTx } from "../shared/permissions";
 import { requireCourse } from "../shared/require";
 
@@ -41,7 +37,7 @@ export async function lockCourseForStaffMutation(
 ) {
   await courseRepo.withTx(tx).lockForUpdate(courseId);
   const course = await requireLibraryCourse(tx, actor, courseId);
-  if (course.archived) throw new ValidationError("Archived courses are read-only.");
+  assertCourseWritable(course);
   return course;
 }
 
@@ -183,7 +179,7 @@ export async function removeCourseProblem(
     ) {
       throw new ForbiddenError("You do not have permission to remove this course problem.");
     }
-    if (course.archived) throw new ValidationError("Archived courses are read-only.");
+    assertCourseWritable(course);
     if ((await referencedProblemIds(tx, courseId, problemId)).has(problemId)) {
       throw new ConflictError(
         "This problem has course activity or history references and cannot be removed.",

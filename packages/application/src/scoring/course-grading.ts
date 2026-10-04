@@ -7,8 +7,8 @@ import {
   type TransactionClient,
 } from "@nojv/db";
 
-import { lockCourseMembers } from "../course/roster";
 import type { ActorContext } from "../shared/actor-context";
+import { lockWritableCourse } from "../shared/course-writable";
 import { isCourseStaffTx } from "../shared/permissions";
 import { ConflictError, ForbiddenError, NotFoundError } from "../shared/errors";
 import type { GradedContext } from "../shared/graded-context";
@@ -24,7 +24,7 @@ export async function lockCourseGradingContext(
   const contextId = context.type === "assignment" ? context.assignmentId : context.examId;
   const initial = await repo.findById(contextId);
   if (!initial) throw new NotFoundError("Grading context not found.");
-  await lockCourseMembers(tx, initial.courseId);
+  await lockWritableCourse(tx, initial.courseId);
   await repo.lockForUpdate(contextId);
   const row = await repo.findById(contextId);
   if (!row) throw new NotFoundError("Grading context not found.");

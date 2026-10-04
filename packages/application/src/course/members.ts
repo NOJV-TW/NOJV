@@ -15,6 +15,7 @@ import {
   NotFoundError,
   ValidationError,
 } from "../shared/errors";
+import { assertCourseWritable } from "../shared/course-writable";
 import { canManageCourse, canManageMembers, getCourseRole } from "../shared/permissions";
 import { requireCourse } from "../shared/require";
 import * as notificationDomain from "../notification";
@@ -156,6 +157,7 @@ export async function bulkAddByHandle(
     ) {
       throw new ForbiddenError("You cannot add members with this role.");
     }
+    assertCourseWritable(course);
     const usersByHandle = new Map(users.map((user) => [user.username, user.id]));
     const existing = await tx.courseMembership.findMany({ where: { courseId } });
     const existingByUser = new Map(
@@ -249,7 +251,7 @@ async function requireManagedMember(
     throw new ForbiddenError("Only teachers or admins can manage members.");
   const member = await tx.courseMembership.findUnique({
     where: { id: membershipId, courseId },
-    include: { course: { select: { ownerId: true } } },
+    include: { course: { select: { ownerId: true, archived: true } } },
   });
   if (!member) throw new NotFoundError("Course member not found.");
   const denial = memberActionDenial(
@@ -262,6 +264,7 @@ async function requireManagedMember(
     operation,
   );
   if (denial) throw new ForbiddenError(denial);
+  assertCourseWritable(member.course);
   return { member, actorRole };
 }
 

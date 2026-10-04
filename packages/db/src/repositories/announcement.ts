@@ -80,10 +80,6 @@ export const announcementRepo = {
     });
   },
 
-  delete(id: string) {
-    return prisma.announcement.delete({ where: { id } });
-  },
-
   withTx(tx: TransactionClient) {
     return {
       async findByIdForUpdate(id: string) {
@@ -110,6 +106,9 @@ export const announcementRepo = {
       },
       update(id: string, data: Prisma.AnnouncementUpdateInput) {
         return tx.announcement.update({ where: { id }, data });
+      },
+      delete(id: string) {
+        return tx.announcement.delete({ where: { id } });
       },
     };
   },

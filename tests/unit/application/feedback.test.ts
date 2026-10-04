@@ -15,6 +15,8 @@ const {
   feedbackDeleteById,
   feedbackFindExistingForUpsert,
   feedbackAuditCreate,
+  courseLock,
+  courseFindById,
 } = vi.hoisted(() => ({
   assessmentFindByIdWithCourseId: vi.fn(),
   examFindById: vi.fn(),
@@ -29,9 +31,12 @@ const {
   feedbackDeleteById: vi.fn(),
   feedbackFindExistingForUpsert: vi.fn(),
   feedbackAuditCreate: vi.fn(),
+  courseLock: vi.fn(),
+  courseFindById: vi.fn(),
 }));
 
 vi.mock("@nojv/db", () => ({
+  courseRepo: { withTx: () => ({ lockForUpdate: courseLock, findById: courseFindById }) },
   assessmentRepo: {
     findByIdWithCourseId: assessmentFindByIdWithCourseId,
     withTx: () => ({ findById: assessmentFindByIdWithCourseId, lockForUpdate: vi.fn() }),
@@ -114,6 +119,48 @@ beforeEach(() => {
     courseId: "crs_1",
     role: "student",
     status: "active",
+  });
+  courseFindById.mockResolvedValue({ id: "crs_1", archived: false });
+});
+
+describe("archived course", () => {
+  beforeEach(() => {
+    assessmentFindByIdWithCourseId.mockResolvedValue({
+      id: "ca_hw1",
+      courseId: "crs_1",
+      closesAt: CLOSED_AT,
+    });
+    courseMembershipFindByComposite.mockResolvedValue({ role: "teacher", status: "active" });
+    feedbackFindById.mockResolvedValue({
+      id: "fb_1",
+      courseMembershipId: "mem_student",
+      problemId: "prob_1",
+      assessmentId: "ca_hw1",
+      examId: null,
+      comment: "Old",
+    });
+    courseFindById.mockResolvedValue({ id: "crs_1", archived: true });
+  });
+
+  it.each([
+    [
+      "upsert",
+      () =>
+        upsertFeedback(actor({ userId: "usr_t" }), {
+          context: assignmentContext,
+          input: baseInput,
+        }),
+    ],
+    ["delete", () => deleteFeedback(actor({ userId: "usr_t" }), "fb_1")],
+  ])("rejects feedback %s inside the course lock", async (_label, mutate) => {
+    await expect(mutate()).rejects.toMatchObject({
+      name: "ValidationError",
+      message: "Archived courses are read-only.",
+    });
+    expect(courseLock).toHaveBeenCalledWith("crs_1");
+    expect(feedbackUpsert).not.toHaveBeenCalled();
+    expect(feedbackDeleteById).not.toHaveBeenCalled();
+    expect(feedbackAuditCreate).not.toHaveBeenCalled();
   });
 });
 

@@ -16,6 +16,7 @@ const h = vi.hoisted(() => {
   const contest = { createdByUserId: "teacher" };
   const problem = { authorId: "teacher", storageGeneration: 1 };
   const user = { platformRole: "teacher", disabled: false };
+  const course = { archived: false };
   const lock = vi
     .fn<(query: TemplateStringsArray | string, ...params: unknown[]) => Promise<unknown[]>>()
     .mockResolvedValue([]);
@@ -32,9 +33,11 @@ const h = vi.hoisted(() => {
     },
     assessment: { findUnique: vi.fn(() => Promise.resolve({ courseId: "course" })) },
     exam: { findUnique: vi.fn(() => Promise.resolve({ courseId: "course" })) },
+    judgeExecution: { findUniqueOrThrow: vi.fn(), update: vi.fn() },
   };
   return {
     submission,
+    course,
     current,
     membership,
     contest,
@@ -56,10 +59,32 @@ const h = vi.hoisted(() => {
 vi.mock("@nojv/db", () => ({
   prismaAdapterClient: {
     submission: { findMany: vi.fn(() => Promise.resolve([{ ...h.submission }])) },
+    judgeExecution: {
+      findMany: vi.fn(() =>
+        Promise.resolve([{ id: "run", submissionId: h.submission.id, state: "queued" }]),
+      ),
+    },
     $transaction: vi.fn((callback: (tx: typeof h.tx) => Promise<unknown>) => callback(h.tx)),
   },
-  durableWorkRepo: { withTx: () => ({ enqueue: h.enqueue }) },
-  courseRepo: { withTx: () => ({ lockForUpdate: h.lock }) },
+  durableWorkRepo: {
+    withTx: () => ({ enqueue: h.enqueue, cancel: vi.fn() }),
+    findByWorkflowId: vi.fn(() =>
+      Promise.resolve({
+        dedupeKey: "rejudge-1",
+        payload: {
+          input: { mode: "single", submissionId: "submission", triggeredByUserId: "teacher" },
+          workflowId: "rejudge-1",
+          prepared: true,
+        },
+      }),
+    ),
+  },
+  courseRepo: {
+    withTx: () => ({
+      lockForUpdate: h.lock,
+      findById: vi.fn(() => Promise.resolve({ id: "course", ...h.course })),
+    }),
+  },
   courseMembershipRepo: {
     findByComposite: vi.fn(() => Promise.resolve({ role: "teacher", status: "active" })),
     withTx: () => ({ findByComposite: vi.fn(() => Promise.resolve({ ...h.membership })) }),
@@ -98,7 +123,10 @@ vi.mock("../../../packages/application/src/submission/judge-execution", () => ({
 }));
 vi.mock("../../../packages/application/src/submission/judge-recovery", () => ({}));
 
-import { dispatchRejudge } from "../../../packages/application/src/submission/rejudge-control";
+import {
+  cancelRejudge,
+  dispatchRejudge,
+} from "../../../packages/application/src/submission/rejudge-control";
 
 const actor = { userId: "teacher", platformRole: "teacher" as const };
 const single = {
@@ -115,6 +143,7 @@ beforeEach(() => {
   Object.assign(h.contest, { createdByUserId: actor.userId });
   Object.assign(h.problem, { authorId: actor.userId, storageGeneration: 1 });
   Object.assign(h.user, { platformRole: "teacher", disabled: false });
+  h.course.archived = false;
   h.prepare.mockResolvedValue({ pointer: {}, problemGeneration: 1 });
 });
 
@@ -227,5 +256,52 @@ describe("rejudge commit authority", () => {
     expect(h.lock.mock.invocationCallOrder.at(-1)).toBeLessThan(
       h.create.mock.invocationCallOrder[0],
     );
+  });
+});
+
+describe("archived course rejudges", () => {
+  const readOnly = { name: "ValidationError", message: "Archived courses are read-only." };
+
+  beforeEach(() => {
+    h.course.archived = true;
+  });
+
+  it.each([
+    ["assignment", { assessmentId: "assignment", examId: null }],
+    ["exam", { assessmentId: null, examId: "exam" }],
+  ])("rejects a single %s submission rejudge", async (_label, scope) => {
+    Object.assign(h.submission, scope);
+    Object.assign(h.current, h.submission);
+    await expect(dispatchRejudge(single, actor)).rejects.toMatchObject(readOnly);
+    expect(h.create).not.toHaveBeenCalled();
+    expect(h.enqueue).not.toHaveBeenCalled();
+  });
+
+  it("rejects a batch rejudge scoped to the course activity", async () => {
+    await expect(
+      dispatchRejudge(
+        {
+          mode: "batch",
+          problemId: "problem",
+          assessmentId: "assignment",
+          triggeredByUserId: actor.userId,
+        },
+        actor,
+      ),
+    ).rejects.toMatchObject(readOnly);
+    expect(h.create).not.toHaveBeenCalled();
+  });
+
+  it("rejects cancelling an in-flight course rejudge", async () => {
+    await expect(cancelRejudge(actor, "rejudge-1")).rejects.toMatchObject(readOnly);
+    expect(h.tx.judgeExecution.update).not.toHaveBeenCalled();
+  });
+
+  it("leaves contest rejudges unaffected", async () => {
+    Object.assign(h.submission, { contestId: "contest", assessmentId: null });
+    Object.assign(h.current, h.submission);
+    await expect(dispatchRejudge(single, actor)).resolves.toMatchObject({
+      workflowId: expect.stringMatching(/^rejudge-/) as unknown,
+    });
   });
 });

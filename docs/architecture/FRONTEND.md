@@ -49,7 +49,7 @@ Solve pages all render `ProblemSolveView` via `loadProblemSolveData` in `lib/ser
 | `/submissions/[submissionId]`                      | Verdict, subtask tree, source; staff review and student self-view                                                                                |
 | `/courses`                                         | Enrolled / Managing tabs; effective admins redirect to `/admin/courses`                                                                          |
 | `/courses/new`                                     | Teacher / admin                                                                                                                                  |
-| `/courses/[courseId]`                              | Course home; sub-pages `settings`, `members`, `analytics`, `grades`, `problems`, `assignments[/new]`, `exams[/new]`                              |
+| `/courses/[courseId]`                              | Course home; sub-pages `settings`, `members`, `analytics`, `grades`, `problems`, `assignments[/new]`, `exams[/new]`; read-only when archived     |
 | `/courses/[courseId]/problems`                     | Course problem library (add from personal private or public problems)                                                                            |
 | `/courses/[courseId]/grades`                       | Gradebook: staff see all students + CSV export; students see their own row                                                                       |
 | `/assignments`                                     | Cross-course list (All / Open / Upcoming / Closed)                                                                                               |

@@ -9,6 +9,9 @@ const {
   findByContestId,
   triggerLogCreate,
   runTransactionMock,
+  activityFindById,
+  courseLock,
+  courseFindById,
 } = vi.hoisted(() => ({
   upsertForExam: vi.fn(),
   upsertForAssessment: vi.fn(),
@@ -18,11 +21,15 @@ const {
   findByContestId: vi.fn(),
   triggerLogCreate: vi.fn(),
   runTransactionMock: vi.fn(),
+  activityFindById: vi.fn(),
+  courseLock: vi.fn(),
+  courseFindById: vi.fn(),
 }));
 
 vi.mock("@nojv/db", () => ({
-  examRepo: {},
-  assessmentRepo: {},
+  examRepo: { withTx: () => ({ findById: activityFindById }) },
+  assessmentRepo: { withTx: () => ({ findById: activityFindById }) },
+  courseRepo: { withTx: () => ({ lockForUpdate: courseLock, findById: courseFindById }) },
   contestRepo: {},
   plagiarismRepo: {
     upsertForExam,
@@ -56,6 +63,8 @@ beforeEach(() => {
   runTransactionMock.mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) =>
     fn(TX_SENTINEL),
   );
+  activityFindById.mockResolvedValue({ courseId: "crs_1" });
+  courseFindById.mockResolvedValue({ id: "crs_1", archived: false });
 });
 
 describe("createPlagiarismReport — trigger audit log", () => {
@@ -202,19 +211,30 @@ describe("createPlagiarismReport — trigger audit log", () => {
     expect(order).toEqual(["trigger-log", "upsert"]);
   });
 
-  it("still overwrites parent fields when writePlagiarismFields throws — log is preserved (tx scoped to log only)", async () => {
-    findByExamId.mockResolvedValueOnce({
-      status: "completed",
-      results: { pairs: [{ a: 1 }, { a: 2 }] },
-    });
-    upsertForExam.mockRejectedValueOnce(new Error("db down"));
+  it("writes the trigger log and the parent-row overwrite in one transaction", async () => {
+    findByExamId.mockResolvedValueOnce(null).mockResolvedValueOnce({ status: "pending" });
+
+    await createPlagiarismReport({ id: "exam_1", type: "exam" }, "usr_teacher");
+
+    expect(runTransactionMock).toHaveBeenCalledOnce();
+    expect(triggerLogCreate.mock.calls[0][0]).toBe(TX_SENTINEL);
+    expect(upsertForExam.mock.calls[0][2]).toBe(TX_SENTINEL);
+  });
+
+  it("rejects an archived course before writing the receipt or wiping results", async () => {
+    findByAssessmentId.mockResolvedValueOnce({ status: "completed", results: { pairs: [] } });
+    courseFindById.mockResolvedValue({ id: "crs_1", archived: true });
 
     await expect(
-      createPlagiarismReport({ id: "exam_1", type: "exam" }, "usr_teacher"),
-    ).rejects.toThrow("db down");
+      createPlagiarismReport({ id: "asg_1", type: "assessment" }, "usr_teacher"),
+    ).rejects.toMatchObject({
+      name: "ValidationError",
+      message: "Archived courses are read-only.",
+    });
 
-    expect(triggerLogCreate).toHaveBeenCalledTimes(1);
-    expect(triggerLogCreate.mock.calls[0][1].priorPairCount).toBe(2);
+    expect(courseLock).toHaveBeenCalledWith("crs_1");
+    expect(triggerLogCreate).not.toHaveBeenCalled();
+    expect(upsertForAssessment).not.toHaveBeenCalled();
   });
 
   it("does NOT write a trigger log if the tx itself fails", async () => {

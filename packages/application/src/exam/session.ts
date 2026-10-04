@@ -11,6 +11,7 @@ import {
 import type { ExamAutoCloseInput } from "@nojv/core";
 
 import type { ActorContext } from "../shared/actor-context";
+import { lockWritableCourse } from "../shared/course-writable";
 import { ConflictError, ForbiddenError, HttpError, NotFoundError } from "../shared/errors";
 import { canManageCourse, getCourseRole } from "../shared/permissions";
 import { checkProctoringGateInTx, type ProctoringDenialReason } from "../proctoring/gate";
@@ -403,6 +404,7 @@ export async function releaseSessionAsInstructor(
     if (!canManageCourse(await getCourseRole(actor, exam.courseId, tx))) {
       throw new ForbiddenError("Only course staff can release exam sessions.");
     }
+    await lockWritableCourse(tx, exam.courseId);
 
     const session = await examSessionRepo.withTx(tx).findByUserAndExam(targetUserId, examId);
     if (session?.endedAt !== null) {
@@ -443,6 +445,7 @@ export async function resetStudentIpBinding(
     if (!canManageCourse(await getCourseRole(actor, exam.courseId, tx))) {
       throw new ForbiddenError("Only course staff can reset a student's IP binding.");
     }
+    await lockWritableCourse(tx, exam.courseId);
 
     await lockUserExamSessions(tx, targetUserId);
 
@@ -506,6 +509,7 @@ export async function releaseAllSessionsAsInstructor(
     if (!canManageCourse(await getCourseRole(actor, exam.courseId, tx))) {
       throw new ForbiddenError("Only course staff can release exam sessions.");
     }
+    await lockWritableCourse(tx, exam.courseId);
 
     const active = await examSessionRepo.withTx(tx).findAllActiveForExam(examId);
     const now = new Date();

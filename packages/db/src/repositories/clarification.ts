@@ -53,49 +53,6 @@ export const clarificationRepo = {
     });
   },
 
-  create(data: ClarificationCreateInput) {
-    return prisma.clarification.create({
-      data: {
-        contextType: data.contextType,
-        contextId: data.contextId,
-        problemId: data.problemId,
-        askedByUserId: data.askedByUserId,
-        questionText: data.questionText,
-      },
-      include: clarificationInclude,
-    });
-  },
-
-  updateAnswer(id: string, data: ClarificationAnswerUpdate) {
-    return prisma.clarification.update({
-      where: { id },
-      data: {
-        answerText: data.answerText,
-        answeredByUserId: data.answeredByUserId,
-        state: data.state,
-        answeredAt: data.answeredAt,
-        isPublic: data.isPublic,
-      },
-      include: clarificationInclude,
-    });
-  },
-
-  updateState(id: string, state: ClarificationState) {
-    return prisma.clarification.update({
-      where: { id },
-      data: { state },
-      include: clarificationInclude,
-    });
-  },
-
-  softDelete(id: string, now = new Date()) {
-    return prisma.clarification.update({
-      where: { id },
-      data: { deletedAt: now },
-      include: clarificationInclude,
-    });
-  },
-
   countInWindow(
     userId: string,
     contextType: ClarificationContextType,
@@ -115,6 +72,19 @@ export const clarificationRepo = {
 
   withTx(tx: TransactionClient) {
     return {
+      create(data: ClarificationCreateInput) {
+        return tx.clarification.create({
+          data: {
+            contextType: data.contextType,
+            contextId: data.contextId,
+            problemId: data.problemId,
+            askedByUserId: data.askedByUserId,
+            questionText: data.questionText,
+          },
+          include: clarificationInclude,
+        });
+      },
+
       updateAnswer(id: string, data: ClarificationAnswerUpdate) {
         return tx.clarification.update({
           where: { id },
@@ -125,6 +95,22 @@ export const clarificationRepo = {
             answeredAt: data.answeredAt,
             isPublic: data.isPublic,
           },
+          include: clarificationInclude,
+        });
+      },
+
+      updateState(id: string, state: ClarificationState) {
+        return tx.clarification.update({
+          where: { id },
+          data: { state },
+          include: clarificationInclude,
+        });
+      },
+
+      softDelete(id: string, now = new Date()) {
+        return tx.clarification.update({
+          where: { id },
+          data: { deletedAt: now },
           include: clarificationInclude,
         });
       },

@@ -10,7 +10,7 @@
   allowedLanguages={data.solveProps.allowedLanguages}
   assessment={data.solveProps.assignmentProp}
   backLink={data.solveProps.backLink}
-  canRejudge={data.solveProps.canRejudge}
+  canRejudge={data.solveProps.canRejudge && !data.course.archived}
   contestId={data.solveProps.contestId}
   dailyAttempts={data.dailyAttempts ?? undefined}
   problem={data.solveProps.problem}

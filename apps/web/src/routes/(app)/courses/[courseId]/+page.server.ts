@@ -56,6 +56,7 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
     assignments,
     exams: examsWithClassTotals,
     totalStudents,
+    canEdit: isManager && !course.archived,
   };
 });
 

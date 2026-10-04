@@ -14,6 +14,7 @@ import { pubsub } from "@nojv/redis";
 
 import * as notificationDomain from "../notification";
 import type { ActorContext } from "../shared/actor-context";
+import { lockWritableContextCourse } from "../shared/course-writable";
 import {
   ConflictError,
   ForbiddenError,
@@ -70,12 +71,15 @@ export async function ask(
     throw new ConflictError("Too many questions in the last 10 minutes.");
   }
 
-  const row = await clarificationRepo.create({
-    contextType: db.contextType,
-    contextId: db.contextId,
-    problemId: input.problemId ?? null,
-    askedByUserId: actor.userId,
-    questionText: text,
+  const row = await runTransaction(async (tx) => {
+    await lockWritableContextCourse(tx, input.context);
+    return clarificationRepo.withTx(tx).create({
+      contextType: db.contextType,
+      contextId: db.contextId,
+      problemId: input.problemId ?? null,
+      askedByUserId: actor.userId,
+      questionText: text,
+    });
   });
   await publishClarificationEvent("created", row, "staff");
   const isStaff = await canSeeAuthor(actor, input.context);
@@ -103,6 +107,7 @@ export async function answer(
 
   const wasPending = row.state === "pending";
   const updated = await runTransaction(async (tx) => {
+    await lockWritableContextCourse(tx, context);
     const result = await clarificationRepo.withTx(tx).updateAnswer(id, {
       answerText: text,
       answeredByUserId: actor.userId,
@@ -143,7 +148,10 @@ export async function dismiss(
   if (row.state === "answered") {
     throw new ConflictError("Answered clarifications cannot be dismissed.");
   }
-  const updated = await clarificationRepo.updateState(id, "dismissed");
+  const updated = await runTransaction(async (tx) => {
+    await lockWritableContextCourse(tx, context);
+    return clarificationRepo.withTx(tx).updateState(id, "dismissed");
+  });
   await publishClarificationEvent("dismissed", updated, "staff");
   return projectRow(updated, true, actor.userId);
 }
@@ -159,7 +167,10 @@ export async function deleteClarification(actor: ActorContext, id: string): Prom
     throw new ForbiddenError("Not permitted to delete this clarification.");
   }
 
-  const deleted = await clarificationRepo.softDelete(id);
+  const deleted = await runTransaction(async (tx) => {
+    await lockWritableContextCourse(tx, context);
+    return clarificationRepo.withTx(tx).softDelete(id);
+  });
   await publishClarificationEvent("deleted", deleted, deleted.isPublic ? "public" : "staff");
 }
 

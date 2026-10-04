@@ -25,6 +25,7 @@ Out of scope: student-visible results, automatic penalties (use rejudge or score
 - Assignment and exam targets: the actor's effective course role must be admin, course teacher or course TA (`canManageCourse`); platform teachers without membership are denied.
 - Contest targets: platform admin or the contest creator.
 - Denials: trigger `"Only staff can trigger plagiarism checks."`, report view `"Only staff can view plagiarism reports."`, source view `"Only staff can view plagiarism source code."`. Students never see reports, pairs or sources.
+- Archived courses (ASM-26): triggering a run and flagging or unflagging an assignment or exam pair fail with `ValidationError("Archived courses are read-only.")` inside the write transaction, for admins too. Reports, pairs and existing flags stay readable; the pair page hides the flag controls.
 
 ### Target resolution
 
@@ -33,7 +34,7 @@ Out of scope: student-visible results, automatic penalties (use rejudge or score
 
 ### Trigger and lifecycle
 
-- `POST /api/plagiarism/[id]/reports` writes a `PlagiarismTriggerLog` row (who, when, `priorPairCount`) before overwriting, then sets `plagiarismStatus = pending`, clears results, report URL and completion time, records trigger time and user, dispatches the workflow, and returns 202 with a `Location` poll URL.
+- `POST /api/plagiarism/[id]/reports` writes a `PlagiarismTriggerLog` row (who, when, `priorPairCount`) and, in the same transaction, sets `plagiarismStatus = pending`, clears results, report URL and completion time, records trigger time and user, dispatches the workflow, and returns 202 with a `Location` poll URL.
 - Workflow id `plagiarism-${targetType}-${targetId}` on the platform task queue with `workflowIdConflictPolicy: TERMINATE_EXISTING`: re-triggering terminates an in-flight run and starts a fresh one.
 - The activity sets `running`, then `completed` with `{ pairs }` and `plagiarismCompletedAt`, or `failed` on any error and rethrows. Activity options: `startToCloseTimeout: "10m"`, `maximumAttempts: 3`.
 - `plagiarismReportUrl` is always null for Dolos runs.

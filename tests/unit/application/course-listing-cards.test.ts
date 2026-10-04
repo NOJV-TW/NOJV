@@ -21,11 +21,12 @@ vi.mock("@nojv/db", async (importOriginal) => ({
 
 import { listForUserWithCards } from "../../../packages/application/src/course/queries";
 
-function course(id: string) {
+function course(id: string, archived = false) {
   return {
     id,
     title: id,
     description: "",
+    archived,
     owner: { name: "Owner" },
     academicYear: null,
     semester: null,
@@ -55,4 +56,13 @@ it("counts draft assignments only for courses the user manages", async () => {
   ]);
   expect(managing).toEqual([expect.objectContaining({ id: "managed", draftAssignments: 2 })]);
   expect(mocks.groupDraft).toHaveBeenCalledWith(["managed"]);
+});
+
+it("returns each course's archived state", async () => {
+  mocks.findManyForCards.mockResolvedValue([course("enrolled", true), course("managed")]);
+
+  const { enrolled, managing } = await listForUserWithCards("user-1");
+
+  expect(enrolled).toEqual([expect.objectContaining({ id: "enrolled", archived: true })]);
+  expect(managing).toEqual([expect.objectContaining({ id: "managed", archived: false })]);
 });

@@ -23,6 +23,12 @@ const {
 }));
 
 vi.mock("@nojv/db", () => ({
+  courseRepo: {
+    withTx: () => ({
+      lockForUpdate: vi.fn(),
+      findById: vi.fn(() => Promise.resolve({ id: "crs_1", archived: false })),
+    }),
+  },
   assessmentRepo: {
     findByIdWithCourseId: assessmentFindByIdWithCourseId,
     withTx: () => ({ findById: assessmentFindByIdWithCourseId, lockForUpdate: vi.fn() }),

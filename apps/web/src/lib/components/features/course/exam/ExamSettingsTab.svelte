@@ -36,10 +36,17 @@
     form: SuperValidated<ExamSettingsForm, FormMessage>;
     detail: SettingsTabDetail;
     liveStatus: SettingsLiveStatus;
+    readOnly?: boolean;
     class?: string;
   }
 
-  let { form: formProp, detail, liveStatus, class: className }: Props = $props();
+  let {
+    form: formProp,
+    detail,
+    liveStatus,
+    readOnly = false,
+    class: className,
+  }: Props = $props();
 
   const {
     form,
@@ -130,118 +137,120 @@
     <p class="text-body-sm text-success">{$formMessage.text}</p>
   {/if}
 
-  <form method="POST" action="?/updateSettings" use:enhance class="space-y-5">
-    <FormError message={$formMessage?.kind === "error" ? $formMessage.text : null} />
+  <form method="POST" action="?/updateSettings" use:enhance>
+    <fieldset disabled={readOnly} class="min-w-0 space-y-5">
+      <FormError message={$formMessage?.kind === "error" ? $formMessage.text : null} />
 
-    <ExamBasicSettings {form} {errors} editable={editableBasics} />
+      <ExamBasicSettings {form} {errors} editable={editableBasics} />
 
-    <section
-      class="rounded-xl border border-border-subtle bg-[color:var(--color-panel)] p-4 shadow-rest"
-    >
-      <h3 class="mb-4 text-title-sm font-medium">
-        {m.examCreate_scheduleCardTitle()}
-      </h3>
-      <ExamTimelineConfig
-        {form}
-        {errors}
-        editableStart={editableBasics}
-        editableEnd={editableBasics || isRunning}
-        {isRunning}
-      />
-    </section>
-
-    <ExamProblemConfig {form} {errors} editable={editableScoring} />
-
-    <section
-      class="rounded-xl border border-border-subtle bg-[color:var(--color-panel)] p-4 shadow-rest"
-    >
-      <div class="flex items-start justify-between gap-4">
-        <div class="flex-1">
-          <div class="flex items-center gap-2">
-            <h3 class="text-title-sm font-medium">{m.examPassword_label()}</h3>
-            <HelpTooltip text={m.examPassword_help()} />
-          </div>
-          <p
-            id="settings-exam-password-description"
-            class="mt-1 text-caption text-muted-foreground"
-          >
-            {#if detail.manager?.examPasswordLockedAt}
-              {m.examPassword_locked()}
-            {:else}
-              {m.examPassword_settingsHint()}
-            {/if}
-          </p>
-        </div>
-        <ToggleSwitch
-          id="settings-exam-password-enabled"
-          label={m.examPassword_label()}
-          descriptionId="settings-exam-password-description"
-          disabled={!editableExamPassword}
-          bind:checked={$form.examPasswordEnabled}
+      <section
+        class="rounded-xl border border-border-subtle bg-[color:var(--color-panel)] p-4 shadow-rest"
+      >
+        <h3 class="mb-4 text-title-sm font-medium">
+          {m.examCreate_scheduleCardTitle()}
+        </h3>
+        <ExamTimelineConfig
+          {form}
+          {errors}
+          editableStart={editableBasics}
+          editableEnd={editableBasics || isRunning}
+          {isRunning}
         />
-      </div>
-    </section>
+      </section>
 
-    <ExamProctoringConfig {form} editable={editableProctoring} />
+      <ExamProblemConfig {form} {errors} editable={editableScoring} />
 
-    {#if confirmingDelete}
-      <div class="flex flex-wrap items-center justify-end gap-2">
-        <span class="mr-auto text-caption text-muted-foreground">
-          {m.examDetail_settingsDeleteConfirmBody()}
-        </span>
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          disabled={$submitting}
-          onclick={() => (confirmingDelete = false)}
-        >
-          {m.examDetail_settingsDeleteConfirmCancel()}
-        </Button>
-        <Button
-          type="submit"
-          formaction="?/deleteExam"
-          variant="destructive"
-          size="sm"
-          disabled={$submitting}
-        >
-          <Trash2 class="mr-1 size-4" aria-hidden="true" />
-          {m.examDetail_settingsDeleteConfirmConfirm()}
-        </Button>
-      </div>
-    {:else}
-      <div class="flex flex-wrap items-center justify-end gap-2">
-        {#if isDraft}
+      <section
+        class="rounded-xl border border-border-subtle bg-[color:var(--color-panel)] p-4 shadow-rest"
+      >
+        <div class="flex items-start justify-between gap-4">
+          <div class="flex-1">
+            <div class="flex items-center gap-2">
+              <h3 class="text-title-sm font-medium">{m.examPassword_label()}</h3>
+              <HelpTooltip text={m.examPassword_help()} />
+            </div>
+            <p
+              id="settings-exam-password-description"
+              class="mt-1 text-caption text-muted-foreground"
+            >
+              {#if detail.manager?.examPasswordLockedAt}
+                {m.examPassword_locked()}
+              {:else}
+                {m.examPassword_settingsHint()}
+              {/if}
+            </p>
+          </div>
+          <ToggleSwitch
+            id="settings-exam-password-enabled"
+            label={m.examPassword_label()}
+            descriptionId="settings-exam-password-description"
+            disabled={!editableExamPassword}
+            bind:checked={$form.examPasswordEnabled}
+          />
+        </div>
+      </section>
+
+      <ExamProctoringConfig {form} editable={editableProctoring} />
+
+      {#if confirmingDelete}
+        <div class="flex flex-wrap items-center justify-end gap-2">
+          <span class="mr-auto text-caption text-muted-foreground">
+            {m.examDetail_settingsDeleteConfirmBody()}
+          </span>
           <Button
             type="button"
             variant="ghost"
             size="sm"
-            class="mr-auto text-destructive hover:text-destructive"
             disabled={$submitting}
-            onclick={() => (confirmingDelete = true)}
+            onclick={() => (confirmingDelete = false)}
           >
-            <Trash2 class="mr-1 size-4" aria-hidden="true" />
-            {m.examDetail_settingsDeleteButton()}
+            {m.examDetail_settingsDeleteConfirmCancel()}
           </Button>
-        {/if}
-
-        <Button type="submit" variant="default" size="sm" disabled={$submitting || isEnded}>
-          {m.examDetail_settingsSaveButton()}
-        </Button>
-
-        {#if isDraft}
           <Button
             type="submit"
-            formaction="?/publishExam"
-            variant="default"
+            formaction="?/deleteExam"
+            variant="destructive"
             size="sm"
             disabled={$submitting}
           >
-            <Send class="mr-1 size-4" aria-hidden="true" />
-            {m.examDetail_settingsPublishButton()}
+            <Trash2 class="mr-1 size-4" aria-hidden="true" />
+            {m.examDetail_settingsDeleteConfirmConfirm()}
           </Button>
-        {/if}
-      </div>
-    {/if}
+        </div>
+      {:else}
+        <div class="flex flex-wrap items-center justify-end gap-2">
+          {#if isDraft}
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              class="mr-auto text-destructive hover:text-destructive"
+              disabled={$submitting}
+              onclick={() => (confirmingDelete = true)}
+            >
+              <Trash2 class="mr-1 size-4" aria-hidden="true" />
+              {m.examDetail_settingsDeleteButton()}
+            </Button>
+          {/if}
+
+          <Button type="submit" variant="default" size="sm" disabled={$submitting || isEnded}>
+            {m.examDetail_settingsSaveButton()}
+          </Button>
+
+          {#if isDraft}
+            <Button
+              type="submit"
+              formaction="?/publishExam"
+              variant="default"
+              size="sm"
+              disabled={$submitting}
+            >
+              <Send class="mr-1 size-4" aria-hidden="true" />
+              {m.examDetail_settingsPublishButton()}
+            </Button>
+          {/if}
+        </div>
+      {/if}
+    </fieldset>
   </form>
 </section>

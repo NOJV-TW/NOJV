@@ -37,6 +37,7 @@ vi.mock("$lib/components/primitives/ui/button", async () => ({
 function pairData(pairKey: string, source: string): PlagiarismPairDiffData {
   return {
     pairKey,
+    canFlag: true,
     contextType: "assessment",
     contextId: "course-1",
     pair: { similarity: 91, longest: 12, overlap: 8, problemId: "problem-1" },
@@ -124,6 +125,33 @@ describe("PlagiarismPairDiff", () => {
       expect(target.querySelector("button")?.textContent).toContain(
         m.plagiarism_markFalsePositive(),
       );
+    } finally {
+      await unmount(component);
+    }
+  });
+
+  it("shows an existing flag without curation controls on an archived course", async () => {
+    const target = document.createElement("div");
+    const component = mount(Harness, {
+      target,
+      props: {
+        initialData: {
+          ...pairData("pair-a", "pair A"),
+          canFlag: false,
+          flag: {
+            id: "flag-a",
+            flaggedBy: "staff-1",
+            flaggedAt: "2026-07-15T00:00:00.000Z",
+            note: null,
+          },
+        },
+      },
+    });
+    try {
+      await settle();
+      expect(target.textContent).toContain(m.plagiarism_flaggedBadge());
+      expect(target.textContent).not.toContain(m.plagiarism_unmark());
+      expect(target.textContent).not.toContain(m.plagiarism_markFalsePositive());
     } finally {
       await unmount(component);
     }

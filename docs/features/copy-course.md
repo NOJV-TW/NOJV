@@ -50,7 +50,7 @@ Not copied: other memberships, library-only problems, submissions, participation
 ### Result
 
 - Returns `{ newCourseId }`. The actor is the sole teacher, whatever their source role; an admin copying for another teacher must change ownership afterwards.
-- Every copied activity is a draft, so nothing publishes with stale timing. Source archive state is never carried.
+- Every copied activity is a draft, so nothing publishes with stale timing. Source archive state is never carried: an archived source can be copied, and the copy is writable (ASM-26).
 - A source with no activities yields a course with only the teacher membership.
 
 ### Concurrency and route

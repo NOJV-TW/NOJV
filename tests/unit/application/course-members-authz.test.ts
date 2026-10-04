@@ -45,6 +45,7 @@ import {
   bulkAddByHandle,
   listMembersForCourse,
   changeMemberRole,
+  correctPendingUsername,
   memberActionDenial,
   parseHandleInput,
   removeMember,
@@ -302,6 +303,38 @@ describe("bulk roster authorization and input", () => {
     expect(
       parseHandleInput("  41047001A, NTU_B11902001;\nntust_b11902001 alice ALICE "),
     ).toEqual(["41047001a", "ntu_b11902001", "ntust_b11902001", "alice"]);
+  });
+});
+
+describe("archived course roster", () => {
+  beforeEach(() => {
+    mocks.findCourse.mockResolvedValue({ id: COURSE, ownerId: "owner-1", archived: true });
+    mocks.findMember.mockResolvedValue({
+      ...member,
+      userId: null,
+      course: { ownerId: "owner-1", archived: true },
+    });
+  });
+
+  it.each([
+    ["bulk add", () => bulkAddByHandle(actor, COURSE, { handles: ["alice"], role: "student" })],
+    ["role change", () => changeMemberRole(actor, COURSE, MEMBER, "ta")],
+    ["removal", () => removeMember(actor, COURSE, MEMBER)],
+    ["username correction", () => correctPendingUsername(actor, COURSE, MEMBER, "alice")],
+  ])("rejects %s", async (_label, mutate) => {
+    await expect(mutate()).rejects.toMatchObject({
+      name: "ValidationError",
+      message: "Archived courses are read-only.",
+    });
+    expect(mocks.createMembers).not.toHaveBeenCalled();
+    expect(mocks.restoreMembers).not.toHaveBeenCalled();
+    expect(mocks.updateRole).not.toHaveBeenCalled();
+    expect(mocks.removeFromCourse).not.toHaveBeenCalled();
+  });
+
+  it("still denies a non-manager before revealing the archive state", async () => {
+    mocks.findActorMembership.mockResolvedValue({ role: "student", status: "active" });
+    await expect(removeMember(actor, COURSE, MEMBER)).rejects.toBeInstanceOf(ForbiddenError);
   });
 });
 
