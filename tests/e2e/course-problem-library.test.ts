@@ -478,7 +478,7 @@ test("archived nonowner staff can navigate and copy all editor content while wri
         judgeConfig: {
           type: "checker",
           checkerLanguage: "python",
-          runtime: { timeLimitMs: 1000, memoryLimitMb: 256, env: { INSPECTION: "visible" } },
+          runtime: { env: { INSPECTION: "visible" } },
         },
         checkerStorage,
         workspaceFiles: {

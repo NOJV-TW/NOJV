@@ -167,7 +167,7 @@ export async function updateProblemWorkspace(
       const currentConfig = parsePersistedJudgeConfig(problem.judgeConfig, problem.id);
       updateData.judgeConfig = {
         ...currentConfig,
-        runtime: payload.runtime,
+        runtime: { env: payload.runtime.env },
       };
       updateData.memoryLimitMb = payload.runtime.memoryLimitMb;
       updateData.timeLimitMs = payload.runtime.timeLimitMs;

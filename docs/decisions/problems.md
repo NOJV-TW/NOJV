@@ -21,7 +21,7 @@ Problem types are `full_source`, `multi_file` and `special_env`. `multi_file` pr
 
 **Decided:** 2026-04 · **Source:** [2026-04-03-problem-config-redesign](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-04-03-problem-config-redesign.md), [2026-04-03-problem-config-implementation](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-04-03-problem-config-implementation.md), [2026-05-27-problems-filter-sidebar](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-05-27-problems-filter-sidebar.md)
 
-Eight scattered judge columns became one Zod-validated `Problem.judgeConfig` (type, checker/interactor language, compare, runtime). The schema was fragmented with no single validated source.
+Eight scattered judge columns became one Zod-validated `Problem.judgeConfig` (type, checker/interactor language, compare, runtime env). The schema was fragmented with no single validated source.
 
 - Rejected: separate columns per judge feature; a denormalized `judgeType` column for filtering (filters read `judgeConfig.type`).
 - Rule: validate through `judgeConfigSchema` in `@nojv/core`; a null config or missing `type` means `standard`.

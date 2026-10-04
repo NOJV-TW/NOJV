@@ -39,7 +39,7 @@ function mkProblemRow(overrides: Partial<Record<string, unknown>> = {}) {
     memoryLimitMb: 256,
     judgeConfig: {
       type: "standard",
-      runtime: { env: { CC: "gcc" }, timeLimitMs: 1000, memoryLimitMb: 256 },
+      runtime: { env: { CC: "gcc" } },
     },
     samples: [{ input: "1\n", output: "1\n" }],
     advancedConfig: null,
@@ -131,7 +131,7 @@ describe("getJudgeContext", () => {
           memoryLimitMb: 512,
           judgeConfig: {
             type: "standard",
-            runtime: { env: { CC: "gcc" }, timeLimitMs: 1000, memoryLimitMb: 256 },
+            runtime: { env: { CC: "gcc" } },
           },
         },
       ),
@@ -164,7 +164,7 @@ describe("getJudgeContext", () => {
         judgeConfig: {
           type: "checker",
           checkerLanguage: "python",
-          runtime: { env: {}, timeLimitMs: 1000, memoryLimitMb: 256 },
+          runtime: { env: {} },
         },
         checkerStorage: pointer("problems/prob_1/validators/v1/checker"),
       },
@@ -189,7 +189,7 @@ describe("getJudgeContext", () => {
         judgeConfig: {
           type: "interactive",
           interactorLanguage: "cpp",
-          runtime: { env: {}, timeLimitMs: 1000, memoryLimitMb: 256 },
+          runtime: { env: {} },
         },
         interactorStorage: pointer("problems/prob_1/validators/v1/interactor"),
       },
@@ -327,7 +327,7 @@ describe("getJudgeContext", () => {
         judgeConfig: {
           type: "standard",
           compare: { caseSensitive: false, floatTolerance: 1e-6 },
-          runtime: { env: {}, timeLimitMs: 1000, memoryLimitMb: 256 },
+          runtime: { env: {} },
         },
       },
     );

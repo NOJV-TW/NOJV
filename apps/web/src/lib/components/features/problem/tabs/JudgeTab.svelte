@@ -52,10 +52,6 @@
       };
     }
 
-    if (cfg.runtime) {
-      config.runtime = cfg.runtime;
-    }
-
     return config;
   }
 

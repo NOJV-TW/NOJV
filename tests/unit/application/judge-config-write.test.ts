@@ -162,7 +162,7 @@ describe("saveProblemJudgeConfig", () => {
   });
 
   it("keeps the stored workspace runtime instead of the submitted one", async () => {
-    const runtime = { env: { MODE: "fresh" }, timeLimitMs: 2000, memoryLimitMb: 512 };
+    const runtime = { env: { MODE: "fresh" } };
     problemLock.mockResolvedValue({
       id: "prob_1",
       authorId: actor.userId,
@@ -175,7 +175,7 @@ describe("saveProblemJudgeConfig", () => {
     await saveProblemJudgeConfig(actor, "prob_1", {
       judgeConfig: {
         type: "standard",
-        runtime: { env: { MODE: "stale" }, timeLimitMs: 1000, memoryLimitMb: 256 },
+        runtime: { env: { MODE: "stale" } },
       },
     });
     expect(problemUpdate.mock.calls[0]![1].judgeConfig).toEqual({ type: "standard", runtime });
@@ -198,7 +198,7 @@ describe("saveProblemJudgeConfig", () => {
 it.each([setProblemChecker, setProblemInteractor])(
   "does not overwrite malformed persisted configuration",
   async (setScript) => {
-    const corrupt = { type: "standard", runtime: { memoryLimitMb: "broken" } };
+    const corrupt = { type: "standard", runtime: { env: "broken" } };
     problemFindById.mockResolvedValue({
       id: "prob_1",
       authorId: "usr_author",
@@ -207,7 +207,7 @@ it.each([setProblemChecker, setProblemInteractor])(
     });
     await expect(
       setScript(actor, "prob_1", { language: "python", content: "accept()" }),
-    ).rejects.toThrow(/Invalid judgeConfig for problem prob_1: runtime.memoryLimitMb/);
+    ).rejects.toThrow(/Invalid judgeConfig for problem prob_1: runtime.env/);
     expect(putImmutableText).not.toHaveBeenCalled();
     expect(problemUpdate).not.toHaveBeenCalled();
   },

@@ -10,7 +10,7 @@ it("rejects corrupt judge configuration consistently without rewriting persisted
   const originalSets = await testPrisma.testcaseSet.findMany({
     where: { problemId: problem.id },
   });
-  const corrupt = { type: "standard", runtime: { memoryLimitMb: "broken" } };
+  const corrupt = { type: "standard", runtime: { env: "broken" } };
   await testPrisma.problem.update({
     where: { id: problem.id },
     data: { judgeConfig: corrupt },

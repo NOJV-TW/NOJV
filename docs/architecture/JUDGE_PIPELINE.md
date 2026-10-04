@@ -354,8 +354,9 @@ for every problem type (the workspace runtime section writes them too):
 
 - `Problem.timeLimitMs` — 100 ms to 30 s, default 1000
 - `Problem.memoryLimitMb` — 16 to 1024, default 256
-- `judgeConfig.runtime.env` — extra environment variables, owned by the workspace
-  section; Judge configuration saves keep the stored runtime
+- `judgeConfig.runtime.env` — extra environment variables, the only field of
+  `judgeConfig.runtime`, owned by the workspace section; Judge configuration saves
+  keep the stored runtime
 
 Effective time limit is `ceil(timeLimitMs × LANGUAGE_TIME_FACTOR[language])` (c/cpp/rust
 1, go 1.5, java/javascript/typescript 2, python 3), applied once in the pinned

@@ -33,7 +33,7 @@ it("passes Standard Mode stdin, problem limits and runtime env to the browser en
     judgeConfig: {
       type: "standard",
       compare: { caseSensitive: false },
-      runtime: { timeLimitMs: 250, memoryLimitMb: 64, env: { MODE: "strict" } },
+      runtime: { env: { MODE: "strict" } },
     },
     problemId: "brackets",
     timeLimitMs: 1000,

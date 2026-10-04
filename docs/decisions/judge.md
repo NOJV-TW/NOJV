@@ -9,8 +9,9 @@ Durable decisions for submission judging, verdicts and scoring, the judge queue,
 The Standard Mode pipeline is implicit and fixed, not a list of configurable stages. The judge type is exactly one of `standard`, `checker` or `interactive`; anything these cannot express goes to Advanced Mode (`special_env`, JDG-16), not to new Standard settings. TAs do not think in pipelines, and no amount of settings would cover custom environments.
 
 - Rejected: pipeline/stage-card editor; per-problem static analysis, artifact collection, network access, custom stage scripts and custom scoring scripts (the 2026-04-02/04-03 extensible pipeline); judge types as pipeline steps.
-- Rule: `judgeConfig` holds only type, checker/interactor language, `compare` and `runtime`; do not add stage arrays, static-analysis, artifact, network or custom-script settings.
-- Rule: `Problem.timeLimitMs`/`memoryLimitMb` are the only judged limits for every problem type; `judgeConfig.runtime` contributes only `env` to judging, and only the workspace section writes it.
+- Rule: `judgeConfig` holds only type, checker/interactor language, `compare` and `runtime.env`; do not add stage arrays, static-analysis, artifact, network or custom-script settings.
+- Rule: `Problem.timeLimitMs`/`memoryLimitMb` are the only stored limits for every problem type; `judgeConfig.runtime` holds only `env`, and only the workspace section writes it.
+- Rejected: copies of the limits inside `judgeConfig.runtime` (removed 2026-10; they drifted from the columns and the judge preferred them).
 - Code: `packages/core/src/schemas/judge-config.ts`, `packages/core/src/types.ts`
 
 ### JDG-02 Standard compare is DOMjudge token comparison with two knobs
