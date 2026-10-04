@@ -329,6 +329,42 @@ describe("testcase immutable object mutations", () => {
     });
   });
 
+  it("keeps the reference solution when only a set description changes", async () => {
+    testcaseSetFindById.mockResolvedValue({
+      id: "set_1",
+      problemId: "prob_1",
+      weight: 3,
+      testcases: [],
+    });
+
+    await updateTestcaseSetRecord(actor, "prob_1", "set_1", {
+      description: "renamed",
+      weight: 3,
+    });
+
+    expect(testcaseSetUpdate).toHaveBeenCalledWith({
+      where: { id: "set_1" },
+      data: { description: "renamed", weight: 3 },
+    });
+    expect(problemUpdate).not.toHaveBeenCalled();
+  });
+
+  it("invalidates the reference solution when a set weight changes", async () => {
+    testcaseSetFindById.mockResolvedValue({
+      id: "set_1",
+      problemId: "prob_1",
+      weight: 3,
+      testcases: [],
+    });
+
+    await updateTestcaseSetRecord(actor, "prob_1", "set_1", { weight: 5 });
+
+    expect(problemUpdate).toHaveBeenCalledWith("prob_1", {
+      referenceSolutionSubmissionId: null,
+      storageGeneration: { increment: 1 },
+    });
+  });
+
   it("rejects cross-problem testcase and set IDs before DB deletion", async () => {
     testcaseFindById.mockResolvedValueOnce({
       id: "tc_other",

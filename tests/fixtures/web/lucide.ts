@@ -6,3 +6,4 @@ export { default as ExternalLink } from "./empty-component.svelte";
 export { default as History } from "./empty-component.svelte";
 export { default as Loader2 } from "./empty-component.svelte";
 export { default as Search } from "./empty-component.svelte";
+export { default as UploadCloud } from "./empty-component.svelte";

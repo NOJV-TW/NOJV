@@ -1,15 +1,37 @@
-export async function postProblemAction(
+import { deserialize } from "$app/forms";
+import { m } from "$lib/paraglide/messages.js";
+
+function actionFailureMessage(result: ReturnType<typeof deserialize>): string {
+  if (result.type === "failure" && typeof result.data?.error === "string") {
+    return result.data.error;
+  }
+  if (result.type === "error") {
+    const error: unknown = result.error;
+    if (typeof error === "object" && error !== null && "message" in error) {
+      if (typeof error.message === "string") return error.message;
+    }
+  }
+  return m.error_unexpected();
+}
+
+export async function submitFormAction(
+  action: string,
+  fields: Record<string, string> = {},
+): Promise<Record<string, unknown>> {
+  const body = new FormData();
+  for (const [key, value] of Object.entries(fields)) body.set(key, value);
+  const response = await fetch(action, { method: "POST", body });
+  const result = deserialize(await response.text());
+  if (result.type !== "success") throw new Error(actionFailureMessage(result));
+  return result.data ?? {};
+}
+
+export function postProblemAction(
   problemId: string,
   actionName: string,
-  data: Record<string, string>,
-): Promise<void> {
-  const fd = new FormData();
-  for (const [key, value] of Object.entries(data)) fd.set(key, value);
-  const response = await fetch(`/problems/${problemId}/edit?/${actionName}`, {
-    method: "POST",
-    body: fd,
-  });
-  if (!response.ok) throw new Error(`Action ${actionName} failed`);
+  fields: Record<string, string>,
+): Promise<Record<string, unknown>> {
+  return submitFormAction(`/problems/${problemId}/edit?/${actionName}`, fields);
 }
 
 export async function fetchTestcaseContent(

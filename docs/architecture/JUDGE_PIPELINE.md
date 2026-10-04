@@ -250,8 +250,8 @@ merge workspace files → run stage (compile once, execute cases) → judge stag
 An author's private reference submission (`isReferenceSolution`) uses the ordinary
 judge but is excluded from history and statistics. An accepted one becomes the
 problem's verification pointer, recording `Problem.storageGeneration`; any later
-change to testcases, workspace files, judge configuration, limits or type
-invalidates it (PRB-09).
+change to testcases, subtask weights, workspace files, judge configuration,
+limits or type invalidates it, while subtask description edits do not (PRB-09).
 
 ### Workspace merge and payloads
 
@@ -686,8 +686,11 @@ test.
 
 - `full_source` — one complete source at the entry file.
 - `multi_file` — teacher scaffold; each enabled language has exactly one editable
-  `main.<ext>`. Function-style problems mark the function file `editable` and the
-  driver `readonly`.
+  `main.<ext>`, and a language is enabled exactly when it has one. The editor
+  derives its allowed-language ticks from those entry files, and a save drops
+  the files of unticked languages. Function-style problems mark the function
+  file `editable` and the driver `readonly`. Published problems never change
+  type, and `special_env` problems have no workspace.
 - `special_env` — [Advanced Mode](#advanced-mode-pipeline).
 
 `ProblemWorkspaceFile.visibility` controls whole-file editor presentation and
