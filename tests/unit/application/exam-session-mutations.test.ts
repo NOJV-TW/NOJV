@@ -44,7 +44,8 @@ vi.mock("@nojv/db", () => ({
 
 import { examDomain } from "@nojv/application";
 
-const { releaseAllSessionsAsInstructor, resetStudentIpBinding } = examDomain.session;
+const { releaseAllSessionsAsInstructor, releaseSessionAsInstructor, resetStudentIpBinding } =
+  examDomain.session;
 
 const teacherActor = {
   userId: "usr_teacher",
@@ -60,6 +61,7 @@ const studentActor = {
   email: "s@example.com",
   platformRole: "student" as const,
 };
+const adminActor = { ...teacherActor, userId: "usr_admin", platformRole: "admin" as const };
 
 describe("releaseAllSessionsAsInstructor", () => {
   beforeEach(() => {
@@ -107,12 +109,69 @@ describe("releaseAllSessionsAsInstructor", () => {
     expect(sessionUpdate).not.toHaveBeenCalled();
   });
 
+  it("allows an effective admin without a course membership", async () => {
+    membershipFindByComposite.mockResolvedValue(null);
+    sessionFindAllActive.mockResolvedValue([{ id: "s1", userId: "u1" }]);
+
+    const result = await releaseAllSessionsAsInstructor(adminActor, { examId: "exm_1" });
+
+    expect(result).toEqual({ released: 1, releasedUserIds: ["u1"] });
+  });
+
+  it.each([
+    { role: "teacher", status: "removed" },
+    { role: "ta", status: "removed" },
+  ])("rejects inactive staff membership %j", async (membership) => {
+    membershipFindByComposite.mockResolvedValue(membership);
+
+    await expect(
+      releaseAllSessionsAsInstructor(teacherActor, { examId: "exm_1" }),
+    ).rejects.toThrow(/staff/i);
+    expect(sessionUpdate).not.toHaveBeenCalled();
+  });
+
   it("throws when the exam does not exist", async () => {
     examFindById.mockResolvedValue(null);
 
     await expect(
       releaseAllSessionsAsInstructor(teacherActor, { examId: "missing" }),
     ).rejects.toThrow(/not found/i);
+  });
+});
+
+describe("releaseSessionAsInstructor", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    examFindById.mockResolvedValue({ id: "exm_1", courseId: "crs_1" });
+    sessionFindByUserAndExam.mockResolvedValue({ id: "sess_1", endedAt: null });
+    sessionUpdate.mockResolvedValue({ id: "sess_1" });
+    sessionRecordEvent.mockResolvedValue({});
+  });
+
+  it("allows an effective admin without a course membership", async () => {
+    membershipFindByComposite.mockResolvedValue(null);
+
+    await releaseSessionAsInstructor(adminActor, {
+      examId: "exm_1",
+      targetUserId: "usr_student",
+    });
+
+    expect(sessionUpdate).toHaveBeenCalledWith("sess_1", {
+      endedAt: expect.any(Date),
+      releaseReason: "released_by_instructor",
+    });
+  });
+
+  it("rejects a non-staff actor", async () => {
+    membershipFindByComposite.mockResolvedValue({ role: "student", status: "active" });
+
+    await expect(
+      releaseSessionAsInstructor(studentActor, {
+        examId: "exm_1",
+        targetUserId: "usr_student",
+      }),
+    ).rejects.toThrow(/staff/i);
+    expect(sessionUpdate).not.toHaveBeenCalled();
   });
 });
 
@@ -216,6 +275,24 @@ describe("resetStudentIpBinding", () => {
     );
 
     expect(clearExamPinAndExempt).toHaveBeenCalledTimes(1);
+  });
+
+  it("allows an effective admin without a course membership", async () => {
+    membershipFindByComposite.mockResolvedValue(null);
+
+    await resetStudentIpBinding(
+      adminActor,
+      { examId: "exm_1", targetUserId: "usr_student" },
+      now,
+    );
+
+    expect(clearExamPinAndExempt).toHaveBeenCalledTimes(1);
+    expect(sessionRecordEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        eventType: "ip_reset",
+        metadata: expect.objectContaining({ resetByUserId: "usr_admin" }),
+      }),
+    );
   });
 
   it("rejects a non-staff actor", async () => {

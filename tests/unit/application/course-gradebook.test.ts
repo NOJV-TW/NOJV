@@ -210,6 +210,37 @@ describe("buildCourseGradebook", () => {
     );
   });
 
+  it("withholds problems of activities that have not started from a student viewer", async () => {
+    const now = new Date("2026-04-01T00:00:00Z");
+    findStudents.mockResolvedValue([fakeStudent("u1", "Alice")]);
+    listAssessments.mockResolvedValue([
+      fakeAssessment("a1", "HW 1", new Date("2026-03-01"), ["p1"]),
+      fakeAssessment("a2", "HW 2", now, ["p2"]),
+      fakeAssessment("a3", "HW 3", new Date("2026-05-01"), ["p3"]),
+    ]);
+    listExams.mockResolvedValue([fakeExam("e1", "Final", new Date("2026-06-01"), ["p4"])]);
+
+    const student = await buildCourseGradebook("course_1", { forUserId: "u1", now });
+
+    expect(
+      student.columns.map((c) => [c.contextId, c.problems.map((p) => p.problemId), c.maxTotal]),
+    ).toEqual([
+      ["a1", ["p1"], 100],
+      ["a2", ["p2"], 100],
+      ["a3", [], 100],
+      ["e1", [], 100],
+    ]);
+    expect(JSON.stringify(student)).not.toMatch(/Problem p3|Problem p4/);
+
+    const staff = await buildCourseGradebook("course_1", { now });
+    expect(staff.columns.map((c) => c.problems.map((p) => p.problemId))).toEqual([
+      ["p1"],
+      ["p2"],
+      ["p3"],
+      ["p4"],
+    ]);
+  });
+
   it("returns no rows when forUserId is not an active student", async () => {
     findStudents.mockResolvedValue([fakeStudent("u1", "Alice")]);
     listAssessments.mockResolvedValue([

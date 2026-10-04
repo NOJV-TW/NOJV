@@ -48,7 +48,7 @@ The global hook reads the user's active session and the exam's current `pageLock
 - Concurrent first requests from different IPs: exactly one conditional write wins; the loser re-reads the pin and is evaluated as a binding violation against the winner's IP (allowed if it has the same IP).
 - Exam entry runs the gate before creating the session, so a blocked entry creates no session ([Exams — Session start](exams.md#session-start)).
 - No participation row: binding is skipped.
-- `resetStudentIpBinding` (course staff) clears the pin and sets `ipGateExemptUntil` to now + 10 minutes; during the exemption IP checks pass and the next request re-pins.
+- `resetStudentIpBinding` (active course teacher/TA or effective admin) clears the pin and sets `ipGateExemptUntil` to now + 10 minutes; during the exemption IP checks pass and the next request re-pins.
 
 ### Violation mode and logging
 

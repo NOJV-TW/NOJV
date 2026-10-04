@@ -144,7 +144,7 @@
               </th>
               {#each gradebook.columns as column (column.contextType + column.contextId)}
                 <th
-                  colspan={column.problems.length}
+                  colspan={Math.max(column.problems.length, 1)}
                   class="border-b border-r border-border-subtle bg-muted px-3 py-2.5 text-center text-caption font-semibold text-foreground"
                 >
                   <button
@@ -187,6 +187,13 @@
                       {m.courseGradebook_maxPoints({ points: problem.maxScore })}
                     </span>
                   </th>
+                {:else}
+                  <th
+                    class="border-b border-r border-border-subtle bg-muted px-3 py-2.5 text-center text-caption font-normal text-muted-foreground"
+                    style="min-width: 80px"
+                  >
+                    {m.courseGradebook_notYetOpen()}
+                  </th>
                 {/each}
               {/each}
             </tr>
@@ -226,6 +233,12 @@
                             : 'bg-warning/18 text-foreground'}"
                     >
                       {score ?? "—"}
+                    </td>
+                  {:else}
+                    <td
+                      class="border-b border-r border-border-subtle px-3 py-3 text-center text-body-sm text-muted-foreground"
+                    >
+                      —
                     </td>
                   {/each}
                 {/each}

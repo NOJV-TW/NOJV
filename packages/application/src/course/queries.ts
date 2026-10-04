@@ -98,7 +98,7 @@ export interface CourseListingCard {
   assignmentCount: number;
   examCount: number;
   openAssignments: number;
-  draftAssignments: number;
+  draftAssignments: number | null;
   upcomingExams: number;
   myDueCount: number;
   myUpcomingCount: number;
@@ -117,12 +117,13 @@ export async function listForUserWithCards(userId: string): Promise<{
     roleByCourseId.set(m.courseId, m.role);
   }
   const courseIds = [...roleByCourseId.keys()];
+  const managedCourseIds = courseIds.filter((id) => roleByCourseId.get(id) !== "student");
 
   const now = new Date();
   const [courses, openGroups, draftGroups, upcomingExamGroups] = await Promise.all([
     courseRepo.findManyForCards(courseIds),
     assessmentRepo.groupOpenCountsByCourse(courseIds, now),
-    assessmentRepo.groupDraftCountsByCourse(courseIds),
+    assessmentRepo.groupDraftCountsByCourse(managedCourseIds),
     examRepo.groupUpcomingCountsByCourse(courseIds, now),
   ]);
 
@@ -135,7 +136,7 @@ export async function listForUserWithCards(userId: string): Promise<{
   const cards: CourseListingCard[] = courses.map((course) => {
     const role = roleByCourseId.get(course.id) ?? "student";
     const openAssignments = openByCourseId.get(course.id) ?? 0;
-    const draftAssignments = draftByCourseId.get(course.id) ?? 0;
+    const draftAssignments = role === "student" ? null : (draftByCourseId.get(course.id) ?? 0);
     const upcomingExams = upcomingExamsByCourseId.get(course.id) ?? 0;
 
     const myDueCount = openAssignments;

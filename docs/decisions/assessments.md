@@ -54,8 +54,9 @@ Teachers and TAs paste handles, which are parsed and deduplicated; existing user
 Active TAs can remove student members (linked or pending) but cannot remove TAs, promote, or change roles or usernames; owner, teacher, inactive-actor and cross-course protections remain. Loaders expose per-member permissions so the UI hides controls the server would deny.
 
 - Rule: Authorize inside the locked domain transaction; the server validates direct requests regardless of UI.
+- Rule: Per-member UI flags and the server check share the pure `memberActionDenial`; an effective admin may manage or remove any member except the owner, including teachers.
 - Rule: Parse form action results with SvelteKit `deserialize`, not `res.ok` (HTTP-200 failures were shown as success).
-- Code: `packages/application/src/course/members.ts`
+- Code: `packages/application/src/course/members.ts` (`memberActionDenial`)
 
 ### ASM-06 Contest management is owner-or-admin through one pure primitive
 
@@ -102,7 +103,7 @@ Course analytics is staff-only aggregation with no schema change. Upsolve appear
 
 **Decided:** 2026-04 · **Source:** [2026-04-19-clarification-board-design](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-04-19-clarification-board-design.md), [2026-04-19-clarification-board-plan](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-04-19-clarification-board-plan.md)
 
-A single `Clarification` model keyed by `contextType` + `contextId`, optionally linked to a problem (`SetNull` on problem delete), with the answer inline and states `pending -> answered | dismissed`. Participants had no in-platform channel and hints reached students unevenly. Only participants (contest/exam participants, active course students) ask; admins and staff never ask, so staff cannot plant hints as student questions. Answering follows the submission-context staff matrix.
+A single `Clarification` model keyed by `contextType` + `contextId`, optionally linked to a problem (`SetNull` on problem delete), with the answer inline and states `pending -> answered | dismissed`. Participants had no in-platform channel and hints reached students unevenly. Only participants (contest participants, exam participants with an active student membership, active students of a published assignment's course) ask or read as non-staff; admins and staff never ask, so staff cannot plant hints as student questions. Answering follows the submission-context staff matrix.
 
 - Rejected: a separate answer table; a dedicated audit table (`answeredBy`, `updatedAt` and logs suffice).
 - Rule: Allowed transitions are `pending -> answered`, `pending -> dismissed`, `answered -> answered` (edit); nothing leaves `dismissed`.
@@ -172,7 +173,7 @@ A Standard problem's raw total is the sum of its testcase-set weights (each scor
 - Rejected: using raw maxima directly as allocations; a raw-only gradebook with no weighting (2026-07, teachers computed ratios from CSV) — replaced by allocated points; allocation reasons and audit history (removed on request).
 - Rule: `totalPoints` is always the sum of allocations; the editor starts a newly added problem at 100 points.
 - Rule: Reordering or unrelated saves must not round legacy allocations; migrations leave existing official grades unchanged; concurrent grading/judging must not persist an obsolete revision.
-- Rule: Contest scoring and problem versioning are unaffected by activity weighting. Students see only their own gradebook row.
+- Rule: Contest scoring and problem versioning are unaffected by activity weighting. Students see only their own gradebook row and no problems of activities that have not started (`hidesProblemsBeforeStart`, shared with the detail pages).
 - Code: `packages/application/src/scoring/activity-points.ts`, `packages/application/src/course/gradebook.ts`, `packages/application/src/problem/total-score.ts`
 
 ### ASM-17 Score overrides are per membership, reasoned, audited, and never for contests
@@ -194,7 +195,7 @@ An override sets a student's final raw score for one problem in one assignment o
 Override and feedback mutations by non-admins fail with 409 until the context closes; platform admins bypass for emergency fixes. Student-visible feedback lives in `SubmissionFeedback` (assignment or exam, exactly-one CHECK, unique per context/problem/membership) so teachers can comment on full-score cells without an override, and students see it only after close. `SubmissionFeedbackAuditLog` records every create/update/delete and survives feedback deletion (FK set null).
 
 - Rejected: a feedback column on `ScoreOverride`; contest feedback; an audit UI or retention cap.
-- Rule: `assertContextClosed` guards every override and feedback mutation for non-admins.
+- Rule: `assertContextClosed` guards every override and feedback mutation for non-admins; `canSetScoreOverride` applies the same gate, so the UI offers grading only where a write would succeed.
 - Code: `packages/application/src/shared/context-window.ts`, `packages/application/src/score-override/permissions.ts`, `packages/application/src/feedback/permissions.ts`
 
 ### ASM-19 Exam confinement is a server-side session lock enforced in the global hook

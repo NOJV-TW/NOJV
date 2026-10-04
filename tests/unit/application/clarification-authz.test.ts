@@ -72,6 +72,7 @@ beforeEach(() => {
   assessmentFindByIdWithCourseId.mockResolvedValue({
     id: "ca_1",
     courseId: "crs_1",
+    status: "published",
     opensAt: past,
     closesAt: future,
   });
@@ -105,8 +106,21 @@ describe("canAskClarification — contest", () => {
 describe("canAskClarification — exam", () => {
   it("allows a participant", async () => {
     examListParticipantUserIds.mockResolvedValue(["usr_student"]);
+    courseMembershipFindByComposite.mockResolvedValue({ role: "student", status: "active" });
     expect(await canAskClarification(actor({ userId: "usr_student" }), examCtx())).toBe(true);
+    expect(courseMembershipFindByComposite).toHaveBeenCalledWith("crs_1", "usr_student");
   });
+
+  it.each([null, { role: "student", status: "removed" }, { role: "ta", status: "active" }])(
+    "denies a participant whose course membership is %j",
+    async (membership) => {
+      examListParticipantUserIds.mockResolvedValue(["usr_student"]);
+      courseMembershipFindByComposite.mockResolvedValue(membership);
+      expect(await canAskClarification(actor({ userId: "usr_student" }), examCtx())).toBe(
+        false,
+      );
+    },
+  );
 
   it("denies a non-participant", async () => {
     examListParticipantUserIds.mockResolvedValue(["usr_other"]);
@@ -119,6 +133,7 @@ describe("canAskClarification — assignment", () => {
     assessmentFindByIdWithCourseId.mockResolvedValue({
       id: "ca_1",
       courseId: "crs_1",
+      status: "published",
       opensAt: past,
       closesAt: future,
     });
@@ -133,10 +148,30 @@ describe("canAskClarification — assignment", () => {
     );
   });
 
+  it("denies an active student on a draft assignment", async () => {
+    assessmentFindByIdWithCourseId.mockResolvedValue({
+      id: "ca_1",
+      courseId: "crs_1",
+      status: "draft",
+      opensAt: past,
+      closesAt: future,
+    });
+    courseMembershipFindByComposite.mockResolvedValue({
+      courseId: "crs_1",
+      userId: "usr_student",
+      role: "student",
+      status: "active",
+    });
+    expect(await canAskClarification(actor({ userId: "usr_student" }), assignmentCtx())).toBe(
+      false,
+    );
+  });
+
   it("denies a teacher (not a student)", async () => {
     assessmentFindByIdWithCourseId.mockResolvedValue({
       id: "ca_1",
       courseId: "crs_1",
+      status: "published",
       opensAt: past,
       closesAt: future,
     });
@@ -158,6 +193,7 @@ describe("canAskClarification — assignment", () => {
     assessmentFindByIdWithCourseId.mockResolvedValue({
       id: "ca_1",
       courseId: "crs_1",
+      status: "published",
       opensAt: past,
       closesAt: future,
     });
@@ -176,6 +212,7 @@ describe("canAskClarification — assignment", () => {
     assessmentFindByIdWithCourseId.mockResolvedValue({
       id: "ca_1",
       courseId: "crs_1",
+      status: "published",
       opensAt: past,
       closesAt: future,
     });
@@ -196,6 +233,7 @@ describe("canAskClarification — assignment", () => {
     assessmentFindByIdWithCourseId.mockResolvedValue({
       id: "ca_1",
       courseId: "crs_1",
+      status: "published",
       opensAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000),
       closesAt: new Date(Date.now() - 60_000),
     });
@@ -313,6 +351,7 @@ describe("canAnswerInContext — assignment", () => {
     assessmentFindByIdWithCourseId.mockResolvedValue({
       id: "ca_1",
       courseId: "crs_1",
+      status: "published",
       opensAt: past,
       closesAt: future,
     });
@@ -334,6 +373,7 @@ describe("canAnswerInContext — assignment", () => {
     assessmentFindByIdWithCourseId.mockResolvedValue({
       id: "ca_1",
       courseId: "crs_1",
+      status: "published",
       opensAt: past,
       closesAt: future,
     });

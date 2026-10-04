@@ -143,6 +143,9 @@ async function assertCourseSubmissionAllowed(
   if (membership?.status !== "active") {
     throw new ForbiddenError("You are not enrolled in this course.");
   }
+  if (courseContext.course.archived) {
+    throw new ForbiddenError("This course is archived.");
+  }
 
   const assignment = courseContext.assignment;
   if (assignment.status !== "published") {
@@ -455,9 +458,10 @@ export async function createQueuedSubmissionRecord(
     const pinned = await prepareJudgeSnapshot(submissionId, judgeJob.draft, sources);
 
     return await runTransaction(async (tx) => {
-      await tx.$queryRaw`SELECT id FROM "Problem" WHERE id = ${payload.problemId} FOR UPDATE`;
       if (payload.referenceSolution === true) {
         await lockProblemForEdit(tx, actor, payload.problemId);
+      } else {
+        await tx.$queryRaw`SELECT id FROM "Problem" WHERE id = ${payload.problemId} FOR UPDATE`;
       }
       await commitStoragePointerSwap(tx, { added: sourcePlan.pointers });
       const submission = await submissionRepo

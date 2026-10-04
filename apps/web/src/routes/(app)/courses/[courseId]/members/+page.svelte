@@ -76,8 +76,12 @@
       const body = new FormData();
       body.set("membershipId", membershipId);
       body.set("role", role);
-      const res = await fetch("?/changeRole", { method: "POST", body });
-      if (!res.ok) {
+      const res = await fetch("?/changeRole", {
+        method: "POST",
+        headers: { accept: "application/json", "x-sveltekit-action": "true" },
+        body,
+      });
+      if (!res.ok || deserialize(await res.text()).type !== "success") {
         toasts.error(m.members_roleChangeError());
         return;
       }
@@ -88,6 +92,11 @@
     } finally {
       roleDrafts[membershipId] = undefined;
     }
+  }
+
+  function roleLabel(role: string): string {
+    if (role === "teacher") return m.members_roleTeacher();
+    return role === "ta" ? m.members_roleTa() : m.members_roleStudent();
   }
 
   function formatJoined(iso: string): string {
@@ -275,9 +284,7 @@
                 {formatJoined(member.joinedAt)}
               </td>
               <td class="whitespace-nowrap px-4 py-3 text-caption">
-                {#if member.role === "teacher"}
-                  <span class="font-medium text-primary">{m.members_roleTeacher()}</span>
-                {:else if data.canChangeRoles}
+                {#if member.canChangeRole}
                   <Select.Root
                     type="single"
                     value={roleDrafts[member.membershipId] ?? member.role}
@@ -290,15 +297,18 @@
                       class="rounded-none border-0 border-b border-border bg-transparent px-1 text-caption shadow-none! dark:bg-transparent dark:hover:bg-transparent"
                       aria-label={m.members_roleFor({ name: member.name })}
                     >
-                      {(roleDrafts[member.membershipId] ?? member.role) === "ta"
-                        ? m.members_roleTa()
-                        : m.members_roleStudent()}
+                      {roleLabel(roleDrafts[member.membershipId] ?? member.role)}
                     </Select.Trigger>
                     <Select.Content>
                       <Select.Item value="student" label={m.members_roleStudent()} />
                       <Select.Item value="ta" label={m.members_roleTa()} />
+                      {#if data.canAssignTeacher}
+                        <Select.Item value="teacher" label={m.members_roleTeacher()} />
+                      {/if}
                     </Select.Content>
                   </Select.Root>
+                {:else if member.role === "teacher"}
+                  <span class="font-medium text-primary">{m.members_roleTeacher()}</span>
                 {:else}
                   <span class="text-muted-foreground">
                     {member.role === "ta" ? m.members_roleTa() : m.members_roleStudent()}

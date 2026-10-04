@@ -1,12 +1,12 @@
 import { assessmentRepo, examRepo } from "@nojv/db";
 
 import type { ActorContext } from "../shared/actor-context";
-import { assertContextClosed } from "../shared/context-window";
+import { assertContextClosed, isContextClosed } from "../shared/context-window";
 import { ForbiddenError } from "../shared/errors";
 import { isCourseStaff } from "../shared/permissions";
 import type { ScoreOverrideContext } from "./types";
 
-export async function canSetScoreOverride(
+export async function canViewScoreOverrides(
   actor: ActorContext,
   context: ScoreOverrideContext,
 ): Promise<boolean> {
@@ -26,11 +26,20 @@ export async function canSetScoreOverride(
   }
 }
 
+export async function canSetScoreOverride(
+  actor: ActorContext,
+  context: ScoreOverrideContext,
+): Promise<boolean> {
+  if (actor.platformRole === "admin") return true;
+  if (!(await canViewScoreOverrides(actor, context))) return false;
+  return isContextClosed(context);
+}
+
 export async function assertCanViewScoreOverrides(
   actor: ActorContext,
   context: ScoreOverrideContext,
 ): Promise<void> {
-  if (!(await canSetScoreOverride(actor, context))) {
+  if (!(await canViewScoreOverrides(actor, context))) {
     throw new ForbiddenError("Not permitted to view score overrides for this context.");
   }
 }
