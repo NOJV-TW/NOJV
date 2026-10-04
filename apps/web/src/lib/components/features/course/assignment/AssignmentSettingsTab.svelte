@@ -8,7 +8,8 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { untrack } from "svelte";
-  import { superForm, type SuperValidated } from "sveltekit-superforms";
+  import type { SuperValidated } from "sveltekit-superforms";
+  import { appSuperForm } from "$lib/utils/super-form";
 
   import { supportedLanguages, type Language } from "@nojv/core";
   import Send from "@lucide/svelte/icons/send";
@@ -47,7 +48,7 @@
     enhance,
     message: formMessage,
     submitting,
-  } = superForm<AssessmentSettingsFormData, FormMessage>(
+  } = appSuperForm<AssessmentSettingsFormData>(
     untrack(() => formProp),
     {
       dataType: "json",

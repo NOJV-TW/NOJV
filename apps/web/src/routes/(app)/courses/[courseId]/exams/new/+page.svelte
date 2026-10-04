@@ -1,7 +1,7 @@
 <script lang="ts">
   import ActivityWeights from "$lib/components/features/course/ActivityWeights.svelte";
   import { untrack } from "svelte";
-  import { superForm } from "sveltekit-superforms/client";
+  import { appSuperForm } from "$lib/utils/super-form";
   import ChevronRight from "@lucide/svelte/icons/chevron-right";
   import Lock from "@lucide/svelte/icons/lock";
   import Link2 from "@lucide/svelte/icons/link-2";
@@ -32,7 +32,7 @@
     enhance,
     message: formMessage,
     submitting,
-  } = superForm<typeof data.form.data, FormMessage>(
+  } = appSuperForm<typeof data.form.data>(
     untrack(() => data.form),
     {
       dataType: "json",

@@ -21,7 +21,8 @@ Actions return a superforms `message()` of type `FormMessage = { kind, text }` r
 
 - Rejected: `fail(400, { form, error })`.
 - Rule: every action failure surfaces as a banner or field error; never fail silently.
-- Code: `apps/web/src/lib/types/form-message.ts`, `apps/web/src/lib/server/shared/action-handlers.ts`
+- Rule: components create superforms through `appSuperForm`, which turns results that carry no form (the shared rate limiter's 429/503, uncaught errors) into the form's error message instead of letting superforms throw; ESLint forbids importing `superForm` directly.
+- Code: `apps/web/src/lib/types/form-message.ts`, `apps/web/src/lib/server/shared/action-handlers.ts`, `apps/web/src/lib/utils/super-form.ts`
 
 ### WEB-03 Fail loudly on corrupt data; validate every persisted blob on read
 

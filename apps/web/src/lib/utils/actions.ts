@@ -14,6 +14,29 @@ function actionFailureMessage(result: ReturnType<typeof deserialize>): string {
   return m.error_unexpected();
 }
 
+function carriesValidationForm(data: unknown): boolean {
+  return (
+    typeof data === "object" &&
+    data !== null &&
+    Object.values(data).some(
+      (value) =>
+        typeof value === "object" &&
+        value !== null &&
+        "valid" in value &&
+        "posted" in value &&
+        "data" in value,
+    )
+  );
+}
+
+export function formlessResultMessage(result: ReturnType<typeof deserialize>): string | null {
+  if (result.type === "error") return actionFailureMessage(result);
+  if (result.type === "failure" && !carriesValidationForm(result.data)) {
+    return actionFailureMessage(result);
+  }
+  return null;
+}
+
 export async function submitFormAction(
   action: string,
   fields: Record<string, string> = {},

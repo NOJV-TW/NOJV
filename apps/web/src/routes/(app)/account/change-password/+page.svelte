@@ -1,6 +1,6 @@
 <script lang="ts">
   import { untrack } from "svelte";
-  import { superForm } from "sveltekit-superforms/client";
+  import { appSuperForm } from "$lib/utils/super-form";
   import { m } from "$lib/paraglide/messages.js";
   import Section from "$lib/components/primitives/ui/Section.svelte";
   import PageContainer from "$lib/components/primitives/layout/PageContainer.svelte";
@@ -11,10 +11,7 @@
 
   let { data }: { data: PageData } = $props();
 
-  const { form, errors, enhance, message, submitting } = superForm<
-    typeof data.form.data,
-    FormMessage
-  >(
+  const { form, errors, enhance, message, submitting } = appSuperForm<typeof data.form.data>(
     untrack(() => data.form),
     {
       resetForm: false,

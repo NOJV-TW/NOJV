@@ -1,7 +1,7 @@
 <script lang="ts">
   import { untrack } from "svelte";
   import { goto } from "$app/navigation";
-  import { superForm } from "sveltekit-superforms/client";
+  import { appSuperForm } from "$lib/utils/super-form";
   import GripVertical from "@lucide/svelte/icons/grip-vertical";
   import { supportedLanguages, type Language } from "@nojv/core";
   import { problemLetter } from "$lib/components/features/contest/format";
@@ -39,7 +39,7 @@
     enhance,
     submitting,
     message: formMessage,
-  } = superForm<typeof data.form.data, FormMessage>(
+  } = appSuperForm<typeof data.form.data>(
     untrack(() => data.form),
     {
       dataType: "json",

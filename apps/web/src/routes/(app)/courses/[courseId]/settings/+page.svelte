@@ -2,7 +2,7 @@
   import { untrack } from "svelte";
   import { applyAction, enhance as kitEnhance } from "$app/forms";
   import { Copy, Info, Save, Settings, Trash2 } from "@lucide/svelte";
-  import { superForm } from "sveltekit-superforms/client";
+  import { appSuperForm } from "$lib/utils/super-form";
   import { m } from "$lib/paraglide/messages.js";
   import * as Dialog from "$lib/components/primitives/ui/dialog/index.js";
   import { Button } from "$lib/components/primitives/ui/button";
@@ -21,7 +21,7 @@
     enhance,
     message: updateMessage,
     submitting: updateSubmitting,
-  } = superForm<typeof data.form.data, FormMessage>(
+  } = appSuperForm<typeof data.form.data>(
     untrack(() => data.form),
     { resetForm: false, taintedMessage: null },
   );

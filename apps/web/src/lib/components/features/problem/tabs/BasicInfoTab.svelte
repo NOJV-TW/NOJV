@@ -1,6 +1,7 @@
 <script lang="ts">
   import { untrack } from "svelte";
-  import { superForm, type SuperValidated } from "sveltekit-superforms";
+  import type { SuperValidated } from "sveltekit-superforms";
+  import { appSuperForm } from "$lib/utils/super-form";
   import type { ProblemBasicInfo, ProblemDifficulty, ProblemVisibility } from "@nojv/core";
   import * as Select from "$lib/components/primitives/ui/select";
   import { m } from "$lib/paraglide/messages.js";
@@ -52,7 +53,7 @@
     tainted,
     message: formMessage,
     enhance,
-  } = superForm(
+  } = appSuperForm(
     untrack(() => formData),
     {
       dataType: "json",

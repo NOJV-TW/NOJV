@@ -10,7 +10,8 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { untrack } from "svelte";
-  import { superForm, type SuperValidated } from "sveltekit-superforms";
+  import type { SuperValidated } from "sveltekit-superforms";
+  import { appSuperForm } from "$lib/utils/super-form";
   import Trash2 from "@lucide/svelte/icons/trash-2";
   import Send from "@lucide/svelte/icons/send";
 
@@ -46,7 +47,7 @@
     enhance,
     message: formMessage,
     submitting,
-  } = superForm<ExamSettingsForm, FormMessage>(
+  } = appSuperForm<ExamSettingsForm>(
     untrack(() => formProp),
     {
       dataType: "json",
