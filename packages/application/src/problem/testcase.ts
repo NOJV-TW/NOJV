@@ -133,6 +133,7 @@ export async function createProblemTestcaseSetRecord(
 
     const testcaseSet = await testcaseSetRepo.withTx(tx).create({
       name: subtaskName(nextOrdinal),
+      description: payload.description,
       problemId: problem.id,
       weight: payload.weight,
       ordinal: nextOrdinal,

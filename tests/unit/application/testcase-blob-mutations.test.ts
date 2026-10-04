@@ -228,6 +228,22 @@ describe("testcase immutable object mutations", () => {
     );
   });
 
+  it("persists the subtask description and weight on create", async () => {
+    await createProblemTestcaseSetRecord(actor, "prob_1", {
+      weight: 30,
+      description: "$n \\le 100$",
+      cases: [{ input: "1 1", output: "2" }],
+    });
+
+    expect(testcaseSetCreate).toHaveBeenCalledExactlyOnceWith({
+      name: "subtask #1",
+      description: "$n \\le 100$",
+      problemId: "prob_1",
+      weight: 30,
+      ordinal: 0,
+    });
+  });
+
   it("rejects a testcase upload that would exceed the per-problem storage budget", async () => {
     problemFindById.mockResolvedValue({
       id: "prob_1",
