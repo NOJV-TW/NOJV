@@ -103,6 +103,15 @@ export async function assertProblemPublishable(
   if (testcaseSetCount === 0) {
     throw new ConflictError("Problems require at least one testcase set before publishing.");
   }
+  const { _sum } = await tx.testcaseSet.aggregate({
+    where: { problemId: problem.id },
+    _sum: { weight: true },
+  });
+  if (!_sum.weight) {
+    throw new ConflictError(
+      "Problems require at least one subtask worth points before publishing.",
+    );
+  }
   if (!problem.referenceSolutionSubmissionId) {
     throw new ConflictError(
       "Problems require an accepted reference solution before publishing.",

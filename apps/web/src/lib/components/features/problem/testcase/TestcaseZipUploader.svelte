@@ -291,7 +291,7 @@
                 <div class="flex items-center gap-1">
                   <input
                     class="w-20 rounded-lg border-2 border-primary/30 bg-[color:var(--color-panel)] px-2 py-2 text-body-sm font-bold text-primary tabular-nums"
-                    min="1"
+                    min="0"
                     oninput={(e) =>
                       updateSubtask(si, {
                         points: Number((e.target as HTMLInputElement).value) || 0,

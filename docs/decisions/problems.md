@@ -31,10 +31,10 @@ Eight scattered judge columns became one Zod-validated `Problem.judgeConfig` (ty
 
 **Decided:** 2026-04 · **Source:** [2026-04-09-problem-ui-redesign](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-04-09-problem-ui-redesign.md)
 
-Sample input/output pairs live in `Problem.samples` (JSON); every `TestcaseSet` is a graded subtask with weight > 0. Samples are problem presentation, not grading data.
+Sample input/output pairs live in `Problem.samples` (JSON); every `TestcaseSet` is a judged subtask with weight ≥ 0. Samples are problem presentation, not grading data. A teacher may add a 0-point set (for example the sample cases) so every submission is judged on it without it adding points; a failing 0-point set still shows in the verdict. Publishing requires the subtask weights to total more than 0.
 
-- Rejected: samples as a flagged, hidden or zero-weight `TestcaseSet` (`isHidden` was removed).
-- Rule: do not reintroduce sample flags on `TestcaseSet`; sample-only runs read `Problem.samples`.
+- Rejected: samples as a flagged or hidden `TestcaseSet` (`isHidden` was removed). Earlier: every `TestcaseSet` weight > 0 (teachers need judged 0-point sets, 2026-10).
+- Rule: do not reintroduce sample flags on `TestcaseSet`; sample-only runs read `Problem.samples`, never 0-point sets.
 - Code: `packages/db/prisma/schema/problem.prisma`
 
 ### PRB-04 Testcase and workspace content live in object storage behind versioned pointers

@@ -180,18 +180,18 @@ export const problemJudgeTestcaseSchema = z.object({
   id: z.string().trim().min(1),
   inputFiles: z.record(z.string(), testcaseFileContentSchema).optional(),
   input: testcaseFileContentSchema,
-  weight: z.coerce.number().int().min(1).max(100_000),
+  weight: z.coerce.number().int().min(0).max(100_000),
 });
 
 export const problemTestcaseSetCreateSchema = z.object({
   cases: z.array(problemTestcaseCaseSchema).min(1).max(256),
   description: z.string().max(5_000).default(""),
-  weight: z.coerce.number().int().min(1).max(100_000).default(1),
+  weight: z.coerce.number().int().min(0).max(100_000).default(1),
 });
 
 export const testcaseSetUpdateSchema = z.object({
   description: z.string().max(5_000).optional(),
-  weight: z.coerce.number().int().min(1).max(100_000).optional(),
+  weight: z.coerce.number().int().min(0).max(100_000).optional(),
 });
 
 export const testcaseUpdateSchema = z

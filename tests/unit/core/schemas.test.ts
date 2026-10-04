@@ -60,8 +60,55 @@ describe("problemBasicInfoSchema", () => {
 });
 
 describe("testcaseSetUpdateSchema", () => {
-  it.each([0, -1])("rejects a weight of %i like set creation does", (weight) => {
-    expect(testcaseSetUpdateSchema.safeParse({ weight }).success).toBe(false);
+  it("accepts a 0-point weight like set creation does", () => {
+    expect(testcaseSetUpdateSchema.parse({ weight: 0 })).toEqual({ weight: 0 });
+    expect(
+      problemTestcaseSetCreateSchema.parse({ cases: [{ input: "", output: "" }], weight: 0 }),
+    ).toMatchObject({ weight: 0 });
+  });
+
+  it("accepts 0-point sets in judge snapshots and judged results", () => {
+    expect(
+      problemJudgeTestcaseSchema.safeParse({ id: "tc", input: "1", output: "1", weight: 0 })
+        .success,
+    ).toBe(true);
+    expect(
+      submissionResultSchema.safeParse({
+        accepted: true,
+        feedback: "All testcases passed",
+        runtimeMs: 1,
+        score: 100,
+        verdict: "accepted",
+        subtaskResults: [
+          {
+            cases: [],
+            label: "samples",
+            passed: true,
+            rawScore: 0,
+            testcaseSetId: "s0",
+            weight: 0,
+          },
+          {
+            cases: [],
+            label: "main",
+            passed: true,
+            rawScore: 100,
+            testcaseSetId: "s1",
+            weight: 100,
+          },
+        ],
+      }).success,
+    ).toBe(true);
+  });
+
+  it("rejects a negative weight", () => {
+    expect(testcaseSetUpdateSchema.safeParse({ weight: -1 }).success).toBe(false);
+    expect(
+      problemTestcaseSetCreateSchema.safeParse({
+        cases: [{ input: "", output: "" }],
+        weight: -1,
+      }).success,
+    ).toBe(false);
   });
 
   it("accepts a description-only update", () => {

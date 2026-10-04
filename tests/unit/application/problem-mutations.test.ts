@@ -19,6 +19,7 @@ const {
   submissionFindMany,
   submissionFindUnique,
   testcaseSetCountByProblem,
+  testcaseSetAggregate,
   courseMembershipHasActiveStaff,
   acquireDisplayIdLock,
   maxDisplayId,
@@ -48,6 +49,7 @@ const {
   submissionFindMany: vi.fn(),
   submissionFindUnique: vi.fn(),
   testcaseSetCountByProblem: vi.fn(),
+  testcaseSetAggregate: vi.fn(),
   courseMembershipHasActiveStaff: vi.fn(),
   acquireDisplayIdLock: vi.fn(),
   maxDisplayId: vi.fn(),
@@ -147,6 +149,7 @@ vi.mock("@nojv/db", () => {
           delete: problemDelete,
         },
         submission: { findUnique: submissionFindUnique, findMany: submissionFindMany },
+        testcaseSet: { aggregate: testcaseSetAggregate },
         judgeExecution: { findFirst: vi.fn().mockResolvedValue(null) },
         scoreOverrideAuditLog: { findFirst: scoreAuditFind },
         submissionFeedbackAuditLog: { findFirst: feedbackAuditFind },
@@ -605,6 +608,7 @@ describe("updateProblemRecord — publication permissions", () => {
     vi.clearAllMocks();
     problemFindById.mockResolvedValue(draft);
     testcaseSetCountByProblem.mockResolvedValue(1);
+    testcaseSetAggregate.mockResolvedValue({ _sum: { weight: 100 } });
     submissionFindUnique.mockResolvedValue({
       assessmentId: null,
       contestId: null,
@@ -633,6 +637,14 @@ describe("updateProblemRecord — publication permissions", () => {
       displayId: 42,
       status: "published",
     });
+  });
+
+  it("rejects publishing when every subtask is worth 0 points", async () => {
+    testcaseSetAggregate.mockResolvedValue({ _sum: { weight: 0 } });
+    await expect(
+      updateProblemRecord(student, draft.id, { status: "published" }),
+    ).rejects.toThrow("Problems require at least one subtask worth points before publishing.");
+    expect(problemUpdate).not.toHaveBeenCalled();
   });
 
   it("rejects public publication by an ordinary student", async () => {
@@ -889,6 +901,7 @@ describe("course content publication and ownership", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     problemFindById.mockResolvedValue(problem);
+    testcaseSetAggregate.mockResolvedValue({ _sum: { weight: 100 } });
     courseProblemHasStaff.mockResolvedValue(true);
     courseProblemLockStaff.mockResolvedValue(true);
     courseMembershipHasActiveStaff.mockResolvedValue(true);

@@ -434,7 +434,8 @@ Anything token comparison cannot express needs a checker; no compare modes.
 
 - Subtasks are all-or-nothing in every context (JDG-04): a `TestcaseSet` earns its
   `weight` only if every case is AC. No partial credit, no per-subtask strategy, no
-  early exit.
+  early exit. A 0-point set is judged and decides the verdict like any other set
+  but adds nothing to the score or the problem maximum (PRB-03).
 - `buildSubtaskResults()` / `mapResult()` validate expected count and distinct
   zero-based indices and match cases by index; missing, duplicate or out-of-range
   cases cannot produce Accepted.
