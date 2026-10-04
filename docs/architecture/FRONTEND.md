@@ -44,7 +44,7 @@ Solve pages all render `ProblemSolveView` via `loadProblemSolveData` in `lib/ser
 | `/dashboard`                                       | Ability overview: stats, heatmap, streak, trend, distributions; `WelcomeGuide` when no submissions (UI-19)                                       |
 | `/problems`                                        | List with filters and Public / My / All tabs; staff can fork published public problems                                                           |
 | `/problems/[problemId]`                            | Practice workspace; left panel Description / Submissions / Discussions / Editorials (UI-05, UI-06)                                               |
-| `/problems/[problemId]/edit`                       | Problem editor (section rail: Basic, Workspace for multi-file, Testcase, Judge, Reference solution)                                              |
+| `/problems/[problemId]/edit`                       | Problem editor (section rail: Basic, Workspace for multi-file, Testcase with ZIP upload/download, Judge, Reference solution)                     |
 | `/submissions`                                     | Submission history (numbered pages); `/admin/submissions` 308-redirects here                                                                     |
 | `/submissions/[submissionId]`                      | Verdict, subtask tree, source; staff review and student self-view                                                                                |
 | `/courses`                                         | Enrolled / Managing tabs; effective admins redirect to `/admin/courses`                                                                          |
@@ -95,7 +95,7 @@ The HTTP API reference is the OpenAPI document (`/api/openapi.public.json`, `/ap
 | `/api/submissions`                         | POST create + dispatch; GET history or workspace cursor pages; `status`, `pending`, `[id]`, `[id]/source`, `[id]/rejudge` |
 | `/api/rejudges`                            | Batch rejudge POST, active rejudges GET; `[workflowId]` progress and `[workflowId]/cancel`                                |
 | `/api/drafts`                              | Server code drafts GET/PUT (`draftApiHandler`, WEB-05)                                                                    |
-| `/api/problems`                            | List / create; `[id]` delete, bundle, checker, interactor, testcases, images, posts, fork, bookmark, storage usage        |
+| `/api/problems`                            | List / create; `[id]` delete, bundle, checker, interactor, testcases + ZIP, images, posts, fork, bookmark, storage usage  |
 | `/api/problems/advanced-scaffold`          | Advanced Mode starter templates                                                                                           |
 | `/api/posts/[id]`                          | Posts, votes, comments, reports; `/api/comments/[id]` delete and reports                                                  |
 | `/api/clarifications`                      | List / create; `[id]` answer, dismiss, delete; `[id]/replies`                                                             |

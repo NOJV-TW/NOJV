@@ -7,6 +7,7 @@ export * from "./mutations/judge-config";
 export * from "./bookmarks";
 export * from "./workspace";
 export * from "./testcase";
+export * from "./testcase-archive";
 export * from "./permissions";
 export * from "./storage-budget";
 export * from "./bundle";
