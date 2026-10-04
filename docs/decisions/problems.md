@@ -4,7 +4,7 @@ Durable decisions for the problem model, authoring, publication, ownership, and 
 
 ### PRB-01 Three problem types; workspace files instead of templates
 
-**Decided:** 2026-04 · **Source:** [2026-04-09-problem-ui-redesign](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-04-09-problem-ui-redesign.md), [2026-04-12-codebase-cleanup-audit](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-04-12-codebase-cleanup-audit.md), [2026-05-12-full-source-system-templates-design](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-05-12-full-source-system-templates-design.md), [2026-04-01-cp-problem-judge-mapping](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-04-01-cp-problem-judge-mapping.md), [#628](https://github.com/NOJV-TW/NOJV/pull/628)
+**Decided:** 2026-04 · **Source:** [2026-04-09-problem-ui-redesign](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-04-09-problem-ui-redesign.md), [2026-04-12-codebase-cleanup-audit](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-04-12-codebase-cleanup-audit.md), [2026-05-12-full-source-system-templates-design](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-05-12-full-source-system-templates-design.md), [2026-04-01-cp-problem-judge-mapping](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-04-01-cp-problem-judge-mapping.md), [#628](https://github.com/NOJV-TW/NOJV/pull/628), [#629](https://github.com/NOJV-TW/NOJV/pull/629)
 
 Problem types are `full_source`, `multi_file` and `special_env`. `multi_file` problems use `ProblemWorkspaceFile` (problem, language, path) with whole-file visibility `editable`/`readonly`/`hidden`; the server merges the student's editable files with the rest and judges the whole tree. `full_source` accepts every supported language with system `LANGUAGE_TEMPLATES` starters and no teacher starters. One model covers single-file, fill-in-function, library and multi-file problems without hidden wrapping code.
 
@@ -19,7 +19,7 @@ Problem types are `full_source`, `multi_file` and `special_env`. `multi_file` pr
 
 ### PRB-02 Judge settings live in one validated `judgeConfig` JSON column
 
-**Decided:** 2026-04 · **Source:** [2026-04-03-problem-config-redesign](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-04-03-problem-config-redesign.md), [2026-04-03-problem-config-implementation](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-04-03-problem-config-implementation.md), [2026-05-27-problems-filter-sidebar](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-05-27-problems-filter-sidebar.md)
+**Decided:** 2026-04 · **Source:** [2026-04-03-problem-config-redesign](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-04-03-problem-config-redesign.md), [2026-04-03-problem-config-implementation](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-04-03-problem-config-implementation.md), [2026-05-27-problems-filter-sidebar](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-05-27-problems-filter-sidebar.md), [#629](https://github.com/NOJV-TW/NOJV/pull/629)
 
 Eight scattered judge columns became one Zod-validated `Problem.judgeConfig` (type, checker/interactor language, compare, runtime env). The schema was fragmented with no single validated source.
 
@@ -29,7 +29,7 @@ Eight scattered judge columns became one Zod-validated `Problem.judgeConfig` (ty
 
 ### PRB-03 Samples are presentation data, not testcases
 
-**Decided:** 2026-04 · **Source:** [2026-04-09-problem-ui-redesign](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-04-09-problem-ui-redesign.md)
+**Decided:** 2026-04 · **Source:** [2026-04-09-problem-ui-redesign](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-04-09-problem-ui-redesign.md), [#629](https://github.com/NOJV-TW/NOJV/pull/629)
 
 Sample input/output pairs live in `Problem.samples` (JSON); every `TestcaseSet` is a judged subtask with weight ≥ 0. Samples are problem presentation, not grading data. A teacher may add a 0-point set (for example the sample cases) so every submission is judged on it without it adding points; a failing 0-point set still shows in the verdict. Publishing requires the subtask weights to total more than 0.
 
@@ -86,7 +86,7 @@ Problems show a global integer `#N` via `formatProblemDisplayName`; routes, para
 
 ### PRB-08 Draft lifecycle and server-enforced publish/delete guards
 
-**Decided:** 2026-04 · **Source:** [2026-04-03-problem-config-redesign](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-04-03-problem-config-redesign.md), [2026-06-12-full-audit-remediation](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-06-12-full-audit-remediation.md), [2026-07-07-system-health-check-remediation](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/active/2026-07-07-system-health-check-remediation.md), [2026-09-09-draft-delete](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/active/2026-09-09-draft-delete.md)
+**Decided:** 2026-04 · **Source:** [2026-04-03-problem-config-redesign](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-04-03-problem-config-redesign.md), [2026-06-12-full-audit-remediation](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-06-12-full-audit-remediation.md), [2026-07-07-system-health-check-remediation](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/active/2026-07-07-system-health-check-remediation.md), [2026-09-09-draft-delete](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/active/2026-09-09-draft-delete.md), [#629](https://github.com/NOJV-TW/NOJV/pull/629)
 
 New problems start as `draft` (students may only create private drafts) so authors can configure judging before anyone sees them. Published problems never revert to draft; only unused drafts can be deleted, and completed practice reference submissions are deleted with them (storage cleanup enqueued atomically). Contest/exam/assessment/course problem links are `onDelete: Restrict` because `Submission.problem` still cascades and an unpublish-then-delete could wipe a live contest's submissions.
 
@@ -98,7 +98,7 @@ New problems start as `draft` (students may only create private drafts) so autho
 
 ### PRB-09 Publication requires a private, current reference solution
 
-**Decided:** 2026-08 · **Source:** [2026-08-08-reference-solution-validation](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/active/2026-08-08-reference-solution-validation.md), [2026-08-15-reference-validation-editor-form](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/active/2026-08-15-reference-validation-editor-form.md)
+**Decided:** 2026-08 · **Source:** [2026-08-08-reference-solution-validation](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/active/2026-08-08-reference-solution-validation.md), [2026-08-15-reference-validation-editor-form](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/active/2026-08-15-reference-validation-editor-form.md), [#629](https://github.com/NOJV-TW/NOJV/pull/629)
 
 A standard problem publishes only with an accepted reference solution for the current judge configuration, authored in the editor's "Reference solution" section. It is an ordinary practice submission flagged `isReferenceSolution` against the full testcase set, pointed to by `Problem.referenceSolutionSubmissionId`, and tied to the problem's storage generation so any judge-affecting edit invalidates it. It validates the testcase and judge contract, not correctness.
 
@@ -110,7 +110,7 @@ A standard problem publishes only with an accepted reference solution for the cu
 
 ### PRB-10 Personal ownership, course sharing and forks
 
-**Decided:** 2026-09 · **Source:** [2026-09-08-problem-permissions](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/active/2026-09-08-problem-permissions.md), [2026-08-15-problem-forks-admin-visibility](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/active/2026-08-15-problem-forks-admin-visibility.md)
+**Decided:** 2026-09 · **Source:** [2026-09-08-problem-permissions](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/active/2026-09-08-problem-permissions.md), [2026-08-15-problem-forks-admin-visibility](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/active/2026-08-15-problem-forks-admin-visibility.md), [#629](https://github.com/NOJV-TW/NOJV/pull/629)
 
 Every problem has one personal owner (`authorId`, `ON DELETE RESTRICT`). `CourseProblem` shares a problem with a course, and bound, active teachers/TAs of a non-archived course co-edit the private problems shared with it. Forks are independent private drafts with `forkedFromProblemId` lineage made by one transactional deep copy; public problems added to a course are forked into an importer-owned private copy.
 
@@ -124,7 +124,7 @@ Every problem has one personal owner (`authorId`, `ON DELETE RESTRICT`). `Course
 
 ### PRB-11 Visibility, public publication and admin consent
 
-**Decided:** 2026-08 · **Source:** [2026-08-15-problem-publication-permissions](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-08-15-problem-publication-permissions.md), [2026-08-08-reference-solution-validation](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/active/2026-08-08-reference-solution-validation.md), [2026-09-08-problem-permissions](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/active/2026-09-08-problem-permissions.md)
+**Decided:** 2026-08 · **Source:** [2026-08-15-problem-publication-permissions](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-08-15-problem-publication-permissions.md), [2026-08-08-reference-solution-validation](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/active/2026-08-08-reference-solution-validation.md), [2026-09-08-problem-permissions](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/active/2026-09-08-problem-permissions.md), [#629](https://github.com/NOJV-TW/NOJV/pull/629)
 
 `status` and `visibility` are independent. Any author may publish a private problem; public publication needs `canPublishPublicProblems` (platform teacher/admin, or active teacher/TA in a non-archived course) and creates a publisher-owned public fork, leaving the private source intact. `adminMayPublish` is the owner's one-time consent, consumed on use, for an admin to publish a non-owned problem; it never makes a problem discoverable or implies review. Students can author privately without an implied review promise.
 

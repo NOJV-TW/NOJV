@@ -49,7 +49,7 @@ Teachers and TAs paste handles, which are parsed and deduplicated; existing user
 
 ### ASM-05 TAs may remove students only
 
-**Decided:** 2026-09 · **Source:** [2026-09-21-course-member-removal](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-09-21-course-member-removal.md)
+**Decided:** 2026-09 · **Source:** [2026-09-21-course-member-removal](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-09-21-course-member-removal.md), [#629](https://github.com/NOJV-TW/NOJV/pull/629)
 
 Active TAs can remove student members (linked or pending) but cannot remove TAs, promote, or change roles or usernames; owner, teacher, inactive-actor and cross-course protections remain. Loaders expose per-member permissions so the UI hides controls the server would deny.
 
@@ -101,7 +101,7 @@ Course analytics is staff-only aggregation with no schema change. Upsolve appear
 
 ### ASM-10 One clarification board for contests, exams and assignments
 
-**Decided:** 2026-04 · **Source:** [2026-04-19-clarification-board-design](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-04-19-clarification-board-design.md), [2026-04-19-clarification-board-plan](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-04-19-clarification-board-plan.md)
+**Decided:** 2026-04 · **Source:** [2026-04-19-clarification-board-design](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-04-19-clarification-board-design.md), [2026-04-19-clarification-board-plan](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-04-19-clarification-board-plan.md), [#629](https://github.com/NOJV-TW/NOJV/pull/629)
 
 A single `Clarification` model keyed by `contextType` + `contextId`, optionally linked to a problem (`SetNull` on problem delete), with the answer inline and states `pending -> answered | dismissed`. Participants had no in-platform channel and hints reached students unevenly. Only participants (contest participants, exam participants with an active student membership, active students of a published assignment's course) ask or read as non-staff; admins and staff never ask, so staff cannot plant hints as student questions. Answering follows the submission-context staff matrix.
 
@@ -166,7 +166,7 @@ Scoreboard and scoring algorithms are entity-agnostic pure functions in `@nojv/a
 
 ### ASM-16 Raw problem scores and activity point allocation are separate
 
-**Decided:** 2026-09 · **Source:** [2026-06-29-problem-total-score](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/active/2026-06-29-problem-total-score.md), [2026-09-08-assessment-problem-weights](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/active/2026-09-08-assessment-problem-weights.md), [2026-07-10-gradebook-public-profile](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-07-10-gradebook-public-profile.md)
+**Decided:** 2026-09 · **Source:** [2026-06-29-problem-total-score](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/active/2026-06-29-problem-total-score.md), [2026-09-08-assessment-problem-weights](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/active/2026-09-08-assessment-problem-weights.md), [2026-07-10-gradebook-public-profile](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-07-10-gradebook-public-profile.md), [#629](https://github.com/NOJV-TW/NOJV/pull/629)
 
 A Standard problem's raw total is the sum of its testcase-set weights (each scored all-or-nothing, see JDG-04 in judge.md); an Advanced problem's is `advancedConfig.maxScore` (default 100). Submissions, overrides and adjustment rules stay on that raw scale. Assignments and exams carry per-problem allocated `points` (Decimal) and a `totalPoints` derived as their sum, which the gradebook and activity totals use; teachers need weighted totals independent of raw maxima. Exam participation scores are recomputed through durable work with revision checks; assignments compute on read.
 
@@ -190,7 +190,7 @@ An override sets a student's final raw score for one problem in one assignment o
 
 ### ASM-18 Grading happens after close; feedback is its own table
 
-**Decided:** 2026-05 · **Source:** [2026-05-20-grading-feedback-audit-batch-design](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-05-20-grading-feedback-audit-batch-design.md), [2026-05-22-feedback-audit-and-plagiarism-trigger-log-design](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-05-22-feedback-audit-and-plagiarism-trigger-log-design.md)
+**Decided:** 2026-05 · **Source:** [2026-05-20-grading-feedback-audit-batch-design](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-05-20-grading-feedback-audit-batch-design.md), [2026-05-22-feedback-audit-and-plagiarism-trigger-log-design](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-05-22-feedback-audit-and-plagiarism-trigger-log-design.md), [#629](https://github.com/NOJV-TW/NOJV/pull/629)
 
 Override and feedback mutations by non-admins fail with 409 until the context closes; platform admins bypass for emergency fixes. Student-visible feedback lives in `SubmissionFeedback` (assignment or exam, exactly-one CHECK, unique per context/problem/membership) so teachers can comment on full-score cells without an override, and students see it only after close. `SubmissionFeedbackAuditLog` records every create/update/delete and survives feedback deletion (FK set null).
 
@@ -279,7 +279,7 @@ Whether an actor manages a course is decided only by `resolveCourseRole` in `pac
 
 ### ASM-26 Archived courses are read-only
 
-**Decided:** 2026-10 · **Source:** this PR
+**Decided:** 2026-10 · **Source:** [#629](https://github.com/NOJV-TW/NOJV/pull/629)
 
 Archiving freezes a course for every role, admins included. Course info, announcements, the roster, activities and the course problem library, score overrides and feedback, rejudges and their cancellation, clarifications, plagiarism runs and flags, and exam staff actions (session release, IP binding reset, temporary passwords) fail with `ValidationError("Archived courses are read-only.")`; student submissions, code drafts and exam sessions keep their `ForbiddenError`. Everything stays readable, and pages hide or disable each blocked control. Archiving is how a term ends, so its record must stop changing; editing an archived course means unarchiving it first.
 

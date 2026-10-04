@@ -4,7 +4,7 @@ Durable decisions for submission judging, verdicts and scoring, the judge queue,
 
 ### JDG-01 Fixed Standard Mode with three exclusive judge types
 
-**Decided:** 2026-04 · **Source:** [2026-04-02-judge-pipeline-spec](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-04-02-judge-pipeline-spec.md), [2026-04-03-problem-config-redesign](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-04-03-problem-config-redesign.md), [2026-04-09-problem-ui-redesign](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-04-09-problem-ui-redesign.md)
+**Decided:** 2026-04 · **Source:** [2026-04-02-judge-pipeline-spec](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-04-02-judge-pipeline-spec.md), [2026-04-03-problem-config-redesign](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-04-03-problem-config-redesign.md), [2026-04-09-problem-ui-redesign](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-04-09-problem-ui-redesign.md), [#629](https://github.com/NOJV-TW/NOJV/pull/629)
 
 The Standard Mode pipeline is implicit and fixed, not a list of configurable stages. The judge type is exactly one of `standard`, `checker` or `interactive`; anything these cannot express goes to Advanced Mode (`special_env`, JDG-16), not to new Standard settings. TAs do not think in pipelines, and no amount of settings would cover custom environments.
 
