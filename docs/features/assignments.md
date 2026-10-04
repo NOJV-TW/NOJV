@@ -5,6 +5,7 @@ Acceptance spec for course homework (`Assessment`, routes `/assignments/[assignm
 ## Key code
 
 - `packages/application/src/assignment/mutations.ts` — `updateAssignmentRecord`, `publishAssignment`, `revertAssignmentToDraft`, `deleteAssignmentDraft`, status-aware field locks
+- `packages/application/src/assignment/publish.ts` — `publishAssignmentInTransaction`, the one publish transition shared by `publishAssignment` and create-as-published (`createCourseAssignmentRecord` in `course/mutations.ts`)
 - `packages/application/src/scoring/activity-grading.ts`, `scoring/activity-points.ts` — allocation save/validation and weighted official score
 - `packages/application/src/problem/fork.ts` — `resolveActivityProblems` (reuse, fork, library sharing)
 - `packages/application/src/course/overview.ts`, `course/across-courses.ts`, `shared/list-aggregations.ts` — list views, `classStats`, `myStatus`
@@ -64,6 +65,7 @@ Rules come from PRB-10 and PRB-11; data model in [Database](../architecture/DATA
 - Failures, all `ValidationError`: not draft → `"Only draft assignments can be published."`; no languages → `"Select at least one allowed language before publishing."`; no problems → `"Attach at least one problem before publishing."`; `closesAt <= now` → `"closesAt must be in the future."`.
 - Check and write run in one locked transaction, so a concurrent second publish fails with the not-draft error.
 - A draft with no `dueAt` publishes; the window check applies only when `dueAt` is set.
+- Creating with `status: "published"` inserts a draft and runs the same publish transition in the create transaction: the same checks and failures apply, a `publish` audit row is written, and any failure rolls back the whole create.
 
 ### Revert to draft and delete draft
 

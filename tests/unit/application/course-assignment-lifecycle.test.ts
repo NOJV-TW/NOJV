@@ -1,10 +1,14 @@
 vi.mock("../../../packages/application/src/scoring/activity-grading", () => ({
-  saveActivityGrading: vi.fn(async () => {}),
+  saveActivityGrading: vi.fn(() => Promise.resolve()),
 }));
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import type * as Db from "@nojv/db";
 
 const {
+  assessmentAuditCreate,
   assessmentCreate,
+  assessmentProblemFindMany,
+  assessmentUpdate,
   courseFindById,
   courseLockForUpdate,
   ensureAssignmentDueSoon,
@@ -12,7 +16,10 @@ const {
   userFindById,
   userUpdate,
 } = vi.hoisted(() => ({
+  assessmentAuditCreate: vi.fn(),
   assessmentCreate: vi.fn(),
+  assessmentProblemFindMany: vi.fn(),
+  assessmentUpdate: vi.fn(),
   courseFindById: vi.fn(),
   courseLockForUpdate: vi.fn(),
   ensureAssignmentDueSoon: vi.fn(),
@@ -21,10 +28,11 @@ const {
   userUpdate: vi.fn(),
 }));
 
-vi.mock("@nojv/db", () => ({
-  Prisma: {},
+vi.mock("@nojv/db", async (importOriginal) => ({
+  Prisma: (await importOriginal<typeof Db>()).Prisma,
+  assessmentAuditLogRepo: { withTx: () => ({ create: assessmentAuditCreate }) },
   assessmentProblemRepo: { withTx: () => ({ create: vi.fn() }) },
-  assessmentRepo: { withTx: () => ({ create: assessmentCreate }) },
+  assessmentRepo: { withTx: () => ({ create: assessmentCreate, update: assessmentUpdate }) },
   courseMembershipRepo: {
     withTx: () => ({ findByComposite: membershipFindByComposite }),
   },
@@ -33,8 +41,10 @@ vi.mock("@nojv/db", () => ({
   },
   examProblemRepo: {},
   examRepo: {},
+  prismaAdapterClient: { problem: { findUnique: vi.fn(() => Promise.resolve(null)) } },
   problemRepo: { withTx: () => ({ findMany: vi.fn() }) },
-  runTransaction: async <T>(fn: (tx: unknown) => Promise<T>): Promise<T> => fn({}),
+  runTransaction: async <T>(fn: (tx: unknown) => Promise<T>): Promise<T> =>
+    fn({ assessmentProblem: { findMany: assessmentProblemFindMany } }),
   userRepo: {
     withTx: () => ({ findById: userFindById, update: userUpdate, create: vi.fn() }),
   },
@@ -57,14 +67,25 @@ beforeEach(() => {
   membershipFindByComposite.mockResolvedValue({ role: "teacher", status: "active" });
   userFindById.mockResolvedValue({ id: actor.userId });
   userUpdate.mockResolvedValue({ id: actor.userId });
-  assessmentCreate.mockResolvedValue({
+  const draft = {
     id: "assignment_1",
-    status: "published",
+    courseId: "course_1",
+    status: "draft",
+    allowedLanguages: ["cpp"],
+    adjustmentRules: [],
     opensAt: new Date("2030-01-01T00:00:00.000Z"),
+    dueAt: new Date("2030-01-09T00:00:00.000Z"),
     closesAt: new Date("2030-01-10T00:00:00.000Z"),
-    scheduleRevision: 1,
+    scheduleRevision: 0,
     timerFingerprint: "assessment:v1:assignment_1:window_a",
-  });
+  };
+  assessmentCreate.mockImplementation((data: Record<string, unknown>) =>
+    Promise.resolve({ ...draft, ...data, id: draft.id }),
+  );
+  assessmentUpdate.mockImplementation((_id: string, data: Record<string, unknown>) =>
+    Promise.resolve({ ...draft, ...data, scheduleRevision: 1 }),
+  );
+  assessmentProblemFindMany.mockResolvedValue([{ problemId: "problem_1", points: 100 }]);
   configureDomainOrchestration({
     cancelAssignmentDueSoon: vi.fn(),
     cancelContestLifecycle: vi.fn(),
@@ -85,25 +106,37 @@ beforeEach(() => {
   });
 });
 
+const publishedPayload = {
+  courseId: "course_1",
+  title: "Published assignment",
+  opensAt: "2030-01-01T00:00:00.000Z",
+  dueAt: "2030-01-09T00:00:00.000Z",
+  closesAt: "2030-01-10T00:00:00.000Z",
+  status: "published" as const,
+  allowedLanguages: ["cpp" as const],
+  allowLateSubmissions: true,
+  problems: [{ problemId: "problem_1", points: 100 }],
+  latePenalty: null,
+};
+
 describe("createCourseAssignmentRecord lifecycle", () => {
-  it("locks the course snapshot and ensures a directly published assignment", async () => {
-    await courseDomain.createCourseAssignmentRecord(actor, "course_1", {
-      courseId: "course_1",
-      title: "Published assignment",
-      opensAt: "2030-01-01T00:00:00.000Z",
-      dueAt: "2030-01-09T00:00:00.000Z",
-      closesAt: "2030-01-10T00:00:00.000Z",
-      status: "published",
-      allowedLanguages: [],
-      allowLateSubmissions: true,
-      problems: [],
-      latePenalty: null,
-    });
+  it("publishes through the publish transition and ensures the due-soon reminder", async () => {
+    await courseDomain.createCourseAssignmentRecord(actor, "course_1", publishedPayload);
 
     expect(courseLockForUpdate).toHaveBeenCalledWith("course_1");
     expect(courseLockForUpdate.mock.invocationCallOrder[0]).toBeLessThan(
       courseFindById.mock.invocationCallOrder[0],
     );
+    expect(assessmentCreate).toHaveBeenCalledWith(
+      expect.objectContaining({ status: "draft", summary: "" }),
+    );
+    expect(assessmentUpdate).toHaveBeenCalledWith("assignment_1", { status: "published" });
+    expect(assessmentAuditCreate).toHaveBeenCalledWith({
+      assessmentId: "assignment_1",
+      courseId: "course_1",
+      actorUserId: actor.userId,
+      action: "publish",
+    });
     expect(ensureAssignmentDueSoon).toHaveBeenCalledWith(
       expect.objectContaining({
         assignmentId: "assignment_1",
@@ -111,5 +144,47 @@ describe("createCourseAssignmentRecord lifecycle", () => {
         timerFingerprint: "assessment:v1:assignment_1:window_a",
       }),
     );
+  });
+
+  it("creates a draft without publishing or auditing", async () => {
+    await courseDomain.createCourseAssignmentRecord(actor, "course_1", {
+      ...publishedPayload,
+      status: "draft",
+      allowedLanguages: [],
+      problems: [],
+    });
+
+    expect(assessmentCreate).toHaveBeenCalledWith(expect.objectContaining({ status: "draft" }));
+    expect(assessmentUpdate).not.toHaveBeenCalled();
+    expect(assessmentAuditCreate).not.toHaveBeenCalled();
+    expect(ensureAssignmentDueSoon).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    [
+      "no allowed language",
+      { allowedLanguages: [] },
+      "Select at least one allowed language before publishing.",
+    ],
+    [
+      "a final deadline in the past",
+      {
+        opensAt: "2020-01-01T00:00:00.000Z",
+        dueAt: "2020-01-09T00:00:00.000Z",
+        closesAt: "2020-01-10T00:00:00.000Z",
+      },
+      "closesAt must be in the future.",
+    ],
+  ])("rejects creating as published with %s", async (_label, override, error) => {
+    await expect(
+      courseDomain.createCourseAssignmentRecord(actor, "course_1", {
+        ...publishedPayload,
+        ...override,
+      }),
+    ).rejects.toThrow(error);
+
+    expect(assessmentUpdate).not.toHaveBeenCalled();
+    expect(assessmentAuditCreate).not.toHaveBeenCalled();
+    expect(ensureAssignmentDueSoon).not.toHaveBeenCalled();
   });
 });

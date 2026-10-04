@@ -5,6 +5,7 @@ Acceptance spec for course exams (`Exam`, routes `/exams/[examId]/...`). Student
 ## Key code
 
 - `packages/application/src/exam/mutations.ts` — `createExamRecord`, `updateExamRecord`, `publishExam`, `deleteExamDraft`
+- `packages/application/src/exam/publish.ts` — `publishExamInTransaction`, the one publish transition shared by `publishExam` and create-as-published
 - `packages/application/src/exam/session.ts` — `startSessionWithGate`, `endSession`, `recordEvent`, `autoCloseForExam`, `releaseSessionAsInstructor`, `releaseAllSessionsAsInstructor`, `resetStudentIpBinding`, `listActiveSessions`, `getActiveSessionContext`, `getSessionState`, `listSubmittedProblemIds`, `requireActiveSessionForUserExam`
 - `packages/application/src/exam/credentials.ts` — temporary exam passwords
 - `packages/application/src/exam/detail.ts` (`getExamDetailPage`), `exam/submissions-matrix.ts` (`buildExamSubmissionsMatrix`), `exam/scoring.ts` (`updateExamScores`), `exam/queries.ts` (`listExamIpViolations`)
@@ -46,6 +47,7 @@ Decision: ASM-22. Security model: [Security](../operations/SECURITY.md).
 - Management requires a bound, active course teacher/TA membership or effective admin access; the creator alone, pending usernames and removed memberships grant nothing; an active TA who is a platform student is allowed. Archived courses reject mutations.
 - Auto-close is ensured only after the create or publish transaction commits.
 - `publishExam` requires a draft (`"Only draft exams can be published."`), a positive allocation total (`"Add at least one problem worth points before publishing or saving a published activity."`, which also covers an exam with no problems), ≥1 language (`"Select at least one allowed language before publishing."`), a valid window (`"endsAt must be later than startsAt."`), a valid late policy, and `endsAt > now` (`"End time must be in the future."`).
+- Creating with `status: "published"` inserts a draft and runs the same publish transition in the create transaction, so every `publishExam` check above applies and any failure rolls back the whole create.
 - `deleteExamDraft` on a non-draft fails with `"Only draft exams can be deleted."`.
 
 ### Late collection
