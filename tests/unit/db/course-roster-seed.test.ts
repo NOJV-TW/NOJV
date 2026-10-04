@@ -88,8 +88,7 @@ describe("course roster demo seed", () => {
 
     const libraryProblemIds = new Set(
       libraryUpsert.mock.calls.map(
-        ([args]: [{ create: { courseId: string; problemId: string } }]) =>
-          args.create.problemId,
+        ([args]) => (args as { create: { problemId: string } }).create.problemId,
       ),
     );
     expect(libraryProblemIds).toEqual(new Set(COURSE_PROBLEM_SOURCES.map(courseProblemId)));
