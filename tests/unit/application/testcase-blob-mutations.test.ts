@@ -148,8 +148,8 @@ beforeEach(() => {
     inputFileStorage: null,
     testcaseSet: { problemId: "prob_1" },
   });
-  putImmutableText.mockImplementation(
-    async (_client: unknown, key: string, content: string) => ({
+  putImmutableText.mockImplementation((_client: unknown, key: string, content: string) =>
+    Promise.resolve({
       key,
       sha256: "a".repeat(64),
       size: Buffer.byteLength(content),
@@ -207,19 +207,19 @@ describe("testcase immutable object mutations", () => {
       cases: [{ input: "1 1", output: "2" }],
     });
 
-    const rows = testcaseCreateMany.mock.calls[0]![0] as Array<{
+    const rows = testcaseCreateMany.mock.calls[0][0] as {
       inputStorage: { key: string };
       outputStorage: { key: string };
-    }>;
-    expect(rows[0]!.inputStorage.key).toMatch(
+    }[];
+    expect(rows[0].inputStorage.key).toMatch(
       /^problems\/prob_1\/testcases\/[^/]+\/versions\/[^/]+\/input$/,
     );
-    expect(rows[0]!.outputStorage.key).toMatch(
+    expect(rows[0].outputStorage.key).toMatch(
       /^problems\/prob_1\/testcases\/[^/]+\/versions\/[^/]+\/output$/,
     );
     expect(commitStoragePointerSwap).toHaveBeenCalledWith(
       expect.anything(),
-      expect.objectContaining({ added: [rows[0]!.inputStorage, rows[0]!.outputStorage] }),
+      expect.objectContaining({ added: [rows[0].inputStorage, rows[0].outputStorage] }),
     );
     expect(problemFindById).toHaveBeenCalledTimes(3);
     expect(problemLock).toHaveBeenCalledWith("prob_1");
@@ -312,7 +312,7 @@ describe("testcase immutable object mutations", () => {
 
   it("atomically swaps a changed input pointer and schedules the old pointer", async () => {
     await updateTestcaseRecord(actor, "prob_1", "tc_1", { input: "new" });
-    const data = testcaseUpdate.mock.calls[0]![1] as { inputStorage: { key: string } };
+    const data = testcaseUpdate.mock.calls[0][1] as { inputStorage: { key: string } };
     expect(data.inputStorage.key).toMatch(/\/versions\/[^/]+\/input$/);
     expect(commitStoragePointerSwap).toHaveBeenCalledWith(expect.anything(), {
       added: [data.inputStorage],
