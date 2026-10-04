@@ -148,6 +148,9 @@ jobs:
       - name: Generate Prisma client
         run: pnpm db:generate
 
+      - name: Build workflow bundle dependencies
+        run: pnpm --filter @nojv/storage... build
+
       - name: Build sandbox and advanced demo images
         run: |
           pnpm sandbox:build
