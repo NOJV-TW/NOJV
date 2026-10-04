@@ -101,7 +101,7 @@ New problems start as `draft` (students may only create private drafts) so autho
 A standard problem publishes only with an accepted reference solution for the current judge configuration, authored in the editor's "Reference solution" section. It is an ordinary practice submission flagged `isReferenceSolution` against the full testcase set, pointed to by `Problem.referenceSolutionSubmissionId`, and tied to the problem's storage generation so any judge-affecting edit invalidates it. It validates the testcase and judge contract, not correctness.
 
 - Rejected: a separate route or modal; ZIP upload; auto-generated editorials; review queues or approval states; schema defaults for time/memory limits (required fields).
-- Rule: reference source is never public and never appears in lists or history; only owner or admin may read it directly.
+- Rule: reference source is never public and never appears in lists or history; only the owner, an admin, or course staff with PRB-10 content read access (including staff of an archived course that shares the problem) may read it directly.
 - Rule: only authorized publishers submit with the reference purpose; hidden workspace files are never exposed in the section.
 - Rule: invalidation covers testcases, workspace files, judge config/checker/interactor, languages/type, limits and advanced config.
 - Code: `packages/application/src/problem/mutations/publishing.ts`, `packages/db/prisma/schema/submission.prisma`
