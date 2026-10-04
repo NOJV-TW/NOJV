@@ -937,6 +937,7 @@
   "courseGradebook_headingOwn": "我的成績",
   "courseGradebook_maxPoints": "滿分 {points}",
   "courseGradebook_maxScoreLabel": "滿分",
+  "courseGradebook_notYetOpen": "尚未開放",
   "courseGradebook_problemOrdinal": "第{n}題",
   "courseGradebook_student": "學生",
   "courseGradebook_total": "總分",

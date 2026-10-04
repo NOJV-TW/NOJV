@@ -937,6 +937,7 @@
   "courseGradebook_headingOwn": "My grades",
   "courseGradebook_maxPoints": "max {points}",
   "courseGradebook_maxScoreLabel": "Max score",
+  "courseGradebook_notYetOpen": "Not yet open",
   "courseGradebook_problemOrdinal": "P{n}",
   "courseGradebook_student": "Student",
   "courseGradebook_total": "Total",

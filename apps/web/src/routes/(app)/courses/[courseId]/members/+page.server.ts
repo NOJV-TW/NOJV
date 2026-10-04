@@ -15,7 +15,9 @@ import type { FormMessage } from "$lib/types/form-message";
 const {
   listMembersForCourse,
   bulkAddByHandle,
+  canAssignCourseRole,
   changeMemberRole,
+  memberActionDenial,
   removeMember,
   correctPendingUsername,
   parseHandleInput,
@@ -43,7 +45,7 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
   const { course, isManager } = parent;
   const actorRole = await getCoursePermissionRole(course.id, actor);
   const canChangeRoles = canManageMembers(actorRole);
-  const canCorrectUsername = canChangeRoles;
+  const viewer = { userId: actor.userId, role: actorRole };
 
   const [members, bulkAddForm] = await Promise.all([
     listMembersForCourse(course.id),
@@ -56,28 +58,28 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
     .filter((member) => member.status === "active")
     .filter((member) => isManager || !member.isPending)
     .filter((member) => member.userId !== actor.userId || member.role !== "teacher")
-    .map((member) => ({
-      membershipId: member.membershipId,
-      userId: member.userId,
-      name: member.name,
-      username: member.username,
-      image: member.image,
-      email: isManager ? member.email : null,
-      role: member.role,
-      isPending: member.isPending,
-      canRemove:
-        member.role !== "teacher" &&
-        (canChangeRoles || (actorRole === "ta" && member.role === "student")),
-      canCorrectUsername:
-        canCorrectUsername &&
-        member.isPending &&
-        (member.role !== "teacher" || actor.platformRole === "admin"),
-      joinedAt: member.joinedAt,
-    }));
+    .map((member) => {
+      const canManage = memberActionDenial(viewer, member, "manage") === null;
+      return {
+        membershipId: member.membershipId,
+        userId: member.userId,
+        name: member.name,
+        username: member.username,
+        image: member.image,
+        email: isManager ? member.email : null,
+        role: member.role,
+        isPending: member.isPending,
+        canRemove: memberActionDenial(viewer, member, "remove") === null,
+        canChangeRole: canManage,
+        canCorrectUsername: member.isPending && canManage,
+        joinedAt: member.joinedAt,
+      };
+    });
 
   return {
     members: visibleMembers,
     canChangeRoles,
+    canAssignTeacher: canAssignCourseRole(actorRole, "teacher"),
     bulkAddForm,
   };
 });

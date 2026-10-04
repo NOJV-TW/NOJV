@@ -94,6 +94,32 @@ describe("listForViewer — access gate", () => {
     expect(items[0]?.questionText).toBe("Is the input 1-indexed?");
   });
 
+  it("rejects an active student reading a draft assignment's board", async () => {
+    assessmentFindByIdWithCourseId.mockResolvedValue({
+      id: "ca_1",
+      courseId: "crs_1",
+      status: "draft",
+    });
+    courseMembershipFindByComposite.mockResolvedValue({ role: "student", status: "active" });
+    await expect(
+      listForViewer(actor({ userId: "usr_student" }), {
+        type: "assignment",
+        assignmentId: "ca_1",
+      }),
+    ).rejects.toThrow(/not permitted/i);
+    expect(clarificationListForContext).not.toHaveBeenCalled();
+  });
+
+  it("rejects an exam participant whose membership was removed", async () => {
+    examFindById.mockResolvedValue({ id: "exm_1", courseId: "crs_1" });
+    examListParticipantUserIds.mockResolvedValue(["usr_student"]);
+    courseMembershipFindByComposite.mockResolvedValue({ role: "student", status: "removed" });
+    await expect(
+      listForViewer(actor({ userId: "usr_student" }), { type: "exam", examId: "exm_1" }),
+    ).rejects.toThrow(/not permitted/i);
+    expect(clarificationListForContext).not.toHaveBeenCalled();
+  });
+
   it("allows the organizer (staff) and reveals the asker identity", async () => {
     const items = await listForViewer(actor({ userId: "usr_organizer" }), contestCtx());
     expect(items).toHaveLength(1);

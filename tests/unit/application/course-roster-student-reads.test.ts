@@ -22,6 +22,7 @@ vi.mock("@nojv/db", async (importOriginal) => ({
   assessmentRepo: { findDetailById: assignmentDetail },
   assessmentAuditLogRepo: { listByAssessment: vi.fn(() => Promise.resolve([])) },
   examRepo: { findDetailForRegistrationPage: examDetail },
+  participationRepo: { listExamParticipantsWithUser: vi.fn(() => Promise.resolve([])) },
   problemRepo: {
     findScoringInputsByIds: vi.fn(() =>
       Promise.resolve([
@@ -137,9 +138,27 @@ describe("student grade ownership after roster linking", () => {
       viewerUserId: "real_user",
       isManager: false,
     });
-    expect(detail).toMatchObject({ viewerScore: 90, registeredCount: 0, totalStudents: 1 });
+    expect(detail).toMatchObject({ viewerScore: 90 });
     expect(detail?.problems[0].viewerState).toBe("partial");
     expect(grouped).toHaveBeenCalledWith(expect.objectContaining({ userId: "real_user" }));
+  });
+
+  it("keeps exam class statistics staff-only", async () => {
+    examDetail.mockResolvedValue({
+      ...(await examDetail()),
+      _count: { participations: 3 },
+    });
+    const student = await examDomain.getExamDetailPage("e1", {
+      viewerUserId: "real_user",
+      isManager: false,
+    });
+    expect(student).toMatchObject({ registeredCount: null, totalStudents: null });
+
+    const staff = await examDomain.getExamDetailPage("e1", {
+      viewerUserId: "teacher",
+      isManager: true,
+    });
+    expect(staff).toMatchObject({ registeredCount: 3, totalStudents: 1 });
   });
 
   it("does not expose a manual exam grade to a different authenticated account", async () => {

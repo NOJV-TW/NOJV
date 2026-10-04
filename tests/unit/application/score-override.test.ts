@@ -183,7 +183,11 @@ describe("canSetScoreOverride", () => {
   });
 
   it("assignment: only course teacher/TA allowed", async () => {
-    assessmentFindByIdWithCourseId.mockResolvedValue({ id: "ca_1", courseId: "crs_1" });
+    assessmentFindByIdWithCourseId.mockResolvedValue({
+      id: "ca_1",
+      courseId: "crs_1",
+      closesAt: CLOSED_AT,
+    });
     courseMembershipFindByComposite.mockResolvedValue({
       role: "teacher",
       status: "active",
@@ -213,7 +217,7 @@ describe("canSetScoreOverride", () => {
   });
 
   it("exam: only course teacher/TA allowed", async () => {
-    examFindById.mockResolvedValue({ id: "e_1", courseId: "crs_1" });
+    examFindById.mockResolvedValue({ id: "e_1", courseId: "crs_1", endsAt: CLOSED_AT });
     courseMembershipFindByComposite.mockResolvedValue({ role: "teacher", status: "active" });
     expect(
       await canSetScoreOverride(actor({ userId: "usr_t" }), { type: "exam", examId: "e_1" }),
@@ -226,6 +230,33 @@ describe("canSetScoreOverride", () => {
         examId: "e_1",
       }),
     ).toBe(false);
+  });
+});
+
+describe("canSetScoreOverride — close gate", () => {
+  beforeEach(() => {
+    courseMembershipFindByComposite.mockResolvedValue({ role: "teacher", status: "active" });
+  });
+
+  it.each([
+    ["assignment", { type: "assignment", assignmentId: "ca_1" } as const],
+    ["exam", { type: "exam", examId: "e_1" } as const],
+  ])("matches the write gate on an open %s", async (_label, context) => {
+    assessmentFindByIdWithCourseId.mockResolvedValue({
+      id: "ca_1",
+      courseId: "crs_1",
+      closesAt: OPEN_AT,
+    });
+    examFindById.mockResolvedValue({ id: "e_1", courseId: "crs_1", endsAt: OPEN_AT });
+
+    expect(await canSetScoreOverride(actor({ userId: "usr_t" }), context)).toBe(false);
+    await expect(
+      assertCanSetScoreOverride(actor({ userId: "usr_t" }), context),
+    ).rejects.toBeInstanceOf(ConflictError);
+    expect(await canSetScoreOverride(actor({ platformRole: "admin" }), context)).toBe(true);
+    await expect(
+      assertCanViewScoreOverrides(actor({ userId: "usr_t" }), context),
+    ).resolves.toBeUndefined();
   });
 });
 

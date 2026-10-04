@@ -16,6 +16,7 @@ export const courseMembershipAdminRepo = {
             image: true,
           },
         },
+        course: { select: { ownerId: true } },
       },
       orderBy: [{ role: "asc" }, { joinedAt: "asc" }],
     });

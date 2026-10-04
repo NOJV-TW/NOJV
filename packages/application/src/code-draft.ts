@@ -5,6 +5,7 @@ import {
   contestProblemRepo,
   contestRepo,
   courseMembershipRepo,
+  courseRepo,
   examProblemRepo,
   examRepo,
   examSessionRepo,
@@ -71,15 +72,19 @@ async function assertDraftScopeAllowed(
       return;
     }
     case "assignment": {
-      const [assessment, membership] = await Promise.all([
+      const [assessment, membership, course] = await Promise.all([
         assessmentRepo.findByIdWithCourseId(context.assessmentId),
         courseMembershipRepo.findByComposite(context.courseId, actor.userId),
+        courseRepo.findById(context.courseId),
       ]);
       if (assessment?.courseId !== context.courseId || assessment.status !== "published") {
         throw new NotFoundError("Assignment not found.");
       }
       if (membership?.status !== "active") {
         throw new ForbiddenError("You are not enrolled in this course.");
+      }
+      if (course?.archived) {
+        throw new ForbiddenError("This course is archived.");
       }
       if (
         actor.platformRole !== "admin" &&
