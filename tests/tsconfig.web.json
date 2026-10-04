@@ -45,6 +45,7 @@
     "component/web/fixtures/teacher-settings-refresh.svelte",
     "component/web/fixtures/app-stores.ts",
     "unit/web/problem-testcase-action-auth.test.ts",
+    "unit/web/problem-testcase-download-route.test.ts",
     "component/web/editor-submission-navigation.test.ts",
     "component/web/submission-navigation-view.test.ts",
     "unit/web/problem-submission.test.ts",

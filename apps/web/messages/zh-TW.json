@@ -1689,6 +1689,7 @@
   "testcases_deleteSet": "刪除測資集",
   "testcases_deleteTestcase": "刪除測資",
   "testcases_deleting": "刪除中...",
+  "testcases_downloadZip": "下載測資",
   "testcases_editSet": "編輯測資集",
   "testcases_editSetDescription": "說明（學生可見，支援 Markdown 與 LaTeX）",
   "testcases_editSetWeight": "權重",

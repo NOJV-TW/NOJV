@@ -1705,6 +1705,7 @@
   "testcases_deleteSet": "Delete set",
   "testcases_deleteTestcase": "Delete testcase",
   "testcases_deleting": "Deleting...",
+  "testcases_downloadZip": "Download testcases",
   "testcases_editSet": "Edit set",
   "testcases_editSetDescription": "Description (visible to students; Markdown and LaTeX supported)",
   "testcases_editSetWeight": "Weight",

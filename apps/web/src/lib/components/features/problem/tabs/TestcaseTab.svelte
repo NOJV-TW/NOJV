@@ -1,5 +1,7 @@
 <script lang="ts">
+  import Download from "@lucide/svelte/icons/download";
   import { m } from "$lib/paraglide/messages.js";
+  import { Button } from "$lib/components/primitives/ui/button";
   import TestcaseSetCard from "$lib/components/features/problem/testcase/TestcaseSetCard.svelte";
   import TestcaseZipUploader from "$lib/components/features/problem/testcase/TestcaseZipUploader.svelte";
 
@@ -56,6 +58,18 @@
             .map((s, idx) => `#subtask${String(idx + 1)} (${String(s.weight)}pts)`)
             .join(" + ")}</span
         >
+      </div>
+
+      <div class="mt-4 flex justify-end">
+        <Button
+          variant="outline"
+          size="sm"
+          href="/api/problems/{problemId}/testcases/download"
+          download
+        >
+          <Download aria-hidden="true" />
+          {m.testcases_downloadZip()}
+        </Button>
       </div>
     {/if}
   </section>

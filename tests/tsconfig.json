@@ -21,6 +21,7 @@
   "include": [
     "integration/application/avatar-lifecycle.test.ts",
     "integration/application/image-quota.test.ts",
+    "integration/application/problem-testcase-archive.test.ts",
     "e2e/course-problem-library.test.ts",
     "e2e/submission-tracking.test.ts",
     "e2e/admin.test.ts",

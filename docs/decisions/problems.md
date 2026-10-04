@@ -116,6 +116,7 @@ Every problem has one personal owner (`authorId`, `ON DELETE RESTRICT`). `Course
 
 - Rejected: course-owned problems; a generic ACL, per-problem collaborator lists or library roles; fork synchronization, merge or pending-review systems; auto-reassigning owners.
 - Rule: authorization uses separate can-read, can-edit, owner-only management and target-course-usable checks; co-edit never grants sharing, self-fork, visibility or consent changes, bundle export or deletion. Pending roster rows grant nothing.
+- Rule: the testcase ZIP download (`GET /api/problems/[id]/testcases/download`) follows content read access like single-testcase reads, so it includes staff of an archived course that shares the problem; it is not bundle export, which stays owner/admin-only.
 - Rule: content mutations recheck the actor inside the transaction, locking Course, CourseMembership, CourseProblem before Problem; fork + library + activity writes commit atomically, and storage-reference accounting stays consistent on rollback.
 - Rule: `resolveActivityProblems` keeps existing DB references (never client-claimed IDs), never re-forks an actor-owned problem, and reuses existing private copies.
 - Rule: unsharing is refused while activities reference the problem; account deletion requires explicit ownership handover.
