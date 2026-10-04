@@ -51,7 +51,7 @@ pnpm test:all                 # unit, component, integration, e2e
 pnpm ci:verify                # local gate without services
 ```
 
-`ci:verify` runs Prettier, the repository guards (`lint:repo`), package builds, typechecks, ESLint, test typechecks, unit and component tests. It starts no database and runs no integration, Playwright, migration-to-schema comparison, schema-doc generation or Helm rendering.
+`ci:verify` runs Prettier, the repository guards (`lint:repo`), package builds, typechecks, ESLint, test typechecks, unit and component tests. ESLint covers workspace packages only; `tests/` is deliberately outside it and is checked by Prettier and `pnpm typecheck:tests`. It starts no database and runs no integration, Playwright, migration-to-schema comparison, schema-doc generation or Helm rendering.
 
 CI (`ci.yml`) additionally runs `pnpm lint:helm`, integration tests with the coverage gate, Temporal integration, the S3 conformance test against Versity (`storage-conformance` job) and a core Playwright browser smoke. The scheduled sandbox workflow (`nightly-sandbox.yml`, weekly) runs the sandbox isolation suite and the K8s suite on a k3d cluster. A green `ci:verify` proves only its own scope.
 
