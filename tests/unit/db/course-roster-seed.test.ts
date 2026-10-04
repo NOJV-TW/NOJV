@@ -1,6 +1,10 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { PrismaClient } from "../../../packages/db/generated/prisma/client";
+import {
+  COURSE_PROBLEM_SOURCES,
+  courseProblemId,
+} from "../../../packages/db/prisma/seeds/course-problems";
 import { seedCourses } from "../../../packages/db/prisma/seeds/courses";
 import { seedUsers } from "../../../packages/db/prisma/seeds/users";
 
@@ -41,6 +45,7 @@ describe("course roster demo seed", () => {
     vi.spyOn(console, "log").mockImplementation(() => undefined);
     const memberships = vi.fn();
     const upsert = vi.fn(({ create }: { create: { id: string } }) => create);
+    const libraryUpsert = vi.fn();
     const prisma = {
       user: { findUnique: vi.fn().mockResolvedValue(null) },
       course: { upsert },
@@ -52,6 +57,7 @@ describe("course roster demo seed", () => {
       },
       assessmentProblem: { upsert },
       examProblem: { upsert },
+      courseProblem: { upsert: libraryUpsert },
     };
     await seedCourses(prisma as unknown as PrismaClient, {
       teacher: { id: "teacher" },
@@ -79,5 +85,18 @@ describe("course roster demo seed", () => {
         where: { id: "exam_midterm-systems-lab" },
       }),
     );
+
+    const libraryProblemIds = new Set(
+      libraryUpsert.mock.calls.map(
+        ([args]: [{ create: { courseId: string; problemId: string } }]) =>
+          args.create.problemId,
+      ),
+    );
+    expect(libraryProblemIds).toEqual(new Set(COURSE_PROBLEM_SOURCES.map(courseProblemId)));
+    const activityProblemIds = upsert.mock.calls
+      .map(([args]) => (args.create as { problemId?: string }).problemId)
+      .filter((problemId): problemId is string => problemId !== undefined);
+    expect(activityProblemIds.length).toBeGreaterThan(0);
+    for (const problemId of activityProblemIds) expect(libraryProblemIds).toContain(problemId);
   });
 });

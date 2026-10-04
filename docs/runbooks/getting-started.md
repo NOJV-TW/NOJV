@@ -65,7 +65,7 @@ pnpm db:seed:validate
 pnpm db:seed
 ```
 
-The seed creates the admin (from `SEED_ADMIN_*`), `teacher`, `ta-student`, `student` and `new-student` (password `password123`), demo students enrolled in the "Operating Systems Lab" course, problems, contests and assessments. The `special_env` demo problem references optional `registry.nojv.tw/demo/*` images published manually with `pnpm demo-advanced:push`.
+The seed creates the admin (from `SEED_ADMIN_*`), `teacher`, `ta-student`, `student` and `new-student` (password `password123`), demo students enrolled in the "Operating Systems Lab" course, problems, contests and assessments. Course activities use teacher-owned private copies (`<problem>-course`, forked from the public problem) shared through the course problem library, as the app does when a public problem is added to an activity, so the seeded TA can co-edit them; sample subtasks are worth 0 points. The `special_env` demo problem references optional `registry.nojv.tw/demo/*` images published manually with `pnpm demo-advanced:push`.
 
 ## 5. Build the sandbox image
 
