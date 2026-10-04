@@ -1,4 +1,4 @@
-import { assessmentRepo, examRepo } from "@nojv/db";
+import { assessmentRepo, courseRepo, examRepo } from "@nojv/db";
 
 import type { ActorContext } from "../shared/actor-context";
 import { assertContextClosed, isContextClosed } from "../shared/context-window";
@@ -6,32 +6,36 @@ import { ForbiddenError } from "../shared/errors";
 import { isCourseStaff } from "../shared/permissions";
 import type { ScoreOverrideContext } from "./types";
 
+async function contextCourseId(context: ScoreOverrideContext): Promise<string | null> {
+  switch (context.type) {
+    case "assignment":
+      return (
+        (await assessmentRepo.findByIdWithCourseId(context.assignmentId))?.courseId ?? null
+      );
+    case "exam":
+      return (await examRepo.findById(context.examId))?.courseId ?? null;
+  }
+}
+
 export async function canViewScoreOverrides(
   actor: ActorContext,
   context: ScoreOverrideContext,
 ): Promise<boolean> {
   if (actor.platformRole === "admin") return true;
-
-  switch (context.type) {
-    case "assignment": {
-      const assignment = await assessmentRepo.findByIdWithCourseId(context.assignmentId);
-      if (!assignment) return false;
-      return isCourseStaff(actor.userId, assignment.courseId);
-    }
-    case "exam": {
-      const exam = await examRepo.findById(context.examId);
-      if (!exam) return false;
-      return isCourseStaff(actor.userId, exam.courseId);
-    }
-  }
+  const courseId = await contextCourseId(context);
+  return courseId !== null && isCourseStaff(actor.userId, courseId);
 }
 
 export async function canSetScoreOverride(
   actor: ActorContext,
   context: ScoreOverrideContext,
 ): Promise<boolean> {
+  const courseId = await contextCourseId(context);
+  if (courseId === null) return false;
+  const course = await courseRepo.findById(courseId);
+  if (!course || course.archived) return false;
   if (actor.platformRole === "admin") return true;
-  if (!(await canViewScoreOverrides(actor, context))) return false;
+  if (!(await isCourseStaff(actor.userId, courseId))) return false;
   return isContextClosed(context);
 }
 

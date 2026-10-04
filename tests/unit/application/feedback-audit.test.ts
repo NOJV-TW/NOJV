@@ -25,6 +25,7 @@ const {
 vi.mock("@nojv/db", () => ({
   courseRepo: {
     withTx: () => ({
+      lockForShare: vi.fn(),
       lockForUpdate: vi.fn(),
       findById: vi.fn(() => Promise.resolve({ id: "crs_1", archived: false })),
     }),

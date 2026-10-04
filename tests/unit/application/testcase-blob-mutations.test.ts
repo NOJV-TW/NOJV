@@ -21,7 +21,11 @@ const {
   testcaseSetMaxOrdinal,
   testcaseSetUpdate,
   testcaseUpdate,
+  problemFindFirst,
+  testcaseSetAggregate,
 } = vi.hoisted(() => ({
+  problemFindFirst: vi.fn(),
+  testcaseSetAggregate: vi.fn(),
   commitStoragePointerSwap: vi.fn(),
   guardStorageObjectWrites: vi.fn(),
   problemFindById: vi.fn(),
@@ -32,9 +36,9 @@ const {
   putImmutableText: vi.fn(),
   runTransaction: vi.fn(async (fn: (tx: unknown) => Promise<unknown>) =>
     fn({
-      problem: { findUnique: problemFindById },
+      problem: { findUnique: problemFindById, findFirst: problemFindFirst },
       uploadedImage: { aggregate: vi.fn().mockResolvedValue({ _sum: { size: 0 } }) },
-      testcaseSet: { update: testcaseSetUpdate },
+      testcaseSet: { update: testcaseSetUpdate, aggregate: testcaseSetAggregate },
     }),
   ),
   testcaseCreateMany: vi.fn(),
@@ -123,10 +127,13 @@ beforeEach(() => {
     id: "prob_1",
     authorId: actor.userId,
     visibility: "private",
+    status: "draft",
     type: "full_source",
     checkerStorage: null,
     interactorStorage: null,
   });
+  problemFindFirst.mockResolvedValue(null);
+  testcaseSetAggregate.mockResolvedValue({ _sum: { weight: 0 } });
   problemFindById.mockResolvedValue({
     id: "prob_1",
     authorId: actor.userId,
@@ -364,6 +371,55 @@ describe("testcase immutable object mutations", () => {
       storageGeneration: { increment: 1 },
     });
   });
+
+  it("lets an unused draft problem drop to 0 points while subtasks are being built", async () => {
+    testcaseSetFindById.mockResolvedValue({
+      id: "set_1",
+      problemId: "prob_1",
+      weight: 3,
+      testcases: [],
+    });
+
+    await updateTestcaseSetRecord(actor, "prob_1", "set_1", { weight: 0 });
+    await deleteTestcaseSetRecord(actor, "prob_1", "set_1");
+
+    expect(problemUpdate).toHaveBeenCalledTimes(2);
+  });
+
+  it.each([
+    ["published", { status: "published" }, null],
+    ["assigned", { status: "draft" }, { id: "prob_1" }],
+  ])(
+    "keeps a %s problem worth points when sets are reweighted or deleted",
+    async (_label, state, linked) => {
+      problemLock.mockResolvedValue({
+        id: "prob_1",
+        authorId: actor.userId,
+        visibility: "private",
+        type: "full_source",
+        ...state,
+      });
+      problemFindFirst.mockResolvedValue(linked);
+      testcaseSetFindById.mockResolvedValue({
+        id: "set_1",
+        problemId: "prob_1",
+        weight: 3,
+        testcases: [],
+      });
+
+      await expect(
+        updateTestcaseSetRecord(actor, "prob_1", "set_1", { weight: 0 }),
+      ).rejects.toThrow(/at least one subtask worth points/);
+      await expect(deleteTestcaseSetRecord(actor, "prob_1", "set_1")).rejects.toThrow(
+        /at least one subtask worth points/,
+      );
+      expect(problemUpdate).not.toHaveBeenCalled();
+
+      testcaseSetAggregate.mockResolvedValue({ _sum: { weight: 2 } });
+      await updateTestcaseSetRecord(actor, "prob_1", "set_1", { weight: 0 });
+      expect(problemUpdate).toHaveBeenCalledOnce();
+    },
+  );
 
   it("rejects cross-problem testcase and set IDs before DB deletion", async () => {
     testcaseFindById.mockResolvedValueOnce({

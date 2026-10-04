@@ -109,7 +109,7 @@ Rules come from PRB-10 and PRB-11; data model in [Database](../architecture/DATA
 
 ### Grading after close
 
-- While `closesAt > now` the matrix offers course staff no grading entry: `canSetScoreOverride` applies the same close gate as the writes. Admins can open it at any time.
+- While `closesAt > now` the matrix offers course staff no grading entry: `canSetScoreOverride` applies the same close gate as the writes. Admins can open it at any time. In an archived course nobody gets a grading entry.
 - After close, a matrix cell opens the drawer with a score override (staff-only reason) and a student-visible feedback comment, keyed by `(course membership, problemId, assessmentId)`.
 - Non-admin override or feedback writes before close fail with `ConflictError("This context is still open; grading is only available after it closes.")` via `assertContextClosed`; platform admins bypass (ASM-18).
 - Pending (unlinked) roster students can receive manual scores and feedback after close.

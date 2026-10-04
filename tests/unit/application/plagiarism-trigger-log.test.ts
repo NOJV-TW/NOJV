@@ -29,7 +29,13 @@ const {
 vi.mock("@nojv/db", () => ({
   examRepo: { withTx: () => ({ findById: activityFindById }) },
   assessmentRepo: { withTx: () => ({ findById: activityFindById }) },
-  courseRepo: { withTx: () => ({ lockForUpdate: courseLock, findById: courseFindById }) },
+  courseRepo: {
+    withTx: () => ({
+      lockForShare: courseLock,
+      lockForUpdate: courseLock,
+      findById: courseFindById,
+    }),
+  },
   contestRepo: {},
   plagiarismRepo: {
     upsertForExam,

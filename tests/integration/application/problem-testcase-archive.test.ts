@@ -12,7 +12,10 @@ import {
   testcaseOutputKey,
 } from "@nojv/storage";
 
-import { detectSubtasksFromFiles } from "../../../apps/web/src/lib/components/features/problem/detect-subtasks";
+import {
+  DEFAULT_TESTCASE_NAME_PATTERN,
+  detectSubtasksFromFiles,
+} from "../../../apps/web/src/lib/components/features/problem/detect-subtasks";
 import {
   createTestCourse,
   createTestProblem,
@@ -128,7 +131,7 @@ describe("exportTestcaseArchive (real Postgres, mocked storage)", () => {
 
     const parsed = detectSubtasksFromFiles(
       Object.entries(entries).map(([name, content]) => ({ name, content })),
-      "(\\d\\d)(\\d\\d)",
+      DEFAULT_TESTCASE_NAME_PATTERN,
       ".in",
       ".out",
     );

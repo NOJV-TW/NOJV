@@ -37,6 +37,7 @@ vi.mock("@nojv/db", () => ({
   },
   courseRepo: {
     withTx: () => ({
+      lockForShare: () => Promise.resolve([]),
       lockForUpdate: () => Promise.resolve([]),
       findById: () => Promise.resolve({ id: "crs_1", archived: false }),
     }),

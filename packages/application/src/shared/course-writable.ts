@@ -9,7 +9,7 @@ export function assertCourseWritable(course: { archived: boolean }): void {
 }
 
 export async function lockWritableCourse(tx: TransactionClient, courseId: string) {
-  await courseRepo.withTx(tx).lockForUpdate(courseId);
+  await courseRepo.withTx(tx).lockForShare(courseId);
   const course = await requireCourse(tx, courseId);
   assertCourseWritable(course);
   return course;

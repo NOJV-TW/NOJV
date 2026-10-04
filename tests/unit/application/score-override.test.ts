@@ -50,7 +50,10 @@ const {
 }));
 
 vi.mock("@nojv/db", () => ({
-  courseRepo: { withTx: () => ({ lockForUpdate: courseLock, findById: courseFindById }) },
+  courseRepo: {
+    findById: courseFindById,
+    withTx: () => ({ lockForShare: courseLock, findById: courseFindById }),
+  },
   assessmentRepo: {
     findByIdWithCourseId: assessmentFindByIdWithCourseId,
     withTx: () => ({ findById: assessmentFindInTx, lockForUpdate: vi.fn() }),
@@ -173,7 +176,12 @@ beforeEach(() => {
 });
 
 describe("canSetScoreOverride", () => {
-  it("admin is always permitted", async () => {
+  it("admin is permitted on an open activity of an active course", async () => {
+    assessmentFindByIdWithCourseId.mockResolvedValue({
+      id: "ca_hw1",
+      courseId: "crs_1",
+      closesAt: OPEN_AT,
+    });
     expect(
       await canSetScoreOverride(actor({ platformRole: "admin" }), {
         type: "assignment",
@@ -186,6 +194,23 @@ describe("canSetScoreOverride", () => {
         examId: "e_1",
       }),
     ).toBe(true);
+  });
+
+  it("nobody may set overrides in an archived course", async () => {
+    assessmentFindByIdWithCourseId.mockResolvedValue({
+      id: "ca_1",
+      courseId: "crs_1",
+      closesAt: CLOSED_AT,
+    });
+    courseMembershipFindByComposite.mockResolvedValue({ role: "teacher", status: "active" });
+    courseFindById.mockResolvedValue({ id: "crs_1", archived: true });
+
+    for (const who of [actor({ platformRole: "admin" }), actor({ userId: "usr_t" })]) {
+      expect(await canSetScoreOverride(who, { type: "assignment", assignmentId: "ca_1" })).toBe(
+        false,
+      );
+      expect(await canSetScoreOverride(who, { type: "exam", examId: "e_1" })).toBe(false);
+    }
   });
 
   it("assignment: only course teacher/TA allowed", async () => {

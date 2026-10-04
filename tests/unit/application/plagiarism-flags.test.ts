@@ -26,7 +26,13 @@ const {
 
 vi.mock("@nojv/db", () => ({
   runTransaction: async <T>(fn: (tx: unknown) => Promise<T>) => fn(TX),
-  courseRepo: { withTx: () => ({ lockForUpdate: courseLock, findById: courseFindById }) },
+  courseRepo: {
+    withTx: () => ({
+      lockForShare: courseLock,
+      lockForUpdate: courseLock,
+      findById: courseFindById,
+    }),
+  },
   assessmentRepo: {
     findByIdWithCourseId: assessmentFindByIdWithCourseId,
     withTx: () => ({ findById: assessmentFindByIdWithCourseId }),

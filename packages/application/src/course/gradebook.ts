@@ -46,21 +46,24 @@ export function gradebookCellKey(
   return `${contextType}:${contextId}:${problemId}`;
 }
 
+export type GradebookViewer = { role: "staff" } | { role: "student"; userId: string };
+
 export async function buildCourseGradebook(
   courseId: string,
-  options?: { forUserId?: string; now?: Date },
+  viewer: GradebookViewer,
+  now = new Date(),
 ): Promise<CourseGradebook> {
-  const now = options?.now ?? new Date();
-  const isManager = options?.forUserId === undefined;
+  const isManager = viewer.role === "staff";
   const [allStudents, assessments, exams] = await Promise.all([
     courseMembershipRepo.findStudents(courseId),
     assessmentRepo.listPublishedWithProblemsByCourse(courseId),
     examRepo.listPublishedWithProblemsByCourse(courseId),
   ]);
 
-  const students = options?.forUserId
-    ? allStudents.filter((s) => s.userId === options.forUserId)
-    : allStudents;
+  const students =
+    viewer.role === "student"
+      ? allStudents.filter((s) => s.userId === viewer.userId)
+      : allStudents;
 
   const contexts = [
     ...assessments.map((a) => ({

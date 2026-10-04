@@ -1739,7 +1739,7 @@
   "testcases_uploadZipHint": "Upload a ZIP file containing testcases",
   "testcases_zipFormatHelp": "ZIP structure: each testcase is a pair of files sharing the same base name.\nExample: 0101.in / 0101.out, 0102.in / 0102.out, 0201.in / 0201.out …\nThe first capture group in the regex identifies the subtask, the second identifies the case.\nSupported: up to 20 subtasks, 256 cases per subtask, 10 MiB per file. Max ZIP size: 50 MB.",
   "testcases_zipParseError": "Failed to parse ZIP file.",
-  "testcases_zipStructureHint": "Regex with 2 capture groups:\n(1) subtask ID, (2) case ID.\nDefault (\\d\\d)(\\d\\d) matches fixed 4-digit names, e.g. 0103.in (subtask 01, case 03).\nFor names with a separator like 1-01.in, use (\\d+)-(\\d+) instead.",
+  "testcases_zipStructureHint": "Regex with 2 capture groups:\n(1) subtask ID, (2) case ID.\nDefault (\\d\\d)(\\d+) reads the first 2 digits as the subtask and the rest as the case, e.g. 0103.in (subtask 01, case 03) or 01103.in (subtask 01, case 103).\nFor names with a separator like 1-01.in, use (\\d+)-(\\d+) instead.",
   "testcases_zipTooLarge": "ZIP file too large ({size} MB). Maximum is 50 MB.",
   "theme_modeDark": "Dark theme",
   "theme_modeLight": "Light theme",

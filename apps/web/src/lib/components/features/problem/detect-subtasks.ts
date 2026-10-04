@@ -1,3 +1,5 @@
+export const DEFAULT_TESTCASE_NAME_PATTERN = "(\\d\\d)(\\d+)";
+
 export interface ParsedCase {
   input: string;
   output: string;

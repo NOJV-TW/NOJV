@@ -86,7 +86,7 @@ describe("buildCourseGradebook", () => {
   it("returns empty columns and student rows with zero totals when the course has no contexts", async () => {
     findStudents.mockResolvedValue([fakeStudent("u1", "Alice")]);
 
-    const out = await buildCourseGradebook("course_1");
+    const out = await buildCourseGradebook("course_1", { role: "staff" });
 
     expect(out.columns).toEqual([]);
     expect(out.maxTotal).toBe(0);
@@ -102,7 +102,7 @@ describe("buildCourseGradebook", () => {
     ]);
     listExams.mockResolvedValue([fakeExam("e1", "Midterm", new Date("2026-02-01"), ["p3"])]);
 
-    const out = await buildCourseGradebook("course_1");
+    const out = await buildCourseGradebook("course_1", { role: "staff" });
 
     expect(out.columns.map((c) => c.contextId)).toEqual(["e1", "a1"]);
     expect(out.columns[0]).toMatchObject({
@@ -150,7 +150,7 @@ describe("buildCourseGradebook", () => {
       ),
     );
 
-    const out = await buildCourseGradebook("course_1");
+    const out = await buildCourseGradebook("course_1", { role: "staff" });
 
     const alice = out.rows.find((r) => r.userId === "u1");
     expect(alice?.cells["assignment:a1:p1"]).toBe(100);
@@ -172,7 +172,7 @@ describe("buildCourseGradebook", () => {
     ]);
     listExams.mockResolvedValue([fakeExam("e1", "Midterm", new Date("2026-04-01"), ["p3"])]);
 
-    await buildCourseGradebook("course_1");
+    await buildCourseGradebook("course_1", { role: "staff" });
 
     expect(groupByUserAndProblem).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -201,7 +201,7 @@ describe("buildCourseGradebook", () => {
       fakeAssessment("a1", "HW 1", new Date("2026-03-01"), ["p1"]),
     ]);
 
-    const out = await buildCourseGradebook("course_1", { forUserId: "u2" });
+    const out = await buildCourseGradebook("course_1", { role: "student", userId: "u2" });
 
     expect(out.rows).toHaveLength(1);
     expect(out.rows[0].userId).toBe("u2");
@@ -220,7 +220,11 @@ describe("buildCourseGradebook", () => {
     ]);
     listExams.mockResolvedValue([fakeExam("e1", "Final", new Date("2026-06-01"), ["p4"])]);
 
-    const student = await buildCourseGradebook("course_1", { forUserId: "u1", now });
+    const student = await buildCourseGradebook(
+      "course_1",
+      { role: "student", userId: "u1" },
+      now,
+    );
 
     expect(
       student.columns.map((c) => [c.contextId, c.problems.map((p) => p.problemId), c.maxTotal]),
@@ -232,7 +236,7 @@ describe("buildCourseGradebook", () => {
     ]);
     expect(JSON.stringify(student)).not.toMatch(/Problem p3|Problem p4/);
 
-    const staff = await buildCourseGradebook("course_1", { now });
+    const staff = await buildCourseGradebook("course_1", { role: "staff" }, now);
     expect(staff.columns.map((c) => c.problems.map((p) => p.problemId))).toEqual([
       ["p1"],
       ["p2"],
@@ -247,7 +251,7 @@ describe("buildCourseGradebook", () => {
       fakeAssessment("a1", "HW 1", new Date("2026-03-01"), ["p1"]),
     ]);
 
-    const out = await buildCourseGradebook("course_1", { forUserId: "ghost" });
+    const out = await buildCourseGradebook("course_1", { role: "student", userId: "ghost" });
 
     expect(out.rows).toEqual([]);
     expect(groupByUserAndProblem).not.toHaveBeenCalled();
@@ -265,7 +269,7 @@ it("keeps pending membership grades separate and exposes them after account link
   findAllOverrides.mockResolvedValue([
     { userId: null, courseMembershipId: "mem_pending", problemId: "p1", overrideScore: 90 },
   ]);
-  const staff = await buildCourseGradebook("course_1");
+  const staff = await buildCourseGradebook("course_1", { role: "staff" });
   expect(staff.rows[0]).toMatchObject({
     membershipId: "mem_pending",
     userId: null,
@@ -276,9 +280,9 @@ it("keeps pending membership grades separate and exposes them after account link
   expect(groupByUserAndProblem).toHaveBeenCalledWith(
     expect.objectContaining({ userId: { in: ["u1"] } }),
   );
-  expect((await buildCourseGradebook("course_1", { forUserId: "mem_pending" })).rows).toEqual(
-    [],
-  );
+  expect(
+    (await buildCourseGradebook("course_1", { role: "student", userId: "mem_pending" })).rows,
+  ).toEqual([]);
   findStudents.mockResolvedValue([
     {
       id: "mem_pending",
@@ -288,6 +292,6 @@ it("keeps pending membership grades separate and exposes them after account link
     },
   ]);
   expect(
-    (await buildCourseGradebook("course_1", { forUserId: "real_user" })).rows[0],
+    (await buildCourseGradebook("course_1", { role: "student", userId: "real_user" })).rows[0],
   ).toMatchObject({ membershipId: "mem_pending", userId: "real_user", total: 90 });
 });

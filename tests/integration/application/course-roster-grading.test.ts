@@ -102,7 +102,9 @@ describe("course roster grading contract (real DB)", () => {
         (row) => row.studentUserId === null && row.sourceMembershipId === membership.id,
       ),
     ).toBe(true);
-    expect((await courseDomain.buildCourseGradebook(course.id)).rows[0]).toMatchObject({
+    expect(
+      (await courseDomain.buildCourseGradebook(course.id, { role: "staff" })).rows[0],
+    ).toMatchObject({
       membershipId: membership.id,
       userId: null,
       total: 180,
@@ -147,7 +149,12 @@ describe("course roster grading contract (real DB)", () => {
       expect(await feedbackDomain.getFeedbackForStudent(student.id, context)).toHaveLength(1);
     }
     expect(
-      (await courseDomain.buildCourseGradebook(course.id, { forUserId: student.id })).rows[0],
+      (
+        await courseDomain.buildCourseGradebook(course.id, {
+          role: "student",
+          userId: student.id,
+        })
+      ).rows[0],
     ).toMatchObject({ membershipId: membership.id, userId: student.id, total: 180 });
     const assignmentPage = await courseDomain.getAssignmentDetail(course.id, assignment.id, {
       viewerUserId: student.id,

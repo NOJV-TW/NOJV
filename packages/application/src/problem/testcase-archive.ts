@@ -5,6 +5,7 @@ import { ZipArchive } from "archiver";
 
 import { testcaseSetRepo } from "@nojv/db";
 
+import { IntegrityError } from "../shared/errors";
 import { readTestcaseBlobs } from "./blobs";
 import { assertProblemContentReadAccess, type ProblemActorContext } from "./permissions";
 
@@ -15,6 +16,13 @@ export function testcaseArchiveStem(
 ): string {
   const caseWidth = Math.max(2, String(caseCount).length);
   return `${String(subtask).padStart(2, "0")}${String(testcase).padStart(caseWidth, "0")}`;
+}
+
+function inputFileEntryName(stem: string, name: string): string {
+  if (name === "" || name === "." || name === ".." || /[/\\]/.test(name)) {
+    throw new IntegrityError(`Testcase input file name is not a plain file name: ${name}`);
+  }
+  return `${stem}.files/${name}`;
 }
 
 export async function exportTestcaseArchive(
@@ -45,7 +53,7 @@ export async function exportTestcaseArchive(
           await append(`${stem}.in`, blobs.input);
           if (blobs.output !== undefined) await append(`${stem}.out`, blobs.output);
           for (const [name, content] of Object.entries(blobs.inputFiles ?? {})) {
-            await append(`${stem}.files/${name}`, content);
+            await append(inputFileEntryName(stem, name), content);
           }
         }
       }

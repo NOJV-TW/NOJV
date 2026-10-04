@@ -129,7 +129,7 @@
 
   let showOverrideDrawer = $state(false);
   let overridePrefill = $state<{ rowId: string; problemId: string } | null>(null);
-  const canSetOverride = $derived(writable && (data.canSetOverride ?? false));
+  const canSetOverride = $derived(data.canSetOverride ?? false);
 
   function gradeCell(rowId: string, problemId: string) {
     overridePrefill = { rowId, problemId };

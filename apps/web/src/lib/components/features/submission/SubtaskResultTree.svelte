@@ -34,6 +34,7 @@
 
   type SubtaskState = "full" | "partial" | "zero";
   function stateOf(s: SubtaskResultItem): SubtaskState {
+    if (s.weight === 0) return s.passed ? "full" : "zero";
     const earned = earnedOf(s);
     if (earned >= s.weight) return "full";
     return earned > 0 ? "partial" : "zero";

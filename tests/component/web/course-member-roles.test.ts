@@ -88,38 +88,45 @@ async function chooseRole(target: HTMLElement, name: string, value: string) {
   await tick();
 }
 
-it.each(["success", "failure"])("reports an HTTP 200 role change %s", async (type) => {
-  vi.stubGlobal("fetch", mocks.fetch);
-  mocks.fetch.mockResolvedValue(
-    Response.json({ type, status: type === "success" ? 200 : 403 }),
-  );
-  const view = render({
-    canAssignTeacher: false,
-    members: [member({ name: "Student", canChangeRole: true })],
-  });
-  try {
-    await tick();
-    await chooseRole(view.target, "Student", "ta");
-    await vi.waitFor(() => expect(mocks.fetch).toHaveBeenCalledOnce());
-    expect(mocks.fetch.mock.calls[0]![0]).toBe("?/changeRole");
-    expect(mocks.fetch.mock.calls[0]![1].body.get("role")).toBe("ta");
-    if (type === "success") {
-      await vi.waitFor(() =>
-        expect(mocks.success).toHaveBeenCalledWith(m.members_roleChangeSuccess()),
-      );
-      expect(mocks.refresh).toHaveBeenCalledOnce();
-      expect(mocks.error).not.toHaveBeenCalled();
-    } else {
-      await vi.waitFor(() =>
-        expect(mocks.error).toHaveBeenCalledWith(m.members_roleChangeError()),
-      );
-      expect(mocks.refresh).not.toHaveBeenCalled();
-      expect(mocks.success).not.toHaveBeenCalled();
+it.each(["success", "failure"])(
+  "reports an HTTP 200 role change %s with the server reason",
+  async (type) => {
+    vi.stubGlobal("fetch", mocks.fetch);
+    mocks.fetch.mockResolvedValue(
+      Response.json(
+        type === "success"
+          ? { type, status: 200 }
+          : { type, status: 403, data: { error: "Archived courses are read-only." } },
+      ),
+    );
+    const view = render({
+      canAssignTeacher: false,
+      members: [member({ name: "Student", canChangeRole: true })],
+    });
+    try {
+      await tick();
+      await chooseRole(view.target, "Student", "ta");
+      await vi.waitFor(() => expect(mocks.fetch).toHaveBeenCalledOnce());
+      expect(mocks.fetch.mock.calls[0]![0]).toBe("?/changeRole");
+      expect(mocks.fetch.mock.calls[0]![1].body.get("role")).toBe("ta");
+      if (type === "success") {
+        await vi.waitFor(() =>
+          expect(mocks.success).toHaveBeenCalledWith(m.members_roleChangeSuccess()),
+        );
+        expect(mocks.refresh).toHaveBeenCalledOnce();
+        expect(mocks.error).not.toHaveBeenCalled();
+      } else {
+        await vi.waitFor(() =>
+          expect(mocks.error).toHaveBeenCalledWith("Archived courses are read-only."),
+        );
+        expect(mocks.refresh).not.toHaveBeenCalled();
+        expect(mocks.success).not.toHaveBeenCalled();
+      }
+    } finally {
+      await view.cleanup();
     }
-  } finally {
-    await view.cleanup();
-  }
-});
+  },
+);
 
 it("offers the server-permitted actions on teacher rows", async () => {
   vi.stubGlobal("fetch", mocks.fetch);

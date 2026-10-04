@@ -134,7 +134,7 @@ Tracking rules: PRB-21.
 
 ### Grading after close
 
-- While `endsAt > now` course staff get no grading entry (`canSetScoreOverride` applies the write gate); admins can open it at any time. After close, a cell opens the drawer with override and feedback keyed by `(course membership, problemId, examId)`.
+- While `endsAt > now` course staff get no grading entry (`canSetScoreOverride` applies the write gate); admins can open it at any time. In an archived course nobody gets a grading entry. After close, a cell opens the drawer with override and feedback keyed by `(course membership, problemId, examId)`.
 - Non-admin writes before close fail with `ConflictError("This context is still open; grading is only available after it closes.")`; admins bypass (ASM-18).
 - Students see feedback only after close, on the submission detail page. The review page shows per-problem state and total but not feedback.
 

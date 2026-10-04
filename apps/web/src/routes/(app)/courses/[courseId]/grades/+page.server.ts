@@ -11,7 +11,7 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
 
   const gradebook = await buildCourseGradebook(
     course.id,
-    isManager ? undefined : { forUserId: actor.userId },
+    isManager ? { role: "staff" } : { role: "student", userId: actor.userId },
   );
 
   return { gradebook };

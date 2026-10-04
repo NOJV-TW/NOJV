@@ -26,7 +26,10 @@ vi.mock("@nojv/db", () => ({
   testcaseSetRepo: { findByProblemId },
 }));
 
-import { detectSubtasksFromFiles } from "../../../../apps/web/src/lib/components/features/problem/detect-subtasks";
+import {
+  DEFAULT_TESTCASE_NAME_PATTERN,
+  detectSubtasksFromFiles,
+} from "../../../../apps/web/src/lib/components/features/problem/detect-subtasks";
 import { NotFoundError } from "../../../../packages/application/src/shared/errors";
 import {
   exportTestcaseArchive,
@@ -141,7 +144,7 @@ describe("exportTestcaseArchive", () => {
 
     const parsed = detectSubtasksFromFiles(
       Object.entries(entries).map(([name, content]) => ({ name, content })),
-      "(\\d\\d)(\\d\\d)",
+      DEFAULT_TESTCASE_NAME_PATTERN,
       ".in",
       ".out",
     );
@@ -190,7 +193,33 @@ describe("exportTestcaseArchive", () => {
     expect(names).toHaveLength(100);
     expect(names[0]).toBe("01001.in");
     expect(names[99]).toBe("01100.in");
+
+    const parsed = detectSubtasksFromFiles(
+      names.map((name) => ({ name, content: "" })),
+      DEFAULT_TESTCASE_NAME_PATTERN,
+      ".in",
+      ".out",
+    );
+    expect(parsed.subtasks).toHaveLength(1);
+    expect(parsed.cases.map(({ sourceFile }) => sourceFile)).toEqual(names);
   });
+
+  it.each(["../escape.txt", "nested/data.txt", "..", "back\\slash.txt"])(
+    "errors the stream instead of archiving the input file name %s",
+    async (name) => {
+      findByProblemId.mockResolvedValue([
+        {
+          id: "set_a",
+          ordinal: 0,
+          testcases: [testcase("tc_1", 1, "in\n", null, { [name]: "payload\n" })],
+        },
+      ]);
+
+      const { body } = await exportTestcaseArchive(owner, "prob_1");
+
+      await expect(readAll(body)).rejects.toThrow("not a plain file name");
+    },
+  );
 
   it("lets course staff with content read access download", async () => {
     const staff = { userId: "usr_staff", username: "staff", platformRole: "student" as const };

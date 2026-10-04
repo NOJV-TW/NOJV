@@ -30,7 +30,13 @@ const {
 
 vi.mock("@nojv/db", () => ({
   Prisma: {},
-  courseRepo: { withTx: () => ({ lockForUpdate: courseLock, findById: courseFindById }) },
+  courseRepo: {
+    withTx: () => ({
+      lockForShare: courseLock,
+      lockForUpdate: courseLock,
+      findById: courseFindById,
+    }),
+  },
   examRepo: { withTx: () => ({ findById: examFindById }) },
   courseMembershipRepo: { withTx: () => ({ findByComposite: membershipFindByComposite }) },
   examSessionRepo: {

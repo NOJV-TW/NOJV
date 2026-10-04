@@ -34,6 +34,7 @@ import {
 } from "./permissions";
 import { ensureProblemImageInventory } from "../shared/uploaded-image";
 import { assertProblemStorageBudget } from "./storage-budget";
+import { assertInUseProblemAwardsPoints } from "./subtask-points";
 
 const MAX_TESTCASE_SETS_PER_PROBLEM = 20;
 
@@ -194,6 +195,7 @@ export async function updateTestcaseSetRecord(
       data: stripUndefined(payload),
     });
     if (payload.weight !== undefined && payload.weight !== existing.weight) {
+      await assertInUseProblemAwardsPoints(tx, problem);
       await problemRepo.withTx(tx).update(problem.id, {
         referenceSolutionSubmissionId: null,
         storageGeneration: { increment: 1 },
@@ -218,6 +220,7 @@ export async function deleteTestcaseSetRecord(
       0,
     );
     await testcaseSetRepo.withTx(tx).delete(setId);
+    await assertInUseProblemAwardsPoints(tx, problem);
     await problemRepo.withTx(tx).update(problem.id, {
       referenceSolutionSubmissionId: null,
       activeStorageBytes: { decrement: bytes },

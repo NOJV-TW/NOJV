@@ -43,7 +43,13 @@ vi.mock("@nojv/db", () => ({
       softDelete: clarificationSoftDelete,
     }),
   },
-  courseRepo: { withTx: () => ({ lockForUpdate: courseLock, findById: courseFindById }) },
+  courseRepo: {
+    withTx: () => ({
+      lockForShare: courseLock,
+      lockForUpdate: courseLock,
+      findById: courseFindById,
+    }),
+  },
   contestRepo: { findById: contestFindById },
   examRepo: { findById: examFindById, withTx: () => ({ findById: examFindById }) },
   assessmentRepo: {

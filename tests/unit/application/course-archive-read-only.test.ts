@@ -29,6 +29,7 @@ vi.mock("@nojv/db", async (importOriginal) => ({
   prismaAdapterClient: {},
   courseRepo: {
     withTx: () => ({
+      lockForShare: mocks.courseLock,
       lockForUpdate: mocks.courseLock,
       findById: mocks.courseFindById,
       update: mocks.courseUpdate,

@@ -7,6 +7,7 @@
   import ImageDropZone from "$lib/components/primitives/ui/ImageDropZone.svelte";
   import HelpTooltip from "$lib/components/primitives/ui/HelpTooltip.svelte";
   import {
+    DEFAULT_TESTCASE_NAME_PATTERN,
     detectSubtasksFromFiles,
     type ParsedCase,
     type SubtaskConfig,
@@ -23,7 +24,7 @@
   const smallInputClassName =
     "w-full rounded-lg border border-border bg-[color:var(--color-panel)] px-2 py-1.5 text-caption font-mono";
 
-  let regexPattern = $state("(\\d\\d)(\\d\\d)");
+  let regexPattern = $state(DEFAULT_TESTCASE_NAME_PATTERN);
   let inExt = $state(".in");
   let outExt = $state(".out");
   let zipFileName = $state<string | null>(null);
@@ -188,7 +189,7 @@
             regexPattern = (e.target as HTMLInputElement).value;
             reparse();
           }}
-          placeholder="(\d\d)(\d\d)"
+          placeholder={DEFAULT_TESTCASE_NAME_PATTERN}
           value={regexPattern}
         />
       </div>

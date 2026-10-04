@@ -81,6 +81,7 @@ vi.mock("@nojv/db", () => ({
   },
   courseRepo: {
     withTx: () => ({
+      lockForShare: h.lock,
       lockForUpdate: h.lock,
       findById: vi.fn(() => Promise.resolve({ id: "course", ...h.course })),
     }),

@@ -1,11 +1,12 @@
 <script lang="ts">
   import { invalidateAll } from "$app/navigation";
-  import { deserialize, enhance } from "$app/forms";
+  import { enhance } from "$app/forms";
   import { Pencil, X } from "@lucide/svelte";
   import { Button } from "$lib/components/primitives/ui/button";
   import * as Select from "$lib/components/primitives/ui/select";
   import { m } from "$lib/paraglide/messages.js";
   import { toasts } from "$lib/stores/toast";
+  import { submitFormAction } from "$lib/utils/actions";
   import TableTextColumnFilter from "$lib/components/primitives/ui/TableTextColumnFilter.svelte";
   import TableSelectColumnFilter from "$lib/components/primitives/ui/TableSelectColumnFilter.svelte";
   import ConfirmDialog from "$lib/components/primitives/ui/ConfirmDialog.svelte";
@@ -50,20 +51,10 @@
     pendingRemove = null;
     if (!target) return;
     try {
-      const body = new FormData();
-      body.set("membershipId", target.membershipId);
-      const res = await fetch("?/remove", {
-        method: "POST",
-        headers: { accept: "application/json", "x-sveltekit-action": "true" },
-        body,
-      });
-      if (!res.ok || deserialize(await res.text()).type !== "success") {
-        toasts.error(m.members_removeError());
-        return;
-      }
+      await submitFormAction("?/remove", { membershipId: target.membershipId });
       await invalidateAll();
-    } catch {
-      toasts.error(m.members_removeError());
+    } catch (err) {
+      toasts.error(err instanceof Error ? err.message : m.members_removeError());
     }
   }
 
@@ -73,22 +64,11 @@
     if (role === previousRole) return;
     roleDrafts[membershipId] = role;
     try {
-      const body = new FormData();
-      body.set("membershipId", membershipId);
-      body.set("role", role);
-      const res = await fetch("?/changeRole", {
-        method: "POST",
-        headers: { accept: "application/json", "x-sveltekit-action": "true" },
-        body,
-      });
-      if (!res.ok || deserialize(await res.text()).type !== "success") {
-        toasts.error(m.members_roleChangeError());
-        return;
-      }
+      await submitFormAction("?/changeRole", { membershipId, role });
       await invalidateAll();
       toasts.success(m.members_roleChangeSuccess());
-    } catch {
-      toasts.error(m.members_roleChangeError());
+    } catch (err) {
+      toasts.error(err instanceof Error ? err.message : m.members_roleChangeError());
     } finally {
       roleDrafts[membershipId] = undefined;
     }
