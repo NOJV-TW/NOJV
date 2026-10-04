@@ -21,7 +21,7 @@ vi.mock("../../../apps/web/node_modules/@wasm-oj/browser", async (importOriginal
   createBrowserEngine: vi.fn().mockResolvedValue(engine),
 }));
 
-it("passes Standard Mode stdin and configured runtime to the browser engine", async () => {
+it("passes Standard Mode stdin, problem limits and runtime env to the browser engine", async () => {
   const result = await runBrowserLocally({
     request: {
       context: { type: "practice" },
@@ -33,7 +33,7 @@ it("passes Standard Mode stdin and configured runtime to the browser engine", as
     judgeConfig: {
       type: "standard",
       compare: { caseSensitive: false },
-      runtime: { timeLimitMs: 250, memoryLimitMb: 64, env: { MODE: "strict" } },
+      runtime: { env: { MODE: "strict" } },
     },
     problemId: "brackets",
     timeLimitMs: 1000,
@@ -47,8 +47,8 @@ it("passes Standard Mode stdin and configured runtime to the browser engine", as
       stdin: "(())",
       env: { MODE: "strict" },
       resources: expect.objectContaining({
-        logicalTimeLimitMs: 750,
-        memoryLimitBytes: 64 * 1024 * 1024,
+        logicalTimeLimitMs: 3000,
+        memoryLimitBytes: 256 * 1024 * 1024,
         outputLimitBytes: 16 * 1024 * 1024,
       }),
     }),

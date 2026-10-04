@@ -35,6 +35,7 @@
   let loadFailed = $state(false);
   let confirmDeleteTestcaseId = $state<string | null>(null);
   let saving = $state(false);
+  let actionError = $state<string | null>(null);
 
   let editDescription = $state(untrack(() => set.description));
   let editWeight = $state(untrack(() => set.weight));
@@ -48,32 +49,37 @@
     editing = true;
   }
 
-  async function saveSet() {
+  async function runAction(
+    actionName: string,
+    fields: Record<string, string>,
+    onSuccess: () => void,
+  ) {
     saving = true;
+    actionError = null;
     try {
-      await postProblemAction(problemId, "updateTestcaseSet", {
-        setId: set.id,
-        data: JSON.stringify({
-          description: editDescription,
-          weight: editWeight,
-        }),
-      });
-      editing = false;
+      await postProblemAction(problemId, actionName, fields);
+      onSuccess();
       await invalidateAll();
+    } catch (e) {
+      actionError = e instanceof Error ? e.message : m.admin_saveFailed();
     } finally {
       saving = false;
     }
   }
 
-  async function deleteSet() {
-    saving = true;
-    try {
-      await postProblemAction(problemId, "deleteTestcaseSet", { setId: set.id });
-      confirmDelete = false;
-      await invalidateAll();
-    } finally {
-      saving = false;
-    }
+  function saveSet() {
+    return runAction(
+      "updateTestcaseSet",
+      {
+        setId: set.id,
+        data: JSON.stringify({ description: editDescription, weight: editWeight }),
+      },
+      () => (editing = false),
+    );
+  }
+
+  function deleteSet() {
+    return runAction("deleteTestcaseSet", { setId: set.id }, () => (confirmDelete = false));
   }
 
   async function startEditTestcase(tc: TestcaseData) {
@@ -91,29 +97,20 @@
     }
   }
 
-  async function saveTestcase(tcId: string) {
-    saving = true;
-    try {
-      await postProblemAction(problemId, "updateTestcase", {
-        testcaseId: tcId,
-        data: JSON.stringify({ input: editInput, output: editOutput }),
-      });
-      editingTestcaseId = null;
-      await invalidateAll();
-    } finally {
-      saving = false;
-    }
+  function saveTestcase(tcId: string) {
+    return runAction(
+      "updateTestcase",
+      { testcaseId: tcId, data: JSON.stringify({ input: editInput, output: editOutput }) },
+      () => (editingTestcaseId = null),
+    );
   }
 
-  async function deleteTestcase(tcId: string) {
-    saving = true;
-    try {
-      await postProblemAction(problemId, "deleteTestcase", { testcaseId: tcId });
-      confirmDeleteTestcaseId = null;
-      await invalidateAll();
-    } finally {
-      saving = false;
-    }
+  function deleteTestcase(tcId: string) {
+    return runAction(
+      "deleteTestcase",
+      { testcaseId: tcId },
+      () => (confirmDeleteTestcaseId = null),
+    );
   }
 </script>
 
@@ -175,6 +172,10 @@
       onCancel={() => (editing = false)}
       onWeightChange={(v) => (editWeight = v)}
     />
+  {/if}
+
+  {#if actionError}
+    <p class="mt-2 text-caption text-destructive" role="alert">{actionError}</p>
   {/if}
 
   {#if confirmDelete}

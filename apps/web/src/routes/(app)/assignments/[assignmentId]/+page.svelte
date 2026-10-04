@@ -33,6 +33,7 @@
   let { data }: { data: PageData } = $props();
 
   const detail = $derived(data.detail);
+  const writable = $derived(!data.course.archived);
 
   const activeSubTab = $derived(
     parseAssessmentSubTab(
@@ -213,6 +214,15 @@
       </StatRail>
     {/snippet}
   </AssessmentHero>
+
+  {#if !writable}
+    <p
+      role="status"
+      class="rounded-md border border-border-subtle px-4 py-3 text-body-sm text-muted-foreground"
+    >
+      {m.course_archivedReadOnly()}
+    </p>
+  {/if}
 
   <LateSubmissionSummary
     dueAt={detail.dueAt}
@@ -402,8 +412,8 @@
           <ClarificationTab
             contextType="assignment"
             contextId={detail.id}
-            canAsk={data.clarification.canAsk}
-            canAnswer={data.clarification.canAnswer}
+            canAsk={writable && data.clarification.canAsk}
+            canAnswer={writable && data.clarification.canAnswer}
             problems={clarificationProblems}
           />
         </div>
@@ -428,9 +438,9 @@
         <AssignmentProblemsTab
           problems={detail.problems}
           assignmentId={detail.id}
-          canEdit={data.mode === "teacher"}
+          canEdit={data.mode === "teacher" && writable}
           gradingRevision={detail.gradingRevision}
-          canRejudge={data.mode === "teacher"}
+          canRejudge={data.mode === "teacher" && writable}
           candidateProblems={data.mode === "teacher"
             ? data.candidateProblems
             : { personalProblems: [], publicProblems: [] }}
@@ -469,6 +479,7 @@
         {#key detail.id}
           <AssignmentSettingsTab
             form={data.settingsForm}
+            readOnly={!writable}
             initialSchedule={{
               opensAt: detail.opensAt,
               dueAt: detail.dueAt,
@@ -485,8 +496,8 @@
         <ClarificationTab
           contextType="assignment"
           contextId={detail.id}
-          canAsk={data.clarification.canAsk}
-          canAnswer={data.clarification.canAnswer}
+          canAsk={writable && data.clarification.canAsk}
+          canAnswer={writable && data.clarification.canAnswer}
           problems={clarificationProblems}
         />
       {:else if activeSubTab === "audit" && data.mode === "teacher"}

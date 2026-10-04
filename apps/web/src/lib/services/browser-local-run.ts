@@ -277,20 +277,16 @@ export async function runBrowserLocally(args: {
       };
     }
 
-    const runtime = args.judgeConfig.runtime ?? {
-      timeLimitMs: args.timeLimitMs,
-      memoryLimitMb: args.memoryLimitMb,
-      env: {},
-    };
-    const effectiveTimeLimit = effectiveTimeLimitMs(runtime.timeLimitMs, args.request.language);
+    const env = args.judgeConfig.runtime?.env ?? {};
+    const effectiveTimeLimit = effectiveTimeLimitMs(args.timeLimitMs, args.request.language);
     const caseResults: CaseResult[] = [];
     for (const [index, testCase] of args.cases.entries()) {
       const run = await browserEngine.run(build.artifact, {
         stdin: testCase.input,
-        env: runtime.env,
+        env,
         resources: {
           logicalTimeLimitMs: effectiveTimeLimit,
-          memoryLimitBytes: runtime.memoryLimitMb * 1024 * 1024,
+          memoryLimitBytes: args.memoryLimitMb * 1024 * 1024,
           outputLimitBytes: MAX_EXECUTION_OUTPUT_BYTES,
           filesystemWriteLimitBytes: 64 * 1024 * 1024,
           filesystemEntryLimit: 4096,

@@ -1,7 +1,8 @@
 <script lang="ts">
   import { untrack } from "svelte";
-  import { superForm, type SuperValidated } from "sveltekit-superforms";
-  import type { ProblemDraft, ProblemDifficulty, ProblemVisibility } from "@nojv/core";
+  import type { SuperValidated } from "sveltekit-superforms";
+  import { appSuperForm } from "$lib/utils/super-form";
+  import type { ProblemBasicInfo, ProblemDifficulty, ProblemVisibility } from "@nojv/core";
   import * as Select from "$lib/components/primitives/ui/select";
   import { m } from "$lib/paraglide/messages.js";
   import { inputClassName } from "$lib/utils/css";
@@ -10,14 +11,17 @@
   import ImageDropZone from "$lib/components/primitives/ui/ImageDropZone.svelte";
   import SamplesEditor from "$lib/components/features/problem/statement/SamplesEditor.svelte";
   import ToggleSwitch from "$lib/components/primitives/ui/ToggleSwitch.svelte";
+  import type { FormMessage } from "$lib/types/form-message";
 
   const textareaClassName = `${inputClassName} min-h-28 resize-y`;
 
   interface Props {
-    formData: SuperValidated<ProblemDraft>;
+    formData: SuperValidated<ProblemBasicInfo, FormMessage>;
     problemId: string;
+    visibility: ProblemVisibility;
+    adminMayPublish: boolean;
     showRuntimeLimits?: boolean;
-    privateVisibilityOnly?: boolean;
+    runtimeLimitsLocked?: boolean;
     isOwner?: boolean;
     canManageVisibility?: boolean;
     ondirtychange?: (dirty: boolean) => void;
@@ -26,8 +30,10 @@
   let {
     formData,
     problemId,
+    visibility,
+    adminMayPublish,
     showRuntimeLimits = false,
-    privateVisibilityOnly = false,
+    runtimeLimitsLocked = false,
     isOwner = false,
     canManageVisibility = true,
     ondirtychange,
@@ -47,21 +53,53 @@
     tainted,
     message: formMessage,
     enhance,
-  } = superForm(
+  } = appSuperForm(
     untrack(() => formData),
     {
       dataType: "json",
       resetForm: false,
       applyAction: "never",
-      onSubmit: () => {
+      onSubmit: ({ jsonData }) => {
         attempted = true;
+        jsonData(submittedFields());
+      },
+      onUpdated: ({ form: updated }) => {
+        if (updated.message?.kind !== "success") return;
+        visibilityDraft = null;
+        consentDraft = null;
       },
     },
   );
 
+  let visibilityDraft = $state<ProblemVisibility | null>(null);
+  let consentDraft = $state<boolean | null>(null);
+  let shownVisibility = $derived(visibilityDraft ?? visibility);
+  let shownConsent = $derived(consentDraft ?? adminMayPublish);
+  let visibilityChanged = $derived(canManageVisibility && shownVisibility !== visibility);
+  let consentChanged = $derived(
+    shownVisibility === "private" && shownConsent !== adminMayPublish,
+  );
+
+  function submittedFields(): ProblemBasicInfo {
+    return {
+      title: $form.title,
+      difficulty: $form.difficulty,
+      statement: $form.statement,
+      inputFormat: $form.inputFormat,
+      outputFormat: $form.outputFormat,
+      samples: $form.samples,
+      tags: $form.tags,
+      ...(showRuntimeLimits
+        ? { timeLimitMs: $form.timeLimitMs, memoryLimitMb: $form.memoryLimitMb }
+        : {}),
+      ...(visibilityChanged ? { visibility: shownVisibility } : {}),
+      ...(consentChanged ? { adminMayPublish: shownConsent } : {}),
+    };
+  }
+
   $effect(() => {
-    const dirty = $tainted ? Object.values($tainted).some(Boolean) : false;
-    ondirtychange?.(dirty);
+    const fieldsTainted = $tainted ? Object.values($tainted).some(Boolean) : false;
+    ondirtychange?.(fieldsTainted || visibilityChanged || consentChanged);
   });
 
   let tags = $state<string[]>($form.tags ?? []);
@@ -72,11 +110,6 @@
   let samples = $state<{ input: string; output: string }[]>($form.samples ?? []);
   $effect(() => {
     $form.samples = samples;
-  });
-
-  $effect(() => {
-    if (canManageVisibility && privateVisibilityOnly && $form.visibility !== "private")
-      $form.visibility = "private";
   });
 
   let showAdvanced = $state(false);
@@ -152,19 +185,18 @@
       >
       {#if !canManageVisibility}
         <p class="py-2 text-body-sm">
-          {visibilityLabels[$form.visibility]?.() ?? $form.visibility}
+          {visibilityLabels[visibility]?.() ?? visibility}
         </p>
-      {:else if privateVisibilityOnly}
+      {:else if visibility === "private"}
         <Select.Root
           type="single"
-          value={$form.adminMayPublish ? "admin_may_publish" : "private"}
+          value={shownConsent ? "admin_may_publish" : "private"}
           onValueChange={(value) => {
-            $form.visibility = "private";
-            $form.adminMayPublish = value === "admin_may_publish";
+            consentDraft = value === "admin_may_publish";
           }}
         >
           <Select.Trigger class="w-full">
-            {$form.adminMayPublish
+            {shownConsent
               ? m.admin_visibilityStudentAllowAdmin()
               : m.admin_visibilityStudentPrivate()}
           </Select.Trigger>
@@ -181,13 +213,13 @@
         <Select.Root
           type="single"
           name="visibility"
-          value={$form.visibility}
+          value={shownVisibility}
           onValueChange={(v) => {
-            $form.visibility = v as ProblemVisibility;
+            visibilityDraft = v as ProblemVisibility;
           }}
         >
           <Select.Trigger class="w-full">
-            {visibilityLabels[$form.visibility]?.() ?? $form.visibility}
+            {visibilityLabels[shownVisibility]?.() ?? shownVisibility}
           </Select.Trigger>
           <Select.Content>
             <Select.Item value="private" label={m.admin_visibilityPrivate()}
@@ -198,7 +230,7 @@
             >
           </Select.Content>
         </Select.Root>
-        {#if isOwner && $form.visibility === "private"}
+        {#if isOwner && shownVisibility === "private"}
           <div
             class="mt-2 flex items-start justify-between gap-4 rounded-xl border border-border-subtle p-3"
           >
@@ -215,14 +247,11 @@
               id="admin-publication-permission"
               label={m.admin_visibilityStudentAllowAdmin()}
               descriptionId="admin-publication-permission-hint"
-              bind:checked={$form.adminMayPublish}
+              bind:checked={() => shownConsent, (checked) => (consentDraft = checked)}
             />
           </div>
         {/if}
       {/if}
-      {#if attempted && $errors.visibility}<span class="text-body-sm text-destructive"
-          >{tr($errors.visibility)}</span
-        >{/if}
     </div>
   </div>
 
@@ -253,6 +282,7 @@
           min="100"
           max="30000"
           required
+          disabled={runtimeLimitsLocked}
           bind:value={$form.timeLimitMs}
         />
         {#if attempted && $errors.timeLimitMs}<span class="text-body-sm text-destructive"
@@ -268,12 +298,18 @@
           min="16"
           max="1024"
           required
+          disabled={runtimeLimitsLocked}
           bind:value={$form.memoryLimitMb}
         />
         {#if attempted && $errors.memoryLimitMb}<span class="text-body-sm text-destructive"
             >{tr($errors.memoryLimitMb)}</span
           >{/if}
       </label>
+      {#if runtimeLimitsLocked}
+        <p class="text-caption text-muted-foreground md:col-span-2">
+          {m.admin_runtimeLimitsLocked()}
+        </p>
+      {/if}
     </div>
   {/if}
 
@@ -335,6 +371,8 @@
     <div class="mt-2 flex items-center justify-end gap-3">
       {#if $submitting}
         <span class="text-body-sm text-muted-foreground">{m.common_saving()}</span>
+      {:else if $formMessage?.kind === "error"}
+        <span class="text-body-sm text-destructive" role="alert">{$formMessage.text}</span>
       {:else}
         <span class="text-body-sm text-success">{m.common_saved()}</span>
       {/if}

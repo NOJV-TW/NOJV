@@ -2,7 +2,7 @@
   import ActivityWeights from "$lib/components/features/course/ActivityWeights.svelte";
   import { untrack } from "svelte";
   import { ChevronRight } from "@lucide/svelte";
-  import { superForm } from "sveltekit-superforms/client";
+  import { appSuperForm } from "$lib/utils/super-form";
   import { supportedLanguages, type Language } from "@nojv/core";
   import { m } from "$lib/paraglide/messages.js";
   import { minutesToHHMM, hhmmToMinutes } from "$lib/utils/attempt-reset-time";
@@ -26,7 +26,7 @@
     enhance,
     message: formMessage,
     submitting,
-  } = superForm<typeof data.form.data, FormMessage>(
+  } = appSuperForm<typeof data.form.data>(
     untrack(() => data.form),
     {
       dataType: "json",

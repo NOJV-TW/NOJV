@@ -34,8 +34,9 @@
       class="w-20 rounded-md border border-border bg-[color:var(--color-panel)] px-3 py-2 text-body-sm tabular-nums"
       type="number"
       min="0"
+      step="1"
       value={editWeight}
-      oninput={(e) => onWeightChange(Number((e.target as HTMLInputElement).value) || 0)}
+      oninput={(e) => onWeightChange(e.currentTarget.valueAsNumber)}
     />
   </label>
   <label class="grid basis-full gap-1">
@@ -53,7 +54,7 @@
     <button
       class="rounded-full bg-primary px-4 py-2 text-caption font-semibold text-white transition-[transform,box-shadow,background-color] duration-fast ease-out-soft hover:-translate-y-0.5 disabled:opacity-70"
       onclick={onSave}
-      disabled={saving}
+      disabled={saving || !Number.isInteger(editWeight) || editWeight < 0}
       type="button"
     >
       {saving ? m.admin_saving() : m.common_save()}

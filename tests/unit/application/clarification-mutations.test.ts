@@ -3,34 +3,59 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const {
   clarificationFindById,
   clarificationSoftDelete,
+  clarificationCreate,
+  clarificationUpdateAnswer,
+  clarificationUpdateState,
+  clarificationCountInWindow,
   contestFindById,
   examFindById,
   assessmentFindByIdWithCourseId,
   courseMembershipFindByComposite,
+  courseLock,
+  courseFindById,
   publishClarification,
 } = vi.hoisted(() => ({
   clarificationFindById: vi.fn(),
   clarificationSoftDelete: vi.fn(),
+  clarificationCreate: vi.fn(),
+  clarificationUpdateAnswer: vi.fn(),
+  clarificationUpdateState: vi.fn(),
+  clarificationCountInWindow: vi.fn(),
   contestFindById: vi.fn(),
   examFindById: vi.fn(),
   assessmentFindByIdWithCourseId: vi.fn(),
   courseMembershipFindByComposite: vi.fn(),
+  courseLock: vi.fn(),
+  courseFindById: vi.fn(),
   publishClarification: vi.fn(),
 }));
 
 vi.mock("@nojv/db", () => ({
+  runTransaction: async <T>(fn: (tx: unknown) => Promise<T>) => fn({}),
   clarificationRepo: {
     findById: clarificationFindById,
-    softDelete: clarificationSoftDelete,
-    create: vi.fn(),
-    updateAnswer: vi.fn(),
-    updateState: vi.fn(),
-    countInWindow: vi.fn(),
+    countInWindow: clarificationCountInWindow,
     listForContext: vi.fn(),
+    withTx: () => ({
+      create: clarificationCreate,
+      updateAnswer: clarificationUpdateAnswer,
+      updateState: clarificationUpdateState,
+      softDelete: clarificationSoftDelete,
+    }),
+  },
+  courseRepo: {
+    withTx: () => ({
+      lockForShare: courseLock,
+      lockForUpdate: courseLock,
+      findById: courseFindById,
+    }),
   },
   contestRepo: { findById: contestFindById },
-  examRepo: { findById: examFindById },
-  assessmentRepo: { findByIdWithCourseId: assessmentFindByIdWithCourseId },
+  examRepo: { findById: examFindById, withTx: () => ({ findById: examFindById }) },
+  assessmentRepo: {
+    findByIdWithCourseId: assessmentFindByIdWithCourseId,
+    withTx: () => ({ findById: assessmentFindByIdWithCourseId }),
+  },
   courseMembershipRepo: { findByComposite: courseMembershipFindByComposite },
   participationRepo: {
     listContestParticipantUserIds: vi.fn(),
@@ -45,7 +70,12 @@ vi.mock("@nojv/redis", () => ({
   pubsub: { publishClarification },
 }));
 
-import { deleteClarification } from "../../../packages/application/src/clarification/mutations";
+import {
+  answer,
+  ask,
+  deleteClarification,
+  dismiss,
+} from "../../../packages/application/src/clarification/mutations";
 
 function actor(
   overrides: Partial<{
@@ -194,5 +224,65 @@ describe("deleteClarification", () => {
       expect.objectContaining({ action: "deleted" }),
       "staff",
     );
+  });
+});
+
+describe("archived course clarifications", () => {
+  const readOnly = { name: "ValidationError", message: "Archived courses are read-only." };
+  const answerInput = { answerText: "Yes.", isPublic: true };
+
+  beforeEach(() => {
+    assessmentFindByIdWithCourseId.mockResolvedValue({
+      id: "ca_1",
+      courseId: "crs_1",
+      status: "published",
+      opensAt: past,
+      closesAt: future,
+    });
+    examFindById.mockResolvedValue({
+      id: "exm_1",
+      courseId: "crs_1",
+      startsAt: past,
+      endsAt: future,
+    });
+    courseFindById.mockResolvedValue({ id: "crs_1", archived: true });
+    clarificationCountInWindow.mockResolvedValue(0);
+  });
+
+  it("rejects a student question in an assignment", async () => {
+    courseMembershipFindByComposite.mockResolvedValue({ role: "student", status: "active" });
+    await expect(
+      ask(actor({ userId: "usr_student" }), {
+        context: { type: "assignment", assignmentId: "ca_1" },
+        questionText: "Is the input sorted?",
+      }),
+    ).rejects.toMatchObject(readOnly);
+    expect(courseLock).toHaveBeenCalledWith("crs_1");
+    expect(clarificationCreate).not.toHaveBeenCalled();
+    expect(publishClarification).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["answer", (id: string) => answer(actor({ userId: "usr_ta" }), id, answerInput)],
+    ["dismiss", (id: string) => dismiss(actor({ userId: "usr_ta" }), id)],
+    ["delete", (id: string) => deleteClarification(actor({ userId: "usr_ta" }), id)],
+  ])("rejects staff %s in an exam", async (_label, mutate) => {
+    courseMembershipFindByComposite.mockResolvedValue({ role: "ta", status: "active" });
+    clarificationFindById.mockResolvedValue(
+      clarificationRow({ contextType: "exam", contextId: "exm_1" }),
+    );
+    await expect(mutate("clr_1")).rejects.toMatchObject(readOnly);
+    expect(courseLock).toHaveBeenCalledWith("crs_1");
+    expect(clarificationUpdateAnswer).not.toHaveBeenCalled();
+    expect(clarificationUpdateState).not.toHaveBeenCalled();
+    expect(clarificationSoftDelete).not.toHaveBeenCalled();
+    expect(publishClarification).not.toHaveBeenCalled();
+  });
+
+  it("leaves contest clarifications unaffected", async () => {
+    clarificationFindById.mockResolvedValue(clarificationRow({ askedByUserId: "usr_asker" }));
+    await deleteClarification(actor({ userId: "usr_asker" }), "clr_1");
+    expect(courseLock).not.toHaveBeenCalled();
+    expect(clarificationSoftDelete).toHaveBeenCalledWith("clr_1");
   });
 });

@@ -223,6 +223,48 @@ describe.each(["assignment", "exam"] as const)("%s teacher draft protection", (k
 });
 
 describe("actual settings Superforms refresh behavior", () => {
+  it("shows a rate-limit failure that carries no form and ends the submission", async () => {
+    const { default: Settings } = await import("./fixtures/teacher-settings-refresh.svelte");
+    const target = document.createElement("div");
+    document.body.append(target);
+    const component = mount(Settings, { target });
+    dispose.push(async () => {
+      await unmount(component);
+      target.remove();
+    });
+    await tick();
+    const formElement = target.querySelector<HTMLFormElement>(
+      'form[action="?/updateSettings"]',
+    )!;
+    const submit = mocks.enhanced.get(formElement)!;
+    const formData = new FormData(formElement);
+    const action = new URL(formElement.action);
+    const complete = await submit({
+      action,
+      formData,
+      formElement,
+      controller: new AbortController(),
+      submitter: null,
+      cancel: vi.fn(),
+    });
+    await complete!({
+      action,
+      formData,
+      formElement,
+      result: {
+        type: "failure",
+        status: 429,
+        data: { error: "Too many requests. Please try again later." },
+      },
+      update: async () => {},
+    });
+    await tick();
+    expect(target.textContent).toContain("Too many requests. Please try again later.");
+    expect(target.querySelector<HTMLInputElement>("#settings-title")!.value).toBe(
+      "Original title",
+    );
+  });
+
   it("keeps a typed draft during page-store refresh, accepts a successful action, and resets on a context key change", async () => {
     const { default: Settings } = await import("./fixtures/teacher-settings-refresh.svelte");
     mocks.page!.set({

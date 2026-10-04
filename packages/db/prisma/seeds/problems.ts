@@ -15,6 +15,8 @@ import {
 import { Prisma, type PrismaClient } from "../../generated/prisma/client";
 import type { StorageObjectPointer } from "@nojv/storage";
 
+import { COURSE_PROBLEM_SOURCES, courseProblemId } from "./course-problems";
+
 const SEED_DIFFICULTIES = ["easy", "medium", "hard"] as const;
 type SeedDifficulty = (typeof SEED_DIFFICULTIES)[number];
 
@@ -99,6 +101,7 @@ export type SeedProblemDef = {
   workspaceFiles?: SeedWorkspaceFile[];
   advancedConfig?: AdvancedConfig;
   advancedRequiredPaths?: string[];
+  forkedFromProblemId?: string;
 };
 
 export type SeedAdvancedDemoImages = {
@@ -4716,6 +4719,19 @@ wrong(f"failed to find {secret} in {max_turns} turns")
   ];
 }
 
+function courseProblemCopies(sourceDefs: SeedProblemDef[]): SeedProblemDef[] {
+  return COURSE_PROBLEM_SOURCES.map((sourceId) => {
+    const source = sourceDefs.find((def) => def.id === sourceId);
+    if (!source) throw new Error(`Missing course problem source: ${sourceId}`);
+    return {
+      ...source,
+      id: courseProblemId(sourceId),
+      visibility: "private",
+      forkedFromProblemId: sourceId,
+    };
+  });
+}
+
 export async function seedProblems(
   prisma: PrismaClient,
   teacherId: string,
@@ -4728,7 +4744,8 @@ export async function seedProblems(
     typeof createStorageClient
   >;
 
-  const problemDefs = buildSeedProblemDefs(teacherId, options.advancedDemoImages);
+  const sourceDefs = buildSeedProblemDefs(teacherId, options.advancedDemoImages);
+  const problemDefs = [...sourceDefs, ...courseProblemCopies(sourceDefs)];
 
   validateProblemDefinitions(problemDefs);
 
@@ -4779,6 +4796,9 @@ export async function seedProblems(
           create: {
             authorId: def.authorId,
             id: def.id,
+            ...(def.forkedFromProblemId
+              ? { forkedFromProblemId: def.forkedFromProblemId }
+              : {}),
             memoryLimitMb: def.memoryLimitMb,
             timeLimitMs: def.timeLimitMs,
             visibility: def.visibility,
@@ -4813,11 +4833,7 @@ export async function seedProblems(
         if (def.testcases) {
           const setEntries = Object.entries(def.testcases);
           for (const [index, [setName, setDef]] of setEntries.entries()) {
-            // Subtask weight must be >= 1 (subtaskResultItemSchema rejects 0), so the
-            // judge's executeSandbox result validates. Samples carry a minimal weight
-            // of 1 (vs the scored set's 100) — a correct solution still earns full
-            // marks, and a samples-only pass earns only the 1-point floor.
-            const weight = setDef.weight ?? (setName === "sample" ? 1 : 100);
+            const weight = setDef.weight ?? (setName === "sample" ? 0 : 100);
             const testcaseSet = await tx.testcaseSet.upsert({
               create: {
                 name: setName,

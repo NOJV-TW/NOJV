@@ -1,7 +1,7 @@
 <script lang="ts">
   import ActivityWeights from "$lib/components/features/course/ActivityWeights.svelte";
   import { untrack } from "svelte";
-  import { superForm } from "sveltekit-superforms/client";
+  import { appSuperForm } from "$lib/utils/super-form";
   import ChevronRight from "@lucide/svelte/icons/chevron-right";
   import Lock from "@lucide/svelte/icons/lock";
   import Link2 from "@lucide/svelte/icons/link-2";
@@ -32,7 +32,7 @@
     enhance,
     message: formMessage,
     submitting,
-  } = superForm<typeof data.form.data, FormMessage>(
+  } = appSuperForm<typeof data.form.data>(
     untrack(() => data.form),
     {
       dataType: "json",
@@ -342,38 +342,6 @@
                 bind:checked={$form.ipBindingEnabled}
               />
             </div>
-
-            {#if $form.ipBindingEnabled}
-              <div
-                class="mt-3.5 rounded-r-md border-l-[3px] border-primary bg-[color:var(--color-primary)]/4 px-4 py-3.5"
-              >
-                <div class="text-sm font-medium">
-                  {m.examCreate_violationModeLabel()}
-                </div>
-                <div class="mt-2 flex gap-4">
-                  <label class="flex items-center gap-1.5 text-body-sm">
-                    <input
-                      type="radio"
-                      name="ipViolationMode"
-                      value="block"
-                      checked={$form.ipViolationMode === "block"}
-                      onchange={() => ($form.ipViolationMode = "block")}
-                    />
-                    {m.examCreate_violationBlock()}
-                  </label>
-                  <label class="flex items-center gap-1.5 text-body-sm">
-                    <input
-                      type="radio"
-                      name="ipViolationMode"
-                      value="notify"
-                      checked={$form.ipViolationMode === "notify"}
-                      onchange={() => ($form.ipViolationMode = "notify")}
-                    />
-                    {m.examCreate_violationNotify()}
-                  </label>
-                </div>
-              </div>
-            {/if}
           </div>
 
           <div
@@ -430,6 +398,37 @@
               </div>
             {/if}
           </div>
+          {#if $form.ipBindingEnabled || $form.ipWhitelistEnabled}
+            <div
+              class="rounded-r-md border-l-[3px] border-primary bg-[color:var(--color-primary)]/4 px-4 py-3.5"
+            >
+              <div class="text-sm font-medium">
+                {m.examCreate_violationModeLabel()}
+              </div>
+              <div class="mt-2 flex gap-4">
+                <label class="flex items-center gap-1.5 text-body-sm">
+                  <input
+                    type="radio"
+                    name="ipViolationMode"
+                    value="block"
+                    checked={$form.ipViolationMode === "block"}
+                    onchange={() => ($form.ipViolationMode = "block")}
+                  />
+                  {m.examCreate_violationBlock()}
+                </label>
+                <label class="flex items-center gap-1.5 text-body-sm">
+                  <input
+                    type="radio"
+                    name="ipViolationMode"
+                    value="notify"
+                    checked={$form.ipViolationMode === "notify"}
+                    onchange={() => ($form.ipViolationMode = "notify")}
+                  />
+                  {m.examCreate_violationNotify()}
+                </label>
+              </div>
+            </div>
+          {/if}
         </div>
       </section>
 

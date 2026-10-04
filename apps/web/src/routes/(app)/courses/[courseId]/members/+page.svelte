@@ -1,11 +1,12 @@
 <script lang="ts">
   import { invalidateAll } from "$app/navigation";
-  import { deserialize, enhance } from "$app/forms";
+  import { enhance } from "$app/forms";
   import { Pencil, X } from "@lucide/svelte";
   import { Button } from "$lib/components/primitives/ui/button";
   import * as Select from "$lib/components/primitives/ui/select";
   import { m } from "$lib/paraglide/messages.js";
   import { toasts } from "$lib/stores/toast";
+  import { submitFormAction } from "$lib/utils/actions";
   import TableTextColumnFilter from "$lib/components/primitives/ui/TableTextColumnFilter.svelte";
   import TableSelectColumnFilter from "$lib/components/primitives/ui/TableSelectColumnFilter.svelte";
   import ConfirmDialog from "$lib/components/primitives/ui/ConfirmDialog.svelte";
@@ -50,20 +51,10 @@
     pendingRemove = null;
     if (!target) return;
     try {
-      const body = new FormData();
-      body.set("membershipId", target.membershipId);
-      const res = await fetch("?/remove", {
-        method: "POST",
-        headers: { accept: "application/json", "x-sveltekit-action": "true" },
-        body,
-      });
-      if (!res.ok || deserialize(await res.text()).type !== "success") {
-        toasts.error(m.members_removeError());
-        return;
-      }
+      await submitFormAction("?/remove", { membershipId: target.membershipId });
       await invalidateAll();
-    } catch {
-      toasts.error(m.members_removeError());
+    } catch (err) {
+      toasts.error(err instanceof Error ? err.message : m.members_removeError());
     }
   }
 
@@ -73,21 +64,19 @@
     if (role === previousRole) return;
     roleDrafts[membershipId] = role;
     try {
-      const body = new FormData();
-      body.set("membershipId", membershipId);
-      body.set("role", role);
-      const res = await fetch("?/changeRole", { method: "POST", body });
-      if (!res.ok) {
-        toasts.error(m.members_roleChangeError());
-        return;
-      }
+      await submitFormAction("?/changeRole", { membershipId, role });
       await invalidateAll();
       toasts.success(m.members_roleChangeSuccess());
-    } catch {
-      toasts.error(m.members_roleChangeError());
+    } catch (err) {
+      toasts.error(err instanceof Error ? err.message : m.members_roleChangeError());
     } finally {
       roleDrafts[membershipId] = undefined;
     }
+  }
+
+  function roleLabel(role: string): string {
+    if (role === "teacher") return m.members_roleTeacher();
+    return role === "ta" ? m.members_roleTa() : m.members_roleStudent();
   }
 
   function formatJoined(iso: string): string {
@@ -97,7 +86,7 @@
 </script>
 
 <PageContainer class="space-y-8">
-  {#if isManager}
+  {#if data.canAddMembers}
     <BulkHandleAddPanel form={bulkAddForm} canAddTa={data.canChangeRoles} />
   {/if}
 
@@ -275,9 +264,7 @@
                 {formatJoined(member.joinedAt)}
               </td>
               <td class="whitespace-nowrap px-4 py-3 text-caption">
-                {#if member.role === "teacher"}
-                  <span class="font-medium text-primary">{m.members_roleTeacher()}</span>
-                {:else if data.canChangeRoles}
+                {#if member.canChangeRole}
                   <Select.Root
                     type="single"
                     value={roleDrafts[member.membershipId] ?? member.role}
@@ -290,15 +277,18 @@
                       class="rounded-none border-0 border-b border-border bg-transparent px-1 text-caption shadow-none! dark:bg-transparent dark:hover:bg-transparent"
                       aria-label={m.members_roleFor({ name: member.name })}
                     >
-                      {(roleDrafts[member.membershipId] ?? member.role) === "ta"
-                        ? m.members_roleTa()
-                        : m.members_roleStudent()}
+                      {roleLabel(roleDrafts[member.membershipId] ?? member.role)}
                     </Select.Trigger>
                     <Select.Content>
                       <Select.Item value="student" label={m.members_roleStudent()} />
                       <Select.Item value="ta" label={m.members_roleTa()} />
+                      {#if data.canAssignTeacher}
+                        <Select.Item value="teacher" label={m.members_roleTeacher()} />
+                      {/if}
                     </Select.Content>
                   </Select.Root>
+                {:else if member.role === "teacher"}
+                  <span class="font-medium text-primary">{m.members_roleTeacher()}</span>
                 {:else}
                   <span class="text-muted-foreground">
                     {member.role === "ta" ? m.members_roleTa() : m.members_roleStudent()}

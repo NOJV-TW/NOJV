@@ -148,7 +148,7 @@ export const subtaskResultItemSchema = z.object({
   passed: z.boolean(),
   rawScore: z.number().nonnegative().optional(),
   testcaseSetId: z.string(),
-  weight: z.number().int().min(1),
+  weight: z.number().int().min(0),
 });
 
 export const submissionResultSchema = z.object({

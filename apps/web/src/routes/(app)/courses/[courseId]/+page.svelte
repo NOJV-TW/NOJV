@@ -25,7 +25,7 @@
 
   let { data }: { data: PageData } = $props();
 
-  const { course, isManager, announcements, assignments, exams } = $derived(data);
+  const { course, isManager, canEdit, announcements, assignments, exams } = $derived(data);
 
   type AnnouncementRow = (typeof announcements)[number];
 
@@ -110,7 +110,7 @@
         </span>
         {m.courseOverview_announcementsHeading()}
       </h2>
-      {#if isManager}
+      {#if canEdit}
         <Button variant="outline" size="sm" onclick={openCreate}>
           <Plus aria-hidden="true" class="h-4 w-4" />
           {m.courseOverview_newAnnouncement()}
@@ -167,7 +167,7 @@
                 >
                   {formatDate(announcement.createdAt)}
                 </time>
-                {#if isManager}
+                {#if canEdit}
                   <div
                     class="flex items-center gap-1"
                     onclick={(e) => e.stopPropagation()}
@@ -245,7 +245,7 @@
           {m.courseOverview_assignmentsHeading()}
         </h2>
         <div class="flex items-center gap-3">
-          {#if isManager}
+          {#if canEdit}
             <Button variant="outline" size="sm" href={`/courses/${course.id}/assignments/new`}>
               <Plus aria-hidden="true" class="h-4 w-4" />
               {m.courseOverview_newAssignment()}
@@ -345,7 +345,7 @@
           {m.courseOverview_examsHeading()}
         </h2>
         <div class="flex items-center gap-3">
-          {#if isManager}
+          {#if canEdit}
             <Button variant="outline" size="sm" href={`/courses/${course.id}/exams/new`}>
               <Plus aria-hidden="true" class="h-4 w-4" />
               {m.courseOverview_newExam()}
@@ -445,7 +445,7 @@
 
 <AnnouncementViewDialog bind:open={viewOpen} announcement={viewingAnnouncement} />
 
-{#if isManager}
+{#if canEdit}
   <CourseAnnouncementDialog bind:open={dialogOpen} mode={dialogMode} initial={dialogInitial} />
 
   <form

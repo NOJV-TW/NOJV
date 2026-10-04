@@ -171,11 +171,6 @@
       <h2 class="text-title font-medium leading-tight">
         {m.examDetail_problemsEditHeading()}
       </h2>
-      {#if !canEdit}
-        <span class="text-caption text-muted-foreground">
-          {m.examDetail_problemsEditFrozenHint()}
-        </span>
-      {/if}
     </div>
     {#if canEdit}
       <div class="flex flex-wrap items-center gap-2">

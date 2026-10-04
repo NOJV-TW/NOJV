@@ -1,7 +1,7 @@
 import { error, fail, redirect, type RequestEvent } from "@sveltejs/kit";
 import {
   languageSchema,
-  problemDraftSchema,
+  problemBasicInfoSchema,
   problemTestcaseSetCreateSchema,
   problemTypeSchema,
   problemWorkspaceFileSchema,
@@ -13,13 +13,14 @@ import {
   advancedConfigSchema,
   userHandleSchema,
 } from "@nojv/core";
-import type { ProblemType } from "@nojv/core";
+import type { ProblemBasicInfo } from "@nojv/core";
 import { message, superValidate } from "sveltekit-superforms";
 import { zod4 } from "sveltekit-superforms/adapters";
 import { z } from "zod";
 import type { Actions, PageServerLoad, PageServerLoadEvent } from "./$types";
 import { requireAuth, type CompletedActorContext } from "$lib/server/auth";
 import { withAction } from "$lib/server/shared/action-handlers";
+import { classifyRequestError } from "$lib/server/shared/handle-action-error";
 import { handleLoad } from "$lib/server/shared/load-wrapper";
 import { parseJsonField, readStringField } from "$lib/server/shared/form-utils";
 import {
@@ -28,6 +29,7 @@ import {
   createAdvancedImageConfigInputSchema,
 } from "$lib/server/advanced-image-config";
 import { getWebEnv } from "$lib/server/env";
+import type { FormMessage } from "$lib/types/form-message";
 import { problemDomain, registryDomain } from "@nojv/application";
 
 const {
@@ -59,14 +61,13 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
   }
 
   const actor = requireAuth(event);
-  const { adminMayPublish, ...view } = await getProblemEditPageView(actor, params.problemId);
+  const view = await getProblemEditPageView(actor, params.problemId);
   const { problem } = view;
 
-  const form = await superValidate(
+  const form = await superValidate<ProblemBasicInfo, FormMessage>(
     {
       difficulty: problem.difficulty,
       inputFormat: problem.inputFormat,
-      judgeConfig: problem.judgeConfig,
       memoryLimitMb: problem.memoryLimitMb,
       outputFormat: problem.outputFormat,
       samples: problem.samples,
@@ -74,11 +75,8 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
       tags: problem.tags.filter((tag) => (problemTags as readonly string[]).includes(tag)),
       timeLimitMs: problem.timeLimitMs,
       title: problem.title,
-      type: problem.type satisfies ProblemType,
-      visibility: problem.visibility,
-      adminMayPublish,
     },
-    zod4(problemDraftSchema),
+    zod4(problemBasicInfoSchema),
   );
 
   return {
@@ -120,12 +118,27 @@ const saveJudgeConfig = problemEditAction(async ({ actor, problemId, event }) =>
 });
 
 export const actions: Actions = {
-  update: problemEditAction(async ({ actor, problemId, event }) => {
-    const form = await superValidate(event, zod4(problemDraftSchema));
+  update: withAction(async (event) => {
+    const actor = requireAuth(event);
+    const { problemId } = event.params;
+    const form = await superValidate<ProblemBasicInfo, FormMessage>(
+      event,
+      zod4(problemBasicInfoSchema),
+    );
     if (!form.valid) return fail(400, { form });
-    const result = await updateProblemRecord(actor, problemId, form.data);
+    let result: { id: string };
+    try {
+      result = await updateProblemRecord(actor, problemId, form.data);
+    } catch (err) {
+      const classified = classifyRequestError(err, event);
+      return message(
+        form,
+        { kind: "error", text: classified.message },
+        { status: classified.status },
+      );
+    }
     if (result.id !== problemId) redirect(303, `/problems/${result.id}/edit`);
-    return message(form, "ok");
+    return message(form, { kind: "success", text: "ok" });
   }),
 
   createTestcaseSet: problemEditAction(async ({ actor, problemId, event }) => {
@@ -175,13 +188,7 @@ export const actions: Actions = {
       ...(data.runtime ? { runtime: data.runtime } : {}),
       ...(data.allowedLanguages ? { allowedLanguages: data.allowedLanguages } : {}),
       ...(data.type ? { type: data.type } : {}),
-      files: data.files.map((f) => ({
-        language: f.language,
-        path: f.path,
-        content: f.content,
-        visibility: f.visibility,
-        orderIndex: f.orderIndex,
-      })),
+      files: data.files,
     });
     return { success: true, fileCount: result.fileCount };
   }),

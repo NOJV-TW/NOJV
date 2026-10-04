@@ -43,6 +43,6 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
     exams: rowsWithTotal,
     counts,
     currentFilter,
-    canCreate: isManager,
+    canCreate: isManager && !course.archived,
   };
 });

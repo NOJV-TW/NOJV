@@ -1,7 +1,7 @@
 <script lang="ts">
   import { untrack } from "svelte";
   import { m } from "$lib/paraglide/messages.js";
-  import { superForm } from "sveltekit-superforms/client";
+  import { appSuperForm } from "$lib/utils/super-form";
   import type { SuperValidated } from "sveltekit-superforms";
   import { Check, EyeOff, Pencil, X } from "@lucide/svelte";
   import AvatarUploader from "$lib/components/features/account/AvatarUploader.svelte";
@@ -54,7 +54,7 @@
     enhance: nameEnhance,
     message: nameMessage,
     submitting: nameSubmitting,
-  } = superForm<{ name: string }, FormMessage>(
+  } = appSuperForm<{ name: string }>(
     untrack(() => owner.nameForm),
     {
       resetForm: false,

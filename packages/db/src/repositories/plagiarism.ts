@@ -1,6 +1,7 @@
 import { prisma } from "../client";
 import { Prisma } from "../../generated/prisma/client";
 import type { PlagiarismReportStatus } from "../../generated/prisma/enums";
+import type { TransactionClient } from "../transaction";
 
 export interface PlagiarismReportSummary {
   status: PlagiarismReportStatus;
@@ -95,24 +96,28 @@ export const plagiarismRepo = {
     return toSummary(row);
   },
 
-  upsertForExam(examId: string, input: PlagiarismUpsertInput) {
-    return prisma.exam.update({
+  upsertForExam(examId: string, input: PlagiarismUpsertInput, tx?: TransactionClient) {
+    return (tx ?? prisma).exam.update({
       where: { id: examId },
       data: buildPlagiarismUpdate(input),
       select: plagiarismSelect,
     });
   },
 
-  upsertForAssessment(assessmentId: string, input: PlagiarismUpsertInput) {
-    return prisma.assessment.update({
+  upsertForAssessment(
+    assessmentId: string,
+    input: PlagiarismUpsertInput,
+    tx?: TransactionClient,
+  ) {
+    return (tx ?? prisma).assessment.update({
       where: { id: assessmentId },
       data: buildPlagiarismUpdate(input),
       select: plagiarismSelect,
     });
   },
 
-  upsertForContest(contestId: string, input: PlagiarismUpsertInput) {
-    return prisma.contest.update({
+  upsertForContest(contestId: string, input: PlagiarismUpsertInput, tx?: TransactionClient) {
+    return (tx ?? prisma).contest.update({
       where: { id: contestId },
       data: buildPlagiarismUpdate(input),
       select: plagiarismSelect,

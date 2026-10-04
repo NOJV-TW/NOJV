@@ -21,7 +21,11 @@ const {
   testcaseSetMaxOrdinal,
   testcaseSetUpdate,
   testcaseUpdate,
+  problemFindFirst,
+  testcaseSetAggregate,
 } = vi.hoisted(() => ({
+  problemFindFirst: vi.fn(),
+  testcaseSetAggregate: vi.fn(),
   commitStoragePointerSwap: vi.fn(),
   guardStorageObjectWrites: vi.fn(),
   problemFindById: vi.fn(),
@@ -32,9 +36,9 @@ const {
   putImmutableText: vi.fn(),
   runTransaction: vi.fn(async (fn: (tx: unknown) => Promise<unknown>) =>
     fn({
-      problem: { findUnique: problemFindById },
+      problem: { findUnique: problemFindById, findFirst: problemFindFirst },
       uploadedImage: { aggregate: vi.fn().mockResolvedValue({ _sum: { size: 0 } }) },
-      testcaseSet: { update: testcaseSetUpdate },
+      testcaseSet: { update: testcaseSetUpdate, aggregate: testcaseSetAggregate },
     }),
   ),
   testcaseCreateMany: vi.fn(),
@@ -123,10 +127,13 @@ beforeEach(() => {
     id: "prob_1",
     authorId: actor.userId,
     visibility: "private",
+    status: "draft",
     type: "full_source",
     checkerStorage: null,
     interactorStorage: null,
   });
+  problemFindFirst.mockResolvedValue(null);
+  testcaseSetAggregate.mockResolvedValue({ _sum: { weight: 0 } });
   problemFindById.mockResolvedValue({
     id: "prob_1",
     authorId: actor.userId,
@@ -148,8 +155,8 @@ beforeEach(() => {
     inputFileStorage: null,
     testcaseSet: { problemId: "prob_1" },
   });
-  putImmutableText.mockImplementation(
-    async (_client: unknown, key: string, content: string) => ({
+  putImmutableText.mockImplementation((_client: unknown, key: string, content: string) =>
+    Promise.resolve({
       key,
       sha256: "a".repeat(64),
       size: Buffer.byteLength(content),
@@ -207,25 +214,41 @@ describe("testcase immutable object mutations", () => {
       cases: [{ input: "1 1", output: "2" }],
     });
 
-    const rows = testcaseCreateMany.mock.calls[0]![0] as Array<{
+    const rows = testcaseCreateMany.mock.calls[0][0] as {
       inputStorage: { key: string };
       outputStorage: { key: string };
-    }>;
-    expect(rows[0]!.inputStorage.key).toMatch(
+    }[];
+    expect(rows[0].inputStorage.key).toMatch(
       /^problems\/prob_1\/testcases\/[^/]+\/versions\/[^/]+\/input$/,
     );
-    expect(rows[0]!.outputStorage.key).toMatch(
+    expect(rows[0].outputStorage.key).toMatch(
       /^problems\/prob_1\/testcases\/[^/]+\/versions\/[^/]+\/output$/,
     );
     expect(commitStoragePointerSwap).toHaveBeenCalledWith(
       expect.anything(),
-      expect.objectContaining({ added: [rows[0]!.inputStorage, rows[0]!.outputStorage] }),
+      expect.objectContaining({ added: [rows[0].inputStorage, rows[0].outputStorage] }),
     );
     expect(problemFindById).toHaveBeenCalledTimes(3);
     expect(problemLock).toHaveBeenCalledWith("prob_1");
     expect(problemLock.mock.invocationCallOrder[0]).toBeLessThan(
       testcaseCreateMany.mock.invocationCallOrder[0],
     );
+  });
+
+  it("persists the subtask description and weight on create", async () => {
+    await createProblemTestcaseSetRecord(actor, "prob_1", {
+      weight: 30,
+      description: "$n \\le 100$",
+      cases: [{ input: "1 1", output: "2" }],
+    });
+
+    expect(testcaseSetCreate).toHaveBeenCalledExactlyOnceWith({
+      name: "subtask #1",
+      description: "$n \\le 100$",
+      problemId: "prob_1",
+      weight: 30,
+      ordinal: 0,
+    });
   });
 
   it("rejects a testcase upload that would exceed the per-problem storage budget", async () => {
@@ -296,7 +319,7 @@ describe("testcase immutable object mutations", () => {
 
   it("atomically swaps a changed input pointer and schedules the old pointer", async () => {
     await updateTestcaseRecord(actor, "prob_1", "tc_1", { input: "new" });
-    const data = testcaseUpdate.mock.calls[0]![1] as { inputStorage: { key: string } };
+    const data = testcaseUpdate.mock.calls[0][1] as { inputStorage: { key: string } };
     expect(data.inputStorage.key).toMatch(/\/versions\/[^/]+\/input$/);
     expect(commitStoragePointerSwap).toHaveBeenCalledWith(expect.anything(), {
       added: [data.inputStorage],
@@ -312,6 +335,91 @@ describe("testcase immutable object mutations", () => {
       removed: [oldInput, oldOutput],
     });
   });
+
+  it("keeps the reference solution when only a set description changes", async () => {
+    testcaseSetFindById.mockResolvedValue({
+      id: "set_1",
+      problemId: "prob_1",
+      weight: 3,
+      testcases: [],
+    });
+
+    await updateTestcaseSetRecord(actor, "prob_1", "set_1", {
+      description: "renamed",
+      weight: 3,
+    });
+
+    expect(testcaseSetUpdate).toHaveBeenCalledWith({
+      where: { id: "set_1" },
+      data: { description: "renamed", weight: 3 },
+    });
+    expect(problemUpdate).not.toHaveBeenCalled();
+  });
+
+  it("invalidates the reference solution when a set weight changes", async () => {
+    testcaseSetFindById.mockResolvedValue({
+      id: "set_1",
+      problemId: "prob_1",
+      weight: 3,
+      testcases: [],
+    });
+
+    await updateTestcaseSetRecord(actor, "prob_1", "set_1", { weight: 5 });
+
+    expect(problemUpdate).toHaveBeenCalledWith("prob_1", {
+      referenceSolutionSubmissionId: null,
+      storageGeneration: { increment: 1 },
+    });
+  });
+
+  it("lets an unused draft problem drop to 0 points while subtasks are being built", async () => {
+    testcaseSetFindById.mockResolvedValue({
+      id: "set_1",
+      problemId: "prob_1",
+      weight: 3,
+      testcases: [],
+    });
+
+    await updateTestcaseSetRecord(actor, "prob_1", "set_1", { weight: 0 });
+    await deleteTestcaseSetRecord(actor, "prob_1", "set_1");
+
+    expect(problemUpdate).toHaveBeenCalledTimes(2);
+  });
+
+  it.each([
+    ["published", { status: "published" }, null],
+    ["assigned", { status: "draft" }, { id: "prob_1" }],
+  ])(
+    "keeps a %s problem worth points when sets are reweighted or deleted",
+    async (_label, state, linked) => {
+      problemLock.mockResolvedValue({
+        id: "prob_1",
+        authorId: actor.userId,
+        visibility: "private",
+        type: "full_source",
+        ...state,
+      });
+      problemFindFirst.mockResolvedValue(linked);
+      testcaseSetFindById.mockResolvedValue({
+        id: "set_1",
+        problemId: "prob_1",
+        weight: 3,
+        testcases: [],
+      });
+
+      await expect(
+        updateTestcaseSetRecord(actor, "prob_1", "set_1", { weight: 0 }),
+      ).rejects.toThrow(/at least one subtask worth points/);
+      await expect(deleteTestcaseSetRecord(actor, "prob_1", "set_1")).rejects.toThrow(
+        /at least one subtask worth points/,
+      );
+      expect(problemUpdate).not.toHaveBeenCalled();
+
+      testcaseSetAggregate.mockResolvedValue({ _sum: { weight: 2 } });
+      await updateTestcaseSetRecord(actor, "prob_1", "set_1", { weight: 0 });
+      expect(problemUpdate).toHaveBeenCalledOnce();
+    },
+  );
 
   it("rejects cross-problem testcase and set IDs before DB deletion", async () => {
     testcaseFindById.mockResolvedValueOnce({

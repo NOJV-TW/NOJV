@@ -8,13 +8,20 @@ import {
   runTransaction,
   type PlagiarismContext,
   type PlagiarismReportSummary,
+  type TransactionClient,
 } from "@nojv/db";
 import type { SubmissionSource } from "@nojv/storage";
 
+import { lockWritableContextCourse } from "../shared/course-writable";
 import { IntegrityError, NotFoundError } from "../shared/errors";
 import { toJsonValue } from "../shared/to-json-value";
 import { getSubmissionSources } from "../submission/details";
-import { plagiarismTargetFilter, type PlagiarismResults, type PlagiarismTarget } from "./types";
+import {
+  plagiarismGradedContext,
+  plagiarismTargetFilter,
+  type PlagiarismResults,
+  type PlagiarismTarget,
+} from "./types";
 
 export function boundaryMarkerFor(language: string): string {
   return language === "python" ? "#" : "//";
@@ -67,13 +74,14 @@ type PlagiarismReportStatus = "pending" | "running" | "completed" | "failed";
 async function writePlagiarismFields(
   target: PlagiarismTarget,
   input: Parameters<typeof plagiarismRepo.upsertForExam>[1],
+  tx?: TransactionClient,
 ): Promise<void> {
   if (target.type === "exam") {
-    await plagiarismRepo.upsertForExam(target.id, input);
+    await plagiarismRepo.upsertForExam(target.id, input, tx);
   } else if (target.type === "contest") {
-    await plagiarismRepo.upsertForContest(target.id, input);
+    await plagiarismRepo.upsertForContest(target.id, input, tx);
   } else {
-    await plagiarismRepo.upsertForAssessment(target.id, input);
+    await plagiarismRepo.upsertForAssessment(target.id, input, tx);
   }
 }
 
@@ -154,21 +162,25 @@ export async function createPlagiarismReport(
   const priorPairCount = countPriorPairs(priorSummary);
 
   await runTransaction(async (tx) => {
+    await lockWritableContextCourse(tx, plagiarismGradedContext(target.type, target.id));
     await plagiarismTriggerLogRepo.create(tx, {
       contextType: targetToContextType(target),
       contextId: target.id,
       triggeredByUserId: triggeredById,
       priorPairCount,
     });
-  });
-
-  await writePlagiarismFields(target, {
-    status: "pending",
-    triggeredById,
-    triggeredAt: new Date(),
-    results: null,
-    reportUrl: null,
-    completedAt: null,
+    await writePlagiarismFields(
+      target,
+      {
+        status: "pending",
+        triggeredById,
+        triggeredAt: new Date(),
+        results: null,
+        reportUrl: null,
+        completedAt: null,
+      },
+      tx,
+    );
   });
   const summary = await findPlagiarismReport(target);
   if (!summary) {

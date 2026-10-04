@@ -118,6 +118,11 @@
             : ''}"
         >
           <div class="mb-3.5 flex items-center justify-end">
+            {#if course.archived}
+              <span class="mr-auto text-caption font-medium text-muted-foreground">
+                {m.courses_archived()}
+              </span>
+            {/if}
             {#if course.role === "teacher"}
               <span class="text-caption text-muted-foreground">{m.common_roleTeacher()}</span>
             {:else if course.role === "ta"}
@@ -175,7 +180,7 @@
                   >{m.courses_openCount({ count: course.openAssignments })}</span
                 >
               {/if}
-              {#if course.draftAssignments > 0}
+              {#if course.draftAssignments}
                 <span class="text-caption text-muted-foreground"
                   >{m.courses_draftCount({ count: course.draftAssignments })}</span
                 >
@@ -185,7 +190,7 @@
                   >{m.courses_examCount({ count: course.upcomingExams })}</span
                 >
               {/if}
-              {#if course.openAssignments === 0 && course.draftAssignments === 0 && course.upcomingExams === 0}
+              {#if course.openAssignments === 0 && !course.draftAssignments && course.upcomingExams === 0}
                 <span class="text-caption text-muted-foreground">{m.courses_noOpenWork()}</span>
               {/if}
             {/if}

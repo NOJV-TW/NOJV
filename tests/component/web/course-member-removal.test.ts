@@ -30,11 +30,15 @@ afterEach(() => {
 });
 
 it.each(["success", "failure"])(
-  "handles an HTTP 200 action %s after confirmation",
+  "handles an HTTP 200 action %s after confirmation and shows the server reason",
   async (type) => {
     vi.stubGlobal("fetch", mocks.fetch);
     mocks.fetch.mockResolvedValue(
-      Response.json({ type, status: type === "success" ? 200 : 403 }),
+      Response.json(
+        type === "success"
+          ? { type, status: 200 }
+          : { type, status: 403, data: { error: "Archived courses are read-only." } },
+      ),
     );
     const target = document.createElement("div");
     document.body.append(target);
@@ -81,7 +85,7 @@ it.each(["success", "failure"])(
         expect(mocks.error).not.toHaveBeenCalled();
       } else {
         await vi.waitFor(() =>
-          expect(mocks.error).toHaveBeenCalledWith(m.members_removeError()),
+          expect(mocks.error).toHaveBeenCalledWith("Archived courses are read-only."),
         );
         expect(mocks.refresh).not.toHaveBeenCalled();
       }

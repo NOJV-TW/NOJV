@@ -11,7 +11,8 @@
   import type { problemDomain } from "@nojv/application";
   import GripVertical from "@lucide/svelte/icons/grip-vertical";
   import Plus from "@lucide/svelte/icons/plus";
-  import { superForm, type SuperValidated } from "sveltekit-superforms";
+  import type { SuperValidated } from "sveltekit-superforms";
+  import { appSuperForm } from "$lib/utils/super-form";
   import Send from "@lucide/svelte/icons/send";
   import Trash2 from "@lucide/svelte/icons/trash-2";
 
@@ -65,7 +66,7 @@
     enhance,
     message: formMessage,
     submitting,
-  } = superForm<ContestSettingsForm, FormMessage>(
+  } = appSuperForm<ContestSettingsForm>(
     untrack(() => formProp),
     {
       dataType: "json",

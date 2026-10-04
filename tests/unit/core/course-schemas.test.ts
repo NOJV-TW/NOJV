@@ -1,10 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import {
-  assessmentContextSchema,
-  assessmentCreateSchema,
-  courseCreateSchema,
-} from "../../../packages/core/src/index";
+import { assessmentContextSchema, courseCreateSchema } from "../../../packages/core/src/index";
 
 describe("courseCreateSchema", () => {
   it("accepts teacher-authored course creation payloads", () => {
@@ -14,69 +10,6 @@ describe("courseCreateSchema", () => {
     });
 
     expect(result.title).toBe("Operating Systems Lab");
-  });
-});
-
-describe("assessmentCreateSchema", () => {
-  it("rejects invalid assignment windows when dueAt is before opensAt", () => {
-    const result = assessmentCreateSchema.safeParse({
-      closesAt: "2026-03-20T12:00:00.000Z",
-      courseId: "course_os-lab-spring-2026",
-      opensAt: "2026-03-18T12:00:00.000Z",
-      problems: ["warmup-sum"].map((problemId) => ({ problemId, points: 100 })),
-      id: "hw1-process-warmup",
-      summary: "First assignment",
-      title: "Homework 1",
-      dueAt: "2026-03-17T12:00:00.000Z",
-    });
-
-    expect(result.success).toBe(false);
-  });
-
-  it("accepts problemIds containing underscores (actual DB ids like problem_warmup-sum)", () => {
-    const result = assessmentCreateSchema.safeParse({
-      closesAt: "2026-03-30T12:00:00.000Z",
-      courseId: "course_os-lab-spring-2026",
-      opensAt: "2026-03-18T12:00:00.000Z",
-      dueAt: "2026-03-25T12:00:00.000Z",
-      problems: ["problem_warmup-sum", "problem_add-two-numbers"].map((problemId) => ({
-        problemId,
-        points: 100,
-      })),
-      id: "hw1-process-warmup",
-      summary: "Process warmup with two easy problems.",
-      title: "HW1 Process Warmup",
-    });
-
-    expect(result.success).toBe(true);
-  });
-
-  it("accepts an empty draft allocation", () => {
-    const result = assessmentCreateSchema.safeParse({
-      closesAt: "2026-03-30T12:00:00.000Z",
-      courseId: "course_os-lab-spring-2026",
-      opensAt: "2026-03-18T12:00:00.000Z",
-      problems: [].map((problemId) => ({ problemId, points: 100 })),
-      id: "hw1-process-warmup",
-      summary: "Process warmup with two easy problems.",
-      title: "HW1 Process Warmup",
-    });
-
-    expect(result.success).toBe(true);
-  });
-
-  it("rejects problemIds whose entries are empty strings", () => {
-    const result = assessmentCreateSchema.safeParse({
-      closesAt: "2026-03-30T12:00:00.000Z",
-      courseId: "course_os-lab-spring-2026",
-      opensAt: "2026-03-18T12:00:00.000Z",
-      problems: [""].map((problemId) => ({ problemId, points: 100 })),
-      id: "hw1-process-warmup",
-      summary: "Process warmup with two easy problems.",
-      title: "HW1 Process Warmup",
-    });
-
-    expect(result.success).toBe(false);
   });
 });
 

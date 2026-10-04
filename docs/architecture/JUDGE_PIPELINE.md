@@ -250,8 +250,8 @@ merge workspace files → run stage (compile once, execute cases) → judge stag
 An author's private reference submission (`isReferenceSolution`) uses the ordinary
 judge but is excluded from history and statistics. An accepted one becomes the
 problem's verification pointer, recording `Problem.storageGeneration`; any later
-change to testcases, workspace files, judge configuration, limits or type
-invalidates it (PRB-09).
+change to testcases, subtask weights, workspace files, judge configuration,
+limits or type invalidates it, while subtask description edits do not (PRB-09).
 
 ### Workspace merge and payloads
 
@@ -349,11 +349,14 @@ timeout: `min(90 s + (2 × timeLimit + 5 s) × cases + 30 s, 540 s)`; judge cont
 
 ### Execute and measurement
 
-Per-case limits come from `judgeConfig.runtime`:
+Per-case limits come from the problem's limit columns, the single source of truth
+for every problem type (the workspace runtime section writes them too):
 
-- `timeLimitMs` — 100 ms to 30 s, default 1000
-- `memoryLimitMb` — 16 to 1024, default 256
-- `env` — extra environment variables
+- `Problem.timeLimitMs` — 100 ms to 30 s, default 1000
+- `Problem.memoryLimitMb` — 16 to 1024, default 256
+- `judgeConfig.runtime.env` — extra environment variables, the only field of
+  `judgeConfig.runtime`, owned by the workspace section; Judge configuration saves
+  keep the stored runtime
 
 Effective time limit is `ceil(timeLimitMs × LANGUAGE_TIME_FACTOR[language])` (c/cpp/rust
 1, go 1.5, java/javascript/typescript 2, python 3), applied once in the pinned
@@ -432,7 +435,8 @@ Anything token comparison cannot express needs a checker; no compare modes.
 
 - Subtasks are all-or-nothing in every context (JDG-04): a `TestcaseSet` earns its
   `weight` only if every case is AC. No partial credit, no per-subtask strategy, no
-  early exit.
+  early exit. A 0-point set is judged and decides the verdict like any other set
+  but adds nothing to the score or the problem maximum (PRB-03).
 - `buildSubtaskResults()` / `mapResult()` validate expected count and distinct
   zero-based indices and match cases by index; missing, duplicate or out-of-range
   cases cannot produce Accepted.
@@ -469,7 +473,7 @@ Standard Mode **Test** runs sample and custom cases in the browser via pinned
 **Submit** always uses the server pipeline, including checker, interactive and
 Advanced.
 
-- Uses `judgeConfig.runtime` limits and env (problem limits otherwise) with the
+- Uses the problem limits and `judgeConfig.runtime.env` with the
   language time factor; the problem time limit sets Forge's logical-time budget.
   Instruction or logical-time exhaustion is TLE.
 - Shares the comparator and workspace merge rules with the worker; only editable
@@ -686,8 +690,11 @@ test.
 
 - `full_source` — one complete source at the entry file.
 - `multi_file` — teacher scaffold; each enabled language has exactly one editable
-  `main.<ext>`. Function-style problems mark the function file `editable` and the
-  driver `readonly`.
+  `main.<ext>`, and a language is enabled exactly when it has one. The editor
+  derives its allowed-language ticks from those entry files, and a save drops
+  the files of unticked languages. Function-style problems mark the function
+  file `editable` and the driver `readonly`. Published problems never change
+  type, and `special_env` problems have no workspace.
 - `special_env` — [Advanced Mode](#advanced-mode-pipeline).
 
 `ProblemWorkspaceFile.visibility` controls whole-file editor presentation and

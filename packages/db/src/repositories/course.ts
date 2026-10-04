@@ -109,6 +109,10 @@ export const courseRepo = {
         return tx.$queryRaw`SELECT id FROM "Course" WHERE id = ${courseId} FOR UPDATE`;
       },
 
+      lockForShare(courseId: string) {
+        return tx.$queryRaw`SELECT id FROM "Course" WHERE id = ${courseId} FOR SHARE`;
+      },
+
       findById(id: string) {
         return tx.course.findUnique({ where: { id } });
       },

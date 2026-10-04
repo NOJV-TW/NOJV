@@ -15,13 +15,14 @@ Detail pages live at `/assignments/[id]`, `/exams/[id]`, `/contests/[id]` with r
 
 ### WEB-02 Every form failure is visible through typed messages and one action wrapper
 
-**Decided:** 2026-04 · **Source:** [2026-04-11-silent-failure-and-problemids-fix](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-04-11-silent-failure-and-problemids-fix.md), [2026-06-12-full-audit-remediation](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-06-12-full-audit-remediation.md)
+**Decided:** 2026-04 · **Source:** [2026-04-11-silent-failure-and-problemids-fix](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-04-11-silent-failure-and-problemids-fix.md), [2026-06-12-full-audit-remediation](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-06-12-full-audit-remediation.md), [#629](https://github.com/NOJV-TW/NOJV/pull/629)
 
 Actions return a superforms `message()` of type `FormMessage = { kind, text }` rendered by the shared `FormError` banner, with field errors inline. Actions go through `withAction`, mapping domain HttpError/ZodError to `fail(status)` like `apiHandler`/`handleLoad`. `fail(400, { form, error })` was silently discarded, and raw domain throws became 500s.
 
 - Rejected: `fail(400, { form, error })`.
 - Rule: every action failure surfaces as a banner or field error; never fail silently.
-- Code: `apps/web/src/lib/types/form-message.ts`, `apps/web/src/lib/server/shared/action-handlers.ts`
+- Rule: components create superforms through `appSuperForm`, which turns results that carry no form (the shared rate limiter's 429/503, uncaught errors) into the form's error message instead of letting superforms throw; ESLint forbids importing `superForm` directly.
+- Code: `apps/web/src/lib/types/form-message.ts`, `apps/web/src/lib/server/shared/action-handlers.ts`, `apps/web/src/lib/utils/super-form.ts`
 
 ### WEB-03 Fail loudly on corrupt data; validate every persisted blob on read
 

@@ -22,9 +22,11 @@ import {
   NotFoundError,
   ValidationError,
 } from "../shared/errors";
+import { assertCourseWritable } from "../shared/course-writable";
 import { assertCourseManager, canCreateCourse } from "../shared/permissions";
 import { requireCourse, requireUser } from "../shared/require";
 import { resolveActivityProblems } from "../problem/fork";
+import { publishAssignmentInTransaction } from "../assignment/publish";
 import { lockCourseForStaffMutation } from "./problem-library";
 import { assignmentDueSoonInput } from "../shared/lifecycle-input";
 import { getDomainOrchestration } from "../shared/orchestration";
@@ -109,8 +111,8 @@ export async function createCourseAssignmentRecord(
       dueAt,
       opensAt: new Date(payload.opensAt),
       id: assignmentId,
-      status: payload.status,
-      summary: payload.title,
+      status: "draft",
+      summary: "",
       title: payload.title,
       ...(payload.maxAttemptsPerDay != null
         ? { maxAttemptsPerDay: payload.maxAttemptsPerDay }
@@ -128,8 +130,12 @@ export async function createCourseAssignmentRecord(
       published: payload.status === "published",
       allowedLanguages: payload.allowedLanguages,
     });
+    const persisted =
+      payload.status === "published"
+        ? await publishAssignmentInTransaction(tx, actor, assignment)
+        : assignment;
 
-    return { ...assignment, ...grading };
+    return { ...persisted, ...grading };
   });
 
   if (assignment.status === "published") {
@@ -146,8 +152,9 @@ export async function updateCourse(
 ) {
   return runTransaction(async (tx) => {
     await courseRepo.withTx(tx).lockForUpdate(courseId);
-    await requireCourse(tx, courseId);
+    const course = await requireCourse(tx, courseId);
     await assertCourseManager(actor, courseId, tx);
+    assertCourseWritable(course);
 
     return courseRepo.withTx(tx).update(courseId, {
       description: payload.description,

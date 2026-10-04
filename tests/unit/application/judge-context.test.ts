@@ -39,7 +39,7 @@ function mkProblemRow(overrides: Partial<Record<string, unknown>> = {}) {
     memoryLimitMb: 256,
     judgeConfig: {
       type: "standard",
-      runtime: { env: { CC: "gcc" }, timeLimitMs: 1000, memoryLimitMb: 256 },
+      runtime: { env: { CC: "gcc" } },
     },
     samples: [{ input: "1\n", output: "1\n" }],
     advancedConfig: null,
@@ -122,6 +122,25 @@ describe("getJudgeContext", () => {
     ]);
   });
 
+  it("judges with the problem's limit columns and the runtime's env only", async () => {
+    findByIdWithJudgeContext.mockResolvedValue(
+      mkSubmissionRow(
+        {},
+        {
+          timeLimitMs: 3000,
+          memoryLimitMb: 512,
+          judgeConfig: {
+            type: "standard",
+            runtime: { env: { CC: "gcc" } },
+          },
+        },
+      ),
+    );
+
+    const ctx = await getJudgeContext("sub_1");
+    expect(ctx.runtime).toEqual({ env: { CC: "gcc" }, timeLimitMs: 3000, memoryLimitMb: 512 });
+  });
+
   it("loads workspace files through the workspace blob helper", async () => {
     findByIdWithJudgeContext.mockResolvedValue(mkSubmissionRow());
     readWorkspaceFileBlob.mockResolvedValue("// my starter\n");
@@ -145,7 +164,7 @@ describe("getJudgeContext", () => {
         judgeConfig: {
           type: "checker",
           checkerLanguage: "python",
-          runtime: { env: {}, timeLimitMs: 1000, memoryLimitMb: 256 },
+          runtime: { env: {} },
         },
         checkerStorage: pointer("problems/prob_1/validators/v1/checker"),
       },
@@ -170,7 +189,7 @@ describe("getJudgeContext", () => {
         judgeConfig: {
           type: "interactive",
           interactorLanguage: "cpp",
-          runtime: { env: {}, timeLimitMs: 1000, memoryLimitMb: 256 },
+          runtime: { env: {} },
         },
         interactorStorage: pointer("problems/prob_1/validators/v1/interactor"),
       },
@@ -308,7 +327,7 @@ describe("getJudgeContext", () => {
         judgeConfig: {
           type: "standard",
           compare: { caseSensitive: false, floatTolerance: 1e-6 },
-          runtime: { env: {}, timeLimitMs: 1000, memoryLimitMb: 256 },
+          runtime: { env: {} },
         },
       },
     );

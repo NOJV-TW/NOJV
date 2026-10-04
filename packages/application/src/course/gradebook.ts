@@ -3,6 +3,7 @@ import { assessmentRepo, courseMembershipRepo, examRepo, submissionRepo } from "
 
 import { getProblemTotalScores, requireProblemTotalScore } from "../problem/total-score";
 import { getOverridesForContext } from "../scoring/resolve-final-score";
+import { hidesProblemsBeforeStart } from "../shared/activity-visibility";
 
 export type GradebookContextType = "assignment" | "exam";
 
@@ -45,19 +46,24 @@ export function gradebookCellKey(
   return `${contextType}:${contextId}:${problemId}`;
 }
 
+export type GradebookViewer = { role: "staff" } | { role: "student"; userId: string };
+
 export async function buildCourseGradebook(
   courseId: string,
-  options?: { forUserId?: string },
+  viewer: GradebookViewer,
+  now = new Date(),
 ): Promise<CourseGradebook> {
+  const isManager = viewer.role === "staff";
   const [allStudents, assessments, exams] = await Promise.all([
     courseMembershipRepo.findStudents(courseId),
     assessmentRepo.listPublishedWithProblemsByCourse(courseId),
     examRepo.listPublishedWithProblemsByCourse(courseId),
   ]);
 
-  const students = options?.forUserId
-    ? allStudents.filter((s) => s.userId === options.forUserId)
-    : allStudents;
+  const students =
+    viewer.role === "student"
+      ? allStudents.filter((s) => s.userId === viewer.userId)
+      : allStudents;
 
   const contexts = [
     ...assessments.map((a) => ({
@@ -66,7 +72,7 @@ export async function buildCourseGradebook(
       contextTitle: a.title,
       sortAt: a.opensAt,
       deadline: a.closesAt,
-      problems: a.problems,
+      problems: hidesProblemsBeforeStart(isManager, a.opensAt, now) ? [] : a.problems,
       totalPoints: Number(a.totalPoints),
     })),
     ...exams.map((e) => ({
@@ -75,7 +81,7 @@ export async function buildCourseGradebook(
       contextTitle: e.title,
       sortAt: e.startsAt,
       deadline: e.endsAt,
-      problems: e.problems,
+      problems: hidesProblemsBeforeStart(isManager, e.startsAt, now) ? [] : e.problems,
       totalPoints: Number(e.totalPoints),
     })),
   ].sort((a, b) => a.sortAt.getTime() - b.sortAt.getTime());

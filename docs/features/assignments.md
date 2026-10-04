@@ -5,6 +5,7 @@ Acceptance spec for course homework (`Assessment`, routes `/assignments/[assignm
 ## Key code
 
 - `packages/application/src/assignment/mutations.ts` — `updateAssignmentRecord`, `publishAssignment`, `revertAssignmentToDraft`, `deleteAssignmentDraft`, status-aware field locks
+- `packages/application/src/assignment/publish.ts` — `publishAssignmentInTransaction`, the one publish transition shared by `publishAssignment` and create-as-published (`createCourseAssignmentRecord` in `course/mutations.ts`)
 - `packages/application/src/scoring/activity-grading.ts`, `scoring/activity-points.ts` — allocation save/validation and weighted official score
 - `packages/application/src/problem/fork.ts` — `resolveActivityProblems` (reuse, fork, library sharing)
 - `packages/application/src/course/overview.ts`, `course/across-courses.ts`, `shared/list-aggregations.ts` — list views, `classStats`, `myStatus`
@@ -18,7 +19,7 @@ Acceptance spec for course homework (`Assessment`, routes `/assignments/[assignm
 
 ## Model
 
-- Persistent `status` is `draft | published`. Live status derives from `(status, opensAt, closesAt, now)`: `draft`, `upcoming` (`opensAt > now`), `open`, `closed` (`closesAt < now`). There is no assignment archive state; an archived parent course hides its assignments from students and rejects submissions and mutations.
+- Persistent `status` is `draft | published`. Live status derives from `(status, opensAt, closesAt, now)`: `draft`, `upcoming` (`opensAt > now`), `open`, `closed` (`closesAt < now`). There is no assignment archive state; an archived parent course is read-only (ASM-26): students get 403 on its closed assignments and on every assignment solve page, and submissions and every write are rejected.
 - Settings: `allowedLanguages`, `maxAttemptsPerDay`, `attemptResetMinuteOfDay` (minutes after Taipei midnight, default 300 = 05:00), `dueAt`, `closesAt`, `adjustmentRules` (late penalty; see [Judge Pipeline](../architecture/JUDGE_PIPELINE.md#adjustment-rules)).
 - Publishing ensures the due-soon reminder workflow; changing `opensAt`/`closesAt` on a published assignment replaces it; revert and delete cancel it.
 
@@ -64,6 +65,8 @@ Rules come from PRB-10 and PRB-11; data model in [Database](../architecture/DATA
 - Failures, all `ValidationError`: not draft → `"Only draft assignments can be published."`; no languages → `"Select at least one allowed language before publishing."`; no problems → `"Attach at least one problem before publishing."`; `closesAt <= now` → `"closesAt must be in the future."`.
 - Check and write run in one locked transaction, so a concurrent second publish fails with the not-draft error.
 - A draft with no `dueAt` publishes; the window check applies only when `dueAt` is set.
+- Creating with `status: "published"` inserts a draft and runs the same publish transition in the create transaction: the same checks and failures apply, a `publish` audit row is written, and any failure rolls back the whole create.
+- The settings tab's Publish button saves the submitted settings first (`updateSettings` rules), then publishes; a failed save publishes nothing. Publish and revert return the settings form so the tab refreshes.
 
 ### Revert to draft and delete draft
 
@@ -84,7 +87,7 @@ Rules come from PRB-10 and PRB-11; data model in [Database](../architecture/DATA
 ### Permissions
 
 - Mutations require a bound, active teacher/TA membership in the course or effective admin access. Course ownership or being the creator grants nothing; pending usernames and removed memberships grant nothing; a platform student who is an active TA is allowed.
-- Archived courses reject activity mutations even for staff.
+- Archived courses are read-only for every role, admins included (ASM-26). Activity mutations, library changes, score overrides, feedback, rejudges (including cancelling one), clarification questions, answers, dismissals and deletions, plagiarism runs and flag changes fail with `ValidationError("Archived courses are read-only.")`. Assignment submissions and code-draft reads and writes fail with `ForbiddenError("This course is archived.")`. The assignment pages keep every read and hide or disable the write controls: settings are disabled, the problem list is read-only, and grading, rejudge and clarification controls are hidden.
 
 ### Problem attachment
 
@@ -100,11 +103,13 @@ Rules come from PRB-10 and PRB-11; data model in [Database](../architecture/DATA
 
 - Students (`includeDrafts=false`) never see drafts and get `counts.draft === null`; staff (`includeDrafts=true`) see drafts and counts.
 - Staff rows carry `classStats` (submitted students, total students, average score) and `myStatus === null`; student rows carry `myStatus` (solved/total) and `classStats === null`.
+- `/courses` cards carry `draftAssignments` only for courses the viewer manages; enrolled-course cards get `null`.
+- A student's gradebook keeps columns for activities that have not opened or started, with their total but no problems, using the detail pages' rule (`hidesProblemsBeforeStart`); the start instant reveals them.
 - `listAssignmentsAcrossCoursesForUser` for a user without active memberships returns `hasNoCourses === true` with zeroed rows and counts.
 
 ### Grading after close
 
-- While `closesAt > now` the matrix hides the grading entry and shows a "grading available after close" note.
+- While `closesAt > now` the matrix offers course staff no grading entry: `canSetScoreOverride` applies the same close gate as the writes. Admins can open it at any time. In an archived course nobody gets a grading entry.
 - After close, a matrix cell opens the drawer with a score override (staff-only reason) and a student-visible feedback comment, keyed by `(course membership, problemId, assessmentId)`.
 - Non-admin override or feedback writes before close fail with `ConflictError("This context is still open; grading is only available after it closes.")` via `assertContextClosed`; platform admins bypass (ASM-18).
 - Pending (unlinked) roster students can receive manual scores and feedback after close.

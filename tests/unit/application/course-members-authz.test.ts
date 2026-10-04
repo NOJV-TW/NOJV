@@ -45,6 +45,8 @@ import {
   bulkAddByHandle,
   listMembersForCourse,
   changeMemberRole,
+  correctPendingUsername,
+  memberActionDenial,
   parseHandleInput,
   removeMember,
 } from "../../../packages/application/src/course/members";
@@ -185,6 +187,58 @@ describe("member authorization", () => {
   });
 });
 
+describe("memberActionDenial", () => {
+  const targets = {
+    "linked student": { role: "student", userId: "student-1" },
+    "pending student": { role: "student", userId: null },
+    ta: { role: "ta", userId: "ta-1" },
+    "co-teacher": { role: "teacher", userId: "teacher-2" },
+    "own teacher row": { role: "teacher", userId: actor.userId },
+    owner: { role: "teacher", userId: "owner-1" },
+  } as const;
+  const cases = (["admin", "teacher", "ta", "student", null] as const).flatMap((role) =>
+    Object.entries(targets).flatMap(([label, target]) =>
+      (["manage", "remove"] as const).map((operation) => ({ role, label, target, operation })),
+    ),
+  );
+
+  it.each(cases)(
+    "agrees with the server for $role on $label ($operation)",
+    async ({ role, target, operation }) => {
+      const acting = role === "admin" ? admin : actor;
+      if (role !== "admin") {
+        mocks.findActorMembership.mockResolvedValue(role ? { role, status: "active" } : null);
+      }
+      mocks.findMember.mockResolvedValue({ ...member, ...target });
+      const allowed =
+        memberActionDenial(
+          { userId: acting.userId, role },
+          { ...target, isOwner: target.userId === "owner-1" },
+          operation,
+        ) === null;
+      const result =
+        operation === "manage"
+          ? changeMemberRole(acting, COURSE, MEMBER, "student")
+          : removeMember(acting, COURSE, MEMBER);
+      if (allowed) await result;
+      else await expect(result).rejects.toBeInstanceOf(ForbiddenError);
+    },
+  );
+
+  it("lets an effective admin act on a non-owner teacher but never on the owner", () => {
+    const adminRole = { userId: admin.userId, role: "admin" } as const;
+    const coTeacher = { role: "teacher", userId: "teacher-2", isOwner: false } as const;
+    const owner = { role: "teacher", userId: "owner-1", isOwner: true } as const;
+    for (const operation of ["manage", "remove"] as const) {
+      expect(memberActionDenial(adminRole, coTeacher, operation)).toBeNull();
+      expect(memberActionDenial(adminRole, owner, operation)).toMatch(/course owner/i);
+      expect(
+        memberActionDenial({ userId: actor.userId, role: "teacher" }, coTeacher, operation),
+      ).not.toBeNull();
+    }
+  });
+});
+
 describe("bulk roster authorization and input", () => {
   it.each([
     ["student", "student"],
@@ -252,6 +306,38 @@ describe("bulk roster authorization and input", () => {
   });
 });
 
+describe("archived course roster", () => {
+  beforeEach(() => {
+    mocks.findCourse.mockResolvedValue({ id: COURSE, ownerId: "owner-1", archived: true });
+    mocks.findMember.mockResolvedValue({
+      ...member,
+      userId: null,
+      course: { ownerId: "owner-1", archived: true },
+    });
+  });
+
+  it.each([
+    ["bulk add", () => bulkAddByHandle(actor, COURSE, { handles: ["alice"], role: "student" })],
+    ["role change", () => changeMemberRole(actor, COURSE, MEMBER, "ta")],
+    ["removal", () => removeMember(actor, COURSE, MEMBER)],
+    ["username correction", () => correctPendingUsername(actor, COURSE, MEMBER, "alice")],
+  ])("rejects %s", async (_label, mutate) => {
+    await expect(mutate()).rejects.toMatchObject({
+      name: "ValidationError",
+      message: "Archived courses are read-only.",
+    });
+    expect(mocks.createMembers).not.toHaveBeenCalled();
+    expect(mocks.restoreMembers).not.toHaveBeenCalled();
+    expect(mocks.updateRole).not.toHaveBeenCalled();
+    expect(mocks.removeFromCourse).not.toHaveBeenCalled();
+  });
+
+  it("still denies a non-manager before revealing the archive state", async () => {
+    mocks.findActorMembership.mockResolvedValue({ role: "student", status: "active" });
+    await expect(removeMember(actor, COURSE, MEMBER)).rejects.toBeInstanceOf(ForbiddenError);
+  });
+});
+
 describe("listMembersForCourse", () => {
   it("preserves configured avatars and leaves pending member images empty", async () => {
     const base = {
@@ -272,16 +358,40 @@ describe("listMembersForCourse", () => {
           email: "student@example.test",
           image: "https://example.test/avatar.png",
         },
+        course: { ownerId: "owner-1" },
       },
-      { ...base, id: "pending", userId: null, pendingUsername: "newcomer", user: null },
+      {
+        ...base,
+        id: "pending",
+        userId: null,
+        pendingUsername: "newcomer",
+        user: null,
+        course: { ownerId: "owner-1" },
+      },
+      {
+        ...base,
+        id: "owner",
+        role: "teacher",
+        userId: "owner-1",
+        pendingUsername: null,
+        user: { name: "Owner", username: "owner", email: "owner@example.test", image: null },
+        course: { ownerId: "owner-1" },
+      },
     ]);
     expect(await listMembersForCourse(COURSE)).toEqual([
       expect.objectContaining({
         membershipId: "linked",
         image: "https://example.test/avatar.png",
         isPending: false,
+        isOwner: false,
       }),
-      expect.objectContaining({ membershipId: "pending", image: null, isPending: true }),
+      expect.objectContaining({
+        membershipId: "pending",
+        image: null,
+        isPending: true,
+        isOwner: false,
+      }),
+      expect.objectContaining({ membershipId: "owner", isOwner: true }),
     ]);
   });
 });

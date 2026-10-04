@@ -7,6 +7,7 @@
   import ImageDropZone from "$lib/components/primitives/ui/ImageDropZone.svelte";
   import HelpTooltip from "$lib/components/primitives/ui/HelpTooltip.svelte";
   import {
+    DEFAULT_TESTCASE_NAME_PATTERN,
     detectSubtasksFromFiles,
     type ParsedCase,
     type SubtaskConfig,
@@ -23,7 +24,7 @@
   const smallInputClassName =
     "w-full rounded-lg border border-border bg-[color:var(--color-panel)] px-2 py-1.5 text-caption font-mono";
 
-  let regexPattern = $state("(\\d\\d)(\\d\\d)");
+  let regexPattern = $state(DEFAULT_TESTCASE_NAME_PATTERN);
   let inExt = $state(".in");
   let outExt = $state(".out");
   let zipFileName = $state<string | null>(null);
@@ -121,31 +122,43 @@
   async function uploadSubtasks() {
     uploadSaving = true;
     onError(null);
+    const saved = new Set<SubtaskConfig>();
     try {
       // Sequential, not Promise.all: the server assigns each set's ordinal from
       // max(ordinal)+1, so parallel creates race to the same ordinal and collide
       // on the [problemId, ordinal] unique constraint — only one would survive.
-      for (const subtask of subtasks.filter((s) => s.caseIndices.length > 0)) {
-        await postProblemAction(problemId, "createTestcaseSet", {
-          data: JSON.stringify({
-            cases: subtask.caseIndices.map((idx) => ({
-              input: parsedCases[idx]?.input ?? "",
-              output: parsedCases[idx]?.output ?? "",
-            })),
-            description: subtask.description,
-            weight: subtask.points,
-          }),
-        });
+      for (const [index, subtask] of subtasks.entries()) {
+        if (subtask.caseIndices.length === 0) continue;
+        try {
+          await postProblemAction(problemId, "createTestcaseSet", {
+            data: JSON.stringify({
+              cases: subtask.caseIndices.map((idx) => ({
+                input: parsedCases[idx]?.input ?? "",
+                output: parsedCases[idx]?.output ?? "",
+              })),
+              description: subtask.description,
+              weight: subtask.points,
+            }),
+          });
+        } catch (e) {
+          onError(
+            m.testcases_subtaskUploadFailed({
+              number: index + 1,
+              error: e instanceof Error ? e.message : m.testcases_uploadFailed(),
+            }),
+          );
+          subtasks = subtasks.filter((s) => !saved.has(s));
+          return;
+        }
+        saved.add(subtask);
       }
       parsedCases = [];
       subtasks = [];
       zipRawFiles = [];
       zipFileName = null;
-      await invalidateAll();
-    } catch (e) {
-      onError(e instanceof Error ? e.message : m.testcases_uploadFailed());
     } finally {
       uploadSaving = false;
+      if (saved.size > 0) await invalidateAll();
     }
   }
 </script>
@@ -176,7 +189,7 @@
             regexPattern = (e.target as HTMLInputElement).value;
             reparse();
           }}
-          placeholder="(\d\d)(\d\d)"
+          placeholder={DEFAULT_TESTCASE_NAME_PATTERN}
           value={regexPattern}
         />
       </div>

@@ -336,7 +336,9 @@ test("course library authorizes bound staff, shares drafts, forks public imports
     await testPrisma.course.update({ where: { id }, data: { archived: true } });
     await openPage(page, libraryUrl);
     await expect(
-      page.getByText("This course is archived. Problem content is available to read."),
+      page.getByText(
+        "This course is archived and read-only. Its content stays available to read.",
+      ),
     ).toBeVisible();
     await expect(page.getByRole("button", { name: "Add to course library" })).toHaveCount(0);
     await expect(page.getByRole("link", { name: "Edit", exact: true })).toHaveCount(0);
@@ -478,7 +480,7 @@ test("archived nonowner staff can navigate and copy all editor content while wri
         judgeConfig: {
           type: "checker",
           checkerLanguage: "python",
-          runtime: { timeLimitMs: 1000, memoryLimitMb: 256, env: { INSPECTION: "visible" } },
+          runtime: { env: { INSPECTION: "visible" } },
         },
         checkerStorage,
         workspaceFiles: {

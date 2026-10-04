@@ -6,7 +6,7 @@ import {
   MAX_INLINE_TESTCASE_EDIT_BYTES,
   MAX_TESTCASE_FILE_BYTES,
   parseIpWhitelistText,
-  problemDraftSchema,
+  problemBasicInfoSchema,
   problemJudgeTestcaseSchema,
   problemTestcaseSetCreateSchema,
   MAX_SUBMISSION_SOURCE_FILE_CHARS,
@@ -15,35 +15,106 @@ import {
   submissionDraftSchema,
   submissionJudgeDraftSchema,
   submissionResultSchema,
+  testcaseSetUpdateSchema,
   testcaseUpdateSchema,
 } from "../../../packages/core/src/index";
 
-describe("problemDraftSchema", () => {
-  const draft = {
+describe("problemBasicInfoSchema", () => {
+  const basic = {
     difficulty: "medium",
     inputFormat: "",
-    memoryLimitMb: 256,
     outputFormat: "",
     statement: "",
     tags: [],
-    timeLimitMs: 1000,
     title: "",
-    type: "full_source",
-    visibility: "private",
   } as const;
 
-  it.each(["timeLimitMs", "memoryLimitMb"] as const)("requires %s", (field) => {
-    const input: Record<string, unknown> = { ...draft };
-    delete input[field];
+  it("keeps judge-owned fields out of a Basic info save", () => {
+    const parsed = problemBasicInfoSchema.parse({
+      ...basic,
+      judgeConfig: { type: "checker", checkerLanguage: "python" },
+      type: "multi_file",
+      advancedRequiredPaths: ["main.py"],
+    });
 
-    const result = problemDraftSchema.safeParse(input);
+    expect(parsed).not.toHaveProperty("judgeConfig");
+    expect(parsed).not.toHaveProperty("type");
+    expect(parsed).not.toHaveProperty("advancedRequiredPaths");
+  });
 
-    expect(result.success).toBe(false);
-    if (!result.success) {
-      expect(result.error.issues).toContainEqual(
-        expect.objectContaining({ path: [field], message: "validation_required" }),
-      );
-    }
+  it("leaves limits, visibility and admin consent unset unless sent", () => {
+    const parsed = problemBasicInfoSchema.parse(basic);
+
+    expect(parsed.timeLimitMs).toBeUndefined();
+    expect(parsed.memoryLimitMb).toBeUndefined();
+    expect(parsed.visibility).toBeUndefined();
+    expect(parsed.adminMayPublish).toBeUndefined();
+  });
+
+  it.each([
+    ["timeLimitMs", 50],
+    ["memoryLimitMb", 0],
+  ] as const)("rejects an out-of-range %s", (field, value) => {
+    expect(problemBasicInfoSchema.safeParse({ ...basic, [field]: value }).success).toBe(false);
+  });
+});
+
+describe("testcaseSetUpdateSchema", () => {
+  it("accepts a 0-point weight like set creation does", () => {
+    expect(testcaseSetUpdateSchema.parse({ weight: 0 })).toEqual({ weight: 0 });
+    expect(
+      problemTestcaseSetCreateSchema.parse({ cases: [{ input: "", output: "" }], weight: 0 }),
+    ).toMatchObject({ weight: 0 });
+  });
+
+  it("accepts 0-point sets in judge snapshots and judged results", () => {
+    expect(
+      problemJudgeTestcaseSchema.safeParse({ id: "tc", input: "1", output: "1", weight: 0 })
+        .success,
+    ).toBe(true);
+    expect(
+      submissionResultSchema.safeParse({
+        accepted: true,
+        feedback: "All testcases passed",
+        runtimeMs: 1,
+        score: 100,
+        verdict: "accepted",
+        subtaskResults: [
+          {
+            cases: [],
+            label: "samples",
+            passed: true,
+            rawScore: 0,
+            testcaseSetId: "s0",
+            weight: 0,
+          },
+          {
+            cases: [],
+            label: "main",
+            passed: true,
+            rawScore: 100,
+            testcaseSetId: "s1",
+            weight: 100,
+          },
+        ],
+      }).success,
+    ).toBe(true);
+  });
+
+  it("rejects a negative weight", () => {
+    expect(testcaseSetUpdateSchema.safeParse({ weight: -1 }).success).toBe(false);
+    expect(
+      problemTestcaseSetCreateSchema.safeParse({
+        cases: [{ input: "", output: "" }],
+        weight: -1,
+      }).success,
+    ).toBe(false);
+  });
+
+  it("accepts a description-only update", () => {
+    expect(testcaseSetUpdateSchema.parse({ description: "edge cases" })).toEqual({
+      description: "edge cases",
+    });
   });
 });
 

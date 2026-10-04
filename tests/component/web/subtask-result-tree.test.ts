@@ -40,4 +40,30 @@ describe("SubtaskResultTree", () => {
     await unmount(component);
     target.remove();
   });
+
+  it("marks a 0-point subtask by its verdict instead of its score", async () => {
+    const { default: SubtaskResultTree } =
+      await import("$lib/components/features/submission/SubtaskResultTree.svelte");
+    const target = document.createElement("div");
+    document.body.append(target);
+    const subtask = (testcaseSetId: string, passed: boolean) => ({
+      cases: [],
+      label: testcaseSetId,
+      passed,
+      rawScore: 0,
+      testcaseSetId,
+      weight: 0,
+    });
+    const component = mount(SubtaskResultTree, {
+      target,
+      props: { subtaskResults: [subtask("failed", false), subtask("passed", true)] },
+    });
+
+    const panels = [...target.querySelectorAll("div.rounded-md.border")];
+    expect(panels[0]?.classList.contains("border-destructive/30")).toBe(true);
+    expect(panels[1]?.classList.contains("border-success/30")).toBe(true);
+
+    await unmount(component);
+    target.remove();
+  });
 });

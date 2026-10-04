@@ -41,7 +41,8 @@ NOJV is a single-institution online judge for university programming courses: pr
 - Staff-only problem library at `/courses/[courseId]/problems`: share own private problems (including drafts), import public ones as forks, and co-edit shared private problems as an active teacher/TA (PRB-10).
 - Assignments with due/close deadlines, late penalties and per-problem daily attempt caps ([spec](../features/assignments.md)).
 - Course copy into a fresh draft course ([spec](../features/copy-course.md)).
-- Gradebook at `/courses/[courseId]/grades`: allocated activity points per problem across published assignments and exams, overrides applied, chronological columns; staff see every student (including pending roster rows) and export CSV; students see only their own row (ASM-16).
+- Archive ends a term: an archived course is read-only for every role until it is unarchived, while its content, grades and history stay readable; it can still be copied or deleted (ASM-26). `/courses` dims archived cards and labels them.
+- Gradebook at `/courses/[courseId]/grades`: allocated activity points per problem across published assignments and exams, overrides applied, chronological columns; staff see every student (including pending roster rows) and export CSV; students see only their own row and no problems of activities that have not started (ASM-16).
 - Staff analytics: per-activity completion rate and average, top 5 hardest problems, at-risk students, verdict distribution; derived from existing data (ASM-09).
 - Practice after close: participants keep problem access at `/problems/[id]` without affecting grades (PRB-20).
 

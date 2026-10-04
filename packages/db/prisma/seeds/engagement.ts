@@ -9,6 +9,7 @@ import {
 } from "@nojv/storage";
 
 import type { Prisma, PrismaClient, User } from "../../generated/prisma/client";
+import { courseProblemId } from "./course-problems";
 import {
   buildVerdictDetail,
   DAY,
@@ -233,7 +234,7 @@ export async function seedEngagement(
     data: {
       contextType: "assignment",
       contextId: HW1_ID,
-      problemId: "problem_process-log-parser",
+      problemId: courseProblemId("problem_process-log-parser"),
       askedByUserId: (demoStudents[4] ?? student).id,
       questionText: "Process Log Parser 的 wait 事件如果 pid 不存在，要輸出什麼？",
       state: "answered",
@@ -337,7 +338,7 @@ export async function seedEngagement(
   const pairA = (demoStudents[6] ?? student).id;
   const pairB = (demoStudents[7] ?? teacher).id;
   const [lo, hi] = pairA < pairB ? [pairA, pairB] : [pairB, pairA];
-  const pairKey = `${lo}|${hi}|problem_warmup-sum`;
+  const pairKey = `${lo}|${hi}|${courseProblemId("problem_warmup-sum")}`;
 
   await prisma.plagiarismPairFlag.create({
     data: {
@@ -371,7 +372,7 @@ export async function seedEngagement(
   await prisma.submissionFeedback.create({
     data: {
       courseMembershipId: (await membershipFor(demoStudents[0] ?? student)).id,
-      problemId: "problem_warmup-sum",
+      problemId: courseProblemId("problem_warmup-sum"),
       assessmentId: HW1_ID,
       comment: "解法正確，但建議加上輸入邊界檢查，整體完成度很好。",
       authorUserId: teacher.id,
@@ -382,7 +383,7 @@ export async function seedEngagement(
   await prisma.submissionFeedback.create({
     data: {
       courseMembershipId: (await membershipFor(demoStudents[1] ?? student)).id,
-      problemId: "problem_process-log-parser",
+      problemId: courseProblemId("problem_process-log-parser"),
       assessmentId: HW1_ID,
       comment: "fork 鏈處理有小瑕疵，請參考題解的巢狀範例再檢查一次。",
       authorUserId: teacher.id,
@@ -394,7 +395,7 @@ export async function seedEngagement(
   await prisma.scoreOverride.create({
     data: {
       courseMembershipId: (await membershipFor(overrideStudent)).id,
-      problemId: "problem_warmup-sum",
+      problemId: courseProblemId("problem_warmup-sum"),
       assessmentId: HW1_ID,
       overrideScore: 100,
       reason: "評測機暫時故障導致誤判 TLE，人工確認後給予滿分。",

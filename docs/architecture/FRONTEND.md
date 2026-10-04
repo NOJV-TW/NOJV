@@ -44,12 +44,12 @@ Solve pages all render `ProblemSolveView` via `loadProblemSolveData` in `lib/ser
 | `/dashboard`                                       | Ability overview: stats, heatmap, streak, trend, distributions; `WelcomeGuide` when no submissions (UI-19)                                       |
 | `/problems`                                        | List with filters and Public / My / All tabs; staff can fork published public problems                                                           |
 | `/problems/[problemId]`                            | Practice workspace; left panel Description / Submissions / Discussions / Editorials (UI-05, UI-06)                                               |
-| `/problems/[problemId]/edit`                       | Problem editor (section rail: Basic, Workspace for multi-file, Testcase, Judge, Reference solution)                                              |
+| `/problems/[problemId]/edit`                       | Problem editor (section rail: Basic, Workspace for multi-file, Testcase with ZIP upload/download, Judge, Reference solution)                     |
 | `/submissions`                                     | Submission history (numbered pages); `/admin/submissions` 308-redirects here                                                                     |
 | `/submissions/[submissionId]`                      | Verdict, subtask tree, source; staff review and student self-view                                                                                |
 | `/courses`                                         | Enrolled / Managing tabs; effective admins redirect to `/admin/courses`                                                                          |
 | `/courses/new`                                     | Teacher / admin                                                                                                                                  |
-| `/courses/[courseId]`                              | Course home; sub-pages `settings`, `members`, `analytics`, `grades`, `problems`, `assignments[/new]`, `exams[/new]`                              |
+| `/courses/[courseId]`                              | Course home; sub-pages `settings`, `members`, `analytics`, `grades`, `problems`, `assignments[/new]`, `exams[/new]`; read-only when archived     |
 | `/courses/[courseId]/problems`                     | Course problem library (add from personal private or public problems)                                                                            |
 | `/courses/[courseId]/grades`                       | Gradebook: staff see all students + CSV export; students see their own row                                                                       |
 | `/assignments`                                     | Cross-course list (All / Open / Upcoming / Closed)                                                                                               |
@@ -87,31 +87,31 @@ Solve pages all render `ProblemSolveView` via `loadProblemSolveData` in `lib/ser
 
 The HTTP API reference is the OpenAPI document (`/api/openapi.public.json`, `/api/openapi.internal.json`, rendered at `/docs`); `tests/unit/openapi-contract.test.ts` fails when a route is undocumented or a documented path has no handler (ENG-05). Business rules for each endpoint live in the owning `@nojv/application` domain.
 
-| Family                                     | Notes                                                                                                                               |
-| ------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------- |
-| `/api/auth/[...path]`                      | better-auth catch-all; auth and sign-in rate limits applied in the hook                                                             |
-| `/api/livez`                               | Process probe; with `/api/readyz` (Postgres + Redis) and `/api/release` bypasses the pipeline (OPS-15)                              |
-| `/api/admin/healthz`                       | Admin-only per-subsystem detail                                                                                                     |
-| `/api/submissions`                         | POST create + dispatch; GET history or workspace cursor pages; `status`, `pending`, `[id]`, `[id]/source`, `[id]/rejudge`           |
-| `/api/rejudges`                            | Batch rejudge POST, active rejudges GET; `[workflowId]` progress and `[workflowId]/cancel`                                          |
-| `/api/drafts`                              | Server code drafts GET/PUT (`draftApiHandler`, WEB-05)                                                                              |
-| `/api/problems`                            | List / create; `[id]` delete, bundle, checker, interactor, workspace files, testcases, images, posts, fork, bookmark, storage usage |
-| `/api/problems/advanced-scaffold`          | Advanced Mode starter templates                                                                                                     |
-| `/api/posts/[id]`                          | Posts, votes, comments, reports; `/api/comments/[id]` delete and reports                                                            |
-| `/api/clarifications`                      | List / create; `[id]` answer, dismiss, delete; `[id]/replies`                                                                       |
-| `/api/overrides`                           | Score overrides; `/api/feedback` grading feedback (writes gated post-close)                                                         |
-| `/api/plagiarism/[assignmentId]/reports`   | Reports and detection trigger; `sources/...` pair sources; `/api/plagiarism-flags` curation                                         |
-| `/api/exams/[examId]/ip-violations`        | Proctoring IP log for managers                                                                                                      |
-| `/api/contests/[id]/scoreboard`            | Built from Postgres on read (DAT-11); `chart` sub-route                                                                             |
-| `/api/notifications`                       | List, bulk mark-read / clear; `[id]`; `unread-count`                                                                                |
-| `/api/events/stream`                       | SSE per user                                                                                                                        |
-| `/api/images/proxy`                        | SSRF-safe third-party Markdown and avatar image proxy (SEC-11)                                                                      |
-| `/api/uploads/image`                       | Generic image upload; `/api/account/avatar` avatar PUT/DELETE                                                                       |
-| `/api/storage/avatars/[userId]/[filename]` | Object-storage reads (also `problem-images`, `user-content-images`)                                                                 |
-| `/api/admin-mode`                          | Enter / exit admin mode (may return `verificationRequired`)                                                                         |
-| `/api/api-token-access`                    | Whether the token page needs factor setup or step-up                                                                                |
-| `/api/account/onboarding-tour`             | Claim the one-time onboarding tour (UI-22)                                                                                          |
-| `/api/registry/token`                      | Docker registry token endpoint (Basic credentials, not cookies)                                                                     |
+| Family                                     | Notes                                                                                                                     |
+| ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------- |
+| `/api/auth/[...path]`                      | better-auth catch-all; auth and sign-in rate limits applied in the hook                                                   |
+| `/api/livez`                               | Process probe; with `/api/readyz` (Postgres + Redis) and `/api/release` bypasses the pipeline (OPS-15)                    |
+| `/api/admin/healthz`                       | Admin-only per-subsystem detail                                                                                           |
+| `/api/submissions`                         | POST create + dispatch; GET history or workspace cursor pages; `status`, `pending`, `[id]`, `[id]/source`, `[id]/rejudge` |
+| `/api/rejudges`                            | Batch rejudge POST, active rejudges GET; `[workflowId]` progress and `[workflowId]/cancel`                                |
+| `/api/drafts`                              | Server code drafts GET/PUT (`draftApiHandler`, WEB-05)                                                                    |
+| `/api/problems`                            | List / create; `[id]` delete, bundle, checker, interactor, testcases + ZIP, images, posts, fork, bookmark, storage usage  |
+| `/api/problems/advanced-scaffold`          | Advanced Mode starter templates                                                                                           |
+| `/api/posts/[id]`                          | Posts, votes, comments, reports; `/api/comments/[id]` delete and reports                                                  |
+| `/api/clarifications`                      | List / create; `[id]` answer, dismiss, delete; `[id]/replies`                                                             |
+| `/api/overrides`                           | Score overrides; `/api/feedback` grading feedback (writes gated post-close)                                               |
+| `/api/plagiarism/[assignmentId]/reports`   | Reports and detection trigger; `sources/...` pair sources; `/api/plagiarism-flags` curation                               |
+| `/api/exams/[examId]/ip-violations`        | Proctoring IP log for managers                                                                                            |
+| `/api/contests/[id]/scoreboard`            | Built from Postgres on read (DAT-11); `chart` sub-route                                                                   |
+| `/api/notifications`                       | List, bulk mark-read / clear; `[id]`; `unread-count`                                                                      |
+| `/api/events/stream`                       | SSE per user                                                                                                              |
+| `/api/images/proxy`                        | SSRF-safe third-party Markdown and avatar image proxy (SEC-11)                                                            |
+| `/api/uploads/image`                       | Generic image upload; `/api/account/avatar` avatar PUT/DELETE                                                             |
+| `/api/storage/avatars/[userId]/[filename]` | Object-storage reads (also `problem-images`, `user-content-images`)                                                       |
+| `/api/admin-mode`                          | Enter / exit admin mode (may return `verificationRequired`)                                                               |
+| `/api/api-token-access`                    | Whether the token page needs factor setup or step-up                                                                      |
+| `/api/account/onboarding-tour`             | Claim the one-time onboarding tour (UI-22)                                                                                |
+| `/api/registry/token`                      | Docker registry token endpoint (Basic credentials, not cookies)                                                           |
 
 ## Request pipeline
 
@@ -145,7 +145,8 @@ Security headers, CSP and exam rules are specified in [Security Requirements](..
 
 - Editor: Monaco via `features/problem/editors/Editor.svelte` and `primitives/ui/MonacoScriptEditor.svelte`; Advanced Mode uses `AdvancedModeWorkspace.svelte`. No solving workspace below `md` (`MobileWorkspaceBlocker`, UI-13).
 - Browser Test runs locally through WASM-OJ (`lib/services/browser-local-run.ts`, JDG-15).
-- Forms: `sveltekit-superforms` with `@nojv/core` Zod schemas; errors inline and translated.
+- Forms: `sveltekit-superforms` with `@nojv/core` Zod schemas, created through `appSuperForm` (`lib/utils/super-form.ts`) so a result without a form (rate limit, unexpected error) still shows the form error (WEB-02); errors inline and translated. Plain `fetch` posts to form actions go through `submitFormAction` / `postProblemAction` (`lib/utils/actions.ts`), which `deserialize` the result and throw the server's error unless it is `success`, since action failures arrive as HTTP 200 (PRB-08).
+- Problem editor sections save only the fields they own: Basic info never sends judge config or type, sends limits only when it shows them, and sends visibility or admin consent only when the owner changes them (PRB-11); the Judge section refreshes page data after a save or script upload; the Workspace section adopts each saved payload as its persisted state and rebuilds from fresh page data when remounted, and a workspace file upload fills the editor until the next save.
 - Markdown: `MarkdownRenderer` → `lib/utils/markdown.ts` (`marked` + KaTeX + DOMPurify); remote HTTPS images rewrite to `/api/images/proxy` at render time.
 - Charts: ECharts, lazily imported by `primitives/charts/EChart.svelte`.
 - Dates: `formatDateTime` / `formatDate` / `formatTime` in `lib/utils/datetime.ts` bind `Intl.DateTimeFormat` to the active locale; do not call bare `toLocale*`.

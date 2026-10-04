@@ -1,5 +1,7 @@
 import type { PrismaClient } from "../../generated/prisma/client";
 
+import { COURSE_PROBLEM_SOURCES, courseProblemId } from "./course-problems";
+
 const HOUR = 3600 * 1000;
 const DAY = 24 * HOUR;
 
@@ -54,6 +56,15 @@ export async function seedCourses(
           userId: mem.userId,
         },
       },
+    });
+  }
+
+  for (const sourceId of COURSE_PROBLEM_SOURCES) {
+    const problemId = courseProblemId(sourceId);
+    await prisma.courseProblem.upsert({
+      create: { courseId: osLabCourse.id, problemId, addedByUserId: teacher.id },
+      update: {},
+      where: { courseId_problemId: { courseId: osLabCourse.id, problemId } },
     });
   }
 
@@ -152,9 +163,13 @@ export async function seedCourses(
   });
 
   const assessmentProblemLinks = [
-    { assessmentId: hw1.id, problemId: "problem_warmup-sum", ordinal: 1 },
-    { assessmentId: hw1.id, problemId: "problem_process-log-parser", ordinal: 2 },
-    { assessmentId: hw2.id, problemId: "problem_add-two-numbers", ordinal: 1 },
+    { assessmentId: hw1.id, problemId: courseProblemId("problem_warmup-sum"), ordinal: 1 },
+    {
+      assessmentId: hw1.id,
+      problemId: courseProblemId("problem_process-log-parser"),
+      ordinal: 2,
+    },
+    { assessmentId: hw2.id, problemId: courseProblemId("problem_add-two-numbers"), ordinal: 1 },
   ];
 
   for (const link of assessmentProblemLinks) {
@@ -182,9 +197,24 @@ export async function seedCourses(
   }
 
   const midtermProblemLinks = [
-    { examId: midterm.id, problemId: "problem_graph-docking", ordinal: 1, points: 200 },
-    { examId: midterm.id, problemId: "problem_fork-bomb-safeguard", ordinal: 2, points: 100 },
-    { examId: midterm.id, problemId: "problem_memory-leak-forensics", ordinal: 3, points: 100 },
+    {
+      examId: midterm.id,
+      problemId: courseProblemId("problem_graph-docking"),
+      ordinal: 1,
+      points: 200,
+    },
+    {
+      examId: midterm.id,
+      problemId: courseProblemId("problem_fork-bomb-safeguard"),
+      ordinal: 2,
+      points: 100,
+    },
+    {
+      examId: midterm.id,
+      problemId: courseProblemId("problem_memory-leak-forensics"),
+      ordinal: 3,
+      points: 100,
+    },
   ];
 
   for (const link of midtermProblemLinks) {
@@ -235,10 +265,10 @@ export async function seedCourses(
   });
 
   const activeHomeworkProblems = [
-    "problem_warmup-sum",
-    "problem_add-two-numbers",
-    "problem_float-compare",
-    "problem_graph-docking",
+    courseProblemId("problem_warmup-sum"),
+    courseProblemId("problem_add-two-numbers"),
+    courseProblemId("problem_float-compare"),
+    courseProblemId("problem_graph-docking"),
   ];
   for (const [index, problemId] of activeHomeworkProblems.entries()) {
     await prisma.assessmentProblem.upsert({
@@ -283,10 +313,10 @@ export async function seedCourses(
   });
 
   const gradebookExamProblems = [
-    "problem_warmup-sum",
-    "problem_add-two-numbers",
-    "problem_memory-leak-forensics",
-    "problem_graph-docking",
+    courseProblemId("problem_warmup-sum"),
+    courseProblemId("problem_add-two-numbers"),
+    courseProblemId("problem_memory-leak-forensics"),
+    courseProblemId("problem_graph-docking"),
   ];
   for (const [index, problemId] of gradebookExamProblems.entries()) {
     await prisma.examProblem.upsert({
@@ -335,13 +365,13 @@ export async function seedCourses(
       examId: examUpcomingDemo.id,
       ordinal: 1,
       points: 100,
-      problemId: "problem_warmup-sum",
+      problemId: courseProblemId("problem_warmup-sum"),
     },
     update: { ordinal: 1, points: 100 },
     where: {
       examId_problemId: {
         examId: examUpcomingDemo.id,
-        problemId: "problem_warmup-sum",
+        problemId: courseProblemId("problem_warmup-sum"),
       },
     },
   });
@@ -384,7 +414,7 @@ export async function seedCourses(
       examId: activeAdvancedExam.id,
       ordinal: 1,
       points: 100,
-      problemId: "problem_shell-scripting-lab",
+      problemId: courseProblemId("problem_shell-scripting-lab"),
     },
     update: {
       ordinal: 1,
@@ -393,7 +423,7 @@ export async function seedCourses(
     where: {
       examId_problemId: {
         examId: activeAdvancedExam.id,
-        problemId: "problem_shell-scripting-lab",
+        problemId: courseProblemId("problem_shell-scripting-lab"),
       },
     },
   });
@@ -425,7 +455,7 @@ export async function seedCourses(
       examId: upcomingDemo.id,
       ordinal: 1,
       points: 100,
-      problemId: "problem_warmup-sum",
+      problemId: courseProblemId("problem_warmup-sum"),
     },
     update: {
       ordinal: 1,
@@ -434,7 +464,7 @@ export async function seedCourses(
     where: {
       examId_problemId: {
         examId: upcomingDemo.id,
-        problemId: "problem_warmup-sum",
+        problemId: courseProblemId("problem_warmup-sum"),
       },
     },
   });

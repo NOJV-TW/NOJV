@@ -11,8 +11,9 @@ import {
 import type { ExamAutoCloseInput } from "@nojv/core";
 
 import type { ActorContext } from "../shared/actor-context";
+import { lockWritableCourse } from "../shared/course-writable";
 import { ConflictError, ForbiddenError, HttpError, NotFoundError } from "../shared/errors";
-import { isCourseStaffTx } from "../shared/permissions";
+import { canManageCourse, getCourseRole } from "../shared/permissions";
 import { checkProctoringGateInTx, type ProctoringDenialReason } from "../proctoring/gate";
 
 export type ExamSessionReleaseReason = "submitted" | "time_up" | "released_by_instructor";
@@ -400,10 +401,10 @@ export async function releaseSessionAsInstructor(
       throw new NotFoundError(`Exam not found: ${examId}`);
     }
 
-    const isStaff = await isCourseStaffTx(tx, actor.userId, exam.courseId);
-    if (!isStaff) {
+    if (!canManageCourse(await getCourseRole(actor, exam.courseId, tx))) {
       throw new ForbiddenError("Only course staff can release exam sessions.");
     }
+    await lockWritableCourse(tx, exam.courseId);
 
     const session = await examSessionRepo.withTx(tx).findByUserAndExam(targetUserId, examId);
     if (session?.endedAt !== null) {
@@ -441,10 +442,10 @@ export async function resetStudentIpBinding(
       throw new NotFoundError(`Exam not found: ${examId}`);
     }
 
-    const isStaff = await isCourseStaffTx(tx, actor.userId, exam.courseId);
-    if (!isStaff) {
+    if (!canManageCourse(await getCourseRole(actor, exam.courseId, tx))) {
       throw new ForbiddenError("Only course staff can reset a student's IP binding.");
     }
+    await lockWritableCourse(tx, exam.courseId);
 
     await lockUserExamSessions(tx, targetUserId);
 
@@ -505,10 +506,10 @@ export async function releaseAllSessionsAsInstructor(
       throw new NotFoundError(`Exam not found: ${examId}`);
     }
 
-    const isStaff = await isCourseStaffTx(tx, actor.userId, exam.courseId);
-    if (!isStaff) {
+    if (!canManageCourse(await getCourseRole(actor, exam.courseId, tx))) {
       throw new ForbiddenError("Only course staff can release exam sessions.");
     }
+    await lockWritableCourse(tx, exam.courseId);
 
     const active = await examSessionRepo.withTx(tx).findAllActiveForExam(examId);
     const now = new Date();

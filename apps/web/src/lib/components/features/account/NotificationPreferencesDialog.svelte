@@ -1,7 +1,8 @@
 <script lang="ts">
   import { untrack } from "svelte";
   import { invalidateAll } from "$app/navigation";
-  import { superForm, type SuperValidated } from "sveltekit-superforms";
+  import type { SuperValidated } from "sveltekit-superforms";
+  import { appSuperForm } from "$lib/utils/super-form";
   import type { NotificationPreferences } from "@nojv/core";
   import * as Dialog from "$lib/components/primitives/ui/dialog";
   import ToggleSwitch from "$lib/components/primitives/ui/ToggleSwitch.svelte";
@@ -16,7 +17,7 @@
 
   let { open = $bindable(false), data }: Props = $props();
 
-  const { form, enhance, submitting } = superForm<NotificationPreferences, FormMessage>(
+  const { form, enhance, submitting } = appSuperForm<NotificationPreferences>(
     untrack(() => data),
     {
       dataType: "json",

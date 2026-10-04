@@ -1,5 +1,7 @@
 <script lang="ts">
+  import Download from "@lucide/svelte/icons/download";
   import { m } from "$lib/paraglide/messages.js";
+  import { Button } from "$lib/components/primitives/ui/button";
   import TestcaseSetCard from "$lib/components/features/problem/testcase/TestcaseSetCard.svelte";
   import TestcaseZipUploader from "$lib/components/features/problem/testcase/TestcaseZipUploader.svelte";
 
@@ -24,8 +26,6 @@
 
   let { testcaseSets, problemId }: Props = $props();
 
-  let subtaskSets = $derived(testcaseSets.filter((s) => s.weight > 0));
-
   let error = $state<string | null>(null);
 </script>
 
@@ -40,11 +40,11 @@
       </p>
     </div>
 
-    {#if subtaskSets.length === 0}
+    {#if testcaseSets.length === 0}
       <p class="text-body-sm text-muted-foreground">{m.testcases_noSubtaskSets()}</p>
     {:else}
       <div class="space-y-3">
-        {#each subtaskSets as set, idx (set.id)}
+        {#each testcaseSets as set, idx (set.id)}
           <TestcaseSetCard {set} {problemId} index={idx + 1} />
         {/each}
       </div>
@@ -54,10 +54,22 @@
           >{m.testcases_totalScoreLabel()}:
         </span>
         <span class="text-caption font-mono"
-          >{subtaskSets
+          >{testcaseSets
             .map((s, idx) => `#subtask${String(idx + 1)} (${String(s.weight)}pts)`)
             .join(" + ")}</span
         >
+      </div>
+
+      <div class="mt-4 flex justify-end">
+        <Button
+          variant="outline"
+          size="sm"
+          href="/api/problems/{problemId}/testcases/download"
+          download
+        >
+          <Download aria-hidden="true" />
+          {m.testcases_downloadZip()}
+        </Button>
       </div>
     {/if}
   </section>

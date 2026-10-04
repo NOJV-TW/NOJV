@@ -79,6 +79,7 @@ export const examCreateSchema = examCreateBaseSchema
   });
 
 export const examUpdateSchema = examCreateBaseSchema
+  .omit({ courseId: true, status: true })
   .partial()
   .extend({
     allowedLanguages: examCreateBaseSchema.shape.allowedLanguages.unwrap().optional(),
@@ -86,7 +87,6 @@ export const examUpdateSchema = examCreateBaseSchema
     pageLockEnabled: examCreateBaseSchema.shape.pageLockEnabled.unwrap().optional(),
     scoreboardMode: examCreateBaseSchema.shape.scoreboardMode.unwrap().optional(),
     scoringMode: examCreateBaseSchema.shape.scoringMode.unwrap().optional(),
-    status: examCreateBaseSchema.shape.status.unwrap().optional(),
     submitCooldownSec: examCreateBaseSchema.shape.submitCooldownSec.unwrap().optional(),
     ipBindingEnabled: examCreateBaseSchema.shape.ipBindingEnabled.unwrap().optional(),
     ipViolationMode: examCreateBaseSchema.shape.ipViolationMode.unwrap().optional(),

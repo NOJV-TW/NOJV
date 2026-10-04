@@ -168,10 +168,8 @@
     </div>
   {/each}
 
-  {#if testcaseSets.some((s) => s.weight > 0)}
-    {@const subtaskSets = testcaseSets
-      .filter((s) => s.weight > 0)
-      .sort((a, b) => a.ordinal - b.ordinal)}
+  {#if testcaseSets.length > 0}
+    {@const subtaskSets = [...testcaseSets].sort((a, b) => a.ordinal - b.ordinal)}
     {@const totalWeight = subtaskSets.reduce((sum, s) => sum + s.weight, 0)}
     <div class="mt-6 border-t border-border-subtle pt-6">
       <p class="text-body font-semibold">{m.problemDetail_testcaseSets()}</p>

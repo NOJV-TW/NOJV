@@ -5,6 +5,7 @@ import {
   isReservedUsername,
   userHandleSchema,
   type CourseRole,
+  type EffectiveCourseRole,
 } from "@nojv/core";
 
 import type { ActorContext } from "../shared/actor-context";
@@ -14,7 +15,8 @@ import {
   NotFoundError,
   ValidationError,
 } from "../shared/errors";
-import { canManageCourse, getCourseRole } from "../shared/permissions";
+import { assertCourseWritable } from "../shared/course-writable";
+import { canManageCourse, canManageMembers, getCourseRole } from "../shared/permissions";
 import { requireCourse } from "../shared/require";
 import * as notificationDomain from "../notification";
 import { bindPendingMemberships, lockCourseMembers, lockRosterIdentity } from "./roster";
@@ -29,8 +31,40 @@ export interface CourseMemberRow {
   role: CourseRole;
   status: "active" | "removed";
   isPending: boolean;
+  isOwner: boolean;
   joinedAt: string;
   removedAt: string | null;
+}
+
+export type MemberOperation = "manage" | "remove";
+
+function canOperateOnMembers(
+  role: EffectiveCourseRole | null,
+  operation: MemberOperation,
+): boolean {
+  return canManageMembers(role) || (operation === "remove" && role === "ta");
+}
+
+export function canAssignCourseRole(
+  actorRole: EffectiveCourseRole | null,
+  role: CourseRole,
+): boolean {
+  return role !== "teacher" || actorRole === "admin";
+}
+
+export function memberActionDenial(
+  actor: { userId: string; role: EffectiveCourseRole | null },
+  member: { role: CourseRole; userId: string | null; isOwner: boolean },
+  operation: MemberOperation,
+): string | null {
+  if (!canOperateOnMembers(actor.role, operation))
+    return "Only teachers or admins can manage members.";
+  if (actor.role === "ta" && member.role !== "student")
+    return "Teaching assistants can only remove students.";
+  if (member.isOwner) return "The course owner must remain a teacher.";
+  if (actor.role === "teacher" && (member.userId === actor.userId || member.role === "teacher"))
+    return "Teachers cannot change their own or another teacher's membership.";
+  return null;
 }
 
 export async function listMembersForCourse(courseId: string): Promise<CourseMemberRow[]> {
@@ -45,6 +79,7 @@ export async function listMembersForCourse(courseId: string): Promise<CourseMemb
     role: row.role,
     status: row.status,
     isPending: row.userId === null,
+    isOwner: row.userId === row.course.ownerId,
     joinedAt: row.joinedAt.toISOString(),
     removedAt: row.removedAt?.toISOString() ?? null,
   }));
@@ -122,6 +157,7 @@ export async function bulkAddByHandle(
     ) {
       throw new ForbiddenError("You cannot add members with this role.");
     }
+    assertCourseWritable(course);
     const usersByHandle = new Map(users.map((user) => [user.username, user.id]));
     const existing = await tx.courseMembership.findMany({ where: { courseId } });
     const existingByUser = new Map(
@@ -207,29 +243,28 @@ async function requireManagedMember(
   actor: ActorContext,
   courseId: string,
   membershipId: string,
-  operation: "manage" | "remove",
+  operation: MemberOperation,
 ) {
   await lockCourseMembers(tx, courseId);
   const actorRole = await getCourseRole(actor, courseId, tx);
-  if (
-    actorRole !== "admin" &&
-    actorRole !== "teacher" &&
-    !(operation === "remove" && actorRole === "ta")
-  )
+  if (!canOperateOnMembers(actorRole, operation))
     throw new ForbiddenError("Only teachers or admins can manage members.");
   const member = await tx.courseMembership.findUnique({
     where: { id: membershipId, courseId },
-    include: { course: { select: { ownerId: true } } },
+    include: { course: { select: { ownerId: true, archived: true } } },
   });
   if (!member) throw new NotFoundError("Course member not found.");
-  if (actorRole === "ta" && member.role !== "student")
-    throw new ForbiddenError("Teaching assistants can only remove students.");
-  if (member.userId === member.course.ownerId)
-    throw new ForbiddenError("The course owner must remain a teacher.");
-  if (actorRole === "teacher" && (member.userId === actor.userId || member.role === "teacher"))
-    throw new ForbiddenError(
-      "Teachers cannot change their own or another teacher's membership.",
-    );
+  const denial = memberActionDenial(
+    { userId: actor.userId, role: actorRole },
+    {
+      role: member.role,
+      userId: member.userId,
+      isOwner: member.userId === member.course.ownerId,
+    },
+    operation,
+  );
+  if (denial) throw new ForbiddenError(denial);
+  assertCourseWritable(member.course);
   return { member, actorRole };
 }
 
@@ -247,7 +282,7 @@ export async function changeMemberRole(
       membershipId,
       "manage",
     );
-    if (role === "teacher" && actorRole !== "admin")
+    if (!canAssignCourseRole(actorRole, role))
       throw new ForbiddenError("Only an admin can promote a member to teacher.");
     return courseMembershipAdminRepo.withTx(tx).updateRole(courseId, membershipId, role);
   });

@@ -117,7 +117,7 @@ describe("activity grading", () => {
       (await testPrisma.submission.findUniqueOrThrow({ where: { id: submission.id } })).score,
     ).toBe(160);
     expect(
-      (await courseDomain.buildCourseGradebook(f.course.id)).rows.find(
+      (await courseDomain.buildCourseGradebook(f.course.id, { role: "staff" })).rows.find(
         (r) => r.userId === f.student.id,
       )?.total,
     ).toBe(74);
@@ -245,7 +245,9 @@ describe("activity grading", () => {
         })
       ).viewerScore,
     ).toBe(17.88);
-    expect((await courseDomain.buildCourseGradebook(f.course.id)).rows[0]?.total).toBe(17.88);
+    expect(
+      (await courseDomain.buildCourseGradebook(f.course.id, { role: "staff" })).rows[0]?.total,
+    ).toBe(17.88);
     expect(
       (await courseDomain.buildSubmissionsMatrix(f.course.id, assignment.id)).rows[0]?.total,
     ).toBe(17.88);

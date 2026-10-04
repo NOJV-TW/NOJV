@@ -115,6 +115,7 @@ it.each(["togglePinAnnouncement", "deleteAnnouncement"])(
         data: {
           course: { id: "c1" },
           isManager: true,
+          canEdit: true,
           announcements: [announcement],
           assignments: [],
           exams: [],
@@ -151,3 +152,35 @@ it.each(["togglePinAnnouncement", "deleteAnnouncement"])(
     }
   },
 );
+
+it("lists announcements without write controls on an archived course", async () => {
+  const target = document.body.appendChild(document.createElement("div"));
+  const component = mount(CoursePage, {
+    target,
+    props: {
+      data: {
+        course: { id: "c1", archived: true },
+        isManager: true,
+        canEdit: false,
+        announcements: [announcement],
+        assignments: [],
+        exams: [],
+      } as never,
+    },
+  });
+  try {
+    await tick();
+    expect(target.textContent).toContain(announcement.title);
+    expect(target.textContent).not.toContain(m.courseOverview_newAnnouncement());
+    expect(target.querySelector('form[action="?/togglePinAnnouncement"]')).toBeNull();
+    expect(target.querySelector('form[action="?/deleteAnnouncement"]')).toBeNull();
+    expect(
+      target.querySelector(`button[aria-label="${m.courseOverview_editAnnouncement()}"]`),
+    ).toBeNull();
+    expect(target.querySelector('a[href="/courses/c1/assignments/new"]')).toBeNull();
+    expect(target.querySelector('a[href="/courses/c1/exams/new"]')).toBeNull();
+  } finally {
+    await unmountAndFlush(component);
+    target.remove();
+  }
+});

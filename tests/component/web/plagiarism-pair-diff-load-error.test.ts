@@ -19,6 +19,7 @@ vi.mock("$lib/components/primitives/ui/button", async () => ({
 
 const data: PlagiarismPairDiffData = {
   pairKey: "pair-a",
+  canFlag: true,
   contextType: "assessment",
   contextId: "assessment-1",
   pair: { similarity: 91, longest: 12, overlap: 8, problemId: "problem-1" },

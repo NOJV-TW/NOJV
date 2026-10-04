@@ -39,6 +39,20 @@ function localToIso(local: string): string {
   return toIsoOrUndefined(local) ?? "";
 }
 
+function settingsUpdate(data: AssessmentSettingsFormData): AssessmentUpdate {
+  return {
+    title: data.title,
+    summary: data.summary,
+    allowedLanguages: data.allowedLanguages,
+    maxAttemptsPerDay: data.maxAttemptsPerDay ?? null,
+    attemptResetMinuteOfDay: data.attemptResetMinuteOfDay ?? null,
+    opensAt: localToIso(data.opensAt),
+    closesAt: localToIso(data.allowLateSubmissions ? data.closesAt : data.dueAt),
+    dueAt: data.dueAt ? localToIso(data.dueAt) : null,
+    latePenalty: data.allowLateSubmissions ? data.latePenalty : null,
+  };
+}
+
 export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent) => {
   event.depends("submission:data");
   const actor = requireAuth(event);
@@ -89,22 +103,8 @@ export const actions = {
     const form = await superValidate(event, zod4(assessmentSettingsFormSchema));
     if (!form.valid) return fail(400, { form });
 
-    const payload: AssessmentUpdate = {
-      title: form.data.title,
-      summary: form.data.summary,
-      allowedLanguages: form.data.allowedLanguages,
-      maxAttemptsPerDay: form.data.maxAttemptsPerDay ?? null,
-      attemptResetMinuteOfDay: form.data.attemptResetMinuteOfDay ?? null,
-      opensAt: localToIso(form.data.opensAt),
-      closesAt: localToIso(
-        form.data.allowLateSubmissions ? form.data.closesAt : form.data.dueAt,
-      ),
-      dueAt: form.data.dueAt ? localToIso(form.data.dueAt) : null,
-      latePenalty: form.data.allowLateSubmissions ? form.data.latePenalty : null,
-    };
-
     try {
-      await updateAssignmentRecord(actor, assignmentId, payload);
+      await updateAssignmentRecord(actor, assignmentId, settingsUpdate(form.data));
     } catch (err) {
       const classified = classifyRequestError(err, event);
       return message(
@@ -136,7 +136,9 @@ export const actions = {
     const assignmentId = event.params.assignmentId;
 
     const form = await superValidate(event, zod4(assessmentSettingsFormSchema));
+    if (!form.valid) return fail(400, { form });
     try {
+      await updateAssignmentRecord(actor, assignmentId, settingsUpdate(form.data));
       await publishAssignment(actor, assignmentId);
     } catch (err) {
       const classified = classifyRequestError(err, event);
@@ -147,7 +149,7 @@ export const actions = {
       );
     }
 
-    return { success: true };
+    return message(form, { kind: "success", text: "ok" });
   }),
 
   revertToDraft: withAction(async (event) => {
@@ -166,7 +168,7 @@ export const actions = {
       );
     }
 
-    return { success: true };
+    return message(form, { kind: "success", text: "ok" });
   }),
 
   deleteAssignment: withAction(async (event) => {

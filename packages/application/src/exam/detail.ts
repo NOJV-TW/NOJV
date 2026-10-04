@@ -16,6 +16,7 @@ import {
 
 import { getOverridesForContext } from "../scoring/resolve-final-score";
 import { getProblemTotalScores, requireProblemTotalScore } from "../problem/total-score";
+import { hidesProblemsBeforeStart } from "../shared/activity-visibility";
 
 export type ExamDetailStatus = "draft" | "upcoming" | "running" | "ended";
 
@@ -67,8 +68,8 @@ export interface ExamDetailPage {
   ipWhitelistCount: number;
   ipViolationMode: "block" | "notify";
   problems: ExamDetailProblem[];
-  registeredCount: number;
-  totalStudents: number;
+  registeredCount: number | null;
+  totalStudents: number | null;
   viewerScore: number | null;
   totalPoints: number;
   gradingRevision: number;
@@ -189,8 +190,8 @@ export async function getExamDetailPage(
   const derivedStatus = deriveStatus(exam.status, exam.startsAt, exam.endsAt, now);
 
   const hideProblemsFromViewer =
-    !options.isManager &&
-    (derivedStatus === "upcoming" || derivedStatus === "draft" || exam.course.archived);
+    hidesProblemsBeforeStart(options.isManager, exam.startsAt, now) ||
+    (!options.isManager && exam.course.archived);
 
   const problemRows = hideProblemsFromViewer ? [] : exam.problems;
 
@@ -269,8 +270,8 @@ export async function getExamDetailPage(
     ipWhitelistCount: exam.ipWhitelist.length,
     ipViolationMode: exam.ipViolationMode,
     problems,
-    registeredCount: exam._count.participations,
-    totalStudents: students.length,
+    registeredCount: options.isManager ? exam._count.participations : null,
+    totalStudents: options.isManager ? students.length : null,
     viewerScore: viewerTotalScore,
     totalPoints,
     gradingRevision: exam.gradingRevision,

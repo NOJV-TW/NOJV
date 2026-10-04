@@ -6,9 +6,10 @@
 
   interface Props {
     mode: WorkspaceMode;
+    locked?: boolean;
   }
 
-  let { mode = $bindable() }: Props = $props();
+  let { mode = $bindable(), locked = false }: Props = $props();
 
   const options = [
     {
@@ -26,17 +27,20 @@
 
 <section class="rounded-lg border border-border-subtle p-2">
   <h3 class="text-body-sm font-semibold">{m.admin_workspaceModeTitle()}</h3>
-  <p class="mt-0.5 text-caption text-muted-foreground">{m.admin_workspaceModeHint()}</p>
+  <p class="mt-0.5 text-caption text-muted-foreground">
+    {locked ? m.admin_workspaceModeLocked() : m.admin_workspaceModeHint()}
+  </p>
 
   <div class="mt-3 grid gap-3 md:grid-cols-2">
     {#each options as option (option.id)}
       <button
         type="button"
-        class="flex flex-col items-start gap-1 rounded-lg border p-1 text-left transition-[transform,box-shadow,background-color,border-color] duration-fast ease-out-soft hover:-translate-y-0.5 {mode ===
+        class="flex flex-col items-start gap-1 rounded-lg border p-1 text-left transition-[transform,box-shadow,background-color,border-color] duration-fast ease-out-soft hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60 {mode ===
         option.id
           ? 'border-primary bg-primary/5 shadow-rest'
           : 'border-border bg-[color:var(--color-panel)] hover:border-primary/50'}"
         aria-pressed={mode === option.id}
+        disabled={locked}
         onclick={() => (mode = option.id)}
       >
         <span class="flex items-center gap-2 text-body-sm font-semibold">

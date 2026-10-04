@@ -1,7 +1,6 @@
 import { ensurePublicProblemImageInventories } from "../shared/uploaded-image";
 import { assertLateSubmissionPolicy } from "../shared/late-submission-policy";
 import { saveActivityGrading } from "../scoring/activity-grading";
-import { assertActivityAllocation } from "../scoring/activity-points";
 import {
   assessmentAuditLogRepo,
   assessmentRepo,
@@ -19,6 +18,7 @@ import { stripUndefined } from "../shared/strip-undefined";
 import { assertEffectiveTimeWindow } from "../shared/effective-time-window";
 import { assignmentDueSoonInput } from "../shared/lifecycle-input";
 import { enqueueLifecycleCancellation } from "../shared/lifecycle-cancellation";
+import { publishAssignmentInTransaction } from "./publish";
 
 async function requireAssignment(tx: TransactionClient, assignmentId: string) {
   const assignment = await assessmentRepo.withTx(tx).findById(assignmentId);
@@ -224,56 +224,13 @@ export async function publishAssignment(
   actor: ActorContext,
   assignmentId: string,
 ): Promise<void> {
-  const published = await runTransaction(async (tx) => {
-    const assignment = await requireManagedAssignment(tx, actor, assignmentId);
-
-    if (assignment.status !== "draft") {
-      throw new ValidationError("Only draft assignments can be published.");
-    }
-
-    if (assignment.allowedLanguages.length < 1) {
-      throw new ValidationError("Select at least one allowed language before publishing.");
-    }
-
-    const attached = await tx.assessmentProblem.findMany({
-      where: { assessmentId: assignment.id },
-    });
-    if (attached.length < 1) {
-      throw new ValidationError("Attach at least one problem before publishing.");
-    }
-    assertActivityAllocation(
-      attached.map((p) => ({ problemId: p.problemId, points: Number(p.points) })),
-      true,
-    );
-
-    const now = new Date();
-    if (assignment.closesAt <= now) {
-      throw new ValidationError("closesAt must be in the future.");
-    }
-    assertEffectiveTimeWindow({
-      start: assignment.opensAt,
-      due: assignment.dueAt,
-      end: assignment.closesAt,
-      fields: { start: "opensAt", due: "dueAt", end: "closesAt" },
-    });
-
-    assertLateSubmissionPolicy(
-      assignment.adjustmentRules,
-      assignment.dueAt,
-      assignment.closesAt,
-    );
-    const persisted = await assessmentRepo.withTx(tx).update(assignment.id, {
-      status: "published",
-    });
-    await assessmentAuditLogRepo.withTx(tx).create({
-      assessmentId: assignment.id,
-      courseId: assignment.courseId,
-      actorUserId: actor.userId,
-      action: "publish",
-    });
-
-    return persisted;
-  });
+  const published = await runTransaction(async (tx) =>
+    publishAssignmentInTransaction(
+      tx,
+      actor,
+      await requireManagedAssignment(tx, actor, assignmentId),
+    ),
+  );
 
   await getDomainOrchestration().ensureAssignmentDueSoon(assignmentDueSoonInput(published));
 }

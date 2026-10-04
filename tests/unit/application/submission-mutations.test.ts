@@ -36,6 +36,7 @@ const {
   txAssessmentProblemFindFirst,
   txContestProblemFindFirst,
   txExecuteRaw,
+  txQueryRaw,
   durableWorkEnqueue,
   durableWorkEnqueueMany,
   durableWorkCancel,
@@ -66,6 +67,9 @@ const {
   txAssessmentProblemFindFirst: vi.fn(),
   txContestProblemFindFirst: vi.fn(),
   txExecuteRaw: vi.fn(),
+  txQueryRaw: vi.fn<(query: TemplateStringsArray, ...values: unknown[]) => Promise<unknown[]>>(
+    async () => [],
+  ),
   durableWorkEnqueue: vi.fn(),
   durableWorkEnqueueMany: vi.fn(),
   durableWorkCancel: vi.fn(),
@@ -150,7 +154,7 @@ vi.mock("@nojv/db", () => {
       try {
         return await fn({
           $executeRaw: txExecuteRaw,
-          $queryRaw: vi.fn(async () => []),
+          $queryRaw: txQueryRaw,
           problem: { update: problemUpdateReference },
           testcase: { count: txTestcaseCount },
         } as never);
@@ -385,6 +389,46 @@ describe("createQueuedSubmissionRecord — per-day attempt limit", () => {
 
     expect(submissionCountForUserAssessmentProblemSince).not.toHaveBeenCalled();
     expect(submissionCreate).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("createQueuedSubmissionRecord — archived course", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-04-14T08:00:00.000Z"));
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it.each(["student", "ta", "teacher"])(
+    "rejects a %s assignment submission once the course is archived",
+    async (role) => {
+      setupSubmitPipelineDefaults(null);
+      courseFindById.mockResolvedValue({ ...fakeCourse, archived: true });
+      courseMembershipFindByComposite.mockResolvedValue({
+        courseId: fakeCourse.id,
+        userId: fakeActor.userId,
+        status: "active",
+        role,
+      });
+
+      await expect(
+        createQueuedSubmissionRecord(baseDraft, fakeActor, "127.0.0.1"),
+      ).rejects.toThrow(new ForbiddenError("This course is archived."));
+      expect(submissionCreate).not.toHaveBeenCalled();
+    },
+  );
+
+  it("accepts the same submission while the course is active", async () => {
+    setupSubmitPipelineDefaults(null);
+    courseFindById.mockResolvedValue({ ...fakeCourse, archived: false });
+
+    await expect(
+      createQueuedSubmissionRecord(baseDraft, fakeActor, "127.0.0.1"),
+    ).resolves.toMatchObject({ status: "queued" });
   });
 });
 
@@ -893,6 +937,24 @@ describe("reference submission authorization", () => {
     expect(referenceLockStaff).toHaveBeenCalledTimes(2);
     expect(referenceLockStaff.mock.invocationCallOrder[0]).toBeLessThan(
       referenceLockProblem.mock.invocationCallOrder[0],
+    );
+  });
+
+  it("locks course access before the problem row when publishing the upload", async () => {
+    await createQueuedSubmissionRecord(reference, fakeActor, "127.0.0.1");
+
+    const publishAccessLock = referenceLockStaff.mock.invocationCallOrder[1];
+    const rawProblemLocks = txQueryRaw.mock.calls
+      .map((call, index) => ({
+        sql: call[0].join("?"),
+        order: txQueryRaw.mock.invocationCallOrder[index],
+      }))
+      .filter(({ sql }) => sql.includes('FROM "Problem"'));
+    expect(publishAccessLock).toBeDefined();
+    expect(rawProblemLocks.filter(({ order }) => order < publishAccessLock)).toEqual([]);
+    expect(referenceLockProblem).toHaveBeenCalledTimes(2);
+    expect(referenceLockStaff.mock.invocationCallOrder[1]).toBeLessThan(
+      referenceLockProblem.mock.invocationCallOrder[1],
     );
   });
 

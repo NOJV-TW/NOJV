@@ -1,7 +1,6 @@
 import { ensurePublicProblemImageInventories } from "../shared/uploaded-image";
 import { assertLateSubmissionPolicy } from "../shared/late-submission-policy";
 import { saveActivityGrading } from "../scoring/activity-grading";
-import { assertActivityAllocation } from "../scoring/activity-points";
 import { examRepo, runTransaction, type Prisma, type TransactionClient } from "@nojv/db";
 import { adjustmentRulesSchema, type ExamCreate, type ExamUpdate } from "@nojv/core";
 
@@ -15,6 +14,7 @@ import { enforceSubmitCooldown } from "../shared/submit-cooldown";
 import { assertEffectiveTimeWindow } from "../shared/effective-time-window";
 import { examAutoCloseInput } from "../shared/lifecycle-input";
 import { enqueueLifecycleCancellation } from "../shared/lifecycle-cancellation";
+import { publishExamInTransaction } from "./publish";
 
 export type { ActorContext };
 
@@ -69,7 +69,7 @@ export async function createExamRecord(actor: ActorContext, payload: ExamCreate)
       scoreboardMode: payload.scoreboardMode,
       scoringMode: payload.scoringMode,
       startsAt: new Date(payload.startsAt),
-      status: payload.status,
+      status: "draft",
       submitCooldownSec: payload.submitCooldownSec,
       summary: payload.summary ?? "",
       title: payload.title,
@@ -82,8 +82,10 @@ export async function createExamRecord(actor: ActorContext, payload: ExamCreate)
       published: payload.status === "published",
       allowedLanguages: payload.allowedLanguages,
     });
+    const persisted =
+      payload.status === "published" ? await publishExamInTransaction(tx, created) : created;
 
-    return { ...created, ...grading };
+    return { ...persisted, ...grading };
   });
 
   if (exam.status === "published") {
@@ -263,39 +265,9 @@ async function requireManagedExam(tx: TransactionClient, actor: ActorContext, ex
 }
 
 export async function publishExam(actor: ActorContext, examId: string): Promise<void> {
-  const published = await runTransaction(async (tx) => {
-    const exam = await requireManagedExam(tx, actor, examId);
-
-    if (exam.status !== "draft") {
-      throw new ValidationError("Only draft exams can be published.");
-    }
-
-    const attached = await tx.examProblem.findMany({ where: { examId: exam.id } });
-    const problemCount = attached.length;
-    assertActivityAllocation(
-      attached.map((p) => ({ problemId: p.problemId, points: Number(p.points) })),
-      true,
-    );
-
-    if (problemCount === 0) {
-      throw new ValidationError("Add at least one problem before publishing.");
-    }
-    if (exam.allowedLanguages.length === 0) {
-      throw new ValidationError("Select at least one allowed language before publishing.");
-    }
-    assertEffectiveTimeWindow({
-      start: exam.startsAt,
-      end: exam.endsAt,
-      due: exam.dueAt,
-      fields: { start: "startsAt", due: "dueAt", end: "endsAt" },
-    });
-    assertLateSubmissionPolicy(exam.adjustmentRules, exam.dueAt, exam.endsAt, exam.scoringMode);
-    if (exam.endsAt <= new Date()) {
-      throw new ValidationError("End time must be in the future.");
-    }
-
-    return examRepo.withTx(tx).update(exam.id, { status: "published" });
-  });
+  const published = await runTransaction(async (tx) =>
+    publishExamInTransaction(tx, await requireManagedExam(tx, actor, examId)),
+  );
 
   await getDomainOrchestration().ensureExamAutoClose(examAutoCloseInput(published));
 }

@@ -20,6 +20,8 @@ const {
   overrideFindById,
   auditCreate,
   durableWorkEnqueue,
+  courseLock,
+  courseFindById,
   UnifiedParticipationVersionConflict,
 } = vi.hoisted(() => ({
   assessmentFindByIdWithCourseId: vi.fn(),
@@ -42,10 +44,16 @@ const {
   overrideFindById: vi.fn(),
   auditCreate: vi.fn(),
   durableWorkEnqueue: vi.fn(),
+  courseLock: vi.fn(),
+  courseFindById: vi.fn(),
   UnifiedParticipationVersionConflict: class extends Error {},
 }));
 
 vi.mock("@nojv/db", () => ({
+  courseRepo: {
+    findById: courseFindById,
+    withTx: () => ({ lockForShare: courseLock, findById: courseFindById }),
+  },
   assessmentRepo: {
     findByIdWithCourseId: assessmentFindByIdWithCourseId,
     withTx: () => ({ findById: assessmentFindInTx, lockForUpdate: vi.fn() }),
@@ -164,10 +172,16 @@ beforeEach(() => {
   findExamParticipation.mockResolvedValue({ id: "p_2" });
   examFindInfoById.mockResolvedValue({ scoringMode: "point_sum" });
   examFindById.mockResolvedValue({ id: "e_1", courseId: "crs_1", endsAt: CLOSED_AT });
+  courseFindById.mockResolvedValue({ id: "crs_1", archived: false });
 });
 
 describe("canSetScoreOverride", () => {
-  it("admin is always permitted", async () => {
+  it("admin is permitted on an open activity of an active course", async () => {
+    assessmentFindByIdWithCourseId.mockResolvedValue({
+      id: "ca_hw1",
+      courseId: "crs_1",
+      closesAt: OPEN_AT,
+    });
     expect(
       await canSetScoreOverride(actor({ platformRole: "admin" }), {
         type: "assignment",
@@ -182,8 +196,29 @@ describe("canSetScoreOverride", () => {
     ).toBe(true);
   });
 
+  it("nobody may set overrides in an archived course", async () => {
+    assessmentFindByIdWithCourseId.mockResolvedValue({
+      id: "ca_1",
+      courseId: "crs_1",
+      closesAt: CLOSED_AT,
+    });
+    courseMembershipFindByComposite.mockResolvedValue({ role: "teacher", status: "active" });
+    courseFindById.mockResolvedValue({ id: "crs_1", archived: true });
+
+    for (const who of [actor({ platformRole: "admin" }), actor({ userId: "usr_t" })]) {
+      expect(await canSetScoreOverride(who, { type: "assignment", assignmentId: "ca_1" })).toBe(
+        false,
+      );
+      expect(await canSetScoreOverride(who, { type: "exam", examId: "e_1" })).toBe(false);
+    }
+  });
+
   it("assignment: only course teacher/TA allowed", async () => {
-    assessmentFindByIdWithCourseId.mockResolvedValue({ id: "ca_1", courseId: "crs_1" });
+    assessmentFindByIdWithCourseId.mockResolvedValue({
+      id: "ca_1",
+      courseId: "crs_1",
+      closesAt: CLOSED_AT,
+    });
     courseMembershipFindByComposite.mockResolvedValue({
       role: "teacher",
       status: "active",
@@ -213,7 +248,7 @@ describe("canSetScoreOverride", () => {
   });
 
   it("exam: only course teacher/TA allowed", async () => {
-    examFindById.mockResolvedValue({ id: "e_1", courseId: "crs_1" });
+    examFindById.mockResolvedValue({ id: "e_1", courseId: "crs_1", endsAt: CLOSED_AT });
     courseMembershipFindByComposite.mockResolvedValue({ role: "teacher", status: "active" });
     expect(
       await canSetScoreOverride(actor({ userId: "usr_t" }), { type: "exam", examId: "e_1" }),
@@ -226,6 +261,33 @@ describe("canSetScoreOverride", () => {
         examId: "e_1",
       }),
     ).toBe(false);
+  });
+});
+
+describe("canSetScoreOverride — close gate", () => {
+  beforeEach(() => {
+    courseMembershipFindByComposite.mockResolvedValue({ role: "teacher", status: "active" });
+  });
+
+  it.each([
+    ["assignment", { type: "assignment", assignmentId: "ca_1" } as const],
+    ["exam", { type: "exam", examId: "e_1" } as const],
+  ])("matches the write gate on an open %s", async (_label, context) => {
+    assessmentFindByIdWithCourseId.mockResolvedValue({
+      id: "ca_1",
+      courseId: "crs_1",
+      closesAt: OPEN_AT,
+    });
+    examFindById.mockResolvedValue({ id: "e_1", courseId: "crs_1", endsAt: OPEN_AT });
+
+    expect(await canSetScoreOverride(actor({ userId: "usr_t" }), context)).toBe(false);
+    await expect(
+      assertCanSetScoreOverride(actor({ userId: "usr_t" }), context),
+    ).rejects.toBeInstanceOf(ConflictError);
+    expect(await canSetScoreOverride(actor({ platformRole: "admin" }), context)).toBe(true);
+    await expect(
+      assertCanViewScoreOverrides(actor({ userId: "usr_t" }), context),
+    ).resolves.toBeUndefined();
   });
 });
 
@@ -523,6 +585,44 @@ describe("deleteOverride", () => {
   });
 });
 
+describe("archived course", () => {
+  beforeEach(() => {
+    assessmentFindByIdWithCourseId.mockResolvedValue({
+      id: "ca_hw1",
+      courseId: "crs_1",
+      closesAt: CLOSED_AT,
+    });
+    courseMembershipFindByComposite.mockResolvedValue({ role: "teacher", status: "active" });
+    overrideFindById.mockResolvedValue({
+      id: "ov_1",
+      courseMembershipId: "mem_student",
+      problemId: "prob_1",
+      assessmentId: "ca_hw1",
+      examId: null,
+      overrideScore: 80,
+      reason: "Old reason",
+    });
+    courseFindById.mockResolvedValue({ id: "crs_1", archived: true });
+  });
+
+  it.each([
+    ["create", () => createOverride(actor({ userId: "usr_t" }), baseInput)],
+    ["update", () => updateOverride(actor({ userId: "usr_t" }), "ov_1", { overrideScore: 90 })],
+    ["delete", () => deleteOverride(actor({ userId: "usr_t" }), "ov_1")],
+    ["admin create", () => createOverride(actor({ platformRole: "admin" }), baseInput)],
+  ])("rejects %s inside the course lock", async (_label, mutate) => {
+    await expect(mutate()).rejects.toMatchObject({
+      name: "ValidationError",
+      message: "Archived courses are read-only.",
+    });
+    expect(courseLock).toHaveBeenCalledWith("crs_1");
+    expect(overrideCreate).not.toHaveBeenCalled();
+    expect(overrideUpdate).not.toHaveBeenCalled();
+    expect(overrideDelete).not.toHaveBeenCalled();
+    expect(auditCreate).not.toHaveBeenCalled();
+  });
+});
+
 describe("course roster grading", () => {
   beforeEach(() => {
     assessmentFindByIdWithCourseId.mockResolvedValue({
@@ -541,8 +641,8 @@ describe("course roster grading", () => {
   ])("grades pending students in $type without a participant or fake user", async (context) => {
     findCourseStudent.mockResolvedValue({ id: "mem_student", userId: null });
     await createOverride(actor({ userId: "usr_t" }), { ...baseInput, context });
-    expect(gradingLock).toHaveBeenCalledWith(expect.anything(), "crs_1");
-    expect(gradingLock.mock.invocationCallOrder[0]).toBeLessThan(
+    expect(courseLock).toHaveBeenCalledWith("crs_1");
+    expect(courseLock.mock.invocationCallOrder[0]).toBeLessThan(
       findCourseStudent.mock.invocationCallOrder[0],
     );
     expect(overrideCreate).toHaveBeenCalledWith(

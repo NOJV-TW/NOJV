@@ -170,15 +170,17 @@
         >
           {m.plagiarism_flaggedBadge()}
         </span>
-        <Button
-          variant="outline"
-          size="sm"
-          disabled={isLoading}
-          onclick={() => void handleUnmark()}
-        >
-          {m.plagiarism_unmark()}
-        </Button>
-      {:else}
+        {#if data.canFlag}
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={isLoading}
+            onclick={() => void handleUnmark()}
+          >
+            {m.plagiarism_unmark()}
+          </Button>
+        {/if}
+      {:else if data.canFlag}
         <Button
           variant="default"
           size="sm"

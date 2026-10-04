@@ -12,6 +12,7 @@ import type { AnnouncementAudience } from "@nojv/core";
 import { z } from "zod";
 
 import * as notificationDomain from "../notification";
+import { lockWritableCourse } from "../shared/course-writable";
 import { platformRolesForAudience } from "./queries";
 
 const announcementInputSchema = z.object({
@@ -34,6 +35,12 @@ interface AnnouncementPublication {
   audience: AnnouncementAudience;
   courseId: string | null;
   publishedAt: Date;
+}
+
+async function lockAnnouncement(tx: TransactionClient, id: string) {
+  const current = await announcementRepo.withTx(tx).findById(id);
+  if (current?.courseId) await lockWritableCourse(tx, current.courseId);
+  return announcementRepo.withTx(tx).findByIdForUpdate(id);
 }
 
 async function fanoutAnnouncementPublished(
@@ -71,6 +78,7 @@ async function fanoutAnnouncementPublished(
 export async function createAnnouncement(data: AnnouncementInput) {
   const parsed = announcementInputSchema.parse(data);
   return runTransaction(async (tx) => {
+    if (parsed.courseId) await lockWritableCourse(tx, parsed.courseId);
     const publishedAt = parsed.published ? new Date() : null;
     const announcement = await announcementRepo.withTx(tx).create({
       pinned: parsed.pinned,
@@ -104,7 +112,7 @@ export async function createAnnouncement(data: AnnouncementInput) {
 export async function updateAnnouncement(id: string, data: AnnouncementInput) {
   const parsed = announcementInputSchema.parse(data);
   return runTransaction(async (tx) => {
-    const prior = await announcementRepo.withTx(tx).findByIdForUpdate(id);
+    const prior = await lockAnnouncement(tx, id);
     const publishedAt = parsed.published ? (prior?.publishedAt ?? new Date()) : null;
     const updated = await announcementRepo.withTx(tx).update(id, {
       pinned: parsed.pinned,
@@ -132,12 +140,15 @@ export async function updateAnnouncement(id: string, data: AnnouncementInput) {
 }
 
 export async function deleteAnnouncement(id: string) {
-  return announcementRepo.delete(id);
+  return runTransaction(async (tx) => {
+    await lockAnnouncement(tx, id);
+    return announcementRepo.withTx(tx).delete(id);
+  });
 }
 
 export async function toggleAnnouncementPin(id: string) {
   return runTransaction(async (tx) => {
-    const announcement = await announcementRepo.withTx(tx).findByIdForUpdate(id);
+    const announcement = await lockAnnouncement(tx, id);
     if (!announcement) return null;
     return announcementRepo.withTx(tx).update(id, { pinned: !announcement.pinned });
   });
@@ -145,7 +156,7 @@ export async function toggleAnnouncementPin(id: string) {
 
 export async function toggleAnnouncementPublish(id: string) {
   return runTransaction(async (tx) => {
-    const announcement = await announcementRepo.withTx(tx).findByIdForUpdate(id);
+    const announcement = await lockAnnouncement(tx, id);
     if (!announcement) return null;
     const next = announcement.status === "published" ? "draft" : "published";
     const publishedAt = next === "published" ? new Date() : null;

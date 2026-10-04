@@ -1,7 +1,7 @@
 <script lang="ts">
   import { untrack } from "svelte";
   import { Check, UserPlus } from "@lucide/svelte";
-  import { superForm } from "sveltekit-superforms/client";
+  import { appSuperForm } from "$lib/utils/super-form";
   import { m } from "$lib/paraglide/messages.js";
   import { Button } from "$lib/components/primitives/ui/button";
   import FormError from "$lib/components/primitives/ui/FormError.svelte";
@@ -27,7 +27,7 @@
     enhance,
     message: formMessage,
     submitting,
-  } = superForm<BulkAddForm, FormMessage>(
+  } = appSuperForm<BulkAddForm>(
     untrack(() => initialForm),
     {
       resetForm: true,

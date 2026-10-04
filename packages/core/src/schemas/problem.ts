@@ -155,24 +155,18 @@ function refineAdvancedConfig(
 
 export const problemCreateSchema = problemCreateObjectSchema.superRefine(refineAdvancedConfig);
 
-const problemDraftObjectSchema = problemCreateObjectSchema
-  .omit({ status: true, advancedConfig: true })
+export const problemBasicInfoSchema = problemCreateObjectSchema
+  .pick({ difficulty: true, samples: true, tags: true })
   .extend({
     title: z.string().trim().max(120, "validation_tooLong"),
     statement: z.string().trim().max(12_000, "validation_tooLong"),
     inputFormat: z.string().trim().max(4_000, "validation_tooLong"),
     outputFormat: z.string().trim().max(4_000, "validation_tooLong"),
+    timeLimitMs: problemCreateObjectSchema.shape.timeLimitMs.optional(),
+    memoryLimitMb: problemCreateObjectSchema.shape.memoryLimitMb.optional(),
+    visibility: problemVisibilitySchema.optional(),
+    adminMayPublish: z.boolean().optional(),
   });
-
-export const problemDraftSchema = problemDraftObjectSchema.superRefine((data, ctx) => {
-  if (data.type !== "special_env" && (data.advancedRequiredPaths ?? []).length > 0) {
-    ctx.addIssue({
-      code: "custom",
-      path: ["advancedRequiredPaths"],
-      message: "validation_onlyAllowedForSpecialEnv",
-    });
-  }
-});
 
 export const problemUpdateSchema = problemCreateObjectSchema.partial();
 
@@ -186,13 +180,13 @@ export const problemJudgeTestcaseSchema = z.object({
   id: z.string().trim().min(1),
   inputFiles: z.record(z.string(), testcaseFileContentSchema).optional(),
   input: testcaseFileContentSchema,
-  weight: z.coerce.number().int().min(1).max(100_000),
+  weight: z.coerce.number().int().min(0).max(100_000),
 });
 
 export const problemTestcaseSetCreateSchema = z.object({
   cases: z.array(problemTestcaseCaseSchema).min(1).max(256),
   description: z.string().max(5_000).default(""),
-  weight: z.coerce.number().int().min(1).max(100_000).default(1),
+  weight: z.coerce.number().int().min(0).max(100_000).default(1),
 });
 
 export const testcaseSetUpdateSchema = z.object({
@@ -217,7 +211,7 @@ export const problemOverviewSchema = z.object({
 });
 
 export type ProblemCreate = z.infer<typeof problemCreateSchema>;
-export type ProblemDraft = z.infer<typeof problemDraftSchema>;
+export type ProblemBasicInfo = z.infer<typeof problemBasicInfoSchema>;
 export type ProblemUpdate = z.infer<typeof problemUpdateSchema>;
 export type ProblemJudgeTestcase = z.infer<typeof problemJudgeTestcaseSchema>;
 export type ProblemTestcaseSetCreate = z.infer<typeof problemTestcaseSetCreateSchema>;

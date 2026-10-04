@@ -81,7 +81,7 @@ type ExamFormData = z.infer<typeof examFormSchema>;
 export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent) => {
   const parent = await event.parent();
   const { course, isManager } = parent;
-  if (!isManager) {
+  if (!isManager || course.archived) {
     redirect(302, `/courses/${course.id}/exams`);
   }
 

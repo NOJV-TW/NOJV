@@ -5,7 +5,7 @@ import { randomUUID } from "node:crypto";
 import type { Prisma } from "@nojv/db";
 import { problemRepo, problemWorkspaceFileRepo, runTransaction } from "@nojv/db";
 import type { Language, ProblemType } from "@nojv/core";
-import { entryFileNameFor, problemWorkspaceFileSchema } from "@nojv/core";
+import { entryFileNameFor } from "@nojv/core";
 import { assertStorageObjectPointer, type StorageObjectPointer } from "@nojv/storage";
 
 import { ConflictError, ValidationError } from "../shared/errors";
@@ -31,6 +31,7 @@ export interface UpdateWorkspaceInput {
     language: Language;
     path: string;
     content: string;
+    description: string;
     visibility: "editable" | "readonly" | "hidden";
     orderIndex?: number;
   }[];
@@ -128,6 +129,13 @@ export async function updateProblemWorkspace(
 
   const result = await runTransaction(async (tx) => {
     const problem = await lockProblemForEdit(tx, actor, problemId);
+    if (problem.type === "special_env") {
+      throw new ConflictError("Advanced-mode problems do not use a workspace.");
+    }
+    const typeChanged = payload.type !== undefined && payload.type !== problem.type;
+    if (typeChanged && problem.status === "published") {
+      throw new ConflictError("Published problems cannot change type.");
+    }
     const existingFiles = await problemWorkspaceFileRepo.withTx(tx).findByProblemId(problem.id);
 
     const previousBytes = existingFiles.reduce(
@@ -143,6 +151,7 @@ export async function updateProblemWorkspace(
         (entry, index) => ({
           id: entry.id,
           contentStorage: entry.contentStorage,
+          description: entry.file.description,
           language: entry.file.language,
           orderIndex: entry.file.orderIndex ?? index,
           path: entry.file.path,
@@ -158,7 +167,7 @@ export async function updateProblemWorkspace(
       const currentConfig = parsePersistedJudgeConfig(problem.judgeConfig, problem.id);
       updateData.judgeConfig = {
         ...currentConfig,
-        runtime: payload.runtime,
+        runtime: { env: payload.runtime.env },
       };
       updateData.memoryLimitMb = payload.runtime.memoryLimitMb;
       updateData.timeLimitMs = payload.runtime.timeLimitMs;
@@ -190,74 +199,4 @@ export async function updateProblemWorkspace(
   });
 
   return result;
-}
-
-export interface SetWorkspaceFileInput {
-  language: string;
-  path: string;
-  visibility: string;
-  content: string;
-  orderIndex?: number;
-}
-
-export async function setWorkspaceFile(
-  actor: ProblemActorContext,
-  problemId: string,
-  file: SetWorkspaceFileInput,
-): Promise<{ id: string; problemId: string; path: string; language: Language }> {
-  const parsed = problemWorkspaceFileSchema.parse({
-    language: file.language,
-    path: file.path,
-    visibility: file.visibility,
-    content: file.content,
-    orderIndex: file.orderIndex ?? 0,
-  });
-
-  await assertProblemEditAccess(actor, problemId);
-  await ensureProblemImageInventory(problemId);
-  const id = randomUUID();
-  const contentStorage = await writeWorkspaceFileBlob(problemId, id, parsed.content);
-
-  const row = await runTransaction(async (tx) => {
-    const problem = await lockProblemForEdit(tx, actor, problemId);
-    const existing = await problemWorkspaceFileRepo
-      .withTx(tx)
-      .findOne(problemId, parsed.language, parsed.path);
-    await assertProblemStorageBudget(
-      problem.id,
-      contentStorage.size -
-        (existing === null ? 0 : assertStorageObjectPointer(existing.contentStorage).size),
-      tx,
-    );
-    const row = await problemWorkspaceFileRepo.withTx(tx).upsertOne({
-      id,
-      problemId,
-      language: parsed.language,
-      path: parsed.path,
-      contentStorage,
-      visibility: parsed.visibility,
-      orderIndex: parsed.orderIndex,
-    });
-    await problemRepo.withTx(tx).update(problem.id, {
-      referenceSolutionSubmissionId: null,
-      activeStorageBytes: {
-        increment:
-          contentStorage.size -
-          (existing === null ? 0 : assertStorageObjectPointer(existing.contentStorage).size),
-      },
-      storageGeneration: { increment: 1 },
-    });
-    await commitStoragePointerSwap(tx, {
-      added: [contentStorage],
-      removed: existing === null ? [] : [assertStorageObjectPointer(existing.contentStorage)],
-    });
-    return row;
-  });
-
-  return {
-    id: row.id,
-    problemId: row.problemId,
-    path: row.path,
-    language: row.language,
-  };
 }

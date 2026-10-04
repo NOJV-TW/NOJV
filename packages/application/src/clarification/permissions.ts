@@ -16,7 +16,14 @@ async function hasContestParticipation(userId: string, contestId: string): Promi
   return ids.includes(userId);
 }
 
+async function isActiveCourseStudent(userId: string, courseId: string): Promise<boolean> {
+  const membership = await courseMembershipRepo.findByComposite(courseId, userId);
+  return membership?.status === "active" && membership.role === "student";
+}
+
 async function hasExamParticipation(userId: string, examId: string): Promise<boolean> {
+  const exam = await examRepo.findById(examId);
+  if (!exam || !(await isActiveCourseStudent(userId, exam.courseId))) return false;
   const ids = await participationRepo.listExamParticipantUserIds(examId);
   return ids.includes(userId);
 }
@@ -26,10 +33,8 @@ async function isActiveStudentInAssignment(
   assignmentId: string,
 ): Promise<boolean> {
   const assignment = await assessmentRepo.findByIdWithCourseId(assignmentId);
-  if (!assignment) return false;
-  const membership = await courseMembershipRepo.findByComposite(assignment.courseId, userId);
-  if (membership?.status !== "active") return false;
-  return membership.role === "student";
+  if (assignment?.status !== "published") return false;
+  return isActiveCourseStudent(userId, assignment.courseId);
 }
 
 async function isParticipantOfContext(

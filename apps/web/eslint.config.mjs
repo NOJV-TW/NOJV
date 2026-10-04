@@ -5,13 +5,23 @@ import tseslint from "typescript-eslint";
 
 import baseConfig from "../../eslint.config.mjs";
 
+const superFormPaths = ["sveltekit-superforms", "sveltekit-superforms/client"].map((name) => ({
+  name,
+  importNames: ["superForm"],
+  message:
+    "Use appSuperForm from $lib/utils/super-form so action results without a form (rate limits, unexpected errors) still show an error.",
+}));
+
 const componentSandboxRule = [
   "error",
   {
-    paths: ["@nojv/temporal"].map((name) => ({
-      name,
-      message: `${name} is server-only — do not import from Svelte components. Move the call to a +page.server.ts / +layout.server.ts / API route and pass data via the load function.`,
-    })),
+    paths: [
+      ...["@nojv/temporal"].map((name) => ({
+        name,
+        message: `${name} is server-only — do not import from Svelte components. Move the call to a +page.server.ts / +layout.server.ts / API route and pass data via the load function.`,
+      })),
+      ...superFormPaths,
+    ],
     patterns: [
       {
         group: ["**/*.server", "**/*.server.ts", "**/*.server.js"],
@@ -68,6 +78,7 @@ function layerBoundaryRule({
   allowDb = false,
   allowRedis = false,
   allowStorage = false,
+  allowSuperForm = false,
 } = {}) {
   const patterns = [];
   if (!allowDb) patterns.push(layerBoundaryDbPattern);
@@ -76,7 +87,10 @@ function layerBoundaryRule({
   return [
     "error",
     {
-      paths: allowTemporal ? [] : [layerBoundaryTemporalPath],
+      paths: [
+        ...(allowTemporal ? [] : [layerBoundaryTemporalPath]),
+        ...(allowSuperForm ? [] : superFormPaths),
+      ],
       patterns,
     },
   ];
@@ -85,10 +99,13 @@ function layerBoundaryRule({
 const primitivesNoFeaturesRule = [
   "error",
   {
-    paths: ["@nojv/temporal"].map((name) => ({
-      name,
-      message: `${name} is server-only — do not import from Svelte components. Move the call to a +page.server.ts / +layout.server.ts / API route and pass data via the load function.`,
-    })),
+    paths: [
+      ...["@nojv/temporal"].map((name) => ({
+        name,
+        message: `${name} is server-only — do not import from Svelte components. Move the call to a +page.server.ts / +layout.server.ts / API route and pass data via the load function.`,
+      })),
+      ...superFormPaths,
+    ],
     patterns: [
       {
         group: ["**/*.server", "**/*.server.ts", "**/*.server.js"],
@@ -191,6 +208,12 @@ export default [
     ],
     rules: {
       "no-restricted-imports": layerBoundaryRule(),
+    },
+  },
+  {
+    files: ["src/lib/utils/super-form.ts"],
+    rules: {
+      "no-restricted-imports": layerBoundaryRule({ allowSuperForm: true }),
     },
   },
   {

@@ -104,14 +104,6 @@
     {/if}
   </div>
 
-  {#if library.course.archived}
-    <p
-      role="status"
-      class="rounded-md border border-border-subtle px-4 py-3 text-body-sm text-muted-foreground"
-    >
-      {m.problem_readOnly()}
-    </p>
-  {/if}
   {#if error}<p role="alert" class="text-body-sm text-destructive">{error}</p>{/if}
   {#if success}<p role="status" class="text-body-sm text-success">{success}</p>{/if}
 

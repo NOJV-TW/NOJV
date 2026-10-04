@@ -29,6 +29,7 @@ import {
   type ProblemActorContext,
 } from "../permissions";
 import { forkProblemInTransaction } from "../fork";
+import { problemAwardsPoints } from "../subtask-points";
 
 export async function hasVerifiedAdvancedJudgeRun(
   problemId: string,
@@ -102,6 +103,11 @@ export async function assertProblemPublishable(
   const testcaseSetCount = await testcaseSetRepo.withTx(tx).countByProblem(problem.id);
   if (testcaseSetCount === 0) {
     throw new ConflictError("Problems require at least one testcase set before publishing.");
+  }
+  if (!(await problemAwardsPoints(tx, problem.id))) {
+    throw new ConflictError(
+      "Problems require at least one subtask worth points before publishing.",
+    );
   }
   if (!problem.referenceSolutionSubmissionId) {
     throw new ConflictError(

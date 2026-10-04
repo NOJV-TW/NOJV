@@ -12,6 +12,7 @@ import {
   type Language,
 } from "@nojv/core";
 
+import { hidesProblemsBeforeStart } from "../shared/activity-visibility";
 import { NotFoundError } from "../shared/errors";
 import { getOverridesForContext } from "../scoring/resolve-final-score";
 import { getProblemTotalScores, requireProblemTotalScore } from "../problem/total-score";
@@ -184,7 +185,7 @@ export async function getAssignmentDetail(
     throw new NotFoundError("Assignment not found.");
   }
 
-  const hideProblemsFromViewer = !options.isManager && status === "upcoming";
+  const hideProblemsFromViewer = hidesProblemsBeforeStart(options.isManager, row.opensAt, now);
 
   const maxByProblem = await getProblemTotalScores(row.problems.map((p) => p.problem.id));
   const maxFor = (p: (typeof row.problems)[number]) =>

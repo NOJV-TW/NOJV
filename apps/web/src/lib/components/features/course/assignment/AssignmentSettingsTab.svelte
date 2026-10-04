@@ -8,7 +8,8 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { untrack } from "svelte";
-  import { superForm, type SuperValidated } from "sveltekit-superforms";
+  import type { SuperValidated } from "sveltekit-superforms";
+  import { appSuperForm } from "$lib/utils/super-form";
 
   import { supportedLanguages, type Language } from "@nojv/core";
   import Send from "@lucide/svelte/icons/send";
@@ -36,10 +37,17 @@
       dueAt: string | null;
       closesAt: string;
     };
+    readOnly?: boolean;
     class?: string;
   }
 
-  let { form: formProp, liveStatus, initialSchedule, class: className }: Props = $props();
+  let {
+    form: formProp,
+    liveStatus,
+    initialSchedule,
+    readOnly = false,
+    class: className,
+  }: Props = $props();
 
   const {
     form,
@@ -47,7 +55,7 @@
     enhance,
     message: formMessage,
     submitting,
-  } = superForm<AssessmentSettingsFormData, FormMessage>(
+  } = appSuperForm<AssessmentSettingsFormData>(
     untrack(() => formProp),
     {
       dataType: "json",
@@ -55,7 +63,13 @@
       applyAction: "never",
       invalidateAll: true,
       onSubmit: ({ jsonData }) => {
-        jsonData(serializeDateTimeFields($form, ["opensAt", "dueAt", "closesAt"]));
+        jsonData(
+          serializeDateTimeFields($form, ["opensAt", "dueAt", "closesAt"], undefined, {
+            opensAt: initialSchedule.opensAt,
+            dueAt: initialSchedule.dueAt ?? initialSchedule.closesAt,
+            closesAt: initialSchedule.closesAt,
+          }),
+        );
       },
       onUpdate: ({ form }) => {
         form.data = restoreDateTimeFields(form.data, ["opensAt", "dueAt", "closesAt"]);
@@ -130,156 +144,158 @@
     </p>
   {/if}
 
-  <form method="POST" action="?/updateSettings" use:enhance class="space-y-5">
-    <FormError message={$formMessage?.kind === "error" ? $formMessage.text : null} />
+  <form method="POST" action="?/updateSettings" use:enhance>
+    <fieldset disabled={readOnly} class="min-w-0 space-y-5">
+      <FormError message={$formMessage?.kind === "error" ? $formMessage.text : null} />
 
-    <AssignmentBasicSection
-      {form}
-      {errors}
-      {editableBasics}
-      {editableOpensAt}
-      {editableDeadlines}
-    />
+      <AssignmentBasicSection
+        {form}
+        {errors}
+        {editableBasics}
+        {editableOpensAt}
+        {editableDeadlines}
+      />
 
-    <section
-      class="rounded-xl border border-border-subtle bg-[color:var(--color-panel)] p-4 shadow-rest"
-    >
-      <h3 class="mb-4 text-title-sm font-medium">
-        {m.assignmentDetail_settingsSectionSubmission()}
-      </h3>
-      <div class="space-y-4">
-        <div>
-          <div class="text-sm font-medium">
-            {m.assignmentDetail_settingsLanguagesLabel()}
+      <section
+        class="rounded-xl border border-border-subtle bg-[color:var(--color-panel)] p-4 shadow-rest"
+      >
+        <h3 class="mb-4 text-title-sm font-medium">
+          {m.assignmentDetail_settingsSectionSubmission()}
+        </h3>
+        <div class="space-y-4">
+          <div>
+            <div class="text-sm font-medium">
+              {m.assignmentDetail_settingsLanguagesLabel()}
+            </div>
+            <div class="mt-2 flex flex-wrap gap-2">
+              {#each supportedLanguages as lang (lang)}
+                {@const checked = ($form.allowedLanguages ?? []).includes(lang)}
+                <button
+                  type="button"
+                  class="inline-flex items-center gap-1.5 rounded-full border px-3.5 py-2 text-body-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 {checked
+                    ? 'border-foreground bg-foreground text-background'
+                    : 'border-border bg-[color:var(--color-panel)] text-foreground hover:border-border-strong'}"
+                  onclick={() => toggleLanguage(lang)}
+                  aria-pressed={checked}
+                  disabled={!editableBasics}
+                >
+                  {lang}
+                </button>
+              {/each}
+            </div>
           </div>
-          <div class="mt-2 flex flex-wrap gap-2">
-            {#each supportedLanguages as lang (lang)}
-              {@const checked = ($form.allowedLanguages ?? []).includes(lang)}
-              <button
-                type="button"
-                class="inline-flex items-center gap-1.5 rounded-full border px-3.5 py-2 text-body-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 {checked
-                  ? 'border-foreground bg-foreground text-background'
-                  : 'border-border bg-[color:var(--color-panel)] text-foreground hover:border-border-strong'}"
-                onclick={() => toggleLanguage(lang)}
-                aria-pressed={checked}
-                disabled={!editableBasics}
-              >
-                {lang}
-              </button>
-            {/each}
+
+          <div>
+            <label class="text-sm font-medium" for="settings-maxAttempts">
+              {m.assignmentDetail_settingsMaxAttemptsLabel()}
+            </label>
+            <input
+              id="settings-maxAttempts"
+              class={inputClassName}
+              type="number"
+              min="1"
+              max="999"
+              placeholder={m.assignmentDetail_settingsMaxAttemptsPlaceholder()}
+              bind:value={$form.maxAttemptsPerDay}
+              disabled={!editableBasics}
+            />
+            {#if $errors.maxAttemptsPerDay}
+              <p class="mt-1 text-xs text-destructive">{$errors.maxAttemptsPerDay}</p>
+            {/if}
+          </div>
+
+          <div>
+            <label class="text-sm font-medium" for="settings-resetTime">
+              {m.assignmentDetail_settingsResetTimeLabel()}
+            </label>
+            <input
+              id="settings-resetTime"
+              class={inputClassName}
+              type="time"
+              value={minutesToHHMM($form.attemptResetMinuteOfDay)}
+              oninput={(e) =>
+                ($form.attemptResetMinuteOfDay = hhmmToMinutes(e.currentTarget.value))}
+              disabled={!editableBasics}
+            />
+            <p class="mt-1 text-xs text-muted-foreground">
+              {m.assignmentDetail_settingsResetTimeDesc()}
+            </p>
           </div>
         </div>
+      </section>
 
-        <div>
-          <label class="text-sm font-medium" for="settings-maxAttempts">
-            {m.assignmentDetail_settingsMaxAttemptsLabel()}
-          </label>
-          <input
-            id="settings-maxAttempts"
-            class={inputClassName}
-            type="number"
-            min="1"
-            max="999"
-            placeholder={m.assignmentDetail_settingsMaxAttemptsPlaceholder()}
-            bind:value={$form.maxAttemptsPerDay}
-            disabled={!editableBasics}
-          />
-          {#if $errors.maxAttemptsPerDay}
-            <p class="mt-1 text-xs text-destructive">{$errors.maxAttemptsPerDay}</p>
-          {/if}
-        </div>
-
-        <div>
-          <label class="text-sm font-medium" for="settings-resetTime">
-            {m.assignmentDetail_settingsResetTimeLabel()}
-          </label>
-          <input
-            id="settings-resetTime"
-            class={inputClassName}
-            type="time"
-            value={minutesToHHMM($form.attemptResetMinuteOfDay)}
-            oninput={(e) =>
-              ($form.attemptResetMinuteOfDay = hhmmToMinutes(e.currentTarget.value))}
-            disabled={!editableBasics}
-          />
-          <p class="mt-1 text-xs text-muted-foreground">
-            {m.assignmentDetail_settingsResetTimeDesc()}
-          </p>
-        </div>
-      </div>
-    </section>
-
-    {#if confirmingDelete}
-      <div class="flex flex-wrap items-center justify-end gap-2">
-        <span class="mr-auto text-caption text-muted-foreground">
-          {m.assignmentDetail_settingsDeleteConfirmBody()}
-        </span>
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          disabled={$submitting}
-          onclick={() => (confirmingDelete = false)}
-        >
-          {m.assignmentDetail_settingsDeleteConfirmCancel()}
-        </Button>
-        <Button
-          type="submit"
-          formaction="?/deleteAssignment"
-          variant="destructive"
-          size="sm"
-          disabled={$submitting}
-        >
-          <Trash2 class="mr-1 size-4" aria-hidden="true" />
-          {m.assignmentDetail_settingsDeleteConfirmConfirm()}
-        </Button>
-      </div>
-    {:else}
-      <div class="flex flex-wrap items-center justify-end gap-2">
-        {#if isDraft}
+      {#if confirmingDelete}
+        <div class="flex flex-wrap items-center justify-end gap-2">
+          <span class="mr-auto text-caption text-muted-foreground">
+            {m.assignmentDetail_settingsDeleteConfirmBody()}
+          </span>
           <Button
             type="button"
             variant="ghost"
             size="sm"
-            class="mr-auto text-destructive hover:text-destructive"
             disabled={$submitting}
-            onclick={() => (confirmingDelete = true)}
+            onclick={() => (confirmingDelete = false)}
+          >
+            {m.assignmentDetail_settingsDeleteConfirmCancel()}
+          </Button>
+          <Button
+            type="submit"
+            formaction="?/deleteAssignment"
+            variant="destructive"
+            size="sm"
+            disabled={$submitting}
           >
             <Trash2 class="mr-1 size-4" aria-hidden="true" />
-            {m.assignmentDetail_settingsDeleteButton()}
+            {m.assignmentDetail_settingsDeleteConfirmConfirm()}
           </Button>
-        {/if}
+        </div>
+      {:else}
+        <div class="flex flex-wrap items-center justify-end gap-2">
+          {#if isDraft}
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              class="mr-auto text-destructive hover:text-destructive"
+              disabled={$submitting}
+              onclick={() => (confirmingDelete = true)}
+            >
+              <Trash2 class="mr-1 size-4" aria-hidden="true" />
+              {m.assignmentDetail_settingsDeleteButton()}
+            </Button>
+          {/if}
 
-        {#if isUpcoming}
-          <Button
-            type="submit"
-            formaction="?/revertToDraft"
-            variant="outline"
-            size="sm"
-            disabled={$submitting}
-          >
-            <Undo2 class="mr-1 size-4" aria-hidden="true" />
-            {m.assignmentDetail_settingsRevertToDraftButton()}
+          {#if isUpcoming}
+            <Button
+              type="submit"
+              formaction="?/revertToDraft"
+              variant="outline"
+              size="sm"
+              disabled={$submitting}
+            >
+              <Undo2 class="mr-1 size-4" aria-hidden="true" />
+              {m.assignmentDetail_settingsRevertToDraftButton()}
+            </Button>
+          {/if}
+
+          <Button type="submit" variant="default" size="sm" disabled={$submitting || isClosed}>
+            {m.assignmentDetail_settingsSaveButton()}
           </Button>
-        {/if}
 
-        <Button type="submit" variant="default" size="sm" disabled={$submitting || isClosed}>
-          {m.assignmentDetail_settingsSaveButton()}
-        </Button>
-
-        {#if isDraft}
-          <Button
-            type="submit"
-            formaction="?/publishAssignment"
-            variant="default"
-            size="sm"
-            disabled={$submitting}
-          >
-            <Send class="mr-1 size-4" aria-hidden="true" />
-            {m.assignmentDetail_settingsPublishButton()}
-          </Button>
-        {/if}
-      </div>
-    {/if}
+          {#if isDraft}
+            <Button
+              type="submit"
+              formaction="?/publishAssignment"
+              variant="default"
+              size="sm"
+              disabled={$submitting}
+            >
+              <Send class="mr-1 size-4" aria-hidden="true" />
+              {m.assignmentDetail_settingsPublishButton()}
+            </Button>
+          {/if}
+        </div>
+      {/if}
+    </fieldset>
   </form>
 </section>

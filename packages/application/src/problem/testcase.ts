@@ -34,6 +34,7 @@ import {
 } from "./permissions";
 import { ensureProblemImageInventory } from "../shared/uploaded-image";
 import { assertProblemStorageBudget } from "./storage-budget";
+import { assertInUseProblemAwardsPoints } from "./subtask-points";
 
 const MAX_TESTCASE_SETS_PER_PROBLEM = 20;
 
@@ -133,6 +134,7 @@ export async function createProblemTestcaseSetRecord(
 
     const testcaseSet = await testcaseSetRepo.withTx(tx).create({
       name: subtaskName(nextOrdinal),
+      description: payload.description,
       problemId: problem.id,
       weight: payload.weight,
       ordinal: nextOrdinal,
@@ -186,16 +188,19 @@ export async function updateTestcaseSetRecord(
 
   return runTransaction(async (tx) => {
     const problem = await lockProblemForEdit(tx, actor, problemId);
-    await requireSetInProblem(setId, problem.id, tx);
+    const existing = await requireSetInProblem(setId, problem.id, tx);
 
     const updated = await tx.testcaseSet.update({
       where: { id: setId },
       data: stripUndefined(payload),
     });
-    await problemRepo.withTx(tx).update(problem.id, {
-      referenceSolutionSubmissionId: null,
-      storageGeneration: { increment: 1 },
-    });
+    if (payload.weight !== undefined && payload.weight !== existing.weight) {
+      await assertInUseProblemAwardsPoints(tx, problem);
+      await problemRepo.withTx(tx).update(problem.id, {
+        referenceSolutionSubmissionId: null,
+        storageGeneration: { increment: 1 },
+      });
+    }
     return updated;
   });
 }
@@ -215,6 +220,7 @@ export async function deleteTestcaseSetRecord(
       0,
     );
     await testcaseSetRepo.withTx(tx).delete(setId);
+    await assertInUseProblemAwardsPoints(tx, problem);
     await problemRepo.withTx(tx).update(problem.id, {
       referenceSolutionSubmissionId: null,
       activeStorageBytes: { decrement: bytes },

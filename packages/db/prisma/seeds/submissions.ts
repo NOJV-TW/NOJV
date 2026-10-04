@@ -23,6 +23,7 @@ import {
   type ProblemTestcases,
   type SeedLanguage,
 } from "./demo-helpers";
+import { COURSE_PROBLEM_SOURCES, courseProblemId } from "./course-problems";
 import type { SubmissionResult } from "@nojv/core";
 
 const COURSE_ID = "course_os-lab-spring-2026";
@@ -162,6 +163,7 @@ export async function seedSubmissions(
     ...PUBLIC_PRACTICE_PROBLEMS,
     "problem_process-log-parser",
     "problem_fork-bomb-safeguard",
+    ...COURSE_PROBLEM_SOURCES.map(courseProblemId),
   ]);
   const testcasesById = new Map<string, ProblemTestcases>();
   for (const pid of problemIds) {
@@ -266,7 +268,11 @@ export async function seedSubmissions(
 
   const HW1_ID = "hw1-process-trace";
   const HW2_ID = "hw2-signal-handling";
-  const HW1_PROBLEMS = ["problem_warmup-sum", "problem_process-log-parser"] as const;
+  const HW1_PROBLEMS = [
+    courseProblemId("problem_warmup-sum"),
+    courseProblemId("problem_process-log-parser"),
+  ];
+  const HW2_PROBLEM = courseProblemId("problem_add-two-numbers");
   const HW1_OPEN = new Date("2026-03-17T09:00:00.000Z").getTime();
   const HW1_DUE = new Date("2026-03-23T15:00:00.000Z").getTime();
   const HW1_CLOSE = new Date("2026-03-25T15:00:00.000Z").getTime();
@@ -312,8 +318,8 @@ export async function seedSubmissions(
         makeSubmission({
           rng,
           userId: s.id,
-          problemId: "problem_add-two-numbers",
-          testcases: tc("problem_add-two-numbers"),
+          problemId: HW2_PROBLEM,
+          testcases: tc(HW2_PROBLEM),
           verdict,
           createdAt: new Date(when),
           language: rng.pick(HW2_LANGS),
@@ -325,10 +331,10 @@ export async function seedSubmissions(
 
   const EXAM_ID = "exam_midterm-systems-lab";
   const EXAM_PROBLEMS = [
-    "problem_graph-docking",
-    "problem_fork-bomb-safeguard",
-    "problem_memory-leak-forensics",
-  ] as const;
+    courseProblemId("problem_graph-docking"),
+    courseProblemId("problem_fork-bomb-safeguard"),
+    courseProblemId("problem_memory-leak-forensics"),
+  ];
   const EXAM_START = new Date("2026-04-18T09:00:00.000Z").getTime();
   const EXAM_END = new Date("2026-04-18T11:00:00.000Z").getTime();
   const EXAM_LANGS: SeedLanguage[] = ["c", "cpp"];
@@ -365,17 +371,17 @@ export async function seedSubmissions(
   const LARGE_CLASS_ASSIGNMENT_ID = "hw-demo-active";
   const LARGE_CLASS_EXAM_ID = "exam_demo_gradebook_active";
   const LARGE_CLASS_ASSIGNMENT_PROBLEMS = [
-    "problem_warmup-sum",
-    "problem_add-two-numbers",
-    "problem_float-compare",
-    "problem_graph-docking",
-  ] as const;
+    courseProblemId("problem_warmup-sum"),
+    courseProblemId("problem_add-two-numbers"),
+    courseProblemId("problem_float-compare"),
+    courseProblemId("problem_graph-docking"),
+  ];
   const LARGE_CLASS_EXAM_PROBLEMS = [
-    "problem_warmup-sum",
-    "problem_add-two-numbers",
-    "problem_memory-leak-forensics",
-    "problem_graph-docking",
-  ] as const;
+    courseProblemId("problem_warmup-sum"),
+    courseProblemId("problem_add-two-numbers"),
+    courseProblemId("problem_memory-leak-forensics"),
+    courseProblemId("problem_graph-docking"),
+  ];
   const largeClassStudents = [student, ...demoStudents];
 
   const teacherRng = new SeededRng(0x5e_ed_80_00);

@@ -242,16 +242,6 @@ export const problemWorkspaceFileRepo = {
     });
   },
 
-  findOne(
-    problemId: string,
-    language: Prisma.ProblemWorkspaceFileCreateInput["language"],
-    path: string,
-  ) {
-    return prisma.problemWorkspaceFile.findUnique({
-      where: { problemId_language_path: { problemId, language, path } },
-    });
-  },
-
   withTx(tx: TxClient) {
     return {
       findByProblemId(problemId: string) {
@@ -265,56 +255,12 @@ export const problemWorkspaceFileRepo = {
         });
       },
 
-      findOne(
-        problemId: string,
-        language: Prisma.ProblemWorkspaceFileCreateInput["language"],
-        path: string,
-      ) {
-        return tx.problemWorkspaceFile.findUnique({
-          where: { problemId_language_path: { problemId, language, path } },
-        });
-      },
-
       deleteByProblemId(problemId: string) {
         return tx.problemWorkspaceFile.deleteMany({ where: { problemId } });
       },
 
       createMany(data: Prisma.ProblemWorkspaceFileCreateManyInput[]) {
         return tx.problemWorkspaceFile.createMany({ data });
-      },
-
-      upsertOne(input: {
-        id: string;
-        problemId: string;
-        language: Prisma.ProblemWorkspaceFileCreateInput["language"];
-        path: string;
-        contentStorage: Prisma.InputJsonValue;
-        visibility: Prisma.ProblemWorkspaceFileCreateInput["visibility"];
-        orderIndex: number;
-      }) {
-        return tx.problemWorkspaceFile.upsert({
-          where: {
-            problemId_language_path: {
-              problemId: input.problemId,
-              language: input.language,
-              path: input.path,
-            },
-          },
-          create: {
-            id: input.id,
-            problemId: input.problemId,
-            language: input.language,
-            path: input.path,
-            contentStorage: input.contentStorage,
-            visibility: input.visibility,
-            orderIndex: input.orderIndex,
-          },
-          update: {
-            contentStorage: input.contentStorage,
-            visibility: input.visibility,
-            orderIndex: input.orderIndex,
-          },
-        });
       },
     };
   },

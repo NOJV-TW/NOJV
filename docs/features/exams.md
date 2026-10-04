@@ -5,6 +5,7 @@ Acceptance spec for course exams (`Exam`, routes `/exams/[examId]/...`). Student
 ## Key code
 
 - `packages/application/src/exam/mutations.ts` — `createExamRecord`, `updateExamRecord`, `publishExam`, `deleteExamDraft`
+- `packages/application/src/exam/publish.ts` — `publishExamInTransaction`, the one publish transition shared by `publishExam` and create-as-published
 - `packages/application/src/exam/session.ts` — `startSessionWithGate`, `endSession`, `recordEvent`, `autoCloseForExam`, `releaseSessionAsInstructor`, `releaseAllSessionsAsInstructor`, `resetStudentIpBinding`, `listActiveSessions`, `getActiveSessionContext`, `getSessionState`, `listSubmittedProblemIds`, `requireActiveSessionForUserExam`
 - `packages/application/src/exam/credentials.ts` — temporary exam passwords
 - `packages/application/src/exam/detail.ts` (`getExamDetailPage`), `exam/submissions-matrix.ts` (`buildExamSubmissionsMatrix`), `exam/scoring.ts` (`updateExamScores`), `exam/queries.ts` (`listExamIpViolations`)
@@ -43,9 +44,11 @@ Decision: ASM-22. Security model: [Security](../operations/SECURITY.md).
 ### Create, publish, delete
 
 - Problem selection follows [Assignments — problem ownership and forks](assignments.md#problem-ownership-and-forks) (PRB-10); detaching keeps the library relation.
-- Management requires a bound, active course teacher/TA membership or effective admin access; the creator alone, pending usernames and removed memberships grant nothing; an active TA who is a platform student is allowed. Archived courses reject mutations.
+- Management requires a bound, active course teacher/TA membership or effective admin access; the creator alone, pending usernames and removed memberships grant nothing; an active TA who is a platform student is allowed. Archived courses are read-only (ASM-26): exam mutations, grading, rejudges, clarifications, plagiarism runs and flags, session release, IP binding resets and temporary password changes fail with `ValidationError("Archived courses are read-only.")` for every role, and the manage tabs hide or disable those controls.
 - Auto-close is ensured only after the create or publish transaction commits.
 - `publishExam` requires a draft (`"Only draft exams can be published."`), a positive allocation total (`"Add at least one problem worth points before publishing or saving a published activity."`, which also covers an exam with no problems), ≥1 language (`"Select at least one allowed language before publishing."`), a valid window (`"endsAt must be later than startsAt."`), a valid late policy, and `endsAt > now` (`"End time must be in the future."`).
+- Creating with `status: "published"` inserts a draft and runs the same publish transition in the create transaction, so every `publishExam` check above applies and any failure rolls back the whole create.
+- The settings tab's Publish button saves the submitted settings first, then publishes; a failed save publishes nothing.
 - `deleteExamDraft` on a non-draft fails with `"Only draft exams can be deleted."`.
 
 ### Late collection
@@ -100,9 +103,9 @@ Exams follow the [activity allocation and official score contract](assignments.m
 ### Auto-close and instructor release
 
 - At `endsAt` the auto-close workflow calls `autoCloseForExam`, which checks the exam's schedule revision and fingerprint and then sets `endedAt`, `releaseReason = time_up` and an `auto_close` event on every active session. Re-runs are no-ops.
-- `releaseSessionAsInstructor({ examId, targetUserId })` by active course staff ends the session with `released_by_instructor` and a `release` event carrying `{ reason, endedByUserId }`. Non-staff get `"Only course staff can release exam sessions."`; no active session gives `NotFoundError`.
-- `releaseAllSessionsAsInstructor({ examId })` ends every active session in one transaction and returns `{ released, releasedUserIds }`; zero sessions returns `released: 0`. Unknown exams give `NotFoundError`.
-- `resetStudentIpBinding` clears the student's IP pin, grants a 10-minute IP-gate exemption and always records an `ip_reset` event with `{ resetByUserId, clearedIpPin, exemptUntil }`, under the student's session lock. A student who never entered gets a closed session row (`endedAt` set, no `releaseReason`) to hold the event; `endSession` treats that row as no session, and the next start reopens it.
+- `releaseSessionAsInstructor({ examId, targetUserId })` by a course manager (active teacher/TA or effective admin) ends the session with `released_by_instructor` and a `release` event carrying `{ reason, endedByUserId }`. Non-staff get `"Only course staff can release exam sessions."`; no active session gives `NotFoundError`.
+- `releaseAllSessionsAsInstructor({ examId })`, for the same managers, ends every active session in one transaction and returns `{ released, releasedUserIds }`; zero sessions returns `released: 0`. Unknown exams give `NotFoundError`.
+- `resetStudentIpBinding`, for the same managers, clears the student's IP pin, grants a 10-minute IP-gate exemption and always records an `ip_reset` event with `{ resetByUserId, clearedIpPin, exemptUntil }`, under the student's session lock. A student who never entered gets a closed session row (`endedAt` set, no `releaseReason`) to hold the event; `endSession` treats that row as no session, and the next start reopens it.
 
 ### IP rules
 
@@ -131,7 +134,7 @@ Tracking rules: PRB-21.
 
 ### Grading after close
 
-- While `endsAt > now` the grading entry is hidden with a "grading available after close" note. After close, a cell opens the drawer with override and feedback keyed by `(course membership, problemId, examId)`.
+- While `endsAt > now` course staff get no grading entry (`canSetScoreOverride` applies the write gate); admins can open it at any time. In an archived course nobody gets a grading entry. After close, a cell opens the drawer with override and feedback keyed by `(course membership, problemId, examId)`.
 - Non-admin writes before close fail with `ConflictError("This context is still open; grading is only available after it closes.")`; admins bypass (ASM-18).
 - Students see feedback only after close, on the submission detail page. The review page shows per-problem state and total but not feedback.
 
@@ -141,14 +144,14 @@ Tracking rules: PRB-21.
 
 ### Review and practice after close
 
-- `getExamDetailPage` returns `null` (404) to non-managers only for drafts. For ended exams it adds per-problem `viewerState` (`ac | partial | zero | empty`) and the viewer's total score.
+- `getExamDetailPage` returns `null` (404) to non-managers only for drafts. For ended exams it adds per-problem `viewerState` (`ac | partial | zero | empty`) and the viewer's total score. Class statistics (`registeredCount`, `totalStudents`) are `null` for non-managers.
 - Students with a participation row can open attached problems at `/problems/[id]` (PRB-20); context-less submissions there are practice only.
 
 ### Clarifications
 
 One board for assignments, exams and contests (`ClarificationContext`); decisions ASM-10 and ASM-11.
 
-- Only participants ask (contest/exam participants, active course students); staff and admins never ask. Asking and answering are limited to the context's active window; reading stays open. Asking is limited to 5 per user and context per 10 minutes.
+- Only participants ask and read as non-staff: contest participants, exam participants with an active student membership, and active students of a published assignment's course; staff and admins never ask. Asking and answering are limited to the context's active window; reading stays open. Asking is limited to 5 per user and context per 10 minutes.
 - States: `pending → answered | dismissed`, `answered → answered` (edit); nothing leaves `dismissed`.
 - `answer(id, { isPublic })` stores `Clarification.isPublic` (default false). Public answers broadcast an `updated` SSE event on the public channel; private ones go to the staff channel. The asker gets one `clarification_answered` notification on the first answer; edits and dismissals notify nobody. Canned replies are always public.
 - Non-staff `listForViewer` returns their own questions plus public ones, flagged `isMine`; the author is removed for non-staff.

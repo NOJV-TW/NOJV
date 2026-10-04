@@ -19,6 +19,7 @@ const {
   submissionFindMany,
   submissionFindUnique,
   testcaseSetCountByProblem,
+  testcaseSetAggregate,
   courseMembershipHasActiveStaff,
   acquireDisplayIdLock,
   maxDisplayId,
@@ -48,6 +49,7 @@ const {
   submissionFindMany: vi.fn(),
   submissionFindUnique: vi.fn(),
   testcaseSetCountByProblem: vi.fn(),
+  testcaseSetAggregate: vi.fn(),
   courseMembershipHasActiveStaff: vi.fn(),
   acquireDisplayIdLock: vi.fn(),
   maxDisplayId: vi.fn(),
@@ -147,6 +149,7 @@ vi.mock("@nojv/db", () => {
           delete: problemDelete,
         },
         submission: { findUnique: submissionFindUnique, findMany: submissionFindMany },
+        testcaseSet: { aggregate: testcaseSetAggregate },
         judgeExecution: { findFirst: vi.fn().mockResolvedValue(null) },
         scoreOverrideAuditLog: { findFirst: scoreAuditFind },
         submissionFeedbackAuditLog: { findFirst: feedbackAuditFind },
@@ -271,6 +274,7 @@ describe("updateProblemWorkspace — 1 MB per-language quota", () => {
             language: "python",
             path: "main.py",
             content: "print('hello')\n",
+            description: "",
             visibility: "editable",
           },
         ],
@@ -288,18 +292,21 @@ describe("updateProblemWorkspace — 1 MB per-language quota", () => {
             language: "python",
             path: "main.py",
             content: "print('hi')\n",
+            description: "",
             visibility: "editable",
           },
           {
             language: "python",
             path: "big_a.py",
             content: chunk,
+            description: "",
             visibility: "editable",
           },
           {
             language: "python",
             path: "big_b.py",
             content: chunk,
+            description: "",
             visibility: "editable",
           },
         ],
@@ -318,12 +325,14 @@ describe("updateProblemWorkspace — 1 MB per-language quota", () => {
             language: "python",
             path: "main.py",
             content: pythonChunk,
+            description: "",
             visibility: "editable",
           },
           {
             language: "cpp",
             path: "main.cpp",
             content: cppChunk,
+            description: "",
             visibility: "editable",
           },
         ],
@@ -341,12 +350,14 @@ describe("updateProblemWorkspace — 1 MB per-language quota", () => {
             language: "python",
             path: "main.py",
             content: pythonChunk,
+            description: "",
             visibility: "editable",
           },
           {
             language: "cpp",
             path: "main.cpp",
             content: cppBig,
+            description: "",
             visibility: "editable",
           },
         ],
@@ -363,11 +374,89 @@ describe("updateProblemWorkspace — 1 MB per-language quota", () => {
             language: "python",
             path: "main.py",
             content: chunk,
+            description: "",
             visibility: "editable",
           },
         ],
       }),
     ).rejects.toThrow(/python.*1 MB limit.*1100000 bytes/);
+  });
+});
+
+describe("updateProblemWorkspace — persisted fields and type guards", () => {
+  const actor = {
+    userId: "usr_author",
+    username: "author",
+    platformRole: "teacher" as const,
+  };
+  const mainFile = {
+    language: "python" as const,
+    path: "main.py",
+    content: "print(1)\n",
+    description: "",
+    visibility: "editable" as const,
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    problemFindById.mockResolvedValue({
+      id: "prob_1",
+      authorId: "usr_author",
+      status: "draft",
+      type: "multi_file",
+      judgeConfig: null,
+    });
+    putImmutableText.mockImplementation((_client: unknown, key: string, content: string) => ({
+      key,
+      sha256: "a".repeat(64),
+      size: Buffer.byteLength(content),
+    }));
+  });
+
+  it("persists each file's description", async () => {
+    await updateProblemWorkspace(actor, "prob_1", {
+      files: [{ ...mainFile, description: "Implement solve()." }],
+    });
+
+    expect(workspaceCreateMany).toHaveBeenCalledWith([
+      expect.objectContaining({ path: "main.py", description: "Implement solve()." }),
+    ]);
+  });
+
+  it("refuses to change the type of a published problem", async () => {
+    problemFindById.mockResolvedValue({
+      id: "prob_1",
+      authorId: "usr_author",
+      status: "published",
+      type: "multi_file",
+      judgeConfig: null,
+    });
+
+    await expect(
+      updateProblemWorkspace(actor, "prob_1", { type: "full_source", files: [mainFile] }),
+    ).rejects.toThrow(/Published problems cannot change type/);
+    expect(workspaceDeleteByProblemId).not.toHaveBeenCalled();
+    expect(problemUpdate).not.toHaveBeenCalled();
+  });
+
+  it("refuses workspace updates for Advanced-mode problems", async () => {
+    userFindById.mockResolvedValue({ canCreateAdvancedProblems: true });
+    problemFindById.mockResolvedValue({
+      id: "prob_1",
+      authorId: "usr_author",
+      status: "draft",
+      type: "special_env",
+      judgeConfig: null,
+    });
+
+    await expect(
+      updateProblemWorkspace(actor, "prob_1", {
+        runtime: { timeLimitMs: 30_000, memoryLimitMb: 1024, env: {} },
+        files: [],
+      }),
+    ).rejects.toBeInstanceOf(ConflictError);
+    expect(workspaceDeleteByProblemId).not.toHaveBeenCalled();
+    expect(problemUpdate).not.toHaveBeenCalled();
   });
 });
 
@@ -519,6 +608,7 @@ describe("updateProblemRecord — publication permissions", () => {
     vi.clearAllMocks();
     problemFindById.mockResolvedValue(draft);
     testcaseSetCountByProblem.mockResolvedValue(1);
+    testcaseSetAggregate.mockResolvedValue({ _sum: { weight: 100 } });
     submissionFindUnique.mockResolvedValue({
       assessmentId: null,
       contestId: null,
@@ -547,6 +637,14 @@ describe("updateProblemRecord — publication permissions", () => {
       displayId: 42,
       status: "published",
     });
+  });
+
+  it("rejects publishing when every subtask is worth 0 points", async () => {
+    testcaseSetAggregate.mockResolvedValue({ _sum: { weight: 0 } });
+    await expect(
+      updateProblemRecord(student, draft.id, { status: "published" }),
+    ).rejects.toThrow("Problems require at least one subtask worth points before publishing.");
+    expect(problemUpdate).not.toHaveBeenCalled();
   });
 
   it("rejects public publication by an ordinary student", async () => {
@@ -803,6 +901,7 @@ describe("course content publication and ownership", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     problemFindById.mockResolvedValue(problem);
+    testcaseSetAggregate.mockResolvedValue({ _sum: { weight: 100 } });
     courseProblemHasStaff.mockResolvedValue(true);
     courseProblemLockStaff.mockResolvedValue(true);
     courseMembershipHasActiveStaff.mockResolvedValue(true);

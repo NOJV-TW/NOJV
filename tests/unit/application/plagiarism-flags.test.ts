@@ -9,6 +9,8 @@ const {
   flagFindById,
   flagUpsert,
   flagDeleteById,
+  courseLock,
+  courseFindById,
 } = vi.hoisted(() => ({
   assessmentFindByIdWithCourseId: vi.fn(),
   examFindById: vi.fn(),
@@ -18,11 +20,24 @@ const {
   flagFindById: vi.fn(),
   flagUpsert: vi.fn(),
   flagDeleteById: vi.fn(),
+  courseLock: vi.fn(),
+  courseFindById: vi.fn(),
 }));
 
 vi.mock("@nojv/db", () => ({
-  assessmentRepo: { findByIdWithCourseId: assessmentFindByIdWithCourseId },
-  examRepo: { findById: examFindById },
+  runTransaction: async <T>(fn: (tx: unknown) => Promise<T>) => fn(TX),
+  courseRepo: {
+    withTx: () => ({
+      lockForShare: courseLock,
+      lockForUpdate: courseLock,
+      findById: courseFindById,
+    }),
+  },
+  assessmentRepo: {
+    findByIdWithCourseId: assessmentFindByIdWithCourseId,
+    withTx: () => ({ findById: assessmentFindByIdWithCourseId }),
+  },
+  examRepo: { findById: examFindById, withTx: () => ({ findById: examFindById }) },
   contestRepo: { findById: contestFindById },
   courseMembershipRepo: { findByComposite: courseMembershipFindByComposite },
   plagiarismPairFlagRepo: {
@@ -42,6 +57,8 @@ import {
 
 const { buildPairKey, flagPair, unflagPair, listFlagsForContext } = plagiarismDomain;
 
+const TX = { __tx: true };
+
 function actor(
   overrides: Partial<{
     userId: string;
@@ -59,6 +76,7 @@ function actor(
 
 beforeEach(() => {
   vi.clearAllMocks();
+  courseFindById.mockResolvedValue({ id: "crs_1", archived: false });
 });
 
 describe("buildPairKey", () => {
@@ -82,6 +100,7 @@ describe("flagPair permissions", () => {
   const pairKey = buildPairKey("u1", "u2", "prob_1");
 
   it("admin can flag any context", async () => {
+    assessmentFindByIdWithCourseId.mockResolvedValue({ id: "ca_1", courseId: "crs_1" });
     flagUpsert.mockResolvedValue({ id: "flag_1" });
     await flagPair(actor({ platformRole: "admin" }), {
       contextType: "assessment",
@@ -102,7 +121,7 @@ describe("flagPair permissions", () => {
     await flagPair(actor(), { contextType: "assessment", contextId: "ca_1", pairKey });
 
     expect(courseMembershipFindByComposite).toHaveBeenCalledWith("crs_1", "usr_actor");
-    expect(flagUpsert).toHaveBeenCalledWith({
+    expect(flagUpsert).toHaveBeenCalledWith(TX, {
       contextType: "assessment",
       contextId: "ca_1",
       pairKey,
@@ -187,7 +206,7 @@ describe("flagPair permissions", () => {
 
     expect(flagUpsert).toHaveBeenCalledTimes(2);
     for (const call of flagUpsert.mock.calls) {
-      expect(call[0]).toMatchObject({
+      expect(call[1]).toMatchObject({
         contextType: "assessment",
         contextId: "ca_1",
         pairKey,
@@ -212,8 +231,9 @@ describe("unflagPair", () => {
       contextId: "ca_1",
       pairKey: "u1|u2|p1",
     });
+    assessmentFindByIdWithCourseId.mockResolvedValue({ id: "ca_1", courseId: "crs_1" });
     await unflagPair(actor({ platformRole: "admin" }), "flag_1");
-    expect(flagDeleteById).toHaveBeenCalledWith("flag_1");
+    expect(flagDeleteById).toHaveBeenCalledWith(TX, "flag_1");
   });
 
   it("rejects non-staff actor", async () => {
@@ -247,7 +267,43 @@ describe("unflagPair", () => {
       status: "active",
     });
     await unflagPair(actor(), "flag_1");
-    expect(flagDeleteById).toHaveBeenCalledWith("flag_1");
+    expect(flagDeleteById).toHaveBeenCalledWith(TX, "flag_1");
+  });
+});
+
+describe("archived course flags", () => {
+  const readOnly = { name: "ValidationError", message: "Archived courses are read-only." };
+  const pairKey = buildPairKey("u1", "u2", "prob_1");
+
+  beforeEach(() => {
+    assessmentFindByIdWithCourseId.mockResolvedValue({ id: "ca_1", courseId: "crs_1" });
+    examFindById.mockResolvedValue({ id: "exm_1", courseId: "crs_1" });
+    courseMembershipFindByComposite.mockResolvedValue({ role: "teacher", status: "active" });
+    courseFindById.mockResolvedValue({ id: "crs_1", archived: true });
+  });
+
+  it.each(["assessment", "exam"] as const)(
+    "rejects flagging a %s pair",
+    async (contextType) => {
+      await expect(
+        flagPair(actor(), { contextType, contextId: "ca_1", pairKey }),
+      ).rejects.toMatchObject(readOnly);
+      expect(courseLock).toHaveBeenCalledWith("crs_1");
+      expect(flagUpsert).not.toHaveBeenCalled();
+    },
+  );
+
+  it("rejects unflagging, even for an admin", async () => {
+    flagFindById.mockResolvedValue({
+      id: "flag_1",
+      contextType: "exam",
+      contextId: "exm_1",
+      pairKey,
+    });
+    await expect(unflagPair(actor({ platformRole: "admin" }), "flag_1")).rejects.toMatchObject(
+      readOnly,
+    );
+    expect(flagDeleteById).not.toHaveBeenCalled();
   });
 });
 

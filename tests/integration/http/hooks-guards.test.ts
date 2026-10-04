@@ -82,7 +82,7 @@ const inspectAdminMode: RequestHandler = (event) =>
   new Response(JSON.stringify({ active: event.locals.adminAccessActive }));
 
 describe("multipart replacements at the shared problem storage limit", () => {
-  it.each(["checker", "interactor", "workspace"] as const)(
+  it.each(["checker", "interactor"] as const)(
     "allows same-size and shrinking %s replacements but rejects growth",
     async (kind) => {
       const { problemDomain } = await import("@nojv/application");
@@ -99,20 +99,11 @@ describe("multipart replacements at the shared problem storage limit", () => {
         username: author.username,
         platformRole: author.platformRole,
       };
-      if (kind === "workspace") {
-        await problemDomain.setWorkspaceFile(actor, problem.id, {
-          path: "main.py",
-          language: "python",
-          visibility: "editable",
-          content: "123456",
-        });
-      } else {
-        const save =
-          kind === "checker"
-            ? problemDomain.setProblemChecker
-            : problemDomain.setProblemInteractor;
-        await save(actor, problem.id, { language: "python", content: "123456" });
-      }
+      const save =
+        kind === "checker"
+          ? problemDomain.setProblemChecker
+          : problemDomain.setProblemInteractor;
+      await save(actor, problem.id, { language: "python", content: "123456" });
       const { activeStorageBytes } = await testPrisma.problem.findUniqueOrThrow({
         where: { id: problem.id },
       });
@@ -130,9 +121,7 @@ describe("multipart replacements at the shared problem storage limit", () => {
       const module =
         kind === "checker"
           ? await import("../../../apps/web/src/routes/api/problems/[id]/checker/+server")
-          : kind === "interactor"
-            ? await import("../../../apps/web/src/routes/api/problems/[id]/interactor/+server")
-            : await import("../../../apps/web/src/routes/api/problems/[id]/workspace/files/+server");
+          : await import("../../../apps/web/src/routes/api/problems/[id]/interactor/+server");
       for (const [content, expectedStatus] of [
         ["abcdef", 200],
         ["abcd", 200],
@@ -144,7 +133,7 @@ describe("multipart replacements at the shared problem storage limit", () => {
         formData.set("path", "main.py");
         formData.set("visibility", "editable");
         const response = await callRoute({
-          path: `/api/problems/${problem.id}/${kind === "workspace" ? "workspace/files" : kind}`,
+          path: `/api/problems/${problem.id}/${kind}`,
           method: "POST",
           module,
           params: { id: problem.id },
