@@ -122,6 +122,25 @@ describe("getJudgeContext", () => {
     ]);
   });
 
+  it("judges with the problem's limit columns and the runtime's env only", async () => {
+    findByIdWithJudgeContext.mockResolvedValue(
+      mkSubmissionRow(
+        {},
+        {
+          timeLimitMs: 3000,
+          memoryLimitMb: 512,
+          judgeConfig: {
+            type: "standard",
+            runtime: { env: { CC: "gcc" }, timeLimitMs: 1000, memoryLimitMb: 256 },
+          },
+        },
+      ),
+    );
+
+    const ctx = await getJudgeContext("sub_1");
+    expect(ctx.runtime).toEqual({ env: { CC: "gcc" }, timeLimitMs: 3000, memoryLimitMb: 512 });
+  });
+
   it("loads workspace files through the workspace blob helper", async () => {
     findByIdWithJudgeContext.mockResolvedValue(mkSubmissionRow());
     readWorkspaceFileBlob.mockResolvedValue("// my starter\n");

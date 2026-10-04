@@ -161,6 +161,26 @@ describe("saveProblemJudgeConfig", () => {
     });
   });
 
+  it("keeps the stored workspace runtime instead of the submitted one", async () => {
+    const runtime = { env: { MODE: "fresh" }, timeLimitMs: 2000, memoryLimitMb: 512 };
+    problemLock.mockResolvedValue({
+      id: "prob_1",
+      authorId: actor.userId,
+      visibility: "private",
+      type: "multi_file",
+      judgeConfig: { type: "standard", runtime },
+      checkerStorage: null,
+      interactorStorage: null,
+    });
+    await saveProblemJudgeConfig(actor, "prob_1", {
+      judgeConfig: {
+        type: "standard",
+        runtime: { env: { MODE: "stale" }, timeLimitMs: 1000, memoryLimitMb: 256 },
+      },
+    });
+    expect(problemUpdate.mock.calls[0]![1].judgeConfig).toEqual({ type: "standard", runtime });
+  });
+
   it("persists standard compare options without storage-derived config keys", async () => {
     await saveProblemJudgeConfig(actor, "prob_1", {
       judgeConfig: {

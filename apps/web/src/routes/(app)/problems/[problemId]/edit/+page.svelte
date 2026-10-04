@@ -116,12 +116,10 @@
 
   let workspaceInitial = $derived.by(() => {
     if (data.problem.type !== "multi_file") return undefined;
-    const runtime = (data.problem.judgeConfig?.runtime as
-      | { timeLimitMs: number; memoryLimitMb: number; env: Record<string, string> }
-      | undefined) ?? {
+    const runtime = {
       timeLimitMs: data.problem.timeLimitMs,
       memoryLimitMb: data.problem.memoryLimitMb,
-      env: {},
+      env: data.problem.judgeConfig?.runtime?.env ?? {},
     };
     return {
       runtime,

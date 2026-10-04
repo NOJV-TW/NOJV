@@ -84,8 +84,8 @@ export async function getJudgeContext(submissionId: string): Promise<PinnedJudge
 
   const samples = buildProblemSamples(problem);
 
-  const runtime: Runtime = judgeConfig.runtime ?? {
-    env: {},
+  const runtime: Runtime = {
+    env: judgeConfig.runtime?.env ?? {},
     memoryLimitMb: problem.memoryLimitMb,
     timeLimitMs: problem.timeLimitMs,
   };

@@ -349,11 +349,13 @@ timeout: `min(90 s + (2 × timeLimit + 5 s) × cases + 30 s, 540 s)`; judge cont
 
 ### Execute and measurement
 
-Per-case limits come from `judgeConfig.runtime`:
+Per-case limits come from the problem's limit columns, the single source of truth
+for every problem type (the workspace runtime section writes them too):
 
-- `timeLimitMs` — 100 ms to 30 s, default 1000
-- `memoryLimitMb` — 16 to 1024, default 256
-- `env` — extra environment variables
+- `Problem.timeLimitMs` — 100 ms to 30 s, default 1000
+- `Problem.memoryLimitMb` — 16 to 1024, default 256
+- `judgeConfig.runtime.env` — extra environment variables, owned by the workspace
+  section; Judge configuration saves keep the stored runtime
 
 Effective time limit is `ceil(timeLimitMs × LANGUAGE_TIME_FACTOR[language])` (c/cpp/rust
 1, go 1.5, java/javascript/typescript 2, python 3), applied once in the pinned
@@ -469,7 +471,7 @@ Standard Mode **Test** runs sample and custom cases in the browser via pinned
 **Submit** always uses the server pipeline, including checker, interactive and
 Advanced.
 
-- Uses `judgeConfig.runtime` limits and env (problem limits otherwise) with the
+- Uses the problem limits and `judgeConfig.runtime.env` with the
   language time factor; the problem time limit sets Forge's logical-time budget.
   Instruction or logical-time exhaustion is TLE.
 - Shares the comparator and workspace merge rules with the worker; only editable

@@ -66,7 +66,6 @@ export async function saveProblemJudgeConfig(
     ...(type === "standard" && input.judgeConfig.compare
       ? { compare: input.judgeConfig.compare }
       : {}),
-    ...(input.judgeConfig.runtime ? { runtime: input.judgeConfig.runtime } : {}),
   };
 
   return runTransaction(async (tx) => {
@@ -76,9 +75,10 @@ export async function saveProblemJudgeConfig(
       optionalPointerSize(current.interactorStorage);
     const nextBytes = (checkerStorage?.size ?? 0) + (interactorStorage?.size ?? 0);
     await assertProblemStorageBudget(problemId, nextBytes - previousBytes, tx);
+    const { runtime } = parsePersistedJudgeConfig(current.judgeConfig, problemId);
     await problemRepo.withTx(tx).update(problemId, {
       referenceSolutionSubmissionId: null,
-      judgeConfig,
+      judgeConfig: { ...judgeConfig, ...(runtime ? { runtime } : {}) },
       checkerStorage: checkerStorage ?? Prisma.DbNull,
       interactorStorage: interactorStorage ?? Prisma.DbNull,
       activeStorageBytes: { increment: nextBytes - previousBytes },

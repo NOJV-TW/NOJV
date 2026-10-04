@@ -10,6 +10,7 @@ The Standard Mode pipeline is implicit and fixed, not a list of configurable sta
 
 - Rejected: pipeline/stage-card editor; per-problem static analysis, artifact collection, network access, custom stage scripts and custom scoring scripts (the 2026-04-02/04-03 extensible pipeline); judge types as pipeline steps.
 - Rule: `judgeConfig` holds only type, checker/interactor language, `compare` and `runtime`; do not add stage arrays, static-analysis, artifact, network or custom-script settings.
+- Rule: `Problem.timeLimitMs`/`memoryLimitMb` are the only judged limits for every problem type; `judgeConfig.runtime` contributes only `env` to judging, and only the workspace section writes it.
 - Code: `packages/core/src/schemas/judge-config.ts`, `packages/core/src/types.ts`
 
 ### JDG-02 Standard compare is DOMjudge token comparison with two knobs
