@@ -38,6 +38,7 @@
   let { data, form }: { data: PageData; form: ActionData } = $props();
 
   const detail = $derived(data.detail);
+  const writable = $derived(!data.course.archived);
   const hasActiveSession = $derived(data.hasActiveSession ?? false);
   const isManager = $derived(data.isManager);
 
@@ -128,7 +129,7 @@
 
   let showOverrideDrawer = $state(false);
   let overridePrefill = $state<{ rowId: string; problemId: string } | null>(null);
-  const canSetOverride = $derived(data.canSetOverride ?? false);
+  const canSetOverride = $derived(writable && (data.canSetOverride ?? false));
 
   function gradeCell(rowId: string, problemId: string) {
     overridePrefill = { rowId, problemId };
@@ -251,6 +252,15 @@
       </StatRail>
     {/snippet}
   </AssessmentHero>
+
+  {#if !writable}
+    <p
+      role="status"
+      class="rounded-md border border-border-subtle px-4 py-3 text-body-sm text-muted-foreground"
+    >
+      {m.course_archivedReadOnly()}
+    </p>
+  {/if}
 
   <LateSubmissionSummary
     dueAt={detail.dueAt}
@@ -382,8 +392,8 @@
           <ClarificationTab
             contextType="exam"
             contextId={detail.id}
-            canAsk={data.clarification.canAsk}
-            canAnswer={data.clarification.canAnswer}
+            canAsk={writable && data.clarification.canAsk}
+            canAnswer={writable && data.clarification.canAnswer}
             problems={clarificationProblems}
           />
         </GlassPanel>
@@ -538,8 +548,8 @@
           <ClarificationTab
             contextType="exam"
             contextId={detail.id}
-            canAsk={data.clarification.canAsk}
-            canAnswer={data.clarification.canAnswer}
+            canAsk={writable && data.clarification.canAsk}
+            canAnswer={writable && data.clarification.canAnswer}
             problems={clarificationProblems}
           />
         </GlassPanel>
@@ -554,14 +564,16 @@
           <span class="size-1.5 rounded-full bg-primary"></span>
           <span>{m.examDetail_rulesNoteLabel()}</span>
         </div>
-        <a
-          href={assessmentSubTabHref(page.url, "settings")}
-          class="inline-flex size-7 items-center justify-center rounded-md bg-transparent text-muted-foreground transition-colors hover:bg-transparent hover:text-foreground"
-          aria-label={m.examDetail_managerEditButton()}
-          title={m.examDetail_managerEditButton()}
-        >
-          <Pencil aria-hidden="true" class="size-3" />
-        </a>
+        {#if writable}
+          <a
+            href={assessmentSubTabHref(page.url, "settings")}
+            class="inline-flex size-7 items-center justify-center rounded-md bg-transparent text-muted-foreground transition-colors hover:bg-transparent hover:text-foreground"
+            aria-label={m.examDetail_managerEditButton()}
+            title={m.examDetail_managerEditButton()}
+          >
+            <Pencil aria-hidden="true" class="size-3" />
+          </a>
+        {/if}
       </div>
       <p class="text-body-sm text-muted-foreground">
         {m.examDetail_rulesNoteSummary({
@@ -603,8 +615,8 @@
           rows={data.examCredentials}
           startsAt={detail.startsAt}
           enabled={detail.manager?.examPasswordEnabled ?? false}
-          canEdit={liveStatus !== "draft" && !past}
-          canResetIp={liveStatus === "running"}
+          canEdit={writable && liveStatus !== "draft" && !past}
+          canResetIp={writable && liveStatus === "running"}
         />
       {:else if activeSubTabKey === "submissions" && data.matrix}
         <LiveSubmissionsFeed
@@ -642,17 +654,23 @@
         <ExamProctoringTab
           violations={data.ipViolations ?? []}
           activeSessions={data.activeSessions ?? []}
+          canManage={writable}
         />
       {:else if activeSubTabKey === "settings" && data.settingsForm}
         {#key detail.id}
-          <ExamSettingsTab form={data.settingsForm} {detail} {liveStatus} />
+          <ExamSettingsTab
+            form={data.settingsForm}
+            {detail}
+            {liveStatus}
+            readOnly={!writable}
+          />
         {/key}
       {:else if activeSubTabKey === "clarifications"}
         <ClarificationTab
           contextType="exam"
           contextId={detail.id}
-          canAsk={data.clarification.canAsk}
-          canAnswer={data.clarification.canAnswer}
+          canAsk={writable && data.clarification.canAsk}
+          canAnswer={writable && data.clarification.canAnswer}
           problems={clarificationProblems}
         />
       {:else if activeSubTabKey === "audit"}
@@ -661,8 +679,8 @@
         <ExamProblemsTab
           {detail}
           {liveStatus}
-          canEdit={isManager}
-          canRejudge={isManager}
+          canEdit={isManager && writable}
+          canRejudge={isManager && writable}
           candidateProblems={data.candidateProblems}
           {form}
         />

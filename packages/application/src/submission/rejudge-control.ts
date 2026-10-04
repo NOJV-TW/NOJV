@@ -9,7 +9,6 @@ import { submissionOperationStatusSchema } from "@nojv/core";
 import {
   assessmentRepo,
   contestRepo,
-  courseRepo,
   durableWorkRepo,
   examRepo,
   prismaAdapterClient as db,
@@ -25,6 +24,7 @@ import {
   ServiceUnavailableError,
 } from "../shared/errors";
 import type { ActorContext } from "../shared/actor-context";
+import { lockWritableCourse } from "../shared/course-writable";
 import { toJsonValue } from "../shared/to-json-value";
 import { assertBatchRejudgeAccess, assertCanOperateOnSubmission } from "./permissions";
 
@@ -248,8 +248,13 @@ export async function cancelRejudge(
     where: { operationId: workflowId },
     orderBy: { submissionId: "asc" },
   });
+  const scopes = await db.submission.findMany({
+    where: { id: { in: rows.map((run) => run.submissionId) } },
+    select: { contestId: true, assessmentId: true, examId: true },
+  });
   const affectedUsers = new Set<string>();
   const cancelled = await db.$transaction(async (tx) => {
+    await lockRejudgeScopes(tx, actor, scopes);
     let count = 0;
     for (const selected of rows) {
       await tx.$queryRaw`SELECT id FROM "Submission" WHERE id = ${selected.submissionId} FOR UPDATE`;
@@ -329,7 +334,7 @@ async function lockRejudgeScopes(
     contexts.push({ type: "exam" as const, id, courseId: current.courseId });
   }
   const courseIds = [...new Set(contexts.map((context) => context.courseId))].sort();
-  for (const courseId of courseIds) await courseRepo.withTx(tx).lockForUpdate(courseId);
+  for (const courseId of courseIds) await lockWritableCourse(tx, courseId);
   for (const courseId of courseIds)
     await tx.$queryRaw`SELECT id FROM "CourseMembership" WHERE "courseId" = ${courseId} AND "userId" = ${actor.userId} FOR UPDATE`;
   for (const context of contexts) {

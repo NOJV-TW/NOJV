@@ -44,6 +44,7 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
   const parent = await event.parent();
   const { course, isManager } = parent;
   const actorRole = await getCoursePermissionRole(course.id, actor);
+  const writable = !course.archived;
   const canChangeRoles = canManageMembers(actorRole);
   const viewer = { userId: actor.userId, role: actorRole };
 
@@ -59,7 +60,7 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
     .filter((member) => isManager || !member.isPending)
     .filter((member) => member.userId !== actor.userId || member.role !== "teacher")
     .map((member) => {
-      const canManage = memberActionDenial(viewer, member, "manage") === null;
+      const canManage = writable && memberActionDenial(viewer, member, "manage") === null;
       return {
         membershipId: member.membershipId,
         userId: member.userId,
@@ -69,7 +70,7 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
         email: isManager ? member.email : null,
         role: member.role,
         isPending: member.isPending,
-        canRemove: memberActionDenial(viewer, member, "remove") === null,
+        canRemove: writable && memberActionDenial(viewer, member, "remove") === null,
         canChangeRole: canManage,
         canCorrectUsername: member.isPending && canManage,
         joinedAt: member.joinedAt,
@@ -78,6 +79,7 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
 
   return {
     members: visibleMembers,
+    canAddMembers: isManager && writable,
     canChangeRoles,
     canAssignTeacher: canAssignCourseRole(actorRole, "teacher"),
     bulkAddForm,

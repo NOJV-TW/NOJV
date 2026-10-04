@@ -36,7 +36,7 @@ function row(membershipId: string, overrides: Record<string, unknown>) {
   };
 }
 
-async function loadAs(platformRole: "admin" | "teacher", courseRole: string) {
+async function loadAs(platformRole: "admin" | "teacher", courseRole: string, archived = false) {
   mocks.permission.mockResolvedValue(courseRole);
   const url = new URL("http://localhost/courses/course_1/members");
   const data = await load({
@@ -44,7 +44,7 @@ async function loadAs(platformRole: "admin" | "teacher", courseRole: string) {
     url,
     request: new Request(url),
     locals: { sessionUser: { id: ACTOR_ID, username: "actor", platformRole } },
-    parent: async () => ({ course: { id: "course_1" }, isManager: true }),
+    parent: async () => ({ course: { id: "course_1", archived }, isManager: true }),
   } as never);
   if (!data) throw new Error("No load data");
   return {
@@ -96,4 +96,17 @@ it("lets a TA remove students only", async () => {
   expect(data.byId.student).toMatchObject({ canRemove: true, canChangeRole: false });
   expect(data.byId.ta).toMatchObject({ canRemove: false, canChangeRole: false });
   expect(data.byId["co-teacher"]).toMatchObject({ canRemove: false, canChangeRole: false });
+});
+
+it("offers no roster writes on an archived course", async () => {
+  const data = await loadAs("admin", "admin", true);
+  expect(data.canAddMembers).toBe(false);
+  for (const member of data.members) {
+    expect(member).toMatchObject({
+      canRemove: false,
+      canChangeRole: false,
+      canCorrectUsername: false,
+    });
+  }
+  expect((await loadAs("admin", "admin")).canAddMembers).toBe(true);
 });

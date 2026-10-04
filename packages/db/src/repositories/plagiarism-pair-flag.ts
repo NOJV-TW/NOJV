@@ -1,5 +1,6 @@
 import { prisma } from "../client";
 import type { PlagiarismContext } from "../../generated/prisma/enums";
+import type { TransactionClient } from "../transaction";
 
 export type { PlagiarismContext };
 
@@ -25,14 +26,17 @@ export const plagiarismPairFlagRepo = {
     return prisma.plagiarismPairFlag.findUnique({ where: { id } });
   },
 
-  upsert(input: {
-    contextType: PlagiarismContext;
-    contextId: string;
-    pairKey: string;
-    flaggedBy: string;
-    note: string | null;
-  }) {
-    return prisma.plagiarismPairFlag.upsert({
+  upsert(
+    tx: TransactionClient,
+    input: {
+      contextType: PlagiarismContext;
+      contextId: string;
+      pairKey: string;
+      flaggedBy: string;
+      note: string | null;
+    },
+  ) {
+    return tx.plagiarismPairFlag.upsert({
       where: {
         contextType_contextId_pairKey: {
           contextType: input.contextType,
@@ -55,7 +59,7 @@ export const plagiarismPairFlagRepo = {
     });
   },
 
-  deleteById(id: string) {
-    return prisma.plagiarismPairFlag.delete({ where: { id } });
+  deleteById(tx: TransactionClient, id: string) {
+    return tx.plagiarismPairFlag.delete({ where: { id } });
   },
 };

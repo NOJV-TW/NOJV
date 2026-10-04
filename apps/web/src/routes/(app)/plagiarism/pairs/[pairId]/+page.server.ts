@@ -57,6 +57,7 @@ async function assertCourseStaff(
   if (!isCourseManager(actor, course)) {
     throw new ForbiddenError("Only course staff can view plagiarism diff.");
   }
+  return course;
 }
 
 async function assertAssignmentManager(actor: CompletedActorContext, assignmentId: string) {
@@ -64,7 +65,7 @@ async function assertAssignmentManager(actor: CompletedActorContext, assignmentI
   if (!assignment) {
     throw new NotFoundError("Assignment not found.");
   }
-  await assertCourseStaff(actor, assignment.course.id, "Course not found.");
+  return assertCourseStaff(actor, assignment.course.id, "Course not found.");
 }
 
 async function assertExamManager(actor: CompletedActorContext, examId: string) {
@@ -72,7 +73,7 @@ async function assertExamManager(actor: CompletedActorContext, examId: string) {
   if (!exam) {
     throw new NotFoundError("Exam not found.");
   }
-  await assertCourseStaff(actor, exam.courseId, "Exam not found.");
+  return assertCourseStaff(actor, exam.courseId, "Exam not found.");
 }
 
 async function assertContestManager(actor: CompletedActorContext, contestId: string) {
@@ -91,20 +92,22 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
   const { contextType, contextId, pairKey } = parsePairIdParam(event.params.pairId);
 
   if (contextType === "assessment") {
-    await assertAssignmentManager(actor, contextId);
+    const course = await assertAssignmentManager(actor, contextId);
     return await loadPlagiarismPair({
       pairId: pairKey,
       target: { type: "assessment", id: contextId },
       flagContext: "assessment",
+      canFlag: !course.archived,
     });
   }
 
   if (contextType === "exam") {
-    await assertExamManager(actor, contextId);
+    const course = await assertExamManager(actor, contextId);
     return await loadPlagiarismPair({
       pairId: pairKey,
       target: { type: "exam", id: contextId },
       flagContext: "exam",
+      canFlag: !course.archived,
     });
   }
 
@@ -113,5 +116,6 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
     pairId: pairKey,
     target: { type: "contest", id: contextId },
     flagContext: "contest",
+    canFlag: true,
   });
 });

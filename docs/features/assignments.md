@@ -19,7 +19,7 @@ Acceptance spec for course homework (`Assessment`, routes `/assignments/[assignm
 
 ## Model
 
-- Persistent `status` is `draft | published`. Live status derives from `(status, opensAt, closesAt, now)`: `draft`, `upcoming` (`opensAt > now`), `open`, `closed` (`closesAt < now`). There is no assignment archive state; an archived parent course hides its assignments from students and rejects submissions and mutations.
+- Persistent `status` is `draft | published`. Live status derives from `(status, opensAt, closesAt, now)`: `draft`, `upcoming` (`opensAt > now`), `open`, `closed` (`closesAt < now`). There is no assignment archive state; an archived parent course is read-only (ASM-26): students get 403 on its closed assignments and on every assignment solve page, and submissions and every write are rejected.
 - Settings: `allowedLanguages`, `maxAttemptsPerDay`, `attemptResetMinuteOfDay` (minutes after Taipei midnight, default 300 = 05:00), `dueAt`, `closesAt`, `adjustmentRules` (late penalty; see [Judge Pipeline](../architecture/JUDGE_PIPELINE.md#adjustment-rules)).
 - Publishing ensures the due-soon reminder workflow; changing `opensAt`/`closesAt` on a published assignment replaces it; revert and delete cancel it.
 
@@ -87,7 +87,7 @@ Rules come from PRB-10 and PRB-11; data model in [Database](../architecture/DATA
 ### Permissions
 
 - Mutations require a bound, active teacher/TA membership in the course or effective admin access. Course ownership or being the creator grants nothing; pending usernames and removed memberships grant nothing; a platform student who is an active TA is allowed.
-- Archived courses reject activity mutations even for staff. Assignment submissions and code-draft reads and writes in an archived course fail with `ForbiddenError("This course is archived.")` for every role.
+- Archived courses are read-only for every role, admins included (ASM-26). Activity mutations, library changes, score overrides, feedback, rejudges (including cancelling one), clarification questions, answers, dismissals and deletions, plagiarism runs and flag changes fail with `ValidationError("Archived courses are read-only.")`. Assignment submissions and code-draft reads and writes fail with `ForbiddenError("This course is archived.")`. The assignment pages keep every read and hide or disable the write controls: settings are disabled, the problem list is read-only, and grading, rejudge and clarification controls are hidden.
 
 ### Problem attachment
 

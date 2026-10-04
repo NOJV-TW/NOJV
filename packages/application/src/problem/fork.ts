@@ -18,6 +18,7 @@ import {
 } from "../shared/errors";
 
 import type { ProblemActorContext } from "./permissions";
+import { assertCourseWritable } from "../shared/course-writable";
 import { isCourseStaffTx } from "../shared/permissions";
 import { requireCourse } from "../shared/require";
 
@@ -256,7 +257,7 @@ export async function resolveActivityProblems(
     ) {
       throw new ForbiddenError("You do not have permission to manage this course.");
     }
-    if (course.archived) throw new ValidationError("Archived courses are read-only.");
+    assertCourseWritable(course);
   }
   if (problemIds.length === 0) return [];
 

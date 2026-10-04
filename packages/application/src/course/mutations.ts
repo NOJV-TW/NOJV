@@ -22,6 +22,7 @@ import {
   NotFoundError,
   ValidationError,
 } from "../shared/errors";
+import { assertCourseWritable } from "../shared/course-writable";
 import { assertCourseManager, canCreateCourse } from "../shared/permissions";
 import { requireCourse, requireUser } from "../shared/require";
 import { resolveActivityProblems } from "../problem/fork";
@@ -151,8 +152,9 @@ export async function updateCourse(
 ) {
   return runTransaction(async (tx) => {
     await courseRepo.withTx(tx).lockForUpdate(courseId);
-    await requireCourse(tx, courseId);
+    const course = await requireCourse(tx, courseId);
     await assertCourseManager(actor, courseId, tx);
+    assertCourseWritable(course);
 
     return courseRepo.withTx(tx).update(courseId, {
       description: payload.description,

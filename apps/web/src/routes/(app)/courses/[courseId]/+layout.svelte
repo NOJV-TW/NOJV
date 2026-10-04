@@ -4,6 +4,7 @@
   import CourseHero from "$lib/components/features/course/CourseHero.svelte";
   import CourseTabBar from "$lib/components/features/course/CourseTabBar.svelte";
   import type { CourseTabKey } from "$lib/components/features/course/CourseTabBar.svelte";
+  import { m } from "$lib/paraglide/messages.js";
   import type { LayoutData } from "./$types";
 
   interface Props {
@@ -53,4 +54,12 @@
   showAnalytics={data.isManager}
   showSettings={data.isManager}
 />
+{#if data.course.archived}
+  <p
+    role="status"
+    class="mb-6 rounded-md border border-border-subtle px-4 py-3 text-body-sm text-muted-foreground"
+  >
+    {m.course_archivedReadOnly()}
+  </p>
+{/if}
 {@render children?.()}

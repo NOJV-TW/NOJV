@@ -16,7 +16,7 @@ export const load: PageServerLoad = async (event) => {
   const actor = requireAuth(event);
   const parent = await event.parent();
   const { course, isManager } = parent;
-  if (!isManager) {
+  if (!isManager || course.archived) {
     redirect(302, `/courses/${course.id}/assignments`);
   }
 

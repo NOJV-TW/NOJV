@@ -27,8 +27,20 @@ const {
 }));
 
 vi.mock("@nojv/db", () => ({
-  examRepo: { findByIdWithCourse: examFindByIdWithCourse },
-  assessmentRepo: { findByIdWithCourseId: assessmentFindByIdWithCourseId },
+  examRepo: {
+    findByIdWithCourse: examFindByIdWithCourse,
+    withTx: () => ({ findById: () => Promise.resolve({ courseId: "crs_1" }) }),
+  },
+  assessmentRepo: {
+    findByIdWithCourseId: assessmentFindByIdWithCourseId,
+    withTx: () => ({ findById: () => Promise.resolve({ courseId: "crs_1" }) }),
+  },
+  courseRepo: {
+    withTx: () => ({
+      lockForUpdate: () => Promise.resolve([]),
+      findById: () => Promise.resolve({ id: "crs_1", archived: false }),
+    }),
+  },
   contestRepo: { findById: contestFindById },
   plagiarismRepo: {
     upsertForExam,

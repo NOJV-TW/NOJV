@@ -8,6 +8,7 @@ export interface PlagiarismPairDiffData {
     problemId: string;
   };
   pairKey: string;
+  canFlag: boolean;
   contextType: plagiarismDomain.PlagiarismContext;
   contextId: string;
   left: {

@@ -83,136 +83,138 @@
       </div>
     </div>
 
-    <form method="POST" action="?/updateInfo" use:enhance class="space-y-0">
-      <FormError message={updateErrorText} />
+    <form method="POST" action="?/updateInfo" use:enhance>
+      <fieldset disabled={archivedLocal} class="min-w-0">
+        <FormError message={updateErrorText} />
 
-      {#if updateSuccess}
-        <div
-          role="status"
-          aria-live="polite"
-          class="mb-4 flex items-start gap-3 rounded-md border border-success/30 bg-success/10 px-4 py-3 text-success"
-        >
-          <Info class="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
-          <p class="text-body-sm font-medium leading-snug">
-            {m.courseSettings_saveSuccess()}
-          </p>
-        </div>
-      {/if}
-
-      <div
-        class="grid grid-cols-1 items-start gap-4 border-b border-border-subtle py-4 md:grid-cols-[220px_1fr] md:gap-6"
-      >
-        <label for="title" class="text-body-sm font-medium leading-tight md:pt-2.5">
-          {m.courseSettings_titleLabel()}
-          <span class="mt-0.5 block text-caption font-normal text-muted-foreground">
-            {m.courseSettings_titleLabelDesc()}
-          </span>
-        </label>
-        <div>
-          <input
-            id="title"
-            name="title"
-            type="text"
-            bind:value={$updateForm.title}
-            aria-invalid={Boolean($errors.title)}
-            aria-describedby={$errors.title ? "title-error" : undefined}
-            class="w-full rounded-md border border-border bg-background px-3.5 py-2.5 text-body-sm focus-visible:border-ring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 aria-invalid:border-destructive"
-          />
-          {#if $errors.title}
-            <p id="title-error" class="mt-1 text-caption text-destructive">{$errors.title}</p>
-          {/if}
-        </div>
-      </div>
-
-      <div class="grid grid-cols-1 items-start gap-4 py-4 md:grid-cols-[220px_1fr] md:gap-6">
-        <label for="description" class="text-body-sm font-medium leading-tight md:pt-2.5">
-          {m.courseSettings_descriptionLabel()}
-          <span class="mt-0.5 block text-caption font-normal text-muted-foreground">
-            {m.courseSettings_descriptionLabelDesc()}
-          </span>
-        </label>
-        <div>
-          <textarea
-            id="description"
-            name="description"
-            rows="3"
-            bind:value={$updateForm.description}
-            aria-invalid={Boolean($errors.description)}
-            aria-describedby={$errors.description ? "description-error" : undefined}
-            class="min-h-24 w-full resize-y rounded-md border border-border bg-background px-3.5 py-2.5 text-body-sm focus-visible:border-ring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 aria-invalid:border-destructive"
-          ></textarea>
-          {#if $errors.description}
-            <p id="description-error" class="mt-1 text-caption text-destructive">
-              {$errors.description}
+        {#if updateSuccess}
+          <div
+            role="status"
+            aria-live="polite"
+            class="mb-4 flex items-start gap-3 rounded-md border border-success/30 bg-success/10 px-4 py-3 text-success"
+          >
+            <Info class="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+            <p class="text-body-sm font-medium leading-snug">
+              {m.courseSettings_saveSuccess()}
             </p>
-          {/if}
-        </div>
-      </div>
+          </div>
+        {/if}
 
-      <div
-        class="grid grid-cols-1 items-start gap-4 border-b border-border-subtle py-4 md:grid-cols-[220px_1fr] md:gap-6"
-      >
-        <div class="text-body-sm font-medium leading-tight md:pt-2.5">
-          {m.courseSettings_termLabel()}
-          <span class="mt-0.5 block text-caption font-normal text-muted-foreground">
-            {m.courseSettings_termLabelDesc()}
-          </span>
-        </div>
-        <div class="grid grid-cols-2 gap-4">
+        <div
+          class="grid grid-cols-1 items-start gap-4 border-b border-border-subtle py-4 md:grid-cols-[220px_1fr] md:gap-6"
+        >
+          <label for="title" class="text-body-sm font-medium leading-tight md:pt-2.5">
+            {m.courseSettings_titleLabel()}
+            <span class="mt-0.5 block text-caption font-normal text-muted-foreground">
+              {m.courseSettings_titleLabelDesc()}
+            </span>
+          </label>
           <div>
-            <label class="text-caption font-medium text-muted-foreground" for="academicYear">
-              {m.coursesNew_academicYearLabel()}
-            </label>
             <input
-              id="academicYear"
-              name="academicYear"
-              type="number"
-              min="100"
-              max="999"
-              placeholder={m.coursesNew_academicYearPlaceholder()}
-              bind:value={$updateForm.academicYear}
-              aria-invalid={Boolean($errors.academicYear)}
-              aria-describedby={$errors.academicYear ? "academicYear-error" : undefined}
-              class="mt-1 w-full rounded-md border border-border bg-background px-3.5 py-2.5 text-body-sm focus-visible:border-ring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 aria-invalid:border-destructive"
+              id="title"
+              name="title"
+              type="text"
+              bind:value={$updateForm.title}
+              aria-invalid={Boolean($errors.title)}
+              aria-describedby={$errors.title ? "title-error" : undefined}
+              class="w-full rounded-md border border-border bg-background px-3.5 py-2.5 text-body-sm focus-visible:border-ring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 aria-invalid:border-destructive"
             />
-            {#if $errors.academicYear}
-              <p id="academicYear-error" class="mt-1 text-caption text-destructive">
-                {$errors.academicYear}
-              </p>
+            {#if $errors.title}
+              <p id="title-error" class="mt-1 text-caption text-destructive">{$errors.title}</p>
             {/if}
           </div>
+        </div>
+
+        <div class="grid grid-cols-1 items-start gap-4 py-4 md:grid-cols-[220px_1fr] md:gap-6">
+          <label for="description" class="text-body-sm font-medium leading-tight md:pt-2.5">
+            {m.courseSettings_descriptionLabel()}
+            <span class="mt-0.5 block text-caption font-normal text-muted-foreground">
+              {m.courseSettings_descriptionLabelDesc()}
+            </span>
+          </label>
           <div>
-            <label class="text-caption font-medium text-muted-foreground" for="semester">
-              {m.coursesNew_semesterLabel()}
-            </label>
-            <select
-              id="semester"
-              name="semester"
-              bind:value={$updateForm.semester}
-              aria-invalid={Boolean($errors.semester)}
-              aria-describedby={$errors.semester ? "semester-error" : undefined}
-              class="mt-1 w-full rounded-md border border-border bg-background px-3.5 py-2.5 text-body-sm focus-visible:border-ring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 aria-invalid:border-destructive"
-            >
-              <option value={undefined}>{m.coursesNew_semesterPlaceholder()}</option>
-              <option value={1}>{m.coursesNew_semesterOption1()}</option>
-              <option value={2}>{m.coursesNew_semesterOption2()}</option>
-              <option value={3}>{m.coursesNew_semesterOption3()}</option>
-            </select>
-            {#if $errors.semester}
-              <p id="semester-error" class="mt-1 text-caption text-destructive">
-                {$errors.semester}
+            <textarea
+              id="description"
+              name="description"
+              rows="3"
+              bind:value={$updateForm.description}
+              aria-invalid={Boolean($errors.description)}
+              aria-describedby={$errors.description ? "description-error" : undefined}
+              class="min-h-24 w-full resize-y rounded-md border border-border bg-background px-3.5 py-2.5 text-body-sm focus-visible:border-ring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 aria-invalid:border-destructive"
+            ></textarea>
+            {#if $errors.description}
+              <p id="description-error" class="mt-1 text-caption text-destructive">
+                {$errors.description}
               </p>
             {/if}
           </div>
         </div>
-      </div>
 
-      <div class="flex items-center justify-end gap-3 pt-4">
-        <Button type="submit" loading={$updateSubmitting} disabled={$updateSubmitting}>
-          <Save class="h-4 w-4" aria-hidden="true" />
-          {m.courseSettings_saveButton()}
-        </Button>
-      </div>
+        <div
+          class="grid grid-cols-1 items-start gap-4 border-b border-border-subtle py-4 md:grid-cols-[220px_1fr] md:gap-6"
+        >
+          <div class="text-body-sm font-medium leading-tight md:pt-2.5">
+            {m.courseSettings_termLabel()}
+            <span class="mt-0.5 block text-caption font-normal text-muted-foreground">
+              {m.courseSettings_termLabelDesc()}
+            </span>
+          </div>
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label class="text-caption font-medium text-muted-foreground" for="academicYear">
+                {m.coursesNew_academicYearLabel()}
+              </label>
+              <input
+                id="academicYear"
+                name="academicYear"
+                type="number"
+                min="100"
+                max="999"
+                placeholder={m.coursesNew_academicYearPlaceholder()}
+                bind:value={$updateForm.academicYear}
+                aria-invalid={Boolean($errors.academicYear)}
+                aria-describedby={$errors.academicYear ? "academicYear-error" : undefined}
+                class="mt-1 w-full rounded-md border border-border bg-background px-3.5 py-2.5 text-body-sm focus-visible:border-ring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 aria-invalid:border-destructive"
+              />
+              {#if $errors.academicYear}
+                <p id="academicYear-error" class="mt-1 text-caption text-destructive">
+                  {$errors.academicYear}
+                </p>
+              {/if}
+            </div>
+            <div>
+              <label class="text-caption font-medium text-muted-foreground" for="semester">
+                {m.coursesNew_semesterLabel()}
+              </label>
+              <select
+                id="semester"
+                name="semester"
+                bind:value={$updateForm.semester}
+                aria-invalid={Boolean($errors.semester)}
+                aria-describedby={$errors.semester ? "semester-error" : undefined}
+                class="mt-1 w-full rounded-md border border-border bg-background px-3.5 py-2.5 text-body-sm focus-visible:border-ring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 aria-invalid:border-destructive"
+              >
+                <option value={undefined}>{m.coursesNew_semesterPlaceholder()}</option>
+                <option value={1}>{m.coursesNew_semesterOption1()}</option>
+                <option value={2}>{m.coursesNew_semesterOption2()}</option>
+                <option value={3}>{m.coursesNew_semesterOption3()}</option>
+              </select>
+              {#if $errors.semester}
+                <p id="semester-error" class="mt-1 text-caption text-destructive">
+                  {$errors.semester}
+                </p>
+              {/if}
+            </div>
+          </div>
+        </div>
+
+        <div class="flex items-center justify-end gap-3 pt-4">
+          <Button type="submit" loading={$updateSubmitting} disabled={$updateSubmitting}>
+            <Save class="h-4 w-4" aria-hidden="true" />
+            {m.courseSettings_saveButton()}
+          </Button>
+        </div>
+      </fieldset>
     </form>
   </section>
 

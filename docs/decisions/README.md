@@ -88,6 +88,7 @@ Durable decisions for NOJV, grouped by area. Each entry records what was decided
 - ASM-23 Plagiarism detection runs Dolos in-process in the worker
 - ASM-24 Plagiarism results are curatable and re-runs leave a receipt
 - ASM-25 Course management authority is one active-membership check; ownership is not a grant
+- ASM-26 Archived courses are read-only
 
 ## [Authentication and security](security.md)
 

@@ -148,7 +148,7 @@ export async function listForUserWithCards(userId: string): Promise<{
       description: course.description,
       ownerDisplayName: course.owner.name,
       role,
-      archived: false,
+      archived: course.archived,
       academicYear: course.academicYear,
       semester: course.semester,
       studentCount: course._count.memberships,

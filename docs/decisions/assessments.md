@@ -276,3 +276,15 @@ Whether an actor manages a course is decided only by `resolveCourseRole` in `pac
 - Rule: Web routes and application code call `isCourseManager`, `getCourseRole` or `assertCourseManager`; do not re-derive manager status from `ownerId` or raw membership fields.
 - Rule: Every path that creates a course (new, copy) enforces `canCreateCourse` in the application layer and creates the owner's active teacher membership.
 - Code: `packages/application/src/shared/permissions.ts`, `packages/application/src/course/mutations.ts`, `apps/web/src/lib/server/auth.ts`
+
+### ASM-26 Archived courses are read-only
+
+**Decided:** 2026-10 · **Source:** this PR
+
+Archiving freezes a course for every role, admins included. Course info, announcements, the roster, activities and the course problem library, score overrides and feedback, rejudges and their cancellation, clarifications, plagiarism runs and flags, and exam staff actions (session release, IP binding reset, temporary passwords) fail with `ValidationError("Archived courses are read-only.")`; student submissions, code drafts and exam sessions keep their `ForbiddenError`. Everything stays readable, and pages hide or disable each blocked control. Archiving is how a term ends, so its record must stop changing; editing an archived course means unarchiving it first.
+
+- Rejected: letting course staff keep grading, rejudging, curating plagiarism, answering clarifications and editing the roster or announcements on an archived course (only activity and library edits were blocked); gating archived courses in the UI only.
+- Rule: The check runs inside the transaction that performs the write, after the authority check, while that transaction holds the `Course` row lock (`lockWritableCourse`, `lockWritableContextCourse`, or `assertCourseWritable` on a row read under the lock), so an archive toggle cannot interleave with the write.
+- Rule: System and lifecycle work without a user actor is never blocked: Temporal workflows, durable work, judging and already-dispatched rejudges, exam auto-close, scheduled credential issuance and revocation, notifications, and roster binding on identity changes.
+- Rule: While a course is archived, unarchiving, deleting (subject to the submission guard) and copying it are its only course-level writes; a copy is a new, unarchived course.
+- Code: `packages/application/src/shared/course-writable.ts`, `packages/application/src/course/mutations.ts`, `packages/application/src/course/problem-library.ts`, `apps/web/src/routes/(app)/courses/[courseId]/+layout.svelte`

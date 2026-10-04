@@ -106,7 +106,7 @@
 </script>
 
 <PageContainer class="space-y-8">
-  {#if isManager}
+  {#if data.canAddMembers}
     <BulkHandleAddPanel form={bulkAddForm} canAddTa={data.canChangeRoles} />
   {/if}
 

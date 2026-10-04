@@ -23,6 +23,7 @@ it("offers one IP reset per blocked student even without an active session", asy
   const tab = mount(ExamProctoringTab, {
     target,
     props: {
+      canManage: true,
       activeSessions: [],
       violations: [
         violation("v1", "usr_a"),
@@ -37,6 +38,36 @@ it("offers one IP reset per blocked student even without an active session", asy
     expect(
       forms.map((f) => f.querySelector<HTMLInputElement>('input[name="targetUserId"]')?.value),
     ).toEqual(["usr_a", "usr_b"]);
+  } finally {
+    await unmount(tab);
+    target.remove();
+  }
+});
+
+it("keeps sessions and violations readable without staff actions on an archived course", async () => {
+  const target = document.createElement("div");
+  document.body.append(target);
+  const tab = mount(ExamProctoringTab, {
+    target,
+    props: {
+      canManage: false,
+      activeSessions: [
+        {
+          userId: "usr_a",
+          displayName: "Student A",
+          handle: "usr_a",
+          startedAt: "2026-09-20T09:00:00.000Z",
+        },
+      ],
+      violations: [violation("v1", "usr_a")],
+    },
+  });
+  await tick();
+  try {
+    expect(target.textContent).toContain("Student A");
+    expect(target.textContent).toContain("198.51.100.20");
+    expect(target.querySelectorAll("form")).toHaveLength(0);
+    expect(target.querySelectorAll("button")).toHaveLength(0);
   } finally {
     await unmount(tab);
     target.remove();

@@ -29,10 +29,11 @@
   interface Props {
     violations: IpViolationRow[];
     activeSessions: ActiveSessionRow[];
+    canManage: boolean;
     class?: string;
   }
 
-  let { violations, activeSessions, class: className }: Props = $props();
+  let { violations, activeSessions, canManage, class: className }: Props = $props();
 
   let confirmingReleaseAll = $state(false);
 
@@ -58,7 +59,7 @@
         {m.examProctoring_sessionsActive({ count: activeSessions.length })}
       </p>
     </div>
-    {#if confirmingReleaseAll}
+    {#if canManage && confirmingReleaseAll}
       <div class="flex flex-wrap items-center justify-end gap-2">
         <span class="mr-auto text-caption text-muted-foreground">
           {m.examProctoring_releaseAllConfirmBody({ count: activeSessions.length })}
@@ -86,7 +87,7 @@
           </Button>
         </form>
       </div>
-    {:else}
+    {:else if canManage}
       <Button
         type="button"
         variant="outline"
@@ -124,20 +125,22 @@
                 {formatDateTime(s.startedAt)}
               </td>
               <td class="py-2 text-right">
-                <div class="flex justify-end gap-2">
-                  <form method="POST" action="?/resetStudentIpBinding" use:enhance>
-                    <input type="hidden" name="targetUserId" value={s.userId} />
-                    <Button type="submit" variant="outline" size="sm">
-                      {m.examProctoring_resetIpBinding()}
-                    </Button>
-                  </form>
-                  <form method="POST" action="?/releaseStudentSession" use:enhance>
-                    <input type="hidden" name="targetUserId" value={s.userId} />
-                    <Button type="submit" variant="outline" size="sm">
-                      {m.examProctoring_release()}
-                    </Button>
-                  </form>
-                </div>
+                {#if canManage}
+                  <div class="flex justify-end gap-2">
+                    <form method="POST" action="?/resetStudentIpBinding" use:enhance>
+                      <input type="hidden" name="targetUserId" value={s.userId} />
+                      <Button type="submit" variant="outline" size="sm">
+                        {m.examProctoring_resetIpBinding()}
+                      </Button>
+                    </form>
+                    <form method="POST" action="?/releaseStudentSession" use:enhance>
+                      <input type="hidden" name="targetUserId" value={s.userId} />
+                      <Button type="submit" variant="outline" size="sm">
+                        {m.examProctoring_release()}
+                      </Button>
+                    </form>
+                  </div>
+                {/if}
               </td>
             </tr>
           {/each}
@@ -208,7 +211,7 @@
               </td>
               <td class="py-2 pr-3 font-mono text-caption">{v.actualIp}</td>
               <td class="py-2 text-right">
-                {#if resettableRowIds.has(v.id)}
+                {#if canManage && resettableRowIds.has(v.id)}
                   <form method="POST" action="?/resetStudentIpBinding" use:enhance>
                     <input type="hidden" name="targetUserId" value={v.userId} />
                     <Button type="submit" variant="outline" size="sm">

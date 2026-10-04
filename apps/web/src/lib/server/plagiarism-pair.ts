@@ -74,6 +74,7 @@ interface LoadPlagiarismPairInput {
   pairId: string;
   target: plagiarismDomain.PlagiarismTarget;
   flagContext: plagiarismDomain.PlagiarismContext;
+  canFlag: boolean;
 }
 
 export async function loadPlagiarismPair(
@@ -122,6 +123,7 @@ export async function loadPlagiarismPair(
       problemId: pair.problemId,
     },
     pairKey: canonicalPairKey,
+    canFlag: input.canFlag,
     contextType: input.flagContext,
     contextId: input.target.id,
     left: {

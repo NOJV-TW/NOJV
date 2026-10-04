@@ -3,13 +3,16 @@ import {
   contestRepo,
   examRepo,
   plagiarismPairFlagRepo,
+  runTransaction,
   type PlagiarismContext,
   type PlagiarismPairFlagRow,
 } from "@nojv/db";
 
 import type { ActorContext } from "../shared/actor-context";
+import { lockWritableContextCourse } from "../shared/course-writable";
 import { ForbiddenError, NotFoundError, ValidationError } from "../shared/errors";
 import { isCourseStaff } from "../shared/permissions";
+import { plagiarismGradedContext } from "./types";
 
 export type { PlagiarismContext };
 
@@ -72,12 +75,18 @@ export async function flagPair(
 ): Promise<PlagiarismPairFlagRow> {
   await assertCanManagePlagiarismFlag(actor, input.contextType, input.contextId);
 
-  return plagiarismPairFlagRepo.upsert({
-    contextType: input.contextType,
-    contextId: input.contextId,
-    pairKey: input.pairKey,
-    flaggedBy: actor.userId,
-    note: input.note ?? null,
+  return runTransaction(async (tx) => {
+    await lockWritableContextCourse(
+      tx,
+      plagiarismGradedContext(input.contextType, input.contextId),
+    );
+    return plagiarismPairFlagRepo.upsert(tx, {
+      contextType: input.contextType,
+      contextId: input.contextId,
+      pairKey: input.pairKey,
+      flaggedBy: actor.userId,
+      note: input.note ?? null,
+    });
   });
 }
 
@@ -88,7 +97,13 @@ export async function unflagPair(actor: ActorContext, flagId: string): Promise<v
   }
 
   await assertCanManagePlagiarismFlag(actor, flag.contextType, flag.contextId);
-  await plagiarismPairFlagRepo.deleteById(flagId);
+  await runTransaction(async (tx) => {
+    await lockWritableContextCourse(
+      tx,
+      plagiarismGradedContext(flag.contextType, flag.contextId),
+    );
+    await plagiarismPairFlagRepo.deleteById(tx, flagId);
+  });
 }
 
 export function listFlagsForContext(
