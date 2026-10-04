@@ -121,31 +121,43 @@
   async function uploadSubtasks() {
     uploadSaving = true;
     onError(null);
+    const saved = new Set<SubtaskConfig>();
     try {
       // Sequential, not Promise.all: the server assigns each set's ordinal from
       // max(ordinal)+1, so parallel creates race to the same ordinal and collide
       // on the [problemId, ordinal] unique constraint — only one would survive.
-      for (const subtask of subtasks.filter((s) => s.caseIndices.length > 0)) {
-        await postProblemAction(problemId, "createTestcaseSet", {
-          data: JSON.stringify({
-            cases: subtask.caseIndices.map((idx) => ({
-              input: parsedCases[idx]?.input ?? "",
-              output: parsedCases[idx]?.output ?? "",
-            })),
-            description: subtask.description,
-            weight: subtask.points,
-          }),
-        });
+      for (const [index, subtask] of subtasks.entries()) {
+        if (subtask.caseIndices.length === 0) continue;
+        try {
+          await postProblemAction(problemId, "createTestcaseSet", {
+            data: JSON.stringify({
+              cases: subtask.caseIndices.map((idx) => ({
+                input: parsedCases[idx]?.input ?? "",
+                output: parsedCases[idx]?.output ?? "",
+              })),
+              description: subtask.description,
+              weight: subtask.points,
+            }),
+          });
+        } catch (e) {
+          onError(
+            m.testcases_subtaskUploadFailed({
+              number: index + 1,
+              error: e instanceof Error ? e.message : m.testcases_uploadFailed(),
+            }),
+          );
+          subtasks = subtasks.filter((s) => !saved.has(s));
+          return;
+        }
+        saved.add(subtask);
       }
       parsedCases = [];
       subtasks = [];
       zipRawFiles = [];
       zipFileName = null;
-      await invalidateAll();
-    } catch (e) {
-      onError(e instanceof Error ? e.message : m.testcases_uploadFailed());
     } finally {
       uploadSaving = false;
+      if (saved.size > 0) await invalidateAll();
     }
   }
 </script>
@@ -279,7 +291,7 @@
                 <div class="flex items-center gap-1">
                   <input
                     class="w-20 rounded-lg border-2 border-primary/30 bg-[color:var(--color-panel)] px-2 py-2 text-body-sm font-bold text-primary tabular-nums"
-                    min="0"
+                    min="1"
                     oninput={(e) =>
                       updateSubtask(si, {
                         points: Number((e.target as HTMLInputElement).value) || 0,

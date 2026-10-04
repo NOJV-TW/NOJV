@@ -145,7 +145,8 @@ Security headers, CSP and exam rules are specified in [Security Requirements](..
 
 - Editor: Monaco via `features/problem/editors/Editor.svelte` and `primitives/ui/MonacoScriptEditor.svelte`; Advanced Mode uses `AdvancedModeWorkspace.svelte`. No solving workspace below `md` (`MobileWorkspaceBlocker`, UI-13).
 - Browser Test runs locally through WASM-OJ (`lib/services/browser-local-run.ts`, JDG-15).
-- Forms: `sveltekit-superforms` with `@nojv/core` Zod schemas; errors inline and translated.
+- Forms: `sveltekit-superforms` with `@nojv/core` Zod schemas; errors inline and translated. Plain `fetch` posts to form actions go through `submitFormAction` / `postProblemAction` (`lib/utils/actions.ts`), which `deserialize` the result and throw the server's error unless it is `success`, since action failures arrive as HTTP 200 (PRB-08).
+- Problem editor sections save only the fields they own: Basic info never sends judge config or type, sends limits only when it shows them, and sends visibility or admin consent only when the owner changes them (PRB-11); the Judge section refreshes page data after a save or script upload; the Workspace section adopts each saved payload as its persisted state and rebuilds from fresh page data when remounted, and a workspace file upload fills the editor until the next save.
 - Markdown: `MarkdownRenderer` → `lib/utils/markdown.ts` (`marked` + KaTeX + DOMPurify); remote HTTPS images rewrite to `/api/images/proxy` at render time.
 - Charts: ECharts, lazily imported by `primitives/charts/EChart.svelte`.
 - Dates: `formatDateTime` / `formatDate` / `formatTime` in `lib/utils/datetime.ts` bind `Intl.DateTimeFormat` to the active locale; do not call bare `toLocale*`.

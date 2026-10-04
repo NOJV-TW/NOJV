@@ -28,38 +28,48 @@
     type: WorkspaceMode;
   }
 
+  type WorkspaceSnapshot = Omit<WorkspaceSectionPayload, "allowedLanguages">;
+
   interface Props {
-    initial: WorkspaceSectionPayload;
+    initial: WorkspaceSnapshot;
+    modeLocked?: boolean;
     ondirtychange?: (dirty: boolean) => void;
-    onsave?: (payload: WorkspaceSectionPayload) => Promise<void> | void;
-    onUploadFile?: (file: File, language: Language) => Promise<void>;
+    onsave: (payload: WorkspaceSectionPayload) => Promise<void>;
   }
 
-  let { initial, ondirtychange, onsave, onUploadFile }: Props = $props();
+  let { initial, modeLocked = false, ondirtychange, onsave }: Props = $props();
 
-  let timeLimitMs = $state(untrack(() => initial.runtime.timeLimitMs));
-  let memoryLimitMb = $state(untrack(() => initial.runtime.memoryLimitMb));
-  let envRows = $state<{ key: string; value: string }[]>(
-    untrack(() => Object.entries(initial.runtime.env).map(([key, value]) => ({ key, value }))),
-  );
-
-  let mode = $state<WorkspaceMode>(untrack(() => initial.type));
-
-  let allowedLanguages = $state<Language[]>(
-    untrack(() =>
-      initial.allowedLanguages.length > 0
-        ? [...initial.allowedLanguages]
-        : [...supportedLanguages],
-    ),
-  );
-
-  let activeLang = $state<Language>(
-    untrack(() => allowedLanguages[0] ?? supportedLanguages[0] ?? "c"),
-  );
-  let files = $state<(WorkspaceFile & { language: Language })[]>(
-    untrack(() => initial.files.map((f) => ({ ...f }))),
-  );
+  let timeLimitMs = $state(0);
+  let memoryLimitMb = $state(0);
+  let envRows = $state<{ key: string; value: string }[]>([]);
+  let mode = $state<WorkspaceMode>("multi_file");
+  let allowedLanguages = $state<Language[]>([]);
+  let activeLang = $state<Language>(supportedLanguages[0] ?? "c");
+  let files = $state<(WorkspaceFile & { language: Language })[]>([]);
   let selectedIndex = $state(0);
+  let initialSnapshot = $state("");
+
+  function isEditableEntry(file: WorkspaceFile & { language: Language }, lang: Language) {
+    return (
+      file.language === lang &&
+      file.path === entryFileNameFor(lang) &&
+      file.visibility === "editable"
+    );
+  }
+
+  function loadPersisted(source: WorkspaceSnapshot) {
+    timeLimitMs = source.runtime.timeLimitMs;
+    memoryLimitMb = source.runtime.memoryLimitMb;
+    envRows = Object.entries(source.runtime.env).map(([key, value]) => ({ key, value }));
+    mode = source.type;
+    files = source.files.map((f) => ({ ...f }));
+    allowedLanguages = supportedLanguages.filter((lang) =>
+      files.some((f) => isEditableEntry(f, lang)),
+    );
+    initialSnapshot = JSON.stringify(buildPayload());
+  }
+
+  loadPersisted(untrack(() => initial));
 
   $effect(() => {
     if (allowedLanguages.length === 0) return;
@@ -76,10 +86,7 @@
   );
 
   function hasEntryFileForLanguage(lang: Language): boolean {
-    const entryName = entryFileNameFor(lang);
-    return files.some(
-      (f) => f.language === lang && f.path === entryName && f.visibility === "editable",
-    );
+    return files.some((f) => isEditableEntry(f, lang));
   }
 
   let missingEntryLanguages = $derived(
@@ -114,6 +121,27 @@
     files = files.map((f, i) => (i === globalIndex ? { ...updated, language: f.language } : f));
   }
 
+  async function addUploadedFile(file: File, language: Language) {
+    const content = await file.text();
+    const existing = files.findIndex((f) => f.language === language && f.path === file.name);
+    if (existing >= 0) {
+      updateFile(existing, { ...files[existing]!, content });
+    } else {
+      files = [
+        ...files,
+        {
+          language,
+          path: file.name,
+          content,
+          description: "",
+          visibility: "editable",
+          orderIndex: files.length,
+        },
+      ];
+    }
+    selectedIndex = filesForActiveLang.findIndex((entry) => entry.file.path === file.name);
+  }
+
   let saving = $state(false);
   let saveMessage = $state("");
 
@@ -127,12 +155,11 @@
     return {
       runtime: { timeLimitMs, memoryLimitMb, env },
       allowedLanguages,
-      files,
+      files: files.filter((f) => allowedLanguages.includes(f.language)),
       type: mode,
     };
   }
 
-  let initialSnapshot = JSON.stringify(buildPayload());
   $effect(() => {
     const current = JSON.stringify(buildPayload());
     ondirtychange?.(current !== initialSnapshot);
@@ -171,12 +198,12 @@
     saving = true;
     saveMessage = "";
     try {
-      await onsave?.(buildPayload());
-      initialSnapshot = JSON.stringify(buildPayload());
+      const payload = buildPayload();
+      await onsave(payload);
+      loadPersisted(payload);
       saveMessage = "saved";
     } catch (err) {
-      saveMessage = "error";
-      console.error(err);
+      saveMessage = err instanceof Error ? err.message : "error";
     } finally {
       saving = false;
     }
@@ -203,7 +230,7 @@
 </script>
 
 <div class="space-y-6">
-  <WorkspaceModeSection bind:mode />
+  <WorkspaceModeSection bind:mode locked={modeLocked} />
   <WorkspaceRuntimeSection bind:timeLimitMs bind:memoryLimitMb bind:envRows />
   <WorkspaceLanguagesSection bind:allowedLanguages {mode} {hasEntryFileForLanguage} />
   <WorkspaceFilesSection
@@ -228,7 +255,7 @@
     onAddFile={addFile}
     onUpdateFile={updateFile}
     onDeleteFile={deleteFile}
-    {onUploadFile}
+    onUploadFile={addUploadedFile}
   />
   {#if saving || saveMessage}
     <div class="flex items-center justify-end gap-3">

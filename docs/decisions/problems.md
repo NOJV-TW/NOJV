@@ -11,6 +11,8 @@ Problem types are `full_source`, `multi_file` and `special_env`. `multi_file` pr
 - Rejected: a LeetCode-style `function` type with `driverCode`, insertion markers, `editableRegions` or `assembleSource` templates (use `multi_file` plus a readonly driver); per-file editable regions; letting workspace files decide `full_source` languages; function-mode, custom-script and score-stage judge kits. Nondeterministic or subjective course tasks get deterministic statements or manual grading instead of new judge modes.
 - Rule: no insertion markers or driver injection; students submit whole editable files.
 - Rule: workspace-file requirements and language filtering apply only when `type === "multi_file"`.
+- Rule: a `multi_file` language is allowed exactly when it ships an editable `main.<ext>`; there is no allowed-languages column, so the editor derives its ticks from entry files and drops unticked languages' files on save.
+- Rule: published problems never change type through any path, and the workspace action refuses `special_env` problems, whose limits and config have their own guarded actions.
 - Rule: `hidden` controls student editor/API presentation for helpers, drivers or an implementation behind an assumed API. The judge still supplies these files to compilation and execution, so student code can inspect them; this provides no runtime confidentiality. Do not put secrets or testcase answers in workspace files.
 - Rejected: treating `hidden` as a runtime-secret guarantee or isolating hidden workspace code from student execution. Files that must run with student code remain part of that execution's trust boundary.
 - Code: `packages/core/src/types.ts`, `packages/application/src/problem/details.ts`, `packages/core/src/language-templates.ts`
@@ -92,7 +94,7 @@ New problems start as `draft` (students may only create private drafts) so autho
 - Rule: status changes only through the dedicated publish action; draft-save schemas omit `status`; `assertProblemPublishable` runs server-side in the domain.
 - Rule: deleting a linked problem returns a ConflictError, not a raw P2003; ordinary submissions, active judging, activity links and audit history still block deletion.
 - Rule: lock submission rows during draft delete to fence concurrent rejudge; UI treats SvelteKit HTTP-200 action failures as failures.
-- Code: `packages/application/src/problem/mutations/records.ts`, `packages/application/src/problem/mutations/publishing.ts`
+- Code: `packages/application/src/problem/mutations/records.ts`, `packages/application/src/problem/mutations/publishing.ts`, `apps/web/src/lib/utils/actions.ts`
 
 ### PRB-09 Publication requires a private, current reference solution
 
@@ -103,7 +105,7 @@ A standard problem publishes only with an accepted reference solution for the cu
 - Rejected: a separate route or modal; ZIP upload; auto-generated editorials; review queues or approval states; schema defaults for time/memory limits (required fields).
 - Rule: reference source is never public and never appears in lists or history; only owner or admin may read it directly.
 - Rule: only authorized publishers submit with the reference purpose; hidden workspace files are never exposed in the section.
-- Rule: invalidation covers testcases, workspace files, judge config/checker/interactor, languages/type, limits and advanced config.
+- Rule: invalidation covers testcases, subtask weights, workspace files, judge config/checker/interactor, languages/type, limits and advanced config; subtask descriptions are presentation and do not invalidate.
 - Code: `packages/application/src/problem/mutations/publishing.ts`, `packages/db/prisma/schema/submission.prisma`
 
 ### PRB-10 Personal ownership, course sharing and forks
@@ -127,6 +129,7 @@ Every problem has one personal owner (`authorId`, `ON DELETE RESTRICT`). `Course
 
 - Rejected: a review queue, pending status or moderation dashboard (admins use an "All problems" tab); labelling consent as "Public"; teachers/TAs reviewing student problems.
 - Rule: the database mutation is the trust boundary; admin authority uses the effective admin-mode role.
+- Rule: the editor's Basic info save sends `visibility` and `adminMayPublish` only when the owner changes them, so a stale or co-editor form never reads as a visibility or consent change.
 - Code: `packages/application/src/problem/mutations/publishing.ts`, `packages/application/src/problem/permissions.ts`
 
 ### PRB-12 special_env uses teacher-built, digest-pinned images in `advancedConfig`

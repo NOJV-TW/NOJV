@@ -31,6 +31,7 @@ export interface UpdateWorkspaceInput {
     language: Language;
     path: string;
     content: string;
+    description: string;
     visibility: "editable" | "readonly" | "hidden";
     orderIndex?: number;
   }[];
@@ -128,6 +129,13 @@ export async function updateProblemWorkspace(
 
   const result = await runTransaction(async (tx) => {
     const problem = await lockProblemForEdit(tx, actor, problemId);
+    if (problem.type === "special_env") {
+      throw new ConflictError("Advanced-mode problems do not use a workspace.");
+    }
+    const typeChanged = payload.type !== undefined && payload.type !== problem.type;
+    if (typeChanged && problem.status === "published") {
+      throw new ConflictError("Published problems cannot change type.");
+    }
     const existingFiles = await problemWorkspaceFileRepo.withTx(tx).findByProblemId(problem.id);
 
     const previousBytes = existingFiles.reduce(
@@ -143,6 +151,7 @@ export async function updateProblemWorkspace(
         (entry, index) => ({
           id: entry.id,
           contentStorage: entry.contentStorage,
+          description: entry.file.description,
           language: entry.file.language,
           orderIndex: entry.file.orderIndex ?? index,
           path: entry.file.path,

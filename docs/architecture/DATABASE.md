@@ -144,7 +144,7 @@ erDiagram
   as a private reference owned by the fork author.
 - `storageGeneration` advances on judge-affecting content changes and pins
   reference validation and judge snapshots.
-- Every `TestcaseSet` is a graded subtask (`weight`, `ordinal`); samples live in
+- Every `TestcaseSet` is a graded subtask (`weight` ≥ 1, `ordinal`); samples live in
   `Problem.samples`, not testcases (PRB-03). `Testcase` and
   `ProblemWorkspaceFile` bodies are storage pointers (PRB-04). Workspace
   `visibility` is `editable` / `readonly` / `hidden`; submitted contents cannot

@@ -1,18 +1,18 @@
 <script lang="ts">
-  import { untrack } from "svelte";
-  import { deserialize } from "$app/forms";
   import { goto, invalidateAll } from "$app/navigation";
-  import { MAX_INLINE_TESTCASE_EDIT_BYTES, type Language } from "@nojv/core";
+  import { MAX_INLINE_TESTCASE_EDIT_BYTES } from "@nojv/core";
   import { m } from "$lib/paraglide/messages.js";
   import { formatProblemDisplayName } from "$lib/utils/format-problem-display-name";
   import { formatBytes } from "$lib/utils/storage-budget-format";
-  import { fetchTestcaseContent } from "$lib/utils/actions";
+  import { fetchTestcaseContent, submitFormAction } from "$lib/utils/actions";
   import ProblemSections from "$lib/components/features/problem/views/ProblemSections.svelte";
   import EditRail from "$lib/components/features/problem/views/EditRail.svelte";
   import BasicInfoTab from "$lib/components/features/problem/tabs/BasicInfoTab.svelte";
   import TestcaseTab from "$lib/components/features/problem/tabs/TestcaseTab.svelte";
   import JudgeTab from "$lib/components/features/problem/tabs/JudgeTab.svelte";
-  import WorkspaceSection from "$lib/components/features/problem/sections/WorkspaceSection.svelte";
+  import WorkspaceSection, {
+    type WorkspaceSectionPayload,
+  } from "$lib/components/features/problem/sections/WorkspaceSection.svelte";
   import AdvancedImageConfigSection from "$lib/components/features/problem/advanced/AdvancedImageConfigSection.svelte";
   import RegistryCredentialCard from "$lib/components/features/problem/advanced/RegistryCredentialCard.svelte";
   import ReferenceSolutionSection from "$lib/components/features/problem/reference/ReferenceSolutionSection.svelte";
@@ -114,7 +114,7 @@
       : "?/publish",
   );
 
-  const workspaceInitial = untrack(() => {
+  let workspaceInitial = $derived.by(() => {
     if (data.problem.type !== "multi_file") return undefined;
     const runtime = (data.problem.judgeConfig?.runtime as
       | { timeLimitMs: number; memoryLimitMb: number; env: Record<string, string> }
@@ -125,8 +125,7 @@
     };
     return {
       runtime,
-      allowedLanguages: [] as Language[],
-      type: "multi_file" as "full_source" | "multi_file",
+      type: "multi_file" as const,
       files: data.workspaceFiles.map((f) => ({
         language: f.language,
         path: f.path,
@@ -138,30 +137,8 @@
     };
   });
 
-  async function handleWorkspaceSave(payload: NonNullable<typeof workspaceInitial>) {
-    const fd = new FormData();
-    fd.set("data", JSON.stringify(payload));
-    const res = await fetch("?/updateWorkspace", { method: "POST", body: fd });
-    if (!res.ok) throw new Error("workspace save failed");
-    await invalidateAll();
-  }
-
-  async function handleWorkspaceFileUpload(file: File, language: Language) {
-    const fd = new FormData();
-    fd.set("file", file);
-    fd.set("language", language);
-    fd.set("path", file.name);
-    fd.set("visibility", "editable");
-    const res = await fetch(`/api/problems/${data.problem.id}/workspace/files`, {
-      method: "POST",
-      headers: { "X-Requested-With": "fetch" },
-      body: fd,
-    });
-    if (!res.ok) {
-      const body = (await res.json().catch(() => null)) as { message?: string } | null;
-      throw new Error(body?.message ?? m.bundle_uploadFailed());
-    }
-    toasts.success(m.bundle_uploadSuccess());
+  async function handleWorkspaceSave(payload: WorkspaceSectionPayload) {
+    await submitFormAction("?/updateWorkspace", { data: JSON.stringify(payload) });
     await invalidateAll();
   }
 
@@ -173,23 +150,12 @@
   async function transferOwnership() {
     showTransferConfirm = false;
     isTransferring = true;
-    const body = new FormData();
-    body.set("username", newOwnerUsername);
     try {
-      const response = await fetch("?/transferOwnership", { method: "POST", body });
-      const result = deserialize(await response.text());
-      if (result.type !== "success") {
-        toasts.error(
-          result.type === "failure" && typeof result.data?.error === "string"
-            ? result.data.error
-            : m.error_unexpected(),
-        );
-        return;
-      }
+      await submitFormAction("?/transferOwnership", { username: newOwnerUsername });
       toasts.success(m.problem_transferSuccess());
       await goto("/problems?tab=mine");
-    } catch {
-      toasts.error(m.error_unexpected());
+    } catch (e) {
+      toasts.error(e instanceof Error ? e.message : m.error_unexpected());
     } finally {
       isTransferring = false;
     }
@@ -215,39 +181,23 @@
     }
   }
 
-  function handlePublishConfirmed() {
+  async function handlePublishConfirmed() {
     showPublishConfirm = false;
     isPublishing = true;
-    const fd = new FormData();
-    fetch(publishAction, { method: "POST", body: fd })
-      .then(async (res) => {
-        if (res.ok) {
-          const result = deserialize(await res.text());
-          const publishedId =
-            result.type === "success" && typeof result.data?.id === "string"
-              ? result.data.id
-              : data.problem.id;
-          if (publishedId !== data.problem.id) {
-            await goto(`/problems/${publishedId}`);
-            return;
-          }
-          await invalidateAll();
-          toasts.success(m.admin_publishSuccess());
-        } else {
-          const result = deserialize(await res.text());
-          toasts.error(
-            result.type === "failure" && typeof result.data?.error === "string"
-              ? result.data.error
-              : m.error_unexpected(),
-          );
-        }
-      })
-      .catch(() => {
-        toasts.error(m.error_unexpected());
-      })
-      .finally(() => {
-        isPublishing = false;
-      });
+    try {
+      const result = await submitFormAction(publishAction);
+      const publishedId = typeof result.id === "string" ? result.id : data.problem.id;
+      if (publishedId !== data.problem.id) {
+        await goto(`/problems/${publishedId}`);
+        return;
+      }
+      await invalidateAll();
+      toasts.success(m.admin_publishSuccess());
+    } catch (e) {
+      toasts.error(e instanceof Error ? e.message : m.error_unexpected());
+    } finally {
+      isPublishing = false;
+    }
   }
 
   let advancedConfigured = $derived(
@@ -291,8 +241,10 @@
         bind:this={basicTab}
         formData={data.form}
         problemId={data.problem.id}
+        visibility={data.problem.visibility}
+        adminMayPublish={data.adminMayPublish}
         showRuntimeLimits={data.problem.type !== "multi_file"}
-        privateVisibilityOnly={data.problem.visibility === "private"}
+        runtimeLimitsLocked={isAdvanced && data.problem.status === "published"}
         canManageVisibility={data.permissions.isOwner ||
           (data.permissions.isAdmin && data.problem.visibility === "public")}
         isOwner={data.permissions?.isOwner === true}
@@ -565,9 +517,9 @@
             <WorkspaceSection
               bind:this={workspaceTab}
               initial={workspaceInitial}
+              modeLocked={data.problem.status !== "draft"}
               ondirtychange={(d) => (isDirty = d)}
               onsave={handleWorkspaceSave}
-              onUploadFile={handleWorkspaceFileUpload}
             />
           {:else if workspaceInitial}
             <div class="space-y-4">

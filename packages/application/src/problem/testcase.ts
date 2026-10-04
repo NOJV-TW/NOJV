@@ -186,16 +186,18 @@ export async function updateTestcaseSetRecord(
 
   return runTransaction(async (tx) => {
     const problem = await lockProblemForEdit(tx, actor, problemId);
-    await requireSetInProblem(setId, problem.id, tx);
+    const existing = await requireSetInProblem(setId, problem.id, tx);
 
     const updated = await tx.testcaseSet.update({
       where: { id: setId },
       data: stripUndefined(payload),
     });
-    await problemRepo.withTx(tx).update(problem.id, {
-      referenceSolutionSubmissionId: null,
-      storageGeneration: { increment: 1 },
-    });
+    if (payload.weight !== undefined && payload.weight !== existing.weight) {
+      await problemRepo.withTx(tx).update(problem.id, {
+        referenceSolutionSubmissionId: null,
+        storageGeneration: { increment: 1 },
+      });
+    }
     return updated;
   });
 }

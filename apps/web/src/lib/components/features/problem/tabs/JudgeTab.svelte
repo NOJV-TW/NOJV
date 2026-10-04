@@ -1,5 +1,6 @@
 <script lang="ts">
   import { untrack } from "svelte";
+  import { invalidateAll } from "$app/navigation";
   import type { ProblemDetail } from "$lib/types";
   import type { JudgeScriptLanguage, JudgeType } from "@nojv/core";
   import { inputClassName } from "$lib/utils/css";
@@ -7,6 +8,7 @@
   import MonacoScriptEditor from "$lib/components/primitives/ui/MonacoScriptEditor.svelte";
   import UploadDropZone from "$lib/components/features/problem/admin/UploadDropZone.svelte";
   import { toasts } from "$lib/stores/toast";
+  import { submitFormAction } from "$lib/utils/actions";
   import {
     PYTHON_CHECKER_EXAMPLE,
     PYTHON_INTERACTOR_EXAMPLE,
@@ -81,25 +83,17 @@
     saving = true;
     saveMessage = "";
     try {
-      const formData = new FormData();
-      formData.set("data", JSON.stringify(buildJudgeConfig()));
-      if (judgeType === "checker") {
-        formData.set("checkerScript", checkerScript);
-      } else if (judgeType === "interactive") {
-        formData.set("interactorScript", interactorScript);
-      }
-      const response = await fetch("?/updateJudgeConfig", {
-        method: "POST",
-        body: formData,
+      const snapshot = dirtySnapshot();
+      await submitFormAction("?/updateJudgeConfig", {
+        data: JSON.stringify(buildJudgeConfig()),
+        ...(judgeType === "checker" ? { checkerScript } : {}),
+        ...(judgeType === "interactive" ? { interactorScript } : {}),
       });
-      if (response.ok) {
-        saveMessage = "saved";
-        initialConfig = dirtySnapshot();
-      } else {
-        saveMessage = "error";
-      }
-    } catch {
-      saveMessage = "error";
+      initialConfig = snapshot;
+      saveMessage = "saved";
+      await invalidateAll();
+    } catch (err) {
+      saveMessage = err instanceof Error ? err.message : m.admin_saveFailed();
     } finally {
       saving = false;
     }
@@ -143,6 +137,7 @@
     }
     initialConfig = dirtySnapshot();
     toasts.success(m.bundle_uploadSuccess());
+    await invalidateAll();
   }
 </script>
 
@@ -319,8 +314,8 @@
         <span class="text-body-sm text-muted-foreground">{m.common_saving()}</span>
       {:else if saveMessage === "saved"}
         <span class="text-body-sm text-success">{m.admin_saved()}</span>
-      {:else if saveMessage === "error"}
-        <span class="text-body-sm text-destructive">{m.admin_saveFailed()}</span>
+      {:else}
+        <span class="text-body-sm text-destructive" role="alert">{saveMessage}</span>
       {/if}
     </div>
   {/if}
