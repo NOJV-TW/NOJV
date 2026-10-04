@@ -229,11 +229,16 @@ describe("owned image quota and durable cleanup", () => {
               cases: [{ input: "12", output: "3" }],
             })
           : kind === "workspace"
-            ? problemDomain.setWorkspaceFile(actor, problem.id, {
-                language: "python",
-                path: "main.py",
-                content: "12",
-                visibility: "editable",
+            ? problemDomain.updateProblemWorkspace(actor, problem.id, {
+                files: [
+                  {
+                    language: "python",
+                    path: "main.py",
+                    content: "12",
+                    description: "",
+                    visibility: "editable",
+                  },
+                ],
               })
             : kind === "judge"
               ? problemDomain.saveProblemJudgeConfig(actor, problem.id, {

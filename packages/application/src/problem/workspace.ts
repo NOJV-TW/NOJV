@@ -5,7 +5,7 @@ import { randomUUID } from "node:crypto";
 import type { Prisma } from "@nojv/db";
 import { problemRepo, problemWorkspaceFileRepo, runTransaction } from "@nojv/db";
 import type { Language, ProblemType } from "@nojv/core";
-import { entryFileNameFor, problemWorkspaceFileSchema } from "@nojv/core";
+import { entryFileNameFor } from "@nojv/core";
 import { assertStorageObjectPointer, type StorageObjectPointer } from "@nojv/storage";
 
 import { ConflictError, ValidationError } from "../shared/errors";
@@ -199,74 +199,4 @@ export async function updateProblemWorkspace(
   });
 
   return result;
-}
-
-export interface SetWorkspaceFileInput {
-  language: string;
-  path: string;
-  visibility: string;
-  content: string;
-  orderIndex?: number;
-}
-
-export async function setWorkspaceFile(
-  actor: ProblemActorContext,
-  problemId: string,
-  file: SetWorkspaceFileInput,
-): Promise<{ id: string; problemId: string; path: string; language: Language }> {
-  const parsed = problemWorkspaceFileSchema.parse({
-    language: file.language,
-    path: file.path,
-    visibility: file.visibility,
-    content: file.content,
-    orderIndex: file.orderIndex ?? 0,
-  });
-
-  await assertProblemEditAccess(actor, problemId);
-  await ensureProblemImageInventory(problemId);
-  const id = randomUUID();
-  const contentStorage = await writeWorkspaceFileBlob(problemId, id, parsed.content);
-
-  const row = await runTransaction(async (tx) => {
-    const problem = await lockProblemForEdit(tx, actor, problemId);
-    const existing = await problemWorkspaceFileRepo
-      .withTx(tx)
-      .findOne(problemId, parsed.language, parsed.path);
-    await assertProblemStorageBudget(
-      problem.id,
-      contentStorage.size -
-        (existing === null ? 0 : assertStorageObjectPointer(existing.contentStorage).size),
-      tx,
-    );
-    const row = await problemWorkspaceFileRepo.withTx(tx).upsertOne({
-      id,
-      problemId,
-      language: parsed.language,
-      path: parsed.path,
-      contentStorage,
-      visibility: parsed.visibility,
-      orderIndex: parsed.orderIndex,
-    });
-    await problemRepo.withTx(tx).update(problem.id, {
-      referenceSolutionSubmissionId: null,
-      activeStorageBytes: {
-        increment:
-          contentStorage.size -
-          (existing === null ? 0 : assertStorageObjectPointer(existing.contentStorage).size),
-      },
-      storageGeneration: { increment: 1 },
-    });
-    await commitStoragePointerSwap(tx, {
-      added: [contentStorage],
-      removed: existing === null ? [] : [assertStorageObjectPointer(existing.contentStorage)],
-    });
-    return row;
-  });
-
-  return {
-    id: row.id,
-    problemId: row.problemId,
-    path: row.path,
-    language: row.language,
-  };
 }

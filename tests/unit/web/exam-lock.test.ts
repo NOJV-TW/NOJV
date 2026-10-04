@@ -111,9 +111,7 @@ describe("isExamForbiddenApiRequest", () => {
     expect(isExamForbiddenApiRequest("/api/problems/prob-1/posts/extra", "GET")).toBe(true);
     expect(isExamForbiddenApiRequest("/api/problems/prob-1", "GET")).toBe(false);
     expect(isExamForbiddenApiRequest("/api/problems/prob-1/bundle", "GET")).toBe(false);
-    expect(isExamForbiddenApiRequest("/api/problems/prob-1/workspace/files", "GET")).toBe(
-      false,
-    );
+    expect(isExamForbiddenApiRequest("/api/problems/prob-1/testcases", "GET")).toBe(false);
     expect(isExamForbiddenApiRequest("/api/problems/prob-1/posts-lookalike", "GET")).toBe(
       false,
     );

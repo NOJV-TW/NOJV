@@ -24,8 +24,6 @@
 
   let { testcaseSets, problemId }: Props = $props();
 
-  let subtaskSets = $derived(testcaseSets.filter((s) => s.weight > 0));
-
   let error = $state<string | null>(null);
 </script>
 
@@ -40,11 +38,11 @@
       </p>
     </div>
 
-    {#if subtaskSets.length === 0}
+    {#if testcaseSets.length === 0}
       <p class="text-body-sm text-muted-foreground">{m.testcases_noSubtaskSets()}</p>
     {:else}
       <div class="space-y-3">
-        {#each subtaskSets as set, idx (set.id)}
+        {#each testcaseSets as set, idx (set.id)}
           <TestcaseSetCard {set} {problemId} index={idx + 1} />
         {/each}
       </div>
@@ -54,7 +52,7 @@
           >{m.testcases_totalScoreLabel()}:
         </span>
         <span class="text-caption font-mono"
-          >{subtaskSets
+          >{testcaseSets
             .map((s, idx) => `#subtask${String(idx + 1)} (${String(s.weight)}pts)`)
             .join(" + ")}</span
         >

@@ -88,10 +88,7 @@ import {
   updateTestcaseRecord,
   deleteTestcaseRecord,
 } from "../../../packages/application/src/problem/testcase";
-import {
-  updateProblemWorkspace,
-  setWorkspaceFile,
-} from "../../../packages/application/src/problem/workspace";
+import { updateProblemWorkspace } from "../../../packages/application/src/problem/workspace";
 import {
   saveProblemJudgeConfig,
   setProblemChecker,
@@ -144,16 +141,6 @@ describe("content writes reauthorize at commit", () => {
     ["update testcase", () => updateTestcaseRecord(actor, "p", "case", { input: "changed" })],
     ["delete testcase", () => deleteTestcaseRecord(actor, "p", "case")],
     ["workspace", () => updateProblemWorkspace(actor, "p", { files: [] })],
-    [
-      "workspace file",
-      () =>
-        setWorkspaceFile(actor, "p", {
-          language: "python",
-          path: "main.py",
-          content: "print(1)",
-          visibility: "editable",
-        }),
-    ],
     ["judge", () => saveProblemJudgeConfig(actor, "p", { judgeConfig: { type: "standard" } })],
     [
       "checker",

@@ -87,31 +87,31 @@ Solve pages all render `ProblemSolveView` via `loadProblemSolveData` in `lib/ser
 
 The HTTP API reference is the OpenAPI document (`/api/openapi.public.json`, `/api/openapi.internal.json`, rendered at `/docs`); `tests/unit/openapi-contract.test.ts` fails when a route is undocumented or a documented path has no handler (ENG-05). Business rules for each endpoint live in the owning `@nojv/application` domain.
 
-| Family                                     | Notes                                                                                                                               |
-| ------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------- |
-| `/api/auth/[...path]`                      | better-auth catch-all; auth and sign-in rate limits applied in the hook                                                             |
-| `/api/livez`                               | Process probe; with `/api/readyz` (Postgres + Redis) and `/api/release` bypasses the pipeline (OPS-15)                              |
-| `/api/admin/healthz`                       | Admin-only per-subsystem detail                                                                                                     |
-| `/api/submissions`                         | POST create + dispatch; GET history or workspace cursor pages; `status`, `pending`, `[id]`, `[id]/source`, `[id]/rejudge`           |
-| `/api/rejudges`                            | Batch rejudge POST, active rejudges GET; `[workflowId]` progress and `[workflowId]/cancel`                                          |
-| `/api/drafts`                              | Server code drafts GET/PUT (`draftApiHandler`, WEB-05)                                                                              |
-| `/api/problems`                            | List / create; `[id]` delete, bundle, checker, interactor, workspace files, testcases, images, posts, fork, bookmark, storage usage |
-| `/api/problems/advanced-scaffold`          | Advanced Mode starter templates                                                                                                     |
-| `/api/posts/[id]`                          | Posts, votes, comments, reports; `/api/comments/[id]` delete and reports                                                            |
-| `/api/clarifications`                      | List / create; `[id]` answer, dismiss, delete; `[id]/replies`                                                                       |
-| `/api/overrides`                           | Score overrides; `/api/feedback` grading feedback (writes gated post-close)                                                         |
-| `/api/plagiarism/[assignmentId]/reports`   | Reports and detection trigger; `sources/...` pair sources; `/api/plagiarism-flags` curation                                         |
-| `/api/exams/[examId]/ip-violations`        | Proctoring IP log for managers                                                                                                      |
-| `/api/contests/[id]/scoreboard`            | Built from Postgres on read (DAT-11); `chart` sub-route                                                                             |
-| `/api/notifications`                       | List, bulk mark-read / clear; `[id]`; `unread-count`                                                                                |
-| `/api/events/stream`                       | SSE per user                                                                                                                        |
-| `/api/images/proxy`                        | SSRF-safe third-party Markdown and avatar image proxy (SEC-11)                                                                      |
-| `/api/uploads/image`                       | Generic image upload; `/api/account/avatar` avatar PUT/DELETE                                                                       |
-| `/api/storage/avatars/[userId]/[filename]` | Object-storage reads (also `problem-images`, `user-content-images`)                                                                 |
-| `/api/admin-mode`                          | Enter / exit admin mode (may return `verificationRequired`)                                                                         |
-| `/api/api-token-access`                    | Whether the token page needs factor setup or step-up                                                                                |
-| `/api/account/onboarding-tour`             | Claim the one-time onboarding tour (UI-22)                                                                                          |
-| `/api/registry/token`                      | Docker registry token endpoint (Basic credentials, not cookies)                                                                     |
+| Family                                     | Notes                                                                                                                     |
+| ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------- |
+| `/api/auth/[...path]`                      | better-auth catch-all; auth and sign-in rate limits applied in the hook                                                   |
+| `/api/livez`                               | Process probe; with `/api/readyz` (Postgres + Redis) and `/api/release` bypasses the pipeline (OPS-15)                    |
+| `/api/admin/healthz`                       | Admin-only per-subsystem detail                                                                                           |
+| `/api/submissions`                         | POST create + dispatch; GET history or workspace cursor pages; `status`, `pending`, `[id]`, `[id]/source`, `[id]/rejudge` |
+| `/api/rejudges`                            | Batch rejudge POST, active rejudges GET; `[workflowId]` progress and `[workflowId]/cancel`                                |
+| `/api/drafts`                              | Server code drafts GET/PUT (`draftApiHandler`, WEB-05)                                                                    |
+| `/api/problems`                            | List / create; `[id]` delete, bundle, checker, interactor, testcases, images, posts, fork, bookmark, storage usage        |
+| `/api/problems/advanced-scaffold`          | Advanced Mode starter templates                                                                                           |
+| `/api/posts/[id]`                          | Posts, votes, comments, reports; `/api/comments/[id]` delete and reports                                                  |
+| `/api/clarifications`                      | List / create; `[id]` answer, dismiss, delete; `[id]/replies`                                                             |
+| `/api/overrides`                           | Score overrides; `/api/feedback` grading feedback (writes gated post-close)                                               |
+| `/api/plagiarism/[assignmentId]/reports`   | Reports and detection trigger; `sources/...` pair sources; `/api/plagiarism-flags` curation                               |
+| `/api/exams/[examId]/ip-violations`        | Proctoring IP log for managers                                                                                            |
+| `/api/contests/[id]/scoreboard`            | Built from Postgres on read (DAT-11); `chart` sub-route                                                                   |
+| `/api/notifications`                       | List, bulk mark-read / clear; `[id]`; `unread-count`                                                                      |
+| `/api/events/stream`                       | SSE per user                                                                                                              |
+| `/api/images/proxy`                        | SSRF-safe third-party Markdown and avatar image proxy (SEC-11)                                                            |
+| `/api/uploads/image`                       | Generic image upload; `/api/account/avatar` avatar PUT/DELETE                                                             |
+| `/api/storage/avatars/[userId]/[filename]` | Object-storage reads (also `problem-images`, `user-content-images`)                                                       |
+| `/api/admin-mode`                          | Enter / exit admin mode (may return `verificationRequired`)                                                               |
+| `/api/api-token-access`                    | Whether the token page needs factor setup or step-up                                                                      |
+| `/api/account/onboarding-tour`             | Claim the one-time onboarding tour (UI-22)                                                                                |
+| `/api/registry/token`                      | Docker registry token endpoint (Basic credentials, not cookies)                                                           |
 
 ## Request pipeline
 
