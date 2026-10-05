@@ -1,4 +1,10 @@
-import type { TestJudgeCaseResult, TestJudgeErrorCode } from "./schemas/test-judge";
+import type { JudgeProgramRole } from "./judge/test-judge-program";
+import type { JudgeScriptLanguage } from "./schemas/judge-config";
+import type {
+  TestJudgeCaseResult,
+  TestJudgeErrorCode,
+  TestJudgeStoredRequest,
+} from "./schemas/test-judge";
 
 export type RejudgeInput =
   | {
@@ -69,7 +75,9 @@ export interface TestJudgeWorkflowInput {
 }
 
 export interface TestJudgeProgramBuildInput {
-  problemId: string;
+  role: JudgeProgramRole;
+  language: JudgeScriptLanguage;
+  scriptPointer: TestJudgeStoredRequest["judgeScriptPointer"];
 }
 
 export type TestJudgeWorkflowOutput =

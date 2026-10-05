@@ -11,3 +11,4 @@ export { registryGarbageCollectWorkflow } from "./registry-gc";
 export { durableWorkWorkflow, durableWorkProcessorWorkflow } from "./durable-work";
 
 export { durableJudgeWorkflow, judgeCleanupWorkflow } from "./durable-judge";
+export { testJudgeWorkflow, testJudgeProgramBuildWorkflow } from "./test-judge";

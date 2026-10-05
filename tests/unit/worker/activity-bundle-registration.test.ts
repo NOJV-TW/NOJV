@@ -39,6 +39,11 @@ const QUEUE_BUNDLES = [
       "workflows/durable-work.ts",
     ],
   },
+  {
+    bundle: "activities/test-judge-bundle.ts",
+    queue: "TEST_JUDGE_TASK_QUEUE",
+    workflows: ["workflows/test-judge.ts"],
+  },
 ];
 
 function readWorkerFile(relativePath: string): string {

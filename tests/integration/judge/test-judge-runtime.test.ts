@@ -4,8 +4,17 @@ import path from "node:path";
 
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
-import type { JudgeProgramSource } from "@nojv/core";
+import {
+  serialiseBuildArtifact,
+  type JudgeProgramSource,
+  type TestJudgeStoredRequest,
+} from "@nojv/core";
 
+import {
+  runTestJudge,
+  setTestJudgeDeps,
+  type TestJudgeStorage,
+} from "../../../apps/worker/src/activities/test-judge";
 import {
   getJudgeProgram,
   type JudgeProgram,
@@ -47,6 +56,43 @@ if len(got) == 1 and int(got[0]) == a + b == expected:
 wrong(f"expected {expected}")
 `;
 
+const CPP_GUESS_INTERACTOR = `#include <bits/stdc++.h>
+int main(int argc, char **argv) {
+  std::ifstream input(argv[1]);
+  long long secret;
+  input >> secret;
+  for (int turn = 0; turn < 30; ++turn) {
+    long long guess;
+    if (!(std::cin >> guess)) return 43;
+    if (guess == secret) {
+      std::cout << "correct" << std::endl;
+      return 42;
+    }
+    std::cout << (guess < secret ? "higher" : "lower") << std::endl;
+  }
+  return 43;
+}
+`;
+
+const CPP_GUESS_CONTESTANT = `#include <cstdio>
+#include <cstring>
+int main() {
+  long long lo = 1, hi = 1000000;
+  char reply[16];
+  while (lo <= hi) {
+    long long mid = (lo + hi) / 2;
+    std::printf("%lld\\n", mid);
+    std::fflush(stdout);
+    if (std::scanf("%15s", reply) != 1 || std::strcmp(reply, "correct") == 0) return 0;
+    if (std::strcmp(reply, "higher") == 0) lo = mid + 1;
+    else hi = mid - 1;
+  }
+}
+`;
+
+const REQUEST_KEY = "test-judge-requests/integration.json";
+const SCRIPT_POINTER = { key: "problems/p1/judge.cpp", sha256: "a".repeat(64), size: 1 };
+
 function memoryStore(): JudgeProgramStore {
   const objects = new Map<string, string>();
   return {
@@ -74,6 +120,27 @@ async function runChecker(engine: TestJudgeEngine, checker: BuildArtifact, outpu
     termination: result.termination,
     teamMessage: teamMessage && new TextDecoder().decode(teamMessage),
   };
+}
+
+function useRequest(
+  pool: EnginePool<TestJudgeEngine>,
+  request: TestJudgeStoredRequest,
+  script: string,
+) {
+  const blobs = new Map([[REQUEST_KEY, JSON.stringify(request)]]);
+  const storage: TestJudgeStorage = {
+    getText: async (key) => {
+      const body = blobs.get(key);
+      if (body === undefined) throw new Error(`missing ${key}`);
+      return body;
+    },
+    getVerifiedText: async () => script,
+    deleteBlob: async (key) => {
+      blobs.delete(key);
+    },
+  };
+  setTestJudgeDeps({ pool, storage, programs: memoryStore() });
+  return blobs;
 }
 
 describe.skipIf(!runtimeDir || !toolchainDir)("test-judge WASM-OJ runtime", () => {
@@ -185,5 +252,76 @@ describe.skipIf(!runtimeDir || !toolchainDir)("test-judge WASM-OJ runtime", () =
     } finally {
       release();
     }
+  }, 300_000);
+
+  it("judges a checker request end to end", async () => {
+    const blobs = useRequest(
+      pool,
+      {
+        kind: "checker",
+        judgeLanguage: "cpp",
+        judgeScriptPointer: SCRIPT_POINTER,
+        timeLimitMs: 1000,
+        memoryLimitMb: 256,
+        runtimeEnv: {},
+        cases: [
+          { input: "2 3\n", expectedOutput: "5\n", output: "5\n" },
+          { input: "2 3\n", expectedOutput: "5\n", output: "6\n" },
+        ],
+      },
+      CPP_SUM_CHECKER,
+    );
+
+    await expect(runTestJudge({ requestKey: REQUEST_KEY })).resolves.toEqual({
+      ok: true,
+      cases: [
+        { verdict: "AC", teamMessage: "sum ok" },
+        { verdict: "WA", teamMessage: "expected 5" },
+      ],
+    });
+    expect(blobs.size).toBe(0);
+  }, 300_000);
+
+  it("judges an interactive request end to end with a C++ interactor", async () => {
+    const { engine, release } = await pool.acquire();
+    let contestant: BuildArtifact;
+    try {
+      const build = await engine.compile({
+        language: "cpp",
+        entry: "main.cpp",
+        files: { "main.cpp": CPP_GUESS_CONTESTANT },
+      });
+      expect(build.success, build.stderr).toBe(true);
+      contestant = build.artifact!;
+    } finally {
+      release();
+    }
+    const blobs = useRequest(
+      pool,
+      {
+        kind: "interactive",
+        judgeLanguage: "cpp",
+        judgeScriptPointer: SCRIPT_POINTER,
+        timeLimitMs: 1000,
+        memoryLimitMb: 256,
+        runtimeEnv: {},
+        contestantLanguage: "cpp",
+        artifact: serialiseBuildArtifact(contestant),
+        cases: [{ interactorInput: "37\n" }, { interactorInput: "999999\n" }],
+      },
+      CPP_GUESS_INTERACTOR,
+    );
+
+    const output = await runTestJudge({ requestKey: REQUEST_KEY });
+
+    expect(output.ok).toBe(true);
+    if (!output.ok) return;
+    expect(output.cases.map(({ verdict }) => verdict)).toEqual(["AC", "AC"]);
+    for (const result of output.cases) {
+      expect(result.transcript?.toInteractor).toMatch(/^500000\n/);
+      expect(result.transcript?.toContestant).toMatch(/correct\n$/);
+      expect(result.timeMs).toBeGreaterThanOrEqual(0);
+    }
+    expect(blobs.size).toBe(0);
   }, 300_000);
 });

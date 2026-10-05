@@ -29,6 +29,8 @@ const mocks = vi.hoisted(() => ({
   validateMailerConfig: vi.fn(),
   startNodeLoadSlots: vi.fn(),
   stopNodeLoadSlots: vi.fn(),
+  createEnginePool: vi.fn(),
+  enginePoolDispose: vi.fn(),
 }));
 
 vi.mock("@nojv/application", async (importOriginal) => {
@@ -53,7 +55,13 @@ vi.mock("@nojv/temporal", () => ({
   JUDGE_STATE_TASK_QUEUE: "judge-state",
   JUDGE_CLEANUP_TASK_QUEUE: "judge-cleanup",
   PLATFORM_TASK_QUEUE: "platform",
+  TEST_JUDGE_TASK_QUEUE: "test-judge",
   temporalConnectionOptions: () => ({}),
+}));
+
+vi.mock("@nojv/storage", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@nojv/storage")>()),
+  createStorageClient: () => ({}),
 }));
 
 vi.mock("@nojv/mailer", async (importOriginal) => ({
@@ -110,6 +118,10 @@ vi.mock("../../../apps/worker/src/sandbox/shared/executor-factory", () => ({
   }),
 }));
 
+vi.mock("../../../apps/worker/src/test-judge/runtime.js", () => ({
+  createEnginePool: mocks.createEnginePool,
+}));
+
 vi.mock("../../../apps/worker/src/activities/judge.js", () => ({
   setExecutorOwner: mocks.setExecutorOwner,
 }));
@@ -154,6 +166,11 @@ const env: WorkerEnv = {
   TEST_JUDGE_SLOTS: 2,
 };
 
+const testJudgeRuntime = {
+  WASM_OJ_RUNTIME_DIR: "/opt/wasm-oj/runtime",
+  WASM_OJ_TOOLCHAIN_DIR: "/opt/wasm-oj/toolchains",
+};
+
 function makeWorker(events: string[] = []) {
   let stop!: () => void;
   const running = new Promise<void>((resolve) => {
@@ -190,6 +207,10 @@ beforeEach(() => {
   mocks.verifyNetworkPolicyEnforced.mockResolvedValue({ enforced: false, action: "refuse" });
   mocks.healthListen.mockImplementation((_port: number, callback: () => void) => callback());
   mocks.healthClose.mockImplementation((callback: (error?: Error) => void) => callback());
+  mocks.createEnginePool.mockResolvedValue({
+    acquire: vi.fn(),
+    dispose: mocks.enginePoolDispose,
+  });
 });
 
 describe("WorkerApp lifecycle", () => {
@@ -223,6 +244,16 @@ describe("WorkerApp lifecycle", () => {
       workerEnv: { ...kubernetesEnv, WORKER_MODE: "all" } as WorkerEnv,
       queues: ["judge", "judge-state", "judge-cleanup", "platform"],
     },
+    {
+      name: "test",
+      workerEnv: { ...env, ...testJudgeRuntime, WORKER_MODE: "test" } as WorkerEnv,
+      queues: ["test-judge"],
+    },
+    {
+      name: "combined with the WASM-OJ runtime",
+      workerEnv: { ...kubernetesEnv, ...testJudgeRuntime, WORKER_MODE: "all" } as WorkerEnv,
+      queues: ["judge", "judge-state", "judge-cleanup", "platform", "test-judge"],
+    },
   ])(
     "bounds cached workflows and workflow task slots for $name workers",
     async ({ workerEnv, queues }) => {
@@ -245,6 +276,7 @@ describe("WorkerApp lifecycle", () => {
         });
         expect(mocks.workerCreate).toHaveBeenCalledTimes(queues.length);
         for (const taskQueue of queues) {
+          if (taskQueue === "test-judge") continue;
           expect(mocks.workerCreate).toHaveBeenCalledWith(
             taskQueue === "judge-state" || taskQueue === "judge-cleanup"
               ? expect.not.objectContaining({ workflowsPath: expect.anything() })
@@ -256,6 +288,15 @@ describe("WorkerApp lifecycle", () => {
                 }),
           );
         }
+        if (queues.includes("test-judge"))
+          expect(mocks.workerCreate).toHaveBeenCalledWith(
+            expect.objectContaining({
+              taskQueue: "test-judge",
+              workflowsPath: "workflow.js",
+              maxCachedWorkflows: 16,
+              maxConcurrentActivityTaskExecutions: 2,
+            }),
+          );
         for (const activityQueue of ["judge-state", "judge-cleanup"])
           if (queues.includes(activityQueue))
             expect(mocks.workerCreate).toHaveBeenCalledWith(
@@ -270,6 +311,53 @@ describe("WorkerApp lifecycle", () => {
       }
     },
   );
+
+  it.each([
+    { WASM_OJ_RUNTIME_DIR: "", WASM_OJ_TOOLCHAIN_DIR: "/opt/wasm-oj/toolchains" },
+    { WASM_OJ_RUNTIME_DIR: "/opt/wasm-oj/runtime", WASM_OJ_TOOLCHAIN_DIR: "" },
+  ])("refuses test mode without both WASM-OJ directories (%o)", async (dirs) => {
+    const app = new WorkerApp(
+      { ...env, ...dirs, WORKER_MODE: "test" },
+      { shutdownTimeoutMs: 100, workflowsPath: "workflow.js" },
+    );
+
+    await expect(app.start()).rejects.toThrow(/WASM_OJ_RUNTIME_DIR and WASM_OJ_TOOLCHAIN_DIR/);
+    expect(mocks.createEnginePool).not.toHaveBeenCalled();
+    expect(mocks.workerCreate).not.toHaveBeenCalled();
+    await expect(app.shutdown("startup failure")).resolves.toMatchObject({ complete: true });
+  });
+
+  it("serves only test-judge activities in test mode and disposes the engines after draining", async () => {
+    const events: string[] = [];
+    const worker = makeWorker(events);
+    mocks.workerCreate.mockResolvedValue(worker);
+    mocks.enginePoolDispose.mockImplementation(() => events.push("engines"));
+    const app = new WorkerApp(
+      { ...env, ...testJudgeRuntime, WORKER_MODE: "test", TEST_JUDGE_SLOTS: 3 },
+      { shutdownTimeoutMs: 100, workflowsPath: "workflow.js" },
+    );
+    const started = app.start();
+    await vi.waitFor(() => expect(worker.run).toHaveBeenCalledOnce());
+
+    expect(mocks.createEnginePool).toHaveBeenCalledWith({
+      runtimeDir: "/opt/wasm-oj/runtime",
+      toolchainDir: "/opt/wasm-oj/toolchains",
+      cacheDir: "/tmp/wasm-oj",
+      slots: 3,
+    });
+    const options = mocks.workerCreate.mock.calls[0]?.[0] as { activities: object };
+    expect(Object.keys(options.activities).sort()).toEqual([
+      "buildTestJudgeProgram",
+      "runTestJudge",
+    ]);
+    expect(mocks.startJudgeRecoveryMetrics).not.toHaveBeenCalled();
+    expect(mocks.setExecutorOwner).not.toHaveBeenCalled();
+    expect(mocks.ensureSubmissionSweeper).not.toHaveBeenCalled();
+
+    await app.shutdown("SIGTERM");
+    await started;
+    expect(events).toEqual(["worker", "engines"]);
+  });
 
   it("tunes judge activity slots to node load when a minimum concurrency is set", async () => {
     const supplier = { type: "custom" };
