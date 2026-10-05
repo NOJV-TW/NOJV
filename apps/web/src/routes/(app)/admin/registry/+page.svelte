@@ -184,6 +184,7 @@
             {m.admin_registry_noTags()}
           </p>
         {:else}
+          {@const rows = filteredTags(repo.tags)}
           <div class="overflow-x-auto">
             <table class="w-full text-body-sm">
               <thead>
@@ -224,7 +225,7 @@
                 </tr>
               </thead>
               <tbody>
-                {#each filteredTags(repo.tags) as t (t.tag)}
+                {#each rows as t (t.tag)}
                   <tr class="border-b border-border-subtle last:border-b-0">
                     <td class="px-5 py-3 font-mono">{t.tag}</td>
                     <td class="px-5 py-3 text-muted-foreground">{formatSize(t.size)}</td>
@@ -265,7 +266,7 @@
                     </td>
                   </tr>
                 {/each}
-                {#if filteredTags(repo.tags).length === 0}
+                {#if rows.length === 0}
                   <tr>
                     <td
                       colspan="4"

@@ -200,7 +200,16 @@ it("lists members newest-joined first and flips the order from the joined header
         joinedAt: "2026-08-01T00:00:00.000Z",
       }),
       member({ membershipId: "ta-1", role: "ta", joinedAt: "2026-09-15T00:00:00.000Z" }),
-      member({ membershipId: "student-1", joinedAt: "2026-09-01T00:00:00.000Z" }),
+      member({
+        membershipId: "student-1",
+        username: "amy",
+        joinedAt: "2026-09-01T00:00:00.000Z",
+      }),
+      member({
+        membershipId: "student-2",
+        username: "zed",
+        joinedAt: "2026-09-01T00:00:00.000Z",
+      }),
     ],
   });
   const order = () =>
@@ -214,13 +223,13 @@ it("lists members newest-joined first and flips the order from the joined header
     );
     expect(button).toBeDefined();
     const header = button!.closest("th")!;
-    expect(order()).toEqual(["ta-1", "student-1", "teacher-1"]);
+    expect(order()).toEqual(["ta-1", "student-2", "student-1", "teacher-1"]);
     expect(header.getAttribute("aria-sort")).toBe("descending");
     expect(header.querySelector("[data-icon]")?.getAttribute("data-icon")).toBe("down");
 
     button!.click();
     await tick();
-    expect(order()).toEqual(["teacher-1", "student-1", "ta-1"]);
+    expect(order()).toEqual(["teacher-1", "student-1", "student-2", "ta-1"]);
     expect(header.getAttribute("aria-sort")).toBe("ascending");
     expect(header.querySelector("[data-icon]")?.getAttribute("data-icon")).toBe("up");
   } finally {

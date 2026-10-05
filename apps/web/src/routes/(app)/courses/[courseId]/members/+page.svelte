@@ -50,7 +50,11 @@
       const handle = member.username?.toLowerCase() ?? "";
       return name.includes(needle) || handle.includes(needle);
     });
-    return sortRows(matches, sort.direction, (member) => member.joinedAt);
+    return sortRows(
+      matches,
+      sort.direction,
+      (member) => `${member.joinedAt}|${member.username ?? member.membershipId}`,
+    );
   });
 
   function initialFor(name: string): string {
