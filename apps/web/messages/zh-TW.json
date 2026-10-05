@@ -700,6 +700,7 @@
   "common_acceptance": "通過率",
   "common_applyFilter": "套用篩選",
   "common_clearFilter": "清除篩選：{label}",
+  "common_noMatches": "沒有符合篩選條件的資料。",
   "common_updatedAt": "更新時間",
   "common_back": "返回",
   "common_browseMyCourses": "查看我的課程",

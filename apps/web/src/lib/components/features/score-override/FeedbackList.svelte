@@ -178,7 +178,7 @@
         {:else}
           <tr class="border-t border-border-subtle">
             <td colspan="5" class="px-3 py-6 text-center text-muted-foreground">
-              {m.submissions_noMatches()}
+              {m.common_noMatches()}
             </td>
           </tr>
         {/each}

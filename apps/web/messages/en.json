@@ -700,6 +700,7 @@
   "common_acceptance": "Acceptance",
   "common_applyFilter": "Apply filter",
   "common_clearFilter": "Clear filter: {label}",
+  "common_noMatches": "Nothing matches these filters.",
   "common_updatedAt": "Updated",
   "common_back": "Back",
   "common_browseMyCourses": "Browse my courses",

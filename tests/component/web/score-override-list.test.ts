@@ -160,7 +160,7 @@ it("filters overrides by student and problem and keeps the filters when nothing 
     "nobody",
   );
   expect(order(target)).toEqual([]);
-  expect(target.querySelector("tbody")?.textContent).toContain(m.submissions_noMatches());
+  expect(target.querySelector("tbody")?.textContent).toContain(m.common_noMatches());
   expect(
     target.querySelector(`th button[aria-label="${m.override_staff_fieldStudent()}"]`),
   ).not.toBeNull();
