@@ -1,4 +1,7 @@
 export { default as AlertCircle } from "./empty-component.svelte";
+export { default as ArrowDown } from "./arrow-down-icon.svelte";
+export { default as ArrowUp } from "./arrow-up-icon.svelte";
+export { default as ArrowUpDown } from "./arrow-up-down-icon.svelte";
 export { default as Copy } from "./empty-component.svelte";
 export { default as Check } from "./empty-component.svelte";
 export { default as Code2 } from "./empty-component.svelte";
