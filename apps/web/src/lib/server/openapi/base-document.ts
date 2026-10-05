@@ -159,7 +159,7 @@ export const baseOpenApiDocument = {
         summary: "Create a submission",
         operationId: "createSubmission",
         description:
-          "Creates a queued submission and dispatches it to the judge. Supports Bearer API token auth when the token has the submissions:write scope. Browser-session callers continue to use the existing X-Requested-With: fetch protection.",
+          "Creates a queued submission and dispatches it to the judge. Supports Bearer API token auth when the token has the submissions:write scope. Browser-session callers continue to use the existing X-Requested-With: fetch protection. Every non-sample submission waits a cooldown after the caller's previous submission to the same problem in the same context: the activity's own cooldown or the platform minimum, whichever is longer. The 202 response reports that cooldown in cooldownSec; a submission inside it is rejected with 403 code submit_cooldown and retryAfterSec.",
         security: [{ ApiToken: [] }],
         requestBody: {
           required: true,
@@ -228,11 +228,12 @@ export const baseOpenApiDocument = {
             },
           },
           "403": {
-            description: "Profile incomplete, CSRF header missing, or access denied",
+            description:
+              "Profile incomplete, CSRF header missing, access denied, or the submission was rejected (see code)",
             content: {
               "application/json": {
                 schema: {
-                  $ref: "#/components/schemas/ErrorResponse",
+                  $ref: "#/components/schemas/SubmissionRejectionResponse",
                 },
               },
             },
@@ -526,6 +527,30 @@ export const baseOpenApiDocument = {
         required: ["files", "language"],
       },
       ErrorResponse: zodToOpenApiSchema(apiErrorSchema),
+      SubmissionRejectionResponse: {
+        type: "object",
+        properties: {
+          message: { type: "string" },
+          code: {
+            type: "string",
+            enum: [
+              "submit_cooldown",
+              "daily_limit",
+              "window_closed",
+              "ip_blocked",
+              "language_not_allowed",
+              "submit_rejected",
+            ],
+            description: "Present when the submission itself was rejected.",
+          },
+          retryAfterSec: {
+            type: "integer",
+            minimum: 1,
+            description: "Seconds until the cooldown ends; present with submit_cooldown.",
+          },
+        },
+        required: ["message"],
+      },
       ValidationErrorResponse: {
         type: "object",
         properties: {

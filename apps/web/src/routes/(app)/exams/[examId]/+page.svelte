@@ -99,6 +99,9 @@
     if (detail.ipWhitelistEnabled) {
       list.push(m.examDetail_ruleIpWhitelist({ count: detail.ipWhitelistCount }));
     }
+    if (detail.submitIntervalSec > 0) {
+      list.push(m.examDetail_ruleSubmitInterval({ seconds: detail.submitIntervalSec }));
+    }
     list.push(m.examDetail_ruleAskClarifications());
     return list;
   });
@@ -660,6 +663,7 @@
             {detail}
             {liveStatus}
             readOnly={!writable}
+            cooldownFloorSec={data.submitCooldownFloorSec}
           />
         {/key}
       {:else if activeSubTabKey === "clarifications"}

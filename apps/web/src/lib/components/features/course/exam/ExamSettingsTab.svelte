@@ -37,6 +37,7 @@
     detail: SettingsTabDetail;
     liveStatus: SettingsLiveStatus;
     readOnly?: boolean;
+    cooldownFloorSec: number;
     class?: string;
   }
 
@@ -45,6 +46,7 @@
     detail,
     liveStatus,
     readOnly = false,
+    cooldownFloorSec,
     class: className,
   }: Props = $props();
 
@@ -158,7 +160,7 @@
         />
       </section>
 
-      <ExamProblemConfig {form} {errors} editable={editableScoring} />
+      <ExamProblemConfig {form} {errors} editable={editableScoring} {cooldownFloorSec} />
 
       <section
         class="rounded-xl border border-border-subtle bg-[color:var(--color-panel)] p-4 shadow-rest"

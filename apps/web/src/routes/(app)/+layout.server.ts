@@ -1,4 +1,5 @@
 import { createHmac } from "node:crypto";
+import { submissionDomain } from "@nojv/application";
 import { redirect } from "@sveltejs/kit";
 
 import { EDITOR_LANGUAGE_COOKIE } from "$lib/components/features/problem/editors/editor-bindings";
@@ -25,5 +26,6 @@ export const load: LayoutServerLoad = (event) => {
       .digest("base64"),
     adminAccessActive: event.locals.adminAccessActive,
     editorLanguage: event.cookies.get(EDITOR_LANGUAGE_COOKIE),
+    submitCooldownFloorSec: submissionDomain.getSubmitCooldownFloorSec(),
   };
 };

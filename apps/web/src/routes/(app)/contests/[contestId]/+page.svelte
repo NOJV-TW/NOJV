@@ -277,6 +277,7 @@
               }}
               liveStatus={settingsLiveStatus}
               candidateProblems={data.candidateProblems}
+              cooldownFloorSec={data.submitCooldownFloorSec}
             />
           {/key}
         {:else}

@@ -9,7 +9,7 @@ import {
   parseIpWhitelistText,
   type ExamSettingsForm,
 } from "@nojv/core";
-import { examDomain } from "@nojv/application";
+import { examDomain, submissionDomain } from "@nojv/application";
 
 import type { Actions, PageServerLoad, PageServerLoadEvent } from "./$types";
 import { requireAuth } from "$lib/server/auth";
@@ -60,7 +60,10 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
             scoringMode: "point_sum",
             scoreboardMode: detail.scoreboardMode,
             allowedLanguages: detail.manager.allowedLanguages,
-            submitCooldownSec: detail.manager.submitCooldownSec,
+            submitCooldownSec: Math.max(
+              detail.manager.submitCooldownSec,
+              submissionDomain.getSubmitCooldownFloorSec(),
+            ),
             pageLockEnabled: detail.pageLockEnabled,
             ipBindingEnabled: detail.ipBindingEnabled,
             ipViolationMode: detail.ipViolationMode,

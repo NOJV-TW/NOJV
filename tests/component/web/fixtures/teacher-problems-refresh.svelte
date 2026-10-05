@@ -38,6 +38,7 @@
     ipBindingEnabled: false,
     ipWhitelistEnabled: false,
     ipWhitelistCount: 0,
+    submitIntervalSec: 0,
     ipViolationMode: "block" as const,
     problems: rows,
     registeredCount: 0,

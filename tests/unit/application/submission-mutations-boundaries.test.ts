@@ -332,6 +332,125 @@ describe("createQueuedSubmissionRecord — contest cooldown", () => {
   });
 });
 
+describe("createQueuedSubmissionRecord — platform cooldown floor", () => {
+  const previousFloor = process.env.SUBMIT_COOLDOWN_MIN_SEC;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-04-14T10:00:00.000Z"));
+    setupCommonProblemDefaults();
+    process.env.SUBMIT_COOLDOWN_MIN_SEC = "30";
+    examSessionFindActiveForUser.mockResolvedValue(null);
+    txContestProblemFindFirst.mockResolvedValue({ id: "cp_1" });
+    participationUpsertContestActive.mockResolvedValue({ id: "cp_1" });
+    submissionFindMostRecent.mockResolvedValue(null);
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    if (previousFloor === undefined) delete process.env.SUBMIT_COOLDOWN_MIN_SEC;
+    else process.env.SUBMIT_COOLDOWN_MIN_SEC = previousFloor;
+  });
+
+  const practiceDraft = {
+    context: { type: "practice" as const },
+    problemId: fakeProblem.id,
+    language: "python" as const,
+    sourceCode: "print('hi')",
+    sampleOnly: false,
+  };
+  const contestDraft = {
+    ...practiceDraft,
+    context: { type: "contest" as const, contestId: "ct_1" },
+  };
+
+  function contestWithCooldown(submitCooldownSec: number) {
+    contestRepoFindById.mockResolvedValue({
+      id: "ct_1",
+      visibility: "published",
+      startsAt: new Date("2026-04-01T00:00:00.000Z"),
+      endsAt: new Date("2026-12-31T23:59:59.000Z"),
+      submitCooldownSec,
+      allowedLanguages: [],
+    });
+  }
+
+  it("rejects a practice resubmission of the same problem inside the floor", async () => {
+    submissionFindMostRecent.mockResolvedValue({
+      createdAt: new Date("2026-04-14T09:59:50.000Z"),
+    });
+
+    await expect(
+      createQueuedSubmissionRecord(practiceDraft, fakeActor, "127.0.0.1"),
+    ).rejects.toThrow("Submit cooldown active. Please wait 20 seconds.");
+    expect(submissionCreate).not.toHaveBeenCalled();
+    expect(submissionFindMostRecent).toHaveBeenCalledWith({
+      examId: null,
+      contestId: null,
+      assessmentId: null,
+      participationId: null,
+      isReferenceSolution: false,
+      userId: fakeActor.userId,
+      problemId: fakeProblem.id,
+      sampleOnly: false,
+      status: { not: "system_error" },
+      createdAt: { gte: new Date("2026-04-14T09:59:30.000Z") },
+    });
+  });
+
+  it("returns the floor as the cooldown of an accepted practice submission", async () => {
+    await expect(
+      createQueuedSubmissionRecord(practiceDraft, fakeActor, "127.0.0.1"),
+    ).resolves.toMatchObject({ cooldownSec: 30 });
+  });
+
+  it("raises a shorter contest cooldown to the floor", async () => {
+    contestWithCooldown(10);
+    submissionFindMostRecent.mockResolvedValue({
+      createdAt: new Date("2026-04-14T09:59:40.000Z"),
+    });
+
+    await expect(
+      createQueuedSubmissionRecord(contestDraft, fakeActor, "127.0.0.1"),
+    ).rejects.toThrow("Please wait 10 seconds.");
+    expect(submissionFindMostRecent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        contestId: "ct_1",
+        createdAt: { gte: new Date("2026-04-14T09:59:30.000Z") },
+      }),
+    );
+  });
+
+  it("keeps a contest cooldown longer than the floor", async () => {
+    contestWithCooldown(120);
+
+    await expect(
+      createQueuedSubmissionRecord(contestDraft, fakeActor, "127.0.0.1"),
+    ).resolves.toMatchObject({ cooldownSec: 120 });
+  });
+
+  it("exempts sample-only runs from the floor", async () => {
+    await expect(
+      createQueuedSubmissionRecord(
+        { ...practiceDraft, sampleOnly: true },
+        fakeActor,
+        "127.0.0.1",
+      ),
+    ).resolves.toMatchObject({ cooldownSec: 0 });
+    expect(submissionFindMostRecent).not.toHaveBeenCalled();
+  });
+
+  it("skips the check when the floor is unset", async () => {
+    delete process.env.SUBMIT_COOLDOWN_MIN_SEC;
+
+    await expect(
+      createQueuedSubmissionRecord(practiceDraft, fakeActor, "127.0.0.1"),
+    ).resolves.toMatchObject({ cooldownSec: 0 });
+    expect(submissionFindMostRecent).not.toHaveBeenCalled();
+  });
+});
+
 describe("createQueuedSubmissionRecord — active exam lockout", () => {
   beforeEach(() => {
     vi.clearAllMocks();

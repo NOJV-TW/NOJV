@@ -85,7 +85,6 @@ import { resolveActivityProblems } from "../problem/fork";
 import { getProblemTotalScore } from "../problem/total-score";
 import { stripUndefined } from "../shared/strip-undefined";
 import { getDomainOrchestration } from "../shared/orchestration";
-import { enforceSubmitCooldown } from "../shared/submit-cooldown";
 import { assertEffectiveTimeWindow } from "../shared/effective-time-window";
 import { contestLifecycleInput } from "../shared/lifecycle-input";
 import { enqueueLifecycleCancellation } from "../shared/lifecycle-cancellation";
@@ -172,17 +171,6 @@ export async function ensureContestParticipation(
     .upsertContestActive(contest.id, userId, now);
 
   return { contest, participation };
-}
-
-export async function checkSubmitCooldown(
-  tx: TransactionClient,
-  contestId: string,
-  userId: string,
-  problemId: string,
-  cooldownSec: number,
-  now: Date = new Date(),
-) {
-  await enforceSubmitCooldown(tx, { contestId }, userId, problemId, cooldownSec, now);
 }
 
 export async function createContestRecord(actor: ActorContext, payload: ContestCreate) {

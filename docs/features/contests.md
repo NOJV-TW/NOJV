@@ -4,7 +4,7 @@ Acceptance spec for standalone contests (`Contest`, routes `/contests/[contestId
 
 ## Key code
 
-- `packages/application/src/contest/mutations.ts` — `createContestRecord`, `updateContestRecord`, `publishContest`, `deleteContestDraft`, `joinContest`, `joinContestByCode`, `ensureContestParticipation`, `checkSubmitCooldown`, lifecycle steps `activateContest`, `freezeContestBoard`, `finalizeContest`
+- `packages/application/src/contest/mutations.ts` — `createContestRecord`, `updateContestRecord`, `publishContest`, `deleteContestDraft`, `joinContest`, `joinContestByCode`, `ensureContestParticipation`, lifecycle steps `activateContest`, `freezeContestBoard`, `finalizeContest`
 - `packages/application/src/contest/queries.ts` — `getContestDetail`, `getContestWorkspaceData`, `canAccessContest`, `findViewerContestParticipation`, `unfreezeContest`
 - `packages/application/src/contest/scoring.ts` — `updateContestScores`, `getScoreboard`, `getScoreboardChart`
 - `packages/application/src/scoring/` — pure builders `buildScoreboard`, `buildScoreboardChartSeries`, `computeProblemCountPenalty`
@@ -19,7 +19,7 @@ Acceptance spec for standalone contests (`Contest`, routes `/contests/[contestId
 
 - `visibility` is `draft | published`; there is no archive state. "Ended" is `endsAt < now`. `createContestRecord` inserts contests as `published`; `publishContest`/`deleteContestDraft` handle `draft` rows.
 - A contest is public when `inviteCode` is null and private (invite-only) otherwise. The create form requires an invite code for private contests; none is generated.
-- Settings: time window, `scoringMode`, `scoreboardMode` (`hidden | live | frozen`), `frozenAt`, `submitCooldownSec` (0–3600), `penaltyMinutesPerWrong` (0–1440, default 20), `allowedLanguages`, 1–32 problems.
+- Settings: time window, `scoringMode`, `scoreboardMode` (`hidden | live | frozen`), `frozenAt`, `submitCooldownSec` (up to 3600; forms start at and require at least `SUBMIT_COOLDOWN_MIN_SEC`), `penaltyMinutesPerWrong` (0–1440, default 20), `allowedLanguages`, 1–32 problems.
 - Participants are `Participation` rows with `type = contest` and status `registered` (joined) or `active` (submitted) (DAT-04).
 - Management (edit, publish, delete, unfreeze, live board, plagiarism) is creator-or-admin via `canManageContest` (ASM-06). Only platform teachers and admins can create contests.
 - Publishing or creating a published contest ensures the contest lifecycle workflow (activate at start, freeze at `frozenAt` in `frozen` mode, finalize at end). Changing start, end, `frozenAt` or `scoreboardMode` on a published contest replaces it.
@@ -65,7 +65,7 @@ Out of scope: proctoring, course membership gating, score overrides and feedback
 - `ensureContestParticipation` rejects before `startsAt` (`"Contest has not started yet."`) and at or after `endsAt` (`"Contest has ended."`). A non-manager without a participation row gets `"You must join the contest before submitting."`; managers and admins are exempt and auto-joined.
 - On submit the participation is upserted to `active` with a composite-key upsert, so concurrent first submits converge on one row.
 - The contest problem route redirects non-managers without participation, and non-managers before start, to `/contests/[id]`; after `endsAt` it redirects to `/problems/[problemId]`.
-- `checkSubmitCooldown` enforces `submitCooldownSec` per user and problem under an advisory lock.
+- A non-sample submission must come at least `max(submitCooldownSec, SUBMIT_COOLDOWN_MIN_SEC)` seconds after the user's previous contest submission to the same problem; otherwise `403 submit_cooldown` with `retryAfterSec` (PRB-22). Rejected requests leave no submission and no penalty.
 
 ### Scoring
 

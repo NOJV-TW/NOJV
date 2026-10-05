@@ -238,3 +238,15 @@ Tracking belongs to the authenticated session (SSE wakeups, 5 s visible polling 
 - Rule: requests bind to the current context and late responses must not overwrite a newer one; background refresh preserves filters, pagination and unsaved grading edits.
 - Rule: browser rejudge-progress responses expose only status and counts.
 - Code: `packages/application/src/submission/history.ts`
+
+### PRB-22 Every non-sample submission waits a per-problem cooldown with a platform minimum
+
+**Decided:** 2026-10 · **Source:** [PR #634](https://github.com/NOJV-TW/NOJV/pull/634)
+
+In every context (practice, assignment, exam, contest, virtual) a user's non-sample submission to a problem must come at least `max(activity submitCooldownSec, SUBMIT_COOLDOWN_MIN_SEC)` seconds after their previous one to the same problem in the same context; assignments, practice and virtual contests use the platform minimum alone. One env value is both the platform cooldown and the minimum for exam and contest settings, so teachers and students learn one rule: "wait N seconds before resubmitting this problem". Browser Test never reaches the server and stays unlimited. The Data Structures exams of 2026-10 had 29–58% of submissions within 60 s of the same student's previous one on the same problem.
+
+- Rejected: a platform floor across all problems (the first 2026-10-05 draft; a second cooldown scope would mean two rules and two settings); capping each student's concurrently queued submissions (students cannot tell why they are blocked); a Redis cooldown key (DAT-10); answering 429 (clients already key on `code: "submit_cooldown"` with 403); relaxing the cooldown near an exam's end.
+- Rule: the server enforces the maximum at submit time; form `min` attributes and the settings display only help teachers. A one-time migration raised stored exam and contest settings below 30 to 30.
+- Rule: sample-only runs, reference solutions and `system_error` submissions neither wait nor count; other contexts never count.
+- Rule: the 202 response carries `cooldownSec` so clients count down without a rejected request.
+- Code: `packages/application/src/shared/submit-cooldown.ts`, `packages/application/src/submission/creation.ts`, `infra/charts/nojv/values.yaml` (`web.submitCooldownMinSec`)

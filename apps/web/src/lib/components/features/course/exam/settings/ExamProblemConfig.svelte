@@ -12,9 +12,10 @@
     form: Sf["form"];
     errors: Sf["errors"];
     editable: boolean;
+    cooldownFloorSec: number;
   }
 
-  let { form, errors, editable }: Props = $props();
+  let { form, errors, editable, cooldownFloorSec }: Props = $props();
 
   function toggleLanguage(lang: Language) {
     if (!editable) return;
@@ -90,11 +91,16 @@
         id="settings-cooldown"
         class={inputClassName}
         type="number"
-        min="0"
+        min={cooldownFloorSec}
         max="600"
         bind:value={$form.submitCooldownSec}
         disabled={!editable}
       />
+      {#if cooldownFloorSec > 0}
+        <p class="mt-1 text-caption text-muted-foreground">
+          {m.activitySettings_cooldownFloorHint({ floor: cooldownFloorSec })}
+        </p>
+      {/if}
       {#if $errors.submitCooldownSec}
         <p class="mt-1 text-xs text-destructive">{$errors.submitCooldownSec}</p>
       {/if}

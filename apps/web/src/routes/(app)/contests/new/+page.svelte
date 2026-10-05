@@ -274,12 +274,17 @@
           id="submitCooldownSec"
           name="submitCooldownSec"
           type="number"
-          min="0"
+          min={data.submitCooldownFloorSec}
           max="3600"
           bind:value={$form.submitCooldownSec}
           aria-invalid={Boolean($errors.submitCooldownSec)}
           aria-describedby={$errors.submitCooldownSec ? "submitCooldownSec-error" : undefined}
         />
+        {#if data.submitCooldownFloorSec > 0}
+          <p class="mt-1 text-caption text-muted-foreground">
+            {m.activitySettings_cooldownFloorHint({ floor: data.submitCooldownFloorSec })}
+          </p>
+        {/if}
         {#if $errors.submitCooldownSec}<p
             id="submitCooldownSec-error"
             class="mt-1 text-xs text-destructive"
