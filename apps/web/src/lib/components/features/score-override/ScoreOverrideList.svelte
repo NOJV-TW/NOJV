@@ -3,8 +3,18 @@
   import { toasts } from "$lib/stores/toast";
   import { Button } from "$lib/components/primitives/ui/button";
   import ConfirmDialog from "$lib/components/primitives/ui/ConfirmDialog.svelte";
+  import TableSelectColumnFilter from "$lib/components/primitives/ui/TableSelectColumnFilter.svelte";
+  import TableSortButton from "$lib/components/primitives/ui/TableSortButton.svelte";
+  import TableTextColumnFilter from "$lib/components/primitives/ui/TableTextColumnFilter.svelte";
   import { m } from "$lib/paraglide/messages.js";
   import { formatDateTime } from "$lib/utils/datetime";
+  import {
+    ariaSort,
+    sortDirection,
+    sortRows,
+    toggleSort,
+    type TableSort,
+  } from "$lib/utils/table-sort";
   import type { OverrideRow, ProblemOption, StudentOption } from "./ScoreOverrideForm.svelte";
 
   export interface OverrideListRow extends OverrideRow {
@@ -28,6 +38,11 @@
 
   let pendingDeleteId = $state<string | null>(null);
   let deleting = $state(false);
+  let studentFilter = $state("");
+  let problemFilter = $state("");
+  let sort = $state<TableSort<"score" | "updated">>({ key: "updated", direction: "desc" });
+
+  const visibleRows = $derived(sortRows(rows.filter(matches), sort.direction, sortValue));
 
   function studentLabel(rowId: string | null): string {
     if (rowId === null) return "—";
@@ -38,6 +53,18 @@
 
   function problemTitle(problemId: string): string {
     return problemById.get(problemId)?.title ?? problemId;
+  }
+
+  function matches(row: OverrideListRow): boolean {
+    const needle = studentFilter.trim().toLocaleLowerCase();
+    return (
+      studentLabel(row.courseMembershipId).toLocaleLowerCase().includes(needle) &&
+      (!problemFilter || row.problemId === problemFilter)
+    );
+  }
+
+  function sortValue(row: OverrideListRow): number | string {
+    return sort.key === "score" ? row.overrideScore : row.updatedAt;
   }
 
   function truncate(s: string, n: number): string {
@@ -81,23 +108,52 @@
       <thead class="bg-muted/40 text-caption uppercase tracking-wide text-muted-foreground">
         <tr>
           <th class="px-3 py-2 text-left font-medium">
-            {m.override_staff_fieldStudent()}
+            <TableTextColumnFilter
+              label={m.override_staff_fieldStudent()}
+              filterLabel={m.override_staff_fieldStudent()}
+              inputId="override-student-filter"
+              applyLabel={m.common_applyFilter()}
+              bind:value={studentFilter}
+            />
           </th>
           <th class="px-3 py-2 text-left font-medium">
-            {m.override_staff_fieldProblem()}
+            <TableSelectColumnFilter
+              label={m.override_staff_fieldProblem()}
+              filterLabel={m.override_staff_fieldProblem()}
+              allLabel={m.problems_allProblems()}
+              options={problems.map((p) => ({ value: p.id, label: p.title }))}
+              bind:value={problemFilter}
+            />
           </th>
-          <th class="px-3 py-2 text-right font-medium">
-            {m.override_staff_fieldScore()}
+          <th
+            class="px-3 py-2 text-right font-medium"
+            aria-sort={ariaSort(sortDirection(sort, "score"))}
+          >
+            <TableSortButton
+              label={m.override_staff_fieldScore()}
+              direction={sortDirection(sort, "score")}
+              onclick={() => (sort = toggleSort(sort, "score"))}
+              class="ml-0 -mr-1"
+            />
           </th>
           <th class="px-3 py-2 text-left font-medium">
             {m.override_staff_fieldReason()}
           </th>
-          <th class="px-3 py-2 text-left font-medium"></th>
+          <th
+            class="px-3 py-2 text-left font-medium"
+            aria-sort={ariaSort(sortDirection(sort, "updated"))}
+          >
+            <TableSortButton
+              label={m.common_updatedAt()}
+              direction={sortDirection(sort, "updated")}
+              onclick={() => (sort = toggleSort(sort, "updated"))}
+            />
+          </th>
           <th class="px-3 py-2 text-right font-medium"></th>
         </tr>
       </thead>
       <tbody>
-        {#each rows as row (row.id)}
+        {#each visibleRows as row (row.id)}
           <tr class="border-t border-border-subtle">
             <td class="px-3 py-2">{studentLabel(row.courseMembershipId)}</td>
             <td class="px-3 py-2">{problemTitle(row.problemId)}</td>
@@ -133,6 +189,12 @@
                   <Trash2 aria-hidden="true" class="size-4" />
                 </Button>
               </div>
+            </td>
+          </tr>
+        {:else}
+          <tr class="border-t border-border-subtle">
+            <td colspan="6" class="px-3 py-6 text-center text-muted-foreground">
+              {m.submissions_noMatches()}
             </td>
           </tr>
         {/each}
