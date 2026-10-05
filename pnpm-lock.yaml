@@ -466,6 +466,9 @@ importers:
       '@temporalio/workflow':
         specifier: 1.24.0
         version: 1.24.0
+      '@wasm-oj/server':
+        specifier: 0.2.3
+        version: 0.2.3
       ioredis:
         specifier: 'catalog:'
         version: 6.0.0
@@ -3537,6 +3540,10 @@ packages:
 
   '@wasm-oj/core@0.2.3':
     resolution: {integrity: sha512-zM8jPrjLdRijIViqPRcDJyHKtPZlklkXvi3M8GfUmtk0OZb7ds+hTBkDIh06iYdDtisI0TKmS3u4ELl5m0k/pg==}
+    engines: {node: '>=24.18.0 <25'}
+
+  '@wasm-oj/server@0.2.3':
+    resolution: {integrity: sha512-NF5u4ETZICUDtEscPQ9BFsuLZmjS0i70xafGpLqFFihbmML/E1WoCA4YDbI1/9T08tr6gUaRtu+b+v/h8bOpNg==}
     engines: {node: '>=24.18.0 <25'}
 
   '@wasm-oj/toolchain-clang@0.2.0':
@@ -9861,6 +9868,13 @@ snapshots:
   '@wasm-oj/core@0.2.3':
     dependencies:
       '@wasm-oj/contracts': 0.2.3
+      fflate: 0.8.3
+
+  '@wasm-oj/server@0.2.3':
+    dependencies:
+      '@wasm-oj/contracts': 0.2.3
+      '@wasm-oj/core': 0.2.3
+      '@wasmer/sdk': 0.10.0
       fflate: 0.8.3
 
   '@wasm-oj/toolchain-clang@0.2.0':

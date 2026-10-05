@@ -60,6 +60,7 @@ CI jobs restore the pnpm store by lockfile hash, falling back to the newest stor
 ## Service prerequisites
 
 - **Integration**: PostgreSQL, Redis, MinIO and Temporal from Compose, plus `nojv_test`. Temporal test servers download on first use and are cached in `$TMPDIR` for a day; CI pre-downloads them with `scripts/download-temporal-test-servers.sh`.
+- **Test-judge runtime** (`tests/integration/judge/test-judge-runtime.test.ts`, in `sandbox-integration`): skips unless `WASM_OJ_RUNTIME_DIR` points at the forge `wasm-oj-compiler` / `wasm-oj-runner` binaries and `WASM_OJ_TOOLCHAIN_DIR` at a directory whose `node_modules` holds `@wasm-oj/toolchain-clang` and `@wasm-oj/toolchain-python` at the versions in `WASM_OJ_SERVER_IDENTITY`.
 - **E2E**: run `pnpm build` first (`tests/tsconfig.e2e.json` resolves built `dist/` packages), the same services, and `nojv_e2e_test`. Playwright starts its own strict-port dev server at `http://localhost:5174`; do not start one. It runs one worker because tests share one destructive database; do not pass `--workers`.
 
 ## Destructive test databases

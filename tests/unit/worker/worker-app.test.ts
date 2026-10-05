@@ -148,6 +148,10 @@ const env: WorkerEnv = {
   SANDBOX_PIDS_LIMIT: 64,
   SANDBOX_MEMORY_HEADROOM_MB: 64,
   SANDBOX_MAX_MEMORY_MB: 1536,
+  WASM_OJ_RUNTIME_DIR: "",
+  WASM_OJ_TOOLCHAIN_DIR: "",
+  WASM_OJ_CACHE_DIR: "/tmp/wasm-oj",
+  TEST_JUDGE_SLOTS: 2,
 };
 
 function makeWorker(events: string[] = []) {
@@ -335,6 +339,10 @@ describe("WorkerApp lifecycle", () => {
       K8S_RUNTIME_CLASS_NAME: "gvisor",
       SANDBOX_MEMORY_HEADROOM_MB: 64,
       SANDBOX_MAX_MEMORY_MB: 2048,
+      WASM_OJ_RUNTIME_DIR: "",
+      WASM_OJ_TOOLCHAIN_DIR: "",
+      WASM_OJ_CACHE_DIR: "/tmp/wasm-oj",
+      TEST_JUDGE_SLOTS: 2,
     };
     const app = new WorkerApp(productionKubernetesEnv, {
       shutdownTimeoutMs: 100,
