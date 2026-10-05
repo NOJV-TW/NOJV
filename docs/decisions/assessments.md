@@ -236,7 +236,7 @@ Exam submissions and code drafts must target a problem linked to the exam (a con
 
 ### ASM-22 Exam-scoped expiring passwords as an extra login path
 
-**Decided:** 2026-09, revised 2026-10 · **Source:** [2026-09-21-exam-access-safety](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/active/2026-09-21-exam-access-safety.md), [#633](https://github.com/NOJV-TW/NOJV/pull/633)
+**Decided:** 2026-09, revised 2026-10 · **Source:** [2026-09-21-exam-access-safety](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/active/2026-09-21-exam-access-safety.md), [#633](https://github.com/NOJV-TW/NOJV/pull/633), [#635](https://github.com/NOJV-TW/NOJV/pull/635)
 
 Each published exam issues one credential per active bound student membership, 24 hours before start via durable work; username plus a valid exam password creates a Better Auth session tied to the credential revision that becomes invalid after the hard end. Passwords are stored recoverably encrypted plus a verification hash and mailed only to the account security email. Students need exam login without their OAuth accounts, which stay intact.
 
