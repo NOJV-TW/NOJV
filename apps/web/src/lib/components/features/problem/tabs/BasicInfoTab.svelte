@@ -358,8 +358,8 @@
   {#if judgeType === "interactive"}
     <label class="text-body-sm text-muted-foreground">
       <span
-        >{m.problemEditor_interactionFormat()}
-        <HelpTooltip text={m.problemEditor_interactionFormatTooltip()} /></span
+        >{m.admin_interactionFormat()}
+        <HelpTooltip text={m.admin_interactionFormatTooltip()} /></span
       >
       <ImageDropZone
         class={textareaClassName}

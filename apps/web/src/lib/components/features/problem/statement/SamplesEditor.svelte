@@ -19,6 +19,7 @@
   let { samples = $bindable([]), judgeType }: Props = $props();
 
   const uid = $props.id();
+  const interactorHelpId = `${uid}-interactor-help`;
   let interactive = $derived(judgeType === "interactive");
 
   const MAX_SAMPLES = 5;
@@ -56,6 +57,11 @@
       <p class="mt-0.5 text-caption text-muted-foreground">
         {m.admin_sampleIOHint()}
       </p>
+      {#if interactive}
+        <p id={interactorHelpId} class="mt-0.5 text-caption text-muted-foreground">
+          {m.admin_sampleInteractorInputHelp()}
+        </p>
+      {/if}
     </div>
     <span class="text-caption text-muted-foreground tabular-nums"
       >{samples.length} / {MAX_SAMPLES}</span
@@ -89,30 +95,24 @@
           {#if interactive}
             <label class="mt-2 block text-caption text-muted-foreground">
               <span
-                >{m.problemEditor_sampleInteractorInput()}
+                >{m.admin_sampleInteractorInput()}
                 <span class="text-destructive">*</span></span
               >
               <textarea
                 class={monoTextareaClassName}
                 required
-                aria-describedby="{uid}-interactor-help-{index}"
+                aria-describedby={interactorHelpId}
                 value={sample.interactorInput ?? ""}
                 oninput={(e) =>
                   updateInteractorInput(index, (e.target as HTMLTextAreaElement).value)}
               ></textarea>
             </label>
-            <p
-              id="{uid}-interactor-help-{index}"
-              class="mt-1 text-caption text-muted-foreground"
-            >
-              {m.problemEditor_sampleInteractorInputHelp()}
-            </p>
           {/if}
           <div class="mt-2 grid gap-3 md:grid-cols-2">
             <label class="text-caption text-muted-foreground">
               <span
                 >{interactive
-                  ? m.problemEditor_sampleTranscriptInteractor()
+                  ? m.admin_sampleTranscriptInteractor()
                   : m.admin_sampleInput()}</span
               >
               <textarea
@@ -124,7 +124,7 @@
             <label class="text-caption text-muted-foreground">
               <span
                 >{interactive
-                  ? m.problemEditor_sampleTranscriptProgram()
+                  ? m.admin_sampleTranscriptProgram()
                   : m.admin_sampleOutput()}</span
               >
               <textarea

@@ -135,7 +135,7 @@
 
   {#if interactive && problem.interactionFormat}
     <div class="mt-4">
-      <p class="text-body-sm font-semibold">{m.problem_interactionFormat()}:</p>
+      <p class="text-body-sm font-semibold">{m.problemDetail_interactionFormat()}:</p>
       <div class="mt-1 text-body leading-relaxed text-muted-foreground">
         <MarkdownRenderer content={problem.interactionFormat} />
       </div>
@@ -152,7 +152,7 @@
         {#if interactive && sample.interactorInput}
           <div>
             <p class="text-caption font-medium text-muted-foreground">
-              {m.problem_interactionSampleInput()}
+              {m.problemDetail_interactorInput()}
             </p>
             <div class="group relative mt-1">
               <pre

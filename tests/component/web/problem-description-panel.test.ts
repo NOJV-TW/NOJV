@@ -139,10 +139,10 @@ describe("ProblemDescriptionPanel", () => {
   it("shows interaction notes and each sample's interactor input on an interactive problem", async () => {
     const { target, component } = mountWithInteraction("interactive");
 
-    expect(target.textContent).toContain(`${m.problem_interactionFormat()}:`);
+    expect(target.textContent).toContain(`${m.problemDetail_interactionFormat()}:`);
     expect(target.textContent).toContain("The interactor reads the hidden number");
     expect(target.querySelectorAll(".katex-html")).toHaveLength(1);
-    expect(target.textContent.split(m.problem_interactionSampleInput())).toHaveLength(2);
+    expect(target.textContent.split(m.problemDetail_interactorInput())).toHaveLength(2);
     expect(target.textContent).toContain("424242");
 
     await unmount(component);
@@ -152,9 +152,9 @@ describe("ProblemDescriptionPanel", () => {
   it("shows no interaction content on a standard problem", async () => {
     const { target, component } = mountWithInteraction("standard");
 
-    expect(target.textContent).not.toContain(m.problem_interactionFormat());
+    expect(target.textContent).not.toContain(m.problemDetail_interactionFormat());
     expect(target.textContent).not.toContain("The interactor reads the hidden number");
-    expect(target.textContent).not.toContain(m.problem_interactionSampleInput());
+    expect(target.textContent).not.toContain(m.problemDetail_interactorInput());
     expect(target.textContent).not.toContain("424242");
 
     await unmount(component);
