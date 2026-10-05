@@ -14,8 +14,9 @@ import {
 } from "@nojv/core";
 import {
   WASM_OJ_LIBCXX_PCH_HEADER,
-  browserToolchainAssetUrl,
   createBrowserEngine,
+  prefetchBrowserToolchain,
+  type BrowserToolchainPrefetchProgress,
   type BuildResult,
   type Engine,
   type RunResult,
@@ -83,15 +84,10 @@ const BITS_STDCPP_INCLUDE = /^\s*#\s*include\s*<bits\/stdc\+\+\.h>/m;
 const TOOLCHAIN_PRELOAD_RETRY_DELAYS_MS = [2_000, 5_000];
 let browserEnginePromise: Promise<Engine> | undefined;
 
-export interface BrowserToolchainProgress {
-  loadedBytes: number;
-  totalBytes: number;
-}
-
 interface ToolchainPreload {
   promise: Promise<void>;
-  progress: BrowserToolchainProgress;
-  listeners: Set<(progress: BrowserToolchainProgress) => void>;
+  progress: BrowserToolchainPrefetchProgress;
+  listeners: Set<(progress: BrowserToolchainPrefetchProgress) => void>;
   settled: boolean;
 }
 
@@ -130,94 +126,56 @@ export async function prewarmBrowserLocalEngine(): Promise<void> {
   await getBrowserEngine();
 }
 
-export function browserToolchainAssets(language: Language) {
-  const source = BROWSER_TOOLCHAINS.find((candidate) =>
-    candidate.descriptor.languages.includes(language),
-  );
-  return (source?.descriptor.assets ?? []).filter(({ path }) => {
-    if (path.endsWith(".libcxx-pch.json")) return language === "cpp";
-    if (path.endsWith(".pch.gz.bin")) {
-      return language === "cpp" && path.endsWith(".cpp-release.pch.gz.bin");
-    }
-    return true;
-  });
-}
-
-export function browserToolchainPercent(progress: BrowserToolchainProgress): number {
-  if (progress.totalBytes === 0) return 100;
+export function browserToolchainPercent(progress: BrowserToolchainPrefetchProgress): number {
+  if (progress.totalBytes === 0) return 0;
   return Math.min(100, Math.floor((progress.loadedBytes / progress.totalBytes) * 100));
 }
 
 export function preloadBrowserToolchain(
   language: Language,
-  onProgress?: (progress: BrowserToolchainProgress) => void,
+  onProgress?: (progress: BrowserToolchainPrefetchProgress) => void,
 ): Promise<void> {
-  let preload = toolchainPreloads.get(language);
-  if (!preload) {
-    const assets = browserToolchainAssets(language);
-    const created: ToolchainPreload = {
-      promise: Promise.resolve(),
-      progress: {
-        loadedBytes: 0,
-        totalBytes: assets.reduce((sum, asset) => sum + asset.bytes, 0),
-      },
-      listeners: new Set(),
-      settled: false,
-    };
-    const report = (loadedBytes: number) => {
-      created.progress = { ...created.progress, loadedBytes };
-      for (const listener of created.listeners) listener(created.progress);
-    };
-    created.promise = downloadToolchainAssets(assets, report)
-      .catch((error: unknown) => {
-        toolchainPreloads.delete(language);
-        throw error;
-      })
-      .finally(() => {
-        created.settled = true;
-        created.listeners.clear();
-      });
-    toolchainPreloads.set(language, created);
-    preload = created;
+  const existing = toolchainPreloads.get(language);
+  if (existing) {
+    if (onProgress && !existing.settled) {
+      existing.listeners.add(onProgress);
+      onProgress(existing.progress);
+    }
+    return existing.promise;
   }
-  if (onProgress && !preload.settled) {
-    preload.listeners.add(onProgress);
-    onProgress(preload.progress);
-  }
+  const preload: ToolchainPreload = {
+    promise: Promise.resolve(),
+    progress: { loadedBytes: 0, totalBytes: 0 },
+    listeners: new Set(onProgress ? [onProgress] : []),
+    settled: false,
+  };
+  toolchainPreloads.set(language, preload);
+  preload.promise = prefetchWithRetries(language, (progress) => {
+    preload.progress = progress;
+    for (const listener of preload.listeners) listener(progress);
+  })
+    .catch((error: unknown) => {
+      toolchainPreloads.delete(language);
+      throw error;
+    })
+    .finally(() => {
+      preload.settled = true;
+      preload.listeners.clear();
+    });
   return preload.promise;
 }
 
-async function downloadToolchainAssets(
-  assets: ReturnType<typeof browserToolchainAssets>,
-  report: (loadedBytes: number) => void,
+async function prefetchWithRetries(
+  language: Language,
+  onProgress: (progress: BrowserToolchainPrefetchProgress) => void,
 ): Promise<void> {
   for (let attempt = 0; ; attempt += 1) {
-    let loadedBytes = 0;
-    report(0);
     try {
-      await Promise.all(
-        assets.map(async (asset) => {
-          const url = browserToolchainAssetUrl(BROWSER_TOOLCHAINS, asset.path, location.href);
-          const response = await fetch(url);
-          if (!response.ok || !response.body) {
-            throw new Error(
-              `Unable to load toolchain asset ${asset.path} (${String(response.status)}).`,
-            );
-          }
-          const reader = response.body.getReader();
-          let received = 0;
-          for (;;) {
-            const { done, value } = await reader.read();
-            if (done) break;
-            received += value.byteLength;
-            loadedBytes += value.byteLength;
-            report(loadedBytes);
-          }
-          if (received !== asset.bytes) {
-            throw new Error(`Toolchain asset ${asset.path} is incomplete.`);
-          }
-        }),
-      );
+      await prefetchBrowserToolchain(BROWSER_TOOLCHAINS, {
+        language,
+        libcxxPrecompiledHeader: language === "cpp",
+        onProgress,
+      });
       return;
     } catch (error) {
       const delay = TOOLCHAIN_PRELOAD_RETRY_DELAYS_MS[attempt];

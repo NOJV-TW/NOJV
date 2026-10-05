@@ -176,7 +176,7 @@ Standard-mode Test for sample and custom cases runs client-side in all eight lan
 - Rule: generic runtime fixes land upstream and are consumed as pinned releases; keep document CSP at `wasm-unsafe-eval`.
 - Rule: browser results are previews on Forge logical time; do not claim resource or toolchain-version equivalence; fix sample data, not engine input.
 - Rule: source diagnostics are CE, toolchain/infrastructure faults SE; custom cases without expected output are execution-only.
-- Rule: the editor preloads the selected language's toolchain assets (Worker URLs, so the HTTP cache serves the build) and Test waits for it; download failures are reported without building and never point students to Submit. A first build otherwise spends its 60 s boundary downloading on slow exam networks and fails the same way on every retry.
+- Rule: the editor preloads the selected language's toolchain through `prefetchBrowserToolchain` (Worker URLs, so the HTTP cache serves the build) and Test waits for it; download failures are reported without building and never point students to Submit. A first build otherwise spends its 60 s boundary downloading on slow exam networks and fails the same way on every retry.
 - Rule: add the admitted libc++ PCH only when a C++ source includes `<bits/stdc++.h>` and ships no own copy; forcing standard headers into other sources would let Test accept code Submit rejects.
 - Code: `apps/web/src/lib/services/browser-local-run.ts`, `apps/web/package.json`, `apps/web/svelte.config.js`
 
