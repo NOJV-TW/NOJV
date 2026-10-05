@@ -57,7 +57,7 @@ const participationIdSchema = z
   .max(128)
   .regex(/^[A-Za-z0-9_-]+$/);
 
-const submissionContextSchema = z.discriminatedUnion("type", [
+export const submissionContextSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("practice") }).strict(),
   assessmentContextSchema.extend({ type: z.literal("assignment") }).strict(),
   z.object({ type: z.literal("exam"), examId: z.string().trim().min(1) }).strict(),
