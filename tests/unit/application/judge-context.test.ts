@@ -312,6 +312,17 @@ describe("getJudgeContext", () => {
     ]);
   });
 
+  it("leaves sample explanations out of the judge context", async () => {
+    const row = mkSubmissionRow(
+      {},
+      { samples: [{ input: "1 2", output: "3", explanation: "$1 + 2 = 3$" }] },
+    );
+    findByIdWithJudgeContext.mockResolvedValue(row);
+
+    const ctx = await getJudgeContext("sub_1");
+    expect(ctx.samples).toEqual([{ input: "1 2", output: "3" }]);
+  });
+
   it("returns an empty samples array when the column is not an array", async () => {
     const row = mkSubmissionRow({}, { samples: null });
     findByIdWithJudgeContext.mockResolvedValue(row);

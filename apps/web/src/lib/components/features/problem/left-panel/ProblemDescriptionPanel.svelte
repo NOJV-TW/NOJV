@@ -164,6 +164,16 @@
             />
           </div>
         </div>
+        {#if sample.explanation}
+          <div>
+            <p class="text-caption font-medium text-muted-foreground">
+              {m.problemDetail_sampleExplanation()}
+            </p>
+            <div class="mt-1 text-caption leading-6 text-foreground">
+              <MarkdownRenderer content={sample.explanation} />
+            </div>
+          </div>
+        {/if}
       </div>
     </div>
   {/each}

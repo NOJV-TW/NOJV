@@ -45,6 +45,7 @@ export interface ProblemDetail extends ProblemOverview {
   samples: {
     input: string;
     output: string;
+    explanation?: string | undefined;
   }[];
   starterByLanguage: Record<Language, string>;
   statement: string;

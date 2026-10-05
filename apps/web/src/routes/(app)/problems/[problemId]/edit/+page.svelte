@@ -275,6 +275,12 @@
           </h3>
           {@render readOnlyCode(m.admin_sampleInput(), sample.input)}
           {@render readOnlyCode(m.admin_sampleOutput(), sample.output)}
+          {#if sample.explanation}
+            <section class="space-y-2" aria-label={m.problemDetail_sampleExplanation()}>
+              <h3 class="text-body-sm font-semibold">{m.problemDetail_sampleExplanation()}</h3>
+              <MarkdownRenderer content={sample.explanation} />
+            </section>
+          {/if}
         </section>
       {/each}
       <details class="rounded-lg border border-border-subtle p-3">

@@ -72,6 +72,7 @@ type SeedWorkspaceFile = {
 type SeedProblemSample = {
   readonly input: string;
   readonly output: string;
+  readonly explanation?: string;
 };
 
 function toSamplesJson(
@@ -81,6 +82,7 @@ function toSamplesJson(
   return samples.map((sample) => ({
     input: sample.input,
     output: sample.output,
+    ...(sample.explanation ? { explanation: sample.explanation } : {}),
   }));
 }
 
@@ -290,8 +292,18 @@ export function buildSeedProblemDefs(
         outputFormat: "一行，輸出 $Q$ 個以空白分隔的索引，第 $k$ 個是第 $k$ 筆查詢的答案。",
       },
       samples: [
-        { input: "5\n1 3 5 7 9\n3\n4 9 10\n", output: "2 4 5" },
-        { input: "4\n2 2 2 2\n2\n2 3\n", output: "0 4" },
+        {
+          input: "5\n1 3 5 7 9\n3\n4 9 10\n",
+          output: "2 4 5",
+          explanation:
+            "第一個 $\\ge 4$ 的元素是 `5`，索引為 $2$；`9` 本身就在索引 $4$；陣列中沒有 $\\ge 10$ 的元素，因此回答 $N = 5$。",
+        },
+        {
+          input: "4\n2 2 2 2\n2\n2 3\n",
+          output: "0 4",
+          explanation:
+            "元素全是 `2` 時，查詢 `2` 要回答最左邊的位置 $0$；沒有 $\\ge 3$ 的元素，回答 $N = 4$。",
+        },
       ],
       testcases: {
         sample: {
@@ -376,7 +388,11 @@ export function buildSeedProblemDefs(
         outputFormat: "一行，輸出最大連續子陣列和。",
       },
       samples: [
-        { input: "9\n-2 1 -3 4 -1 2 1 -5 4\n", output: "6" },
+        {
+          input: "9\n-2 1 -3 4 -1 2 1 -5 4\n",
+          output: "6",
+          explanation: "和最大的連續子陣列是 `4 -1 2 1`，總和為 $6$。",
+        },
         { input: "1\n5\n", output: "5" },
       ],
       testcases: {
@@ -413,7 +429,12 @@ export function buildSeedProblemDefs(
         outputFormat: "一行，輸出總重量不超過 $W$ 時的最大總價值。",
       },
       samples: [
-        { input: "4 10\n2 3\n3 4\n4 5\n5 6\n", output: "13" },
+        {
+          input: "4 10\n2 3\n3 4\n4 5\n5 6\n",
+          output: "13",
+          explanation:
+            "選第 1、2、4 件物品：總重量 $2 + 3 + 5 = 10$，總價值 $3 + 4 + 6 = 13$。",
+        },
         { input: "3 5\n1 1\n2 2\n3 3\n", output: "5" },
       ],
       testcases: {
@@ -563,7 +584,12 @@ wrong(f"a[{i}]+a[{j}] != {target}")
         outputFormat: "輸出任意一組滿足條件的 1-based 索引 `i j`；若不存在輸出 `-1`。",
       },
       samples: [
-        { input: "4 9\n2 7 4 5\n", output: "1 2" },
+        {
+          input: "4 9\n2 7 4 5\n",
+          output: "1 2",
+          explanation:
+            "$a_1 + a_2 = 2 + 7 = 9$。輸出 `3 4`（$4 + 5 = 9$）或 `2 1` 也會被 checker 接受。",
+        },
         { input: "3 100\n1 2 3\n", output: "-1" },
       ],
       testcases: {
@@ -621,6 +647,8 @@ wrong(f"failed to guess {secret} within 20 attempts")
         {
           input: "1 100\nlower\nhigher\nhigher\nlower\ncorrect",
           output: "50\n25\n37\n43\n42",
+          explanation:
+            "秘密數字是 $42$。「輸入」是系統依序送出的行：第一行是範圍，之後是每次猜測的回應；「輸出」是你依序送出的猜測。$50$ 太大、$25$ 太小、$37$ 太小、$43$ 太大，最後猜 $42$ 正確。",
         },
         {
           input: "1 1000000\ncorrect",
@@ -875,7 +903,11 @@ wrong(f"{a} x {b} is not a valid factor pair of {n}")
           "一行兩個以空白分隔的整數 `a b`，滿足 $a > 1$、$b > 1$ 且 $a \\times b = n$。",
       },
       samples: [
-        { input: "12\n", output: "2 6" },
+        {
+          input: "12\n",
+          output: "2 6",
+          explanation: "$2 \\times 6 = 12$。輸出 `3 4`、`4 3` 或 `6 2` 也都正確。",
+        },
         { input: "100\n", output: "4 25" },
       ],
       workspaceFiles: [
@@ -978,6 +1010,8 @@ wrong(f"failed to find {secret} within the turn budget")
         {
           input: "1 1000000\nlower\nhigher\ncorrect",
           output: "500000\n250000\n375000",
+          explanation:
+            "秘密數字是 $375000$。每次猜目前範圍的中點：$500000$ 太大，範圍縮成 $[1, 499999]$；$250000$ 太小，範圍縮成 $[250001, 499999]$；中點 $375000$ 猜中。",
         },
       ],
       workspaceFiles: [
@@ -1108,6 +1142,8 @@ wrong(f"failed to find {secret} in {max_turns} turns")
         {
           input: "1 100 35 5\nhigher\nlower\nhigher\nlower\nlower\ncorrect",
           output: "50\n75\n62\n70\n66\n68",
+          explanation:
+            "範圍 $[1, 100]$、最多 $35$ 回合，每 $5$ 回合說一次謊。秘密數字是 $68$：第 $5$ 回合猜 $66$ 時真正的回應是 `higher`，但這回合被反轉成 `lower`；第 $6$ 回合猜 $68$ 正確。",
         },
       ],
       testcases: {
@@ -1331,10 +1367,12 @@ wrong(f"failed to find {secret} in {max_turns} turns")
         {
           input: "4\n1 -2 3 -2",
           output: "3",
+          explanation: "最佳是單獨取 `3`；跨越尾端接回開頭的 `3 -2 1` 總和只有 $2$。",
         },
         {
           input: "3\n5 -3 5",
           output: "10",
+          explanation: "跨越尾端：取最後的 `5` 接回開頭的 `5`，略過中間的 `-3`，總和為 $10$。",
         },
       ],
       testcases: {
@@ -1640,6 +1678,8 @@ wrong(f"failed to find {secret} in {max_turns} turns")
         {
           input: "([)]",
           output: "No",
+          explanation:
+            "括號數量都對得上，但 `[` 還沒關閉就出現 `)`，配對順序交錯，因此不合法。",
         },
       ],
       testcases: {
@@ -1715,10 +1755,13 @@ wrong(f"failed to find {secret} in {max_turns} turns")
         {
           input: "3 5 5\n2 3 4\n3 2 5\n4 4 9",
           output: "9",
+          explanation:
+            "單獨拿第 3 件（重量 $4$、體積 $4$）價值 $9$；第 1、2 件一起拿（重量 $5$、體積 $5$）同樣是 $9$。第 3 件再加任何一件都會超過重量上限。",
         },
         {
           input: "1 1 1\n2 2 10",
           output: "0",
+          explanation: "唯一的物品重量 $2$、體積 $2$，超過上限 $1$，什麼都拿不了，答案為 $0$。",
         },
       ],
       testcases: {
@@ -1779,7 +1822,12 @@ wrong(f"failed to find {secret} in {max_turns} turns")
         outputFormat: "輸出一行一個整數，代表最多能挑選的活動數量。",
       },
       samples: [
-        { input: "4\n1 3\n2 5\n4 7\n6 8\n", output: "2\n" },
+        {
+          input: "4\n1 3\n2 5\n4 7\n6 8\n",
+          output: "2\n",
+          explanation:
+            "例如挑 $[1, 3)$ 與 $[4, 7)$，或 $[1, 3)$ 與 $[6, 8)$；任意三場都至少有兩場重疊，所以答案是 $2$。",
+        },
         { input: "3\n0 2\n2 4\n4 6\n", output: "3\n" },
       ],
       testcases: {
@@ -1843,7 +1891,12 @@ wrong(f"failed to find {secret} in {max_turns} turns")
         outputFormat: "輸出一行一個整數，代表最小總代價。",
       },
       samples: [
-        { input: "4\n4 3 1 2\n", output: "19\n" },
+        {
+          input: "4\n4 3 1 2\n",
+          output: "19\n",
+          explanation:
+            "每次合併最輕的兩堆：$1 + 2 = 3$（代價 $3$）、$3 + 3 = 6$（代價 $6$）、$4 + 6 = 10$（代價 $10$），總代價 $3 + 6 + 10 = 19$。",
+        },
         { input: "3\n1 2 3\n", output: "9\n" },
       ],
       testcases: {
@@ -1899,8 +1952,18 @@ wrong(f"failed to find {secret} in {max_turns} turns")
         outputFormat: "輸出一行一個整數，代表滿足條件的數對數量。",
       },
       samples: [
-        { input: "5 6\n1 5 2 4 3\n", output: "6\n" },
-        { input: "3 -5\n-1 -2 -3\n", output: "1\n" },
+        {
+          input: "5 6\n1 5 2 4 3\n",
+          output: "6\n",
+          explanation:
+            "和 $\\le 6$ 的數對有 $1+5$、$1+2$、$1+4$、$1+3$、$2+4$、$2+3$，共 $6$ 對。",
+        },
+        {
+          input: "3 -5\n-1 -2 -3\n",
+          output: "1\n",
+          explanation:
+            "三個數對的和分別是 $-3$、$-4$、$-5$，只有 $(-2) + (-3) = -5$ 不超過 $T = -5$。",
+        },
       ],
       testcases: {
         sample: {
@@ -1956,7 +2019,12 @@ wrong(f"failed to find {secret} in {max_turns} turns")
         outputFormat: "輸出一行一個整數，代表最少需要的會議室數量。",
       },
       samples: [
-        { input: "3\n0 10\n5 20\n15 25\n", output: "2\n" },
+        {
+          input: "3\n0 10\n5 20\n15 25\n",
+          output: "2\n",
+          explanation:
+            "$[0, 10)$ 與 $[5, 20)$ 重疊，需要 $2$ 間；$[15, 25)$ 開始時第一場已結束，可以沿用第一間會議室。",
+        },
         { input: "2\n1 3\n3 5\n", output: "1\n" },
       ],
       testcases: {
@@ -2017,7 +2085,12 @@ wrong(f"failed to find {secret} in {max_turns} turns")
           "輸出一行一個整數：從城市 $1$ 到城市 $N$ 的最小總過路費；若無法抵達城市 $N$，輸出 `-1`。注意答案可能超過 32 位元整數範圍。",
       },
       samples: [
-        { input: "4 5\n1 2 10\n1 3 1\n3 2 1\n2 4 1\n1 2 2\n", output: "3\n" },
+        {
+          input: "4 5\n1 2 10\n1 3 1\n3 2 1\n2 4 1\n1 2 2\n",
+          output: "3\n",
+          explanation:
+            "走 $1 \\to 3 \\to 2 \\to 4$，費用 $1 + 1 + 1 = 3$；城市 $1$、$2$ 之間有費用 $10$ 與 $2$ 兩條路，走費用 $2$ 那條再到 $4$ 也是 $3$。",
+        },
         { input: "3 1\n1 2 5\n", output: "-1\n" },
       ],
       testcases: {
@@ -2087,6 +2160,8 @@ wrong(f"failed to find {secret} in {max_turns} turns")
         {
           input: "5 7\nQ 1 2\nC 1 2\nQ 1 2\nC 3 4\nQ 2 5\nC 2 3\nQ 1 4\n",
           output: "NO\nYES\nNO\nYES\n",
+          explanation:
+            "一開始 $1$、$2$ 不連通，`C 1 2` 之後才連通。電腦 $5$ 從未連線，所以 `Q 2 5` 為 `NO`。`C 2 3` 之後 $1, 2, 3, 4$ 串在一起，`Q 1 4` 為 `YES`。",
         },
         { input: "3 3\nQ 2 2\nC 1 3\nQ 3 1\n", output: "YES\nYES\n" },
       ],
@@ -2166,7 +2241,12 @@ wrong(f"failed to find {secret} in {max_turns} turns")
           "輸出一行：若能使所有村莊連通，輸出最小總造價（注意答案可能超過 32 位元整數範圍）；否則輸出 `IMPOSSIBLE`。",
       },
       samples: [
-        { input: "4 5\n1 2 3\n2 3 1\n3 4 4\n1 3 2\n2 2 7\n", output: "7\n" },
+        {
+          input: "4 5\n1 2 3\n2 3 1\n3 4 4\n1 3 2\n2 2 7\n",
+          output: "7\n",
+          explanation:
+            "選 $2-3$（$1$）、$1-3$（$2$）、$3-4$（$4$），總造價 $7$。自環 $2-2$ 沒有作用，不會被選。",
+        },
         { input: "3 1\n1 2 8\n", output: "IMPOSSIBLE\n" },
       ],
       testcases: {
@@ -2232,8 +2312,16 @@ wrong(f"failed to find {secret} in {max_turns} turns")
         outputFormat: "輸出一行：若存在符合要求的分法，輸出 `YES`，否則輸出 `NO`。",
       },
       samples: [
-        { input: "4 4\n1 2\n2 3\n3 4\n4 1\n", output: "YES\n" },
-        { input: "3 3\n1 2\n2 3\n1 3\n", output: "NO\n" },
+        {
+          input: "4 4\n1 2\n2 3\n3 4\n4 1\n",
+          output: "YES\n",
+          explanation: "社員 $1$、$3$ 一隊，$2$、$4$ 一隊，每對互相認識的人都在不同隊。",
+        },
+        {
+          input: "3 3\n1 2\n2 3\n1 3\n",
+          output: "NO\n",
+          explanation: "三人兩兩認識，分成兩隊時必有兩人同隊。",
+        },
       ],
       testcases: {
         sample: {
@@ -2301,7 +2389,12 @@ wrong(f"failed to find {secret} in {max_turns} turns")
         outputFormat: "一行，輸出一個整數，代表島嶼的總數。",
       },
       samples: [
-        { input: "4 5\n##..#\n##..#\n.....\n#.###\n", output: "4\n" },
+        {
+          input: "4 5\n##..#\n##..#\n.....\n#.###\n",
+          output: "4\n",
+          explanation:
+            "四座島分別是左上的 $2 \\times 2$ 方塊、右上的直條、左下的單格與右下的橫條。",
+        },
         { input: "3 3\n#..\n.#.\n..#\n", output: "3\n" },
       ],
       testcases: {
@@ -2386,7 +2479,11 @@ wrong(f"failed to find {secret} in {max_turns} turns")
         outputFormat: "一行，輸出一個整數，代表樹的直徑（最長簡單路徑的邊數）。",
       },
       samples: [
-        { input: "5\n1 2\n2 3\n3 4\n3 5\n", output: "3\n" },
+        {
+          input: "5\n1 2\n2 3\n3 4\n3 5\n",
+          output: "3\n",
+          explanation: "最長路徑是 $1 - 2 - 3 - 4$（或 $1 - 2 - 3 - 5$），共 $3$ 條邊。",
+        },
         { input: "1\n", output: "0\n" },
       ],
       testcases: {
@@ -2469,8 +2566,17 @@ wrong(f"failed to find {secret} in {max_turns} turns")
           "若存在合法順序，輸出一行 $N$ 個以空白分隔的整數，為 $1$ 到 $N$ 的一個排列，代表修課順序；否則輸出一行 `-1`。答案不唯一時輸出任意一種合法順序即可。",
       },
       samples: [
-        { input: "4 3\n1 2\n2 3\n1 4\n", output: "1 2 4 3\n" },
-        { input: "3 3\n1 2\n2 3\n3 1\n", output: "-1\n" },
+        {
+          input: "4 3\n1 2\n2 3\n1 4\n",
+          output: "1 2 4 3\n",
+          explanation:
+            "需要 $1$ 排在 $2$、$4$ 之前，$2$ 排在 $3$ 之前。`1 4 2 3`、`1 2 3 4` 也都是合法順序。",
+        },
+        {
+          input: "3 3\n1 2\n2 3\n3 1\n",
+          output: "-1\n",
+          explanation: "$1 \\to 2 \\to 3 \\to 1$ 形成循環，不存在合法順序。",
+        },
       ],
       testcases: {
         sample: {
@@ -2545,7 +2651,12 @@ wrong(f"failed to find {secret} in {max_turns} turns")
           "若路線存在：第一行輸出一個整數 $k$，代表路線經過的路口數；第二行輸出 $k$ 個以空白分隔的整數，依序為路線上的路口編號。路線必須以 $1$ 開頭、以 $N$ 結尾，相鄰兩個路口之間必須有道路，且 $k - 1$ 必須等於最少可能的道路數。特別地，$N = 1$ 時輸出 `1` 與只含路口 `1` 的一行。\n\n若路線不存在，輸出一行 `-1`。答案不唯一時輸出任意一條最短路線即可。",
       },
       samples: [
-        { input: "5 6\n1 2\n2 5\n1 3\n3 4\n4 5\n2 3\n", output: "3\n1 2 5\n" },
+        {
+          input: "5 6\n1 2\n2 5\n1 3\n3 4\n4 5\n2 3\n",
+          output: "3\n1 2 5\n",
+          explanation:
+            "最短路線 $1 \\to 2 \\to 5$ 經過 $2$ 條道路，路線上有 $k = 3$ 個路口。$1 \\to 3 \\to 4 \\to 5$ 要 $3$ 條道路，不是最短。",
+        },
         { input: "4 2\n1 2\n3 4\n", output: "-1\n" },
       ],
       testcases: {
@@ -2618,8 +2729,16 @@ wrong(f"failed to find {secret} in {max_turns} turns")
         outputFormat: "輸出一行，包含一個整數，表示最長嚴格遞增子序列的長度。",
       },
       samples: [
-        { input: "6\n10 9 2 5 3 7\n", output: "3\n" },
-        { input: "5\n4 4 4 4 4\n", output: "1\n" },
+        {
+          input: "6\n10 9 2 5 3 7\n",
+          output: "3\n",
+          explanation: "例如 `2 5 7` 或 `2 3 7`，長度為 $3$。",
+        },
+        {
+          input: "5\n4 4 4 4 4\n",
+          output: "1\n",
+          explanation: "嚴格遞增不允許相等，只能取單一個 `4`。",
+        },
       ],
       testcases: {
         sample: {
@@ -2685,7 +2804,12 @@ wrong(f"failed to find {secret} in {max_turns} turns")
         outputFormat: "輸出一行，包含一個整數，表示將 $s$ 轉換成 $t$ 的最少操作步數。",
       },
       samples: [
-        { input: "kitten\nsitting\n", output: "3\n" },
+        {
+          input: "kitten\nsitting\n",
+          output: "3\n",
+          explanation:
+            "把 `k` 換成 `s`、`e` 換成 `i`，再在結尾插入 `g`：`kitten` → `sitten` → `sittin` → `sitting`，共 $3$ 步。",
+        },
         { input: "abc\nadc\n", output: "1\n" },
       ],
       testcases: {
@@ -2749,8 +2873,17 @@ wrong(f"failed to find {secret} in {max_turns} turns")
           "輸出一行，包含一個整數：湊出恰好 $A$ 元所需的最少硬幣數量；若湊不出則輸出 `-1`。注意當 $A = 0$ 時答案為 `0`。",
       },
       samples: [
-        { input: "3 6\n1 3 4\n", output: "2\n" },
-        { input: "2 7\n2 4\n", output: "-1\n" },
+        {
+          input: "3 6\n1 3 4\n",
+          output: "2\n",
+          explanation:
+            "$3 + 3 = 6$ 只要 $2$ 枚。先拿最大面額的貪心做法 $4 + 1 + 1$ 需要 $3$ 枚，不是最少。",
+        },
+        {
+          input: "2 7\n2 4\n",
+          output: "-1\n",
+          explanation: "面額都是偶數，湊不出奇數的 $7$。",
+        },
       ],
       testcases: {
         sample: {
@@ -2814,7 +2947,11 @@ wrong(f"failed to find {secret} in {max_turns} turns")
           "輸出一行，包含一個整數，表示 $s$ 與 $t$ 的最長公共子序列長度；若兩字串沒有任何公共字元，輸出 `0`。",
       },
       samples: [
-        { input: "axbxcx\naybycy\n", output: "3\n" },
+        {
+          input: "axbxcx\naybycy\n",
+          output: "3\n",
+          explanation: "最長公共子序列是 `abc`：兩字串分別去掉 `x` 與 `y` 後都剩下 `abc`。",
+        },
         { input: "abcde\nace\n", output: "3\n" },
       ],
       testcases: {
@@ -2878,8 +3015,17 @@ wrong(f"failed to find {secret} in {max_turns} turns")
           "輸出一行一個整數：從 $(0,0)$ 走到 $(R-1,C-1)$ 的走法數對 $10^9+7$ 取餘數的結果。",
       },
       samples: [
-        { input: "3 3\n...\n.#.\n...\n", output: "2\n" },
-        { input: "2 2\n.#\n#.\n", output: "0\n" },
+        {
+          input: "3 3\n...\n.#.\n...\n",
+          output: "2\n",
+          explanation:
+            "中央是障礙，只能沿上緣走到右上角再往下，或沿左緣走到左下角再往右，共 $2$ 種。",
+        },
+        {
+          input: "2 2\n.#\n#.\n",
+          output: "0\n",
+          explanation: "起點的右邊與下面都是障礙，無法離開起點。",
+        },
       ],
       testcases: {
         sample: {
@@ -2952,8 +3098,12 @@ wrong(f"failed to find {secret} in {max_turns} turns")
         outputFormat: "若能把 $N$ 顆彈珠分成總重量相等的兩組，輸出 `YES`；否則輸出 `NO`。",
       },
       samples: [
-        { input: "4\n1 5 11 7\n", output: "YES\n" },
-        { input: "3\n1 2 4\n", output: "NO\n" },
+        {
+          input: "4\n1 5 11 7\n",
+          output: "YES\n",
+          explanation: "總重量 $24$，分成 $\\{1, 11\\}$ 與 $\\{5, 7\\}$，兩邊各 $12$。",
+        },
+        { input: "3\n1 2 4\n", output: "NO\n", explanation: "總重量 $7$ 是奇數，不可能平分。" },
       ],
       testcases: {
         sample: {
@@ -3011,8 +3161,18 @@ wrong(f"failed to find {secret} in {max_turns} turns")
           "輸出一行一個整數：從城市 $1$ 出發、恰好造訪其他每座城市各一次後回到城市 $1$ 的最小總花費。",
       },
       samples: [
-        { input: "3\n0 1 2\n1 0 3\n2 3 0\n", output: "6\n" },
-        { input: "2\n0 5\n7 0\n", output: "12\n" },
+        {
+          input: "3\n0 1 2\n1 0 3\n2 3 0\n",
+          output: "6\n",
+          explanation:
+            "$1 \\to 2 \\to 3 \\to 1$ 花費 $1 + 3 + 2 = 6$；反方向 $1 \\to 3 \\to 2 \\to 1$ 也是 $2 + 3 + 1 = 6$。",
+        },
+        {
+          input: "2\n0 5\n7 0\n",
+          output: "12\n",
+          explanation:
+            "唯一的路線是 $1 \\to 2 \\to 1$，花費 $d_{12} + d_{21} = 5 + 7 = 12$；花費不對稱，去程與回程不同。",
+        },
       ],
       testcases: {
         sample: {
@@ -3095,7 +3255,11 @@ wrong(f"failed to find {secret} in {max_turns} turns")
         outputFormat: "輸出一行一個整數：$s$ 的最長回文子字串的長度。",
       },
       samples: [
-        { input: "babad\n", output: "3\n" },
+        {
+          input: "babad\n",
+          output: "3\n",
+          explanation: "`bab` 與 `aba` 都是長度 $3$ 的回文子字串。",
+        },
         { input: "cbbd\n", output: "2\n" },
       ],
       testcases: {
@@ -3167,7 +3331,12 @@ wrong(f"failed to find {secret} in {max_turns} turns")
         outputFormat: String.raw`輸出一行，包含 $N-K+1$ 個整數，以空白分隔；第 $i$ 個整數為 $\max(a_i, a_{i+1}, \dots, a_{i+K-1})$。`,
       },
       samples: [
-        { input: "8 3\n1 3 -1 -3 5 3 6 7\n", output: "3 3 5 5 6 7\n" },
+        {
+          input: "8 3\n1 3 -1 -3 5 3 6 7\n",
+          output: "3 3 5 5 6 7\n",
+          explanation:
+            "六個視窗依序是 `1 3 -1`、`3 -1 -3`、`-1 -3 5`、`-3 5 3`、`5 3 6`、`3 6 7`，最大值分別為 $3, 3, 5, 5, 6, 7$。",
+        },
         { input: "5 5\n-2 -7 -1 -5 -3\n", output: "-1\n" },
       ],
       testcases: {
@@ -3330,6 +3499,8 @@ wrong(f"failed to find {secret} in {max_turns} turns")
         {
           input: "5 6\n1 2 3 4 5\nQ 1 5\nU 3 10\nQ 1 5\nU 3 -1\nQ 3 3\nQ 2 4\n",
           output: "15\n22\n-1\n5\n",
+          explanation:
+            "初始總和為 $15$。`U 3 10` 把 $a_3$ 設為 $10$，總和變成 $22$。`U 3 -1` 再把 $a_3$ 覆蓋成 $-1$（不是累加），所以 `Q 3 3` 為 $-1$，`Q 2 4` 為 $2 + (-1) + 4 = 5$。",
         },
         { input: "1 3\n-7\nQ 1 1\nU 1 5\nQ 1 1\n", output: "-7\n5\n" },
       ],
@@ -3416,8 +3587,16 @@ wrong(f"failed to find {secret} in {max_turns} turns")
           "輸出一個整數，為最大矩形面積。答案可能高達 $10^{14}$，請使用 64 位元整數。",
       },
       samples: [
-        { input: "6\n2 1 5 6 2 3\n", output: "10\n" },
-        { input: "5\n5 4 3 2 1\n", output: "9\n" },
+        {
+          input: "6\n2 1 5 6 2 3\n",
+          output: "10\n",
+          explanation: "高度 $5$、$6$ 的兩根直條可以撐起高 $5$、寬 $2$ 的矩形，面積為 $10$。",
+        },
+        {
+          input: "5\n5 4 3 2 1\n",
+          output: "9\n",
+          explanation: "取前三根（高 $5, 4, 3$），矩形高 $3$、寬 $3$，面積為 $9$。",
+        },
       ],
       testcases: {
         sample: {
@@ -3480,7 +3659,11 @@ wrong(f"failed to find {secret} in {max_turns} turns")
         outputFormat: "輸出一行，包含一個整數：序列中逆序對的總數。",
       },
       samples: [
-        { input: "5\n2 4 1 3 5\n", output: "3\n" },
+        {
+          input: "5\n2 4 1 3 5\n",
+          output: "3\n",
+          explanation: "逆序對是 $(2, 1)$、$(4, 1)$、$(4, 3)$，共 $3$ 個。",
+        },
         { input: "4\n3 3 3 3\n", output: "0\n" },
       ],
       testcases: {
@@ -3689,8 +3872,15 @@ wrong(f"failed to find {secret} in {max_turns} turns")
         {
           input: "5 4\napple\napp\napplication\nbanana\napp\napp\nappl\nbanana\norange\n",
           output: "4\n2\n1\n0\n",
+          explanation:
+            "`app` 是 `apple`、`app`、`application`、`app` 的前綴（重複的 `app` 分開計），共 $4$ 個；`appl` 對應 `apple` 與 `application`；沒有單字以 `orange` 開頭。",
         },
-        { input: "2 2\nab\nab\na\nabc\n", output: "2\n0\n" },
+        {
+          input: "2 2\nab\nab\na\nabc\n",
+          output: "2\n0\n",
+          explanation:
+            "兩個 `ab` 都以 `a` 開頭；`abc` 比字典裡的單字還長，不可能是它們的前綴。",
+        },
       ],
       testcases: {
         sample: {
@@ -3811,8 +4001,17 @@ wrong(f"failed to find {secret} in {max_turns} turns")
         outputFormat: String.raw`輸出 $Q$ 行，第 $i$ 行為第 $i$ 筆詢問的 $a^b \bmod m$。`,
       },
       samples: [
-        { input: "3\n2 10 1000\n3 0 7\n10 18 999999937\n", output: "24\n1\n3969\n" },
-        { input: "2\n0 0 5\n0 5 7\n", output: "1\n0\n" },
+        {
+          input: "3\n2 10 1000\n3 0 7\n10 18 999999937\n",
+          output: "24\n1\n3969\n",
+          explanation:
+            "$2^{10} = 1024$，模 $1000$ 得 $24$；任何數的 $0$ 次方都是 $1$；$10^9 \\equiv 63 \\pmod{999999937}$，所以 $10^{18} \\equiv 63^2 = 3969$。",
+        },
+        {
+          input: "2\n0 0 5\n0 5 7\n",
+          output: "1\n0\n",
+          explanation: "本題規定 $0^0 = 1$，$1 \\bmod 5 = 1$；$0^5 = 0$。",
+        },
       ],
       testcases: {
         sample: {
@@ -3889,7 +4088,12 @@ wrong(f"failed to find {secret} in {max_turns} turns")
         outputFormat: String.raw`輸出 $Q$ 行，第 $i$ 行為第 $i$ 筆詢問的 $\binom{n}{r} \bmod (10^9 + 7)$。`,
       },
       samples: [
-        { input: "5\n5 2\n4 4\n3 5\n0 0\n10 3\n", output: "10\n1\n0\n1\n120\n" },
+        {
+          input: "5\n5 2\n4 4\n3 5\n0 0\n10 3\n",
+          output: "10\n1\n0\n1\n120\n",
+          explanation:
+            "$\\binom{5}{2} = 10$、$\\binom{4}{4} = 1$；$r = 5 > n = 3$ 時規定為 $0$；$\\binom{0}{0} = 1$、$\\binom{10}{3} = 120$。",
+        },
         { input: "2\n6 0\n100 50\n", output: "1\n538992043\n" },
       ],
       testcases: {
@@ -3956,7 +4160,12 @@ wrong(f"failed to find {secret} in {max_turns} turns")
         outputFormat: String.raw`輸出 $Q$ 行，第 $i$ 行為第 $i$ 筆詢問的 $F(n) \bmod (10^9 + 7)$。`,
       },
       samples: [
-        { input: "5\n0\n1\n2\n10\n90\n", output: "0\n1\n1\n55\n210345902\n" },
+        {
+          input: "5\n0\n1\n2\n10\n90\n",
+          output: "0\n1\n1\n55\n210345902\n",
+          explanation:
+            "$F(10) = 55$；$F(90) = 2880067194370816120$，模 $10^9 + 7$ 得 $210345902$。",
+        },
         { input: "1\n1000000000000000000\n", output: "209783453\n" },
       ],
       testcases: {
@@ -4024,8 +4233,16 @@ wrong(f"failed to find {secret} in {max_turns} turns")
         outputFormat: "輸出一行一個整數，代表多邊形面積的兩倍。",
       },
       samples: [
-        { input: "4\n0 0\n2 0\n2 2\n0 2\n", output: "8\n" },
-        { input: "3\n0 0\n3 0\n0 3\n", output: "9\n" },
+        {
+          input: "4\n0 0\n2 0\n2 2\n0 2\n",
+          output: "8\n",
+          explanation: "邊長 $2$ 的正方形面積為 $4$，輸出兩倍 $8$。",
+        },
+        {
+          input: "3\n0 0\n3 0\n0 3\n",
+          output: "9\n",
+          explanation: "兩股都是 $3$ 的直角三角形面積為 $4.5$，兩倍為 $9$。",
+        },
       ],
       testcases: {
         sample: {
@@ -4092,7 +4309,12 @@ wrong(f"failed to find {secret} in {max_turns} turns")
           "輸出一行一個整數，代表凸包面積的兩倍；若凸包退化（單點、兩點或全部共線），輸出 `0`。",
       },
       samples: [
-        { input: "5\n0 0\n4 0\n4 4\n0 4\n2 2\n", output: "32\n" },
+        {
+          input: "5\n0 0\n4 0\n4 4\n0 4\n2 2\n",
+          output: "32\n",
+          explanation:
+            "凸包是邊長 $4$ 的正方形，面積 $16$，輸出兩倍 $32$；$(2, 2)$ 在正方形內部，不影響凸包。",
+        },
         { input: "3\n0 0\n1 1\n2 2\n", output: "0\n" },
       ],
       testcases: {
@@ -4161,8 +4383,18 @@ wrong(f"failed to find {secret} in {max_turns} turns")
         outputFormat: "若先手獲勝，輸出一行 `First`；否則輸出一行 `Second`。",
       },
       samples: [
-        { input: "2\n1 3\n", output: "First\n" },
-        { input: "3\n1 2 3\n", output: "Second\n" },
+        {
+          input: "2\n1 3\n",
+          output: "First\n",
+          explanation:
+            "先手從第二堆拿走 $2$ 顆，變成兩堆各 $1$ 顆；之後後手拿哪一堆，先手就拿另一堆，拿走最後一顆。",
+        },
+        {
+          input: "3\n1 2 3\n",
+          output: "Second\n",
+          explanation:
+            "$1 \\oplus 2 \\oplus 3 = 0$。XOR 為 $0$ 時，不論先手怎麼拿，後手都能把 XOR 拉回 $0$，最後由後手拿走最後一顆。",
+        },
       ],
       testcases: {
         sample: {
@@ -4226,7 +4458,14 @@ wrong(f"failed to find {secret} in {max_turns} turns")
         outputFormat:
           "查詢時輸出一行 `? i`；確定答案後輸出一行 `! i` 並結束程式。查詢總次數不得超過 $40$ 次，每次輸出後都要 flush。",
       },
-      samples: [{ input: "5 40\n2\n5\n4\n", output: "? 3\n? 4\n? 5\n! 4\n" }],
+      samples: [
+        {
+          input: "5 40\n2\n5\n4\n",
+          output: "? 3\n? 4\n? 5\n! 4\n",
+          explanation:
+            "陣列長度 $N = 5$。依序查到 $a_3 = 2$、$a_4 = 5$、$a_5 = 4$；$a_4$ 比兩側都大，所以回答 `! 4`。",
+        },
+      ],
       testcases: {
         sample: {
           description: "範例互動使用的隱藏陣列",
@@ -4283,6 +4522,8 @@ wrong(f"failed to find {secret} in {max_turns} turns")
         {
           input: "2 8\nP 1 10\nP 2 20\nG 1\nP 3 30\nG 2\nG 1\nG 3\nG 5\n",
           output: "10\n-1\n10\n30\n-1\n",
+          explanation:
+            "`G 1` 讓鍵 $1$ 變成最近使用，所以 `P 3 30` 超過容量時淘汰的是鍵 $2$：之後 `G 2` 得 $-1$，鍵 $1$ 與 $3$ 仍在快取中，鍵 $5$ 從未寫入。",
         },
         { input: "1 5\nP 7 1\nG 7\nP 8 2\nG 7\nG 8\n", output: "1\n-1\n2\n" },
       ],
@@ -4386,7 +4627,14 @@ wrong(f"failed to find {secret} in {max_turns} turns")
           "第一行一個整數 $N$（$1 \\le N \\le 5000$）。\n\n第二行 $N$ 個整數 $x_1, \\dots, x_N$（$-10^9 \\le x_i \\le 10^9$，可能重複）。",
         outputFormat: String.raw`輸出 $N$ 行：第 $i$ 行是加入 $x_1, \dots, x_i$ 之後的下中位數。`,
       },
-      samples: [{ input: "5\n1 9 2 8 3\n", output: "1\n1\n2\n2\n3\n" }],
+      samples: [
+        {
+          input: "5\n1 9 2 8 3\n",
+          output: "1\n1\n2\n2\n3\n",
+          explanation:
+            "依序加入後的數列為 `1`、`1 9`、`1 2 9`、`1 2 8 9`、`1 2 3 8 9`，下中位數分別是 $1, 1, 2, 2, 3$。",
+        },
+      ],
       workspaceFiles: [
         {
           language: "python",
@@ -4479,7 +4727,14 @@ wrong(f"failed to find {secret} in {max_turns} turns")
         outputFormat:
           "輸出一行一個整數：任意一個 peak 的 1-based 索引。答案不唯一時輸出任何一個皆可。",
       },
-      samples: [{ input: "5\n1 3 2 5 4\n", output: "2\n" }],
+      samples: [
+        {
+          input: "5\n1 3 2 5 4\n",
+          output: "2\n",
+          explanation:
+            "$a_2 = 3$ 大於兩側的 $1$ 與 $2$，是 peak；$a_4 = 5$ 也是 peak，輸出 `4` 同樣正確。",
+        },
+      ],
       workspaceFiles: [
         {
           language: "python",
@@ -4560,6 +4815,8 @@ wrong(f"failed to find {secret} in {max_turns} turns")
         {
           input: "7 2\napple\nbanana\napple\ncherry\nbanana\napple\ncherry\n",
           output: "apple 3\nbanana 2\n",
+          explanation:
+            "`apple` 出現 $3$ 次排第一；`banana` 與 `cherry` 都是 $2$ 次，字典序較小的 `banana` 排前面。",
         },
       ],
       workspaceFiles: [
@@ -4650,8 +4907,18 @@ wrong(f"failed to find {secret} in {max_turns} turns")
         outputFormat: "輸出 $Q$ 行，第 $i$ 行為第 $i$ 筆詢問的倖存者編號。",
       },
       samples: [
-        { input: "3\n5 2\n1 5\n7 3\n", output: "3\n1\n4\n" },
-        { input: "2\n6 1\n2 2\n", output: "6\n1\n" },
+        {
+          input: "3\n5 2\n1 5\n7 3\n",
+          output: "3\n1\n4\n",
+          explanation:
+            "$n = 1$ 時倖存者就是 $1$ 號。$n = 7$、$k = 3$ 時淘汰順序為 $3, 6, 2, 7, 5, 1$，倖存者是 $4$。",
+        },
+        {
+          input: "2\n6 1\n2 2\n",
+          output: "6\n1\n",
+          explanation:
+            "$k = 1$ 時依序淘汰 $1$ 到 $5$ 號，倖存者是 $6$；$n = 2$、$k = 2$ 時淘汰 $2$ 號，倖存者是 $1$。",
+        },
       ],
       workspaceFiles: [
         {
