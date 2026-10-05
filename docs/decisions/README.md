@@ -132,7 +132,7 @@ Durable decisions for NOJV, grouped by area. Each entry records what was decided
 - UI-09 Pages use three layout archetypes: Index, Hub, Workspace
 - UI-10 Top-level list pages share a header and `?tab=` tab row
 - UI-11 Share a component only when content converges, not shape
-- UI-12 Table filters and row editors use Bits UI, not native selects
+- UI-12 Table columns filter or sort; filters and row editors use Bits UI
 - UI-13 Mobile is read-only; no solving workspace below `md`
 - UI-14 Solve pages fill the viewport; motion stays restrained
 - UI-15 The problem editor follows the author's mental model

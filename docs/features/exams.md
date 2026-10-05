@@ -129,7 +129,7 @@ Tracking rules: PRB-21.
 - Switching problems while one is judging keeps its request and tracking; completion refreshes the problem switcher scores. Reload, a new tab, reconnect or returning to the foreground resumes tracking for authorized pending submissions.
 - While a newer rejudge is queued or running, old verdicts, scores and details stay hidden. A terminal system error without a result file is not shown as pending.
 - Student history loads 50 more rows at the bottom with no cap; a failed load keeps rows and offers retry; loaded rows keep updating; new rows show a view-latest prompt without moving the reading position.
-- Staff history uses numbered 50-row pages over a stable snapshot; background updates keep filters, page, unsaved settings/allocation drafts and their grading revision.
+- Staff history uses numbered 50-row pages over a snapshot that fixes the row set, ordered on the server by time (newest first by default) or stored score; changing the sort returns to page 1. Background updates keep filters, sort, page, unsaved settings/allocation drafts and their grading revision.
 - A history cursor must match user, problem, context and active-exam scope; otherwise a generic 400.
 
 ### Submissions matrix
