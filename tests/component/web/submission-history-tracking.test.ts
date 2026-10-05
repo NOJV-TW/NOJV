@@ -265,6 +265,36 @@ describe("teacher submission feed context isolation", () => {
     expect(target.textContent).toContain("Problem B");
     expect(target.textContent).not.toContain("Delayed Problem A");
   });
+
+  it("loads a changed query while the tracker cycle is still in flight", async () => {
+    const late = deferred<unknown>();
+    mocked.read.mockImplementation((url: string) =>
+      new URL(url, "http://localhost").searchParams.get("id") === "A"
+        ? late.promise
+        : Promise.resolve(numbered([feedRow("B", "Problem B")], 1, 1)),
+    );
+    const target = document.createElement("div");
+    document.body.append(target);
+    const component = mount(ContextFeed, {
+      target,
+      props: {
+        initialRows: [feedRow("A", "Problem A")],
+        initialUrl: "/api/submissions?context=exam&id=A",
+      },
+    });
+    cleanup.push(async () => {
+      await unmount(component);
+      target.remove();
+    });
+    await tick();
+    const cycle = refresh();
+    await vi.waitFor(() => expect(mocked.read).toHaveBeenCalledOnce());
+    component.changeContext("/api/submissions?context=exam&id=B", [feedRow("A", "Problem A")]);
+    await vi.waitFor(() => expect(target.textContent).toContain("Problem B"));
+    expect(target.textContent).not.toContain("Problem A");
+    late.resolve(numbered([feedRow("A", "Problem A")], 1, 1));
+    await cycle;
+  });
 });
 
 function feedRow(id: string, title: string) {
