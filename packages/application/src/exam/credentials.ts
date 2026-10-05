@@ -1,5 +1,5 @@
+import { randomInt } from "node:crypto";
 import {
-  generateRandomString,
   hashPassword,
   symmetricDecrypt,
   symmetricEncrypt,
@@ -108,8 +108,13 @@ async function removeCredentialSessions(tx: TransactionClient, credentialId: str
   await tx.session.deleteMany({ where: { examCredential: { credentialId } } });
 }
 
-function generatePassword(): string {
-  return generateRandomString(8, "a-z", "A-Z", "0-9");
+const PASSWORD_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789";
+
+export function generatePassword(): string {
+  return Array.from(
+    { length: 8 },
+    () => PASSWORD_ALPHABET[randomInt(PASSWORD_ALPHABET.length)],
+  ).join("");
 }
 
 async function issue(
