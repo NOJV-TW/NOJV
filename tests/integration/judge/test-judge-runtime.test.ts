@@ -4,10 +4,11 @@ import path from "node:path";
 
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
+import type { JudgeProgramSource } from "@nojv/core";
+
 import {
   getJudgeProgram,
-  type BuildArtifact,
-  type JudgeProgramInput,
+  type JudgeProgram,
   type JudgeProgramStore,
 } from "../../../apps/worker/src/test-judge/judge-program";
 import {
@@ -15,6 +16,8 @@ import {
   type EnginePool,
   type TestJudgeEngine,
 } from "../../../apps/worker/src/test-judge/runtime";
+
+type BuildArtifact = Extract<JudgeProgram, { ok: true }>["artifact"];
 
 const runtimeDir = process.env.WASM_OJ_RUNTIME_DIR ?? "";
 const toolchainDir = process.env.WASM_OJ_TOOLCHAIN_DIR ?? "";
@@ -107,7 +110,7 @@ describe.skipIf(!runtimeDir || !toolchainDir)("test-judge WASM-OJ runtime", () =
   it.each([
     ["C++", { role: "checker", language: "cpp", source: CPP_SUM_CHECKER }],
     ["Python", { role: "checker", language: "python", source: PYTHON_SUM_CHECKER }],
-  ] satisfies [string, JudgeProgramInput][])(
+  ] satisfies [string, JudgeProgramSource][])(
     "builds, caches and runs a %s DOMjudge checker",
     async (_label, input) => {
       const { engine, release } = await pool.acquire();
@@ -142,6 +145,29 @@ describe.skipIf(!runtimeDir || !toolchainDir)("test-judge WASM-OJ runtime", () =
     },
     300_000,
   );
+
+  it("builds a C++ checker that does not include bits/stdc++.h without the libc++ PCH", async () => {
+    const { engine, release } = await pool.acquire();
+    try {
+      const built = await getJudgeProgram(
+        { engine, store: memoryStore() },
+        {
+          role: "checker",
+          language: "cpp",
+          source:
+            '#include <cstdio>\nusing namespace std;\nint count = 0;\nint main(){count=1;std::printf("%d",count);return 42;}\n',
+        },
+      );
+      expect(built.ok, built.ok ? "" : built.diagnostics).toBe(true);
+      if (!built.ok) return;
+
+      const result = await engine.run(built.artifact);
+      expect(result.code).toBe(42);
+      expect(result.stdout).toBe("1");
+    } finally {
+      release();
+    }
+  }, 300_000);
 
   it("caches the diagnostics of a checker that does not compile", async () => {
     const { engine, release } = await pool.acquire();

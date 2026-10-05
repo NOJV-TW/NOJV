@@ -1,12 +1,11 @@
 import {
   MAX_EXECUTION_OUTPUT_BYTES,
-  WASM_OJ_PCH_PATH,
   compareStandard,
-  cppStandardHeader,
   entryFileNameFor,
   effectiveTimeLimitMs,
   isBrowserLocalLanguage,
   wasmOjTerminationVerdict,
+  withCppPlatformHeaders,
   type CaseResult,
   type CompareConfig,
   type JudgeType,
@@ -34,8 +33,6 @@ import { m } from "$lib/paraglide/messages.js";
 import { formatJudgeOutput } from "$lib/utils/judge-output";
 import type { SubmissionRequest } from "./submission-service";
 
-const CPP_STANDARD_HEADER = cppStandardHeader(WASM_OJ_LIBCXX_PCH_HEADER);
-
 const BROWSER_TOOLCHAIN_BASE_URL = "/wasm-oj/toolchains/";
 const BROWSER_TOOLCHAINS = [
   clangSource(BROWSER_TOOLCHAIN_BASE_URL),
@@ -45,7 +42,6 @@ const BROWSER_TOOLCHAINS = [
   pythonSource(BROWSER_TOOLCHAIN_BASE_URL),
   rustSource(BROWSER_TOOLCHAIN_BASE_URL),
 ];
-const BITS_STDCPP_INCLUDE = /^\s*#\s*include\s*<bits\/stdc\+\+\.h>/m;
 const TOOLCHAIN_PRELOAD_RETRY_DELAYS_MS = [2_000, 5_000];
 let browserEnginePromise: Promise<Engine> | undefined;
 
@@ -160,12 +156,7 @@ export function browserLocalFiles(request: SubmissionRequest): {
       ? Object.fromEntries(request.sourceFiles.map((file) => [file.path, file.content]))
       : { [entry]: request.sourceCode };
   if (request.language === "cpp") {
-    const usesPlatformBitsStdcpp =
-      files["bits/stdc++.h"] === undefined &&
-      files["src/bits/stdc++.h"] === undefined &&
-      Object.values(files).some((content) => BITS_STDCPP_INCLUDE.test(content));
-    files["src/bits/stdc++.h"] ??= files["bits/stdc++.h"] ?? CPP_STANDARD_HEADER;
-    if (usesPlatformBitsStdcpp) files[WASM_OJ_PCH_PATH] ??= WASM_OJ_LIBCXX_PCH_HEADER;
+    return { entry, files: withCppPlatformHeaders(files, WASM_OJ_LIBCXX_PCH_HEADER) };
   }
   return { entry, files };
 }

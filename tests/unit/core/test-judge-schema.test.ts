@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   TEST_JUDGE_MAX_CASES,
+  storedJudgeProgramSchema,
   testJudgeCaseResultSchema,
   testJudgeRequestSchema,
   testJudgeResponseSchema,
@@ -20,7 +21,7 @@ const interactiveRequest = {
   kind: "interactive",
   context: { type: "practice" },
   language: "cpp",
-  artifact: { kind: "wasm", bytesBase64: "AGFzbQ==", metadata: { language: "cpp" } },
+  artifact: { kind: "wasm", language: "cpp", bytes: { base64: "AGFzbQ==" } },
   cases: [{ interactorInput: "42\n" }],
 };
 
@@ -33,13 +34,30 @@ describe("testJudgeRequestSchema", () => {
     expect(testJudgeRequestSchema.safeParse(interactiveRequest).success).toBe(true);
   });
 
-  it("accepts a runtime-bundle artifact", () => {
+  it("accepts a runtime-bundle artifact with text and byte files", () => {
     const request = {
       ...interactiveRequest,
       language: "python",
-      artifact: { kind: "runtime-bundle", artifact: { kind: "runtime-bundle" } },
+      artifact: {
+        kind: "runtime-bundle",
+        entry: "main.py",
+        files: { "main.py": "print(1)\n", "lib.pyc": { base64: "AQID" } },
+      },
     };
     expect(testJudgeRequestSchema.safeParse(request).success).toBe(true);
+  });
+
+  it.each([
+    { kind: "wasm", bytesBase64: "AGFzbQ==", metadata: { language: "cpp" } },
+    { kind: "wasm", bytes: "AGFzbQ==" },
+    { kind: "wasm", bytes: { base64: "not base64!" } },
+    { kind: "wasm", bytes: { base64: "AGFzbQ==", extra: true } },
+    { kind: "runtime-bundle", artifact: { kind: "runtime-bundle" } },
+    { kind: "runtime-bundle", files: { "main.py": 1 } },
+    { kind: "native", bytes: { base64: "AGFzbQ==" } },
+  ])("rejects an artifact that is not in the shared wire format: %o", (artifact) => {
+    const request = { ...interactiveRequest, artifact };
+    expect(testJudgeRequestSchema.safeParse(request).success).toBe(false);
   });
 
   it("accepts exactly 15 cases and rejects 16", () => {
@@ -129,5 +147,29 @@ describe("testJudgeStoredRequestSchema", () => {
   it("rejects a stored checker request carrying interactive cases", () => {
     const stored = { ...storedBase, kind: "checker", cases: interactiveRequest.cases };
     expect(testJudgeStoredRequestSchema.safeParse(stored).success).toBe(false);
+  });
+});
+
+describe("storedJudgeProgramSchema", () => {
+  it("accepts a successful build and a failed build", () => {
+    expect(
+      storedJudgeProgramSchema.safeParse({
+        status: "ok",
+        artifact: interactiveRequest.artifact,
+      }).success,
+    ).toBe(true);
+    expect(
+      storedJudgeProgramSchema.safeParse({ status: "failed", diagnostics: "error" }).success,
+    ).toBe(true);
+  });
+
+  it.each([
+    { status: "ok" },
+    { status: "ok", artifact: { kind: "wasm" } },
+    { status: "failed" },
+    { status: "pending", diagnostics: "" },
+    { status: "failed", diagnostics: "error", artifact: interactiveRequest.artifact },
+  ])("rejects %o", (record) => {
+    expect(storedJudgeProgramSchema.safeParse(record).success).toBe(false);
   });
 });

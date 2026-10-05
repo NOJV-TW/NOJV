@@ -1,11 +1,13 @@
 import {
-  WASM_OJ_PCH_PATH,
-  cppStandardHeader,
-  pythonJudgeWrapper,
+  deserialiseBuildArtifact,
+  judgeProgramCompileInput,
+  serialiseBuildArtifact,
+  storedJudgeProgramSchema,
   testJudgeProgramCacheKey,
   testJudgeProgramObjectKey,
   truncateUtf8,
-  type JudgeScriptLanguage,
+  type JudgeProgramSource,
+  type StoredJudgeProgram,
 } from "@nojv/core";
 import {
   getText,
@@ -13,93 +15,20 @@ import {
   putObjectIfAbsent,
   type createStorageClient,
 } from "@nojv/storage";
-import { WASM_OJ_LIBCXX_PCH_HEADER } from "@wasm-oj/core";
+import { WASM_OJ_LIBCXX_PCH_HEADER, type BuildArtifact, type BuildResult } from "@wasm-oj/core";
 
+import { createLogger } from "../logger.js";
 import type { TestJudgeEngine } from "./runtime";
 
-type BuildResult = Awaited<ReturnType<TestJudgeEngine["compile"]>>;
-type CompileInput = Parameters<TestJudgeEngine["compile"]>[0];
-export type BuildArtifact = NonNullable<BuildResult["artifact"]>;
-type WasmArtifact = Extract<BuildArtifact, { kind: "wasm" }>;
-type RuntimeBundleArtifact = Extract<BuildArtifact, { kind: "runtime-bundle" }>;
-
-interface EncodedBytes {
-  base64: string;
-}
-
-export type SerialisedBuildArtifact =
-  | (Omit<WasmArtifact, "bytes"> & { bytes: EncodedBytes })
-  | (Omit<RuntimeBundleArtifact, "files"> & { files: Record<string, string | EncodedBytes> });
-
-type StoredJudgeProgram =
-  | { status: "ok"; artifact: SerialisedBuildArtifact }
-  | { status: "failed"; diagnostics: string };
+const logger = createLogger("test-judge-program");
+const MAX_DIAGNOSTIC_BYTES = 4 * 1024;
 
 export type JudgeProgram =
   { ok: true; artifact: BuildArtifact } | { ok: false; diagnostics: string };
 
-export interface JudgeProgramInput {
-  role: "checker" | "interactor";
-  language: JudgeScriptLanguage;
-  source: string;
-}
-
 export interface JudgeProgramStore {
   get(key: string): Promise<string | null>;
   put(key: string, body: string): Promise<void>;
-}
-
-const MAX_DIAGNOSTIC_BYTES = 4 * 1024;
-
-function encodeBytes(bytes: Uint8Array): EncodedBytes {
-  return { base64: Buffer.from(bytes).toString("base64") };
-}
-
-function decodeBytes(encoded: EncodedBytes): Uint8Array {
-  return new Uint8Array(Buffer.from(encoded.base64, "base64"));
-}
-
-export function serialiseBuildArtifact(artifact: BuildArtifact): SerialisedBuildArtifact {
-  if (artifact.kind === "wasm") return { ...artifact, bytes: encodeBytes(artifact.bytes) };
-  const files = Object.entries(artifact.files).map(
-    ([path, content]): [string, string | EncodedBytes] => [
-      path,
-      typeof content === "string" ? content : encodeBytes(content),
-    ],
-  );
-  return { ...artifact, files: Object.fromEntries(files) };
-}
-
-export function deserialiseBuildArtifact(serialised: SerialisedBuildArtifact): BuildArtifact {
-  if (serialised.kind === "wasm") {
-    return { ...serialised, bytes: decodeBytes(serialised.bytes) };
-  }
-  const files = Object.entries(serialised.files).map(
-    ([path, content]): [string, string | Uint8Array] => [
-      path,
-      typeof content === "string" ? content : decodeBytes(content),
-    ],
-  );
-  return { ...serialised, files: Object.fromEntries(files) };
-}
-
-function compileInput({ role, language, source }: JudgeProgramInput): CompileInput {
-  if (language === "python") {
-    return {
-      language,
-      entry: "main.py",
-      files: { "main.py": `${pythonJudgeWrapper(role)}${source}` },
-    };
-  }
-  return {
-    language,
-    entry: "main.cpp",
-    files: {
-      "main.cpp": source,
-      "src/bits/stdc++.h": cppStandardHeader(WASM_OJ_LIBCXX_PCH_HEADER),
-      [WASM_OJ_PCH_PATH]: WASM_OJ_LIBCXX_PCH_HEADER,
-    },
-  };
 }
 
 function buildDiagnostics(build: BuildResult): string {
@@ -116,31 +45,58 @@ function buildDiagnostics(build: BuildResult): string {
   );
 }
 
-function fromStored(stored: StoredJudgeProgram): JudgeProgram {
-  if (stored.status === "failed") return { ok: false, diagnostics: stored.diagnostics };
-  return { ok: true, artifact: deserialiseBuildArtifact(stored.artifact) };
+function parseJson(body: string): unknown {
+  try {
+    return JSON.parse(body);
+  } catch {
+    return undefined;
+  }
+}
+
+function readRecord(body: string): JudgeProgram | null {
+  const parsed = storedJudgeProgramSchema.safeParse(parseJson(body));
+  if (!parsed.success) return null;
+  const record = parsed.data;
+  if (record.status === "failed") return { ok: false, diagnostics: record.diagnostics };
+  return { ok: true, artifact: deserialiseBuildArtifact(record.artifact) as BuildArtifact };
+}
+
+function toRecord(program: JudgeProgram): StoredJudgeProgram {
+  return program.ok
+    ? { status: "ok", artifact: serialiseBuildArtifact(program.artifact) }
+    : { status: "failed", diagnostics: program.diagnostics };
 }
 
 export async function getJudgeProgram(
   deps: { engine: Pick<TestJudgeEngine, "compile">; store: JudgeProgramStore },
-  input: JudgeProgramInput,
+  source: JudgeProgramSource,
 ): Promise<JudgeProgram> {
-  const objectKey = testJudgeProgramObjectKey(await testJudgeProgramCacheKey(input));
+  const objectKey = testJudgeProgramObjectKey(await testJudgeProgramCacheKey(source));
   const cached = await deps.store.get(objectKey);
-  if (cached !== null) return fromStored(JSON.parse(cached) as StoredJudgeProgram);
-
-  const build = await deps.engine.compile(compileInput(input));
-  if (build.success && build.artifact) {
-    const stored: StoredJudgeProgram = {
-      status: "ok",
-      artifact: serialiseBuildArtifact(build.artifact),
-    };
-    await deps.store.put(objectKey, JSON.stringify(stored));
-    return { ok: true, artifact: build.artifact };
+  if (cached !== null) {
+    const program = readRecord(cached);
+    if (program) return program;
+    logger.warn("Rebuilding a test-judge program whose cached record is unreadable", {
+      objectKey,
+    });
   }
-  const stored: StoredJudgeProgram = { status: "failed", diagnostics: buildDiagnostics(build) };
-  await deps.store.put(objectKey, JSON.stringify(stored));
-  return { ok: false, diagnostics: stored.diagnostics };
+
+  const build = await deps.engine.compile(
+    judgeProgramCompileInput(source, WASM_OJ_LIBCXX_PCH_HEADER),
+  );
+  const program: JudgeProgram =
+    build.success && build.artifact
+      ? { ok: true, artifact: build.artifact }
+      : { ok: false, diagnostics: buildDiagnostics(build) };
+  try {
+    await deps.store.put(objectKey, JSON.stringify(toRecord(program)));
+  } catch (error) {
+    logger.warn("Could not cache a test-judge program build", {
+      objectKey,
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
+  return program;
 }
 
 export function objectStorageJudgeProgramStore(

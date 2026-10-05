@@ -1,21 +1,31 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
-  PYTHON_INTERACTOR_WRAPPER,
-  PYTHON_VALIDATOR_WRAPPER,
-  cppStandardHeader,
+  judgeProgramCompileInput,
   testJudgeProgramCacheKey,
+  type JudgeProgramSource,
 } from "@nojv/core";
 
-import { WASM_OJ_LIBCXX_PCH_HEADER } from "../../../apps/worker/node_modules/@wasm-oj/core";
 import {
-  deserialiseBuildArtifact,
   getJudgeProgram,
   objectStorageJudgeProgramStore,
-  serialiseBuildArtifact,
-  type BuildArtifact,
+  type JudgeProgram,
   type JudgeProgramStore,
 } from "../../../apps/worker/src/test-judge/judge-program";
+import type { TestJudgeEngine } from "../../../apps/worker/src/test-judge/runtime";
+
+type BuildArtifact = Extract<JudgeProgram, { ok: true }>["artifact"];
+type BuildResult = Awaited<ReturnType<TestJudgeEngine["compile"]>>;
+type CompileInput = Parameters<TestJudgeEngine["compile"]>[0];
+
+const logger = vi.hoisted(() => ({
+  debug: vi.fn(),
+  info: vi.fn(),
+  warn: vi.fn(),
+  error: vi.fn(),
+}));
+
+vi.mock("../../../apps/worker/src/logger.js", () => ({ createLogger: () => logger }));
 
 const metadata = {
   wasmOjContract: 2 as const,
@@ -27,7 +37,6 @@ const metadata = {
   optimization: "release" as const,
   createdAt: 1,
   durationMs: 2,
-  size: 4,
   toolchains: ["clang@0.2.0"],
   costProfile: "profile",
 };
@@ -36,6 +45,7 @@ const wasmArtifact: BuildArtifact = {
   ...metadata,
   kind: "wasm",
   language: "cpp",
+  size: 5,
   bytes: new Uint8Array([0, 97, 115, 109, 255]),
 };
 
@@ -43,16 +53,13 @@ const bundleArtifact: BuildArtifact = {
   ...metadata,
   kind: "runtime-bundle",
   language: "python",
+  size: 13,
   runtimePackage: "python",
   command: "python",
   entry: "main.py",
   files: { "main.py": "print(1)\n", "lib.pyc": new Uint8Array([1, 2, 3, 250]) },
   manifest: "{}",
 };
-
-type BuildResult = Awaited<
-  ReturnType<Parameters<typeof getJudgeProgram>[0]["engine"]["compile"]>
->;
 
 function buildResult(overrides: Partial<BuildResult>): BuildResult {
   return {
@@ -65,8 +72,8 @@ function buildResult(overrides: Partial<BuildResult>): BuildResult {
   };
 }
 
-function memoryStore() {
-  const objects = new Map<string, string>();
+function memoryStore(initial: Record<string, string> = {}) {
+  const objects = new Map(Object.entries(initial));
   const store: JudgeProgramStore = {
     get: vi.fn(async (key: string) => objects.get(key) ?? null),
     put: vi.fn(async (key: string, body: string) => {
@@ -77,29 +84,58 @@ function memoryStore() {
 }
 
 function fakeEngine(result: BuildResult) {
-  return { compile: vi.fn(async () => result) };
+  return { compile: vi.fn(async (_input: CompileInput) => result) };
 }
 
-const cppChecker = {
-  role: "checker" as const,
-  language: "cpp" as const,
+const cppChecker: JudgeProgramSource = {
+  role: "checker",
+  language: "cpp",
   source: "int main() { return 42; }\n",
 };
 
+async function objectKey(program: JudgeProgramSource): Promise<string> {
+  return `test-judge-programs/v1/${await testJudgeProgramCacheKey(program)}.json`;
+}
+
+beforeEach(() => {
+  logger.warn.mockClear();
+});
+
 describe("test-judge program cache", () => {
-  it("stores a fresh build under its content-addressed key and serves the next call from it", async () => {
-    const { objects, store } = memoryStore();
+  it.each([
+    ["wasm", cppChecker, wasmArtifact],
+    [
+      "runtime-bundle",
+      { role: "checker", language: "python", source: "accept()\n" },
+      bundleArtifact,
+    ],
+  ] as const)(
+    "stores a fresh %s build and serves the next call from the stored record",
+    async (_kind, program, artifact) => {
+      const { objects, store } = memoryStore();
+      const engine = fakeEngine(buildResult({ artifact }));
+
+      const first = await getJudgeProgram({ engine, store }, program);
+      const second = await getJudgeProgram({ engine, store }, program);
+
+      expect(first).toEqual({ ok: true, artifact });
+      expect(second).toEqual({ ok: true, artifact });
+      expect(engine.compile).toHaveBeenCalledTimes(1);
+      expect([...objects.keys()]).toEqual([await objectKey(program)]);
+    },
+  );
+
+  it("compiles exactly the shared compile input with the toolchain's libc++ PCH header", async () => {
+    const { store } = memoryStore();
     const engine = fakeEngine(buildResult({ artifact: wasmArtifact }));
+    const program = { ...cppChecker, source: "#include <bits/stdc++.h>\nint main() {}\n" };
 
-    const first = await getJudgeProgram({ engine, store }, cppChecker);
-    const second = await getJudgeProgram({ engine, store }, cppChecker);
+    await getJudgeProgram({ engine, store }, program);
 
-    expect(first).toEqual({ ok: true, artifact: wasmArtifact });
-    expect(second).toEqual({ ok: true, artifact: wasmArtifact });
-    expect(engine.compile).toHaveBeenCalledTimes(1);
-    expect([...objects.keys()]).toEqual([
-      `test-judge-programs/v1/${await testJudgeProgramCacheKey(cppChecker)}.json`,
-    ]);
+    const input = engine.compile.mock.calls[0]?.[0];
+    const pchHeader = input?.files["wasm-oj.pch.hpp"] ?? "";
+    expect(pchHeader).toMatch(/^#pragma once\n#include <algorithm>\n/);
+    expect(input).toEqual(judgeProgramCompileInput(program, pchHeader));
   });
 
   it("caches a failed build and returns its diagnostics without recompiling", async () => {
@@ -114,7 +150,7 @@ describe("test-judge program cache", () => {
     expect(first).toEqual({ ok: false, diagnostics: "main.cpp:1:1: error: expected ';'" });
     expect(second).toEqual(first);
     expect(engine.compile).toHaveBeenCalledTimes(1);
-    expect(JSON.parse([...objects.values()][0]!)).toEqual({
+    expect(JSON.parse(objects.get(await objectKey(cppChecker))!)).toEqual({
       status: "failed",
       diagnostics: "main.cpp:1:1: error: expected ';'",
     });
@@ -175,104 +211,71 @@ describe("test-judge program cache", () => {
   });
 
   it.each([
-    ["checker", PYTHON_VALIDATOR_WRAPPER],
-    ["interactor", PYTHON_INTERACTOR_WRAPPER],
-  ] as const)("prepends the DOMjudge %s wrapper to Python sources", async (role, wrapper) => {
-    const { store } = memoryStore();
-    const engine = fakeEngine(buildResult({ artifact: bundleArtifact }));
-
-    await getJudgeProgram(
-      { engine, store },
-      { role, language: "python", source: "accept()\n" },
-    );
-
-    expect(engine.compile).toHaveBeenCalledWith({
-      language: "python",
-      entry: "main.py",
-      files: { "main.py": `${wrapper}accept()\n` },
-    });
-  });
-
-  it("compiles C++ with the platform bits/stdc++.h shim and the libc++ PCH header", async () => {
-    const { store } = memoryStore();
+    "not json",
+    JSON.stringify({ status: "ok" }),
+    JSON.stringify({ status: "ok", artifact: { kind: "wasm", bytes: { base64: "%%" } } }),
+    JSON.stringify({ status: "unknown" }),
+  ])("rebuilds over an unreadable record and warns: %s", async (record) => {
+    const { store } = memoryStore({ [await objectKey(cppChecker)]: record });
     const engine = fakeEngine(buildResult({ artifact: wasmArtifact }));
 
-    await getJudgeProgram({ engine, store }, cppChecker);
-
-    expect(engine.compile).toHaveBeenCalledWith({
-      language: "cpp",
-      entry: "main.cpp",
-      files: {
-        "main.cpp": cppChecker.source,
-        "src/bits/stdc++.h": cppStandardHeader(WASM_OJ_LIBCXX_PCH_HEADER),
-        "wasm-oj.pch.hpp": WASM_OJ_LIBCXX_PCH_HEADER,
-      },
+    expect(await getJudgeProgram({ engine, store }, cppChecker)).toEqual({
+      ok: true,
+      artifact: wasmArtifact,
     });
+    expect(engine.compile).toHaveBeenCalledTimes(1);
+    expect(logger.warn).toHaveBeenCalledWith(
+      "Rebuilding a test-judge program whose cached record is unreadable",
+      { objectKey: await objectKey(cppChecker) },
+    );
   });
 
-  it("keys checker and interactor builds of the same source apart", async () => {
-    const { objects, store } = memoryStore();
+  it("returns the build and warns when the record cannot be stored", async () => {
+    const { store } = memoryStore();
+    vi.mocked(store.put).mockRejectedValueOnce(new Error("bucket unavailable"));
     const engine = fakeEngine(buildResult({ artifact: wasmArtifact }));
 
-    await getJudgeProgram({ engine, store }, cppChecker);
-    await getJudgeProgram({ engine, store }, { ...cppChecker, role: "interactor" });
-
-    expect(engine.compile).toHaveBeenCalledTimes(2);
-    expect(objects.size).toBe(2);
-  });
-});
-
-describe("build artifact serialisation", () => {
-  it.each([
-    ["wasm", wasmArtifact],
-    ["runtime-bundle", bundleArtifact],
-  ] as const)("round-trips a %s artifact through JSON", (_kind, artifact) => {
-    const restored = deserialiseBuildArtifact(
-      JSON.parse(JSON.stringify(serialiseBuildArtifact(artifact))),
-    );
-
-    expect(restored).toEqual(artifact);
-  });
-
-  it("keeps runtime-bundle text files as text and encodes byte files", () => {
-    const serialised = serialiseBuildArtifact(bundleArtifact);
-
-    expect(serialised.kind === "runtime-bundle" && serialised.files).toEqual({
-      "main.py": "print(1)\n",
-      "lib.pyc": { base64: Buffer.from([1, 2, 3, 250]).toString("base64") },
+    expect(await getJudgeProgram({ engine, store }, cppChecker)).toEqual({
+      ok: true,
+      artifact: wasmArtifact,
+    });
+    expect(logger.warn).toHaveBeenCalledWith("Could not cache a test-judge program build", {
+      objectKey: await objectKey(cppChecker),
+      error: "bucket unavailable",
     });
   });
 
-  it("restores Wasm bytes as a plain Uint8Array with its own buffer", () => {
-    const restored = deserialiseBuildArtifact(serialiseBuildArtifact(wasmArtifact));
+  it("propagates a storage read failure without compiling", async () => {
+    const { store } = memoryStore();
+    vi.mocked(store.get).mockRejectedValueOnce(new Error("bucket unavailable"));
+    const engine = fakeEngine(buildResult({ artifact: wasmArtifact }));
 
-    expect(restored.kind === "wasm" && restored.bytes.constructor).toBe(Uint8Array);
-    expect(restored.kind === "wasm" && restored.bytes.buffer.byteLength).toBe(5);
+    await expect(getJudgeProgram({ engine, store }, cppChecker)).rejects.toThrow(
+      "bucket unavailable",
+    );
+    expect(engine.compile).not.toHaveBeenCalled();
   });
 });
 
 describe("object-storage judge program store", () => {
-  function fakeClient() {
+  function storageError(name: string, httpStatusCode: number): Error {
+    return Object.assign(new Error(name), { name, $metadata: { httpStatusCode } });
+  }
+
+  function fakeClient(getError?: Error) {
     const objects = new Map<string, Buffer>();
     const send = vi.fn(async (command: { constructor: { name: string }; input: unknown }) => {
       const input = command.input as Record<string, unknown>;
       const key = input.Key as string;
       if (command.constructor.name === "PutObjectCommand") {
         if (input.IfNoneMatch !== "*") throw new Error("missing immutable precondition");
-        if (objects.has(key)) {
-          const error = new Error("PreconditionFailed");
-          error.name = "PreconditionFailed";
-          throw error;
-        }
+        if (objects.has(key)) throw storageError("PreconditionFailed", 412);
         objects.set(key, Buffer.from(input.Body as Buffer));
         return {};
       }
+      if (getError) throw getError;
       const body = objects.get(key);
-      if (!body) {
-        const error = new Error("NoSuchKey");
-        error.name = "NoSuchKey";
-        throw error;
-      }
+      if (!body) throw storageError("NoSuchKey", 404);
       return {
         Body: (async function* () {
           yield body;
@@ -285,19 +288,31 @@ describe("object-storage judge program store", () => {
   it("reads a missing object as a cache miss", async () => {
     const store = objectStorageJudgeProgramStore(fakeClient().client);
 
-    expect(await store.get("test-judge-programs/missing.json")).toBeNull();
+    expect(await store.get("test-judge-programs/v1/missing.json")).toBeNull();
+  });
+
+  it("propagates a read failure other than not-found", async () => {
+    const store = objectStorageJudgeProgramStore(
+      fakeClient(storageError("AccessDenied", 403)).client,
+    );
+
+    await expect(store.get("test-judge-programs/v1/k.json")).rejects.toMatchObject({
+      name: "AccessDenied",
+    });
   });
 
   it("lets a second writer of the same key succeed and keeps the first body", async () => {
     const { client, objects } = fakeClient();
     const store = objectStorageJudgeProgramStore(client);
 
-    await store.put("test-judge-programs/k.json", '{"status":"ok"}');
-    await expect(store.put("test-judge-programs/k.json", '{"status":"failed"}')).resolves.toBe(
-      undefined,
-    );
+    await store.put("test-judge-programs/v1/k.json", '{"status":"ok"}');
+    await expect(
+      store.put("test-judge-programs/v1/k.json", '{"status":"failed"}'),
+    ).resolves.toBeUndefined();
 
-    expect(objects.get("test-judge-programs/k.json")?.toString("utf8")).toBe('{"status":"ok"}');
-    expect(await store.get("test-judge-programs/k.json")).toBe('{"status":"ok"}');
+    expect(objects.get("test-judge-programs/v1/k.json")?.toString("utf8")).toBe(
+      '{"status":"ok"}',
+    );
+    expect(await store.get("test-judge-programs/v1/k.json")).toBe('{"status":"ok"}');
   });
 });

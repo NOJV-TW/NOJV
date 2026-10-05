@@ -1,6 +1,12 @@
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
+
 import { describe, expect, it, vi } from "vitest";
 
-import { poolEngines } from "../../../apps/worker/src/test-judge/runtime";
+import { WASM_OJ_SERVER_VERSIONS } from "@nojv/core";
+
+import { loadServerToolchains, poolEngines } from "../../../apps/worker/src/test-judge/runtime";
 
 function fakeEngines(count: number) {
   return Array.from({ length: count }, (_, id) => ({ id, dispose: vi.fn() }));
@@ -77,5 +83,25 @@ describe("test-judge engine pool", () => {
     for (const engine of engines) expect(engine.dispose).toHaveBeenCalledOnce();
     await expect(waiter).rejects.toThrow("disposed");
     await expect(pool.acquire()).rejects.toThrow("disposed");
+  });
+});
+
+describe("test-judge toolchain loading", () => {
+  it("refuses a toolchain whose version differs from the pinned identity", async () => {
+    const toolchainDir = await mkdtemp(path.join(os.tmpdir(), "nojv-toolchains-"));
+    try {
+      const packageDir = path.join(toolchainDir, "node_modules/@wasm-oj/toolchain-clang");
+      await mkdir(packageDir, { recursive: true });
+      await writeFile(
+        path.join(packageDir, "package.json"),
+        JSON.stringify({ version: "9.9.9" }),
+      );
+
+      await expect(loadServerToolchains(toolchainDir)).rejects.toThrow(
+        `@wasm-oj/toolchain-clang in ${toolchainDir} is 9.9.9; the worker needs ${WASM_OJ_SERVER_VERSIONS.clang}.`,
+      );
+    } finally {
+      await rm(toolchainDir, { recursive: true, force: true });
+    }
   });
 });

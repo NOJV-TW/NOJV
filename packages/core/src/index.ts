@@ -38,6 +38,8 @@ export * from "./judge/test-judge-verdict";
 export * from "./judge/test-capability";
 export * from "./judge/cpp-standard-header";
 export * from "./judge/python-judge-wrappers";
+export * from "./judge/test-judge-program";
+export * from "./judge/build-artifact-wire";
 export * from "./judge-environment";
 export * from "./reserved-username";
 export * from "./language-templates";

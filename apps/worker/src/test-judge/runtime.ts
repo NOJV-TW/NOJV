@@ -1,6 +1,8 @@
+import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 
+import { WASM_OJ_SERVER_VERSIONS } from "@nojv/core";
 import { createServerEngine, type ServerToolchainSource } from "@wasm-oj/server";
 
 export type TestJudgeEngine = Awaited<ReturnType<typeof createServerEngine>>;
@@ -21,17 +23,27 @@ interface ServerToolchainModule {
 
 async function importToolchain(
   toolchainDir: string,
-  name: string,
+  name: "clang" | "python",
 ): Promise<ServerToolchainModule> {
-  const entry = join(toolchainDir, "node_modules/@wasm-oj", name, "dist/index.js");
+  const packageDir = join(toolchainDir, "node_modules/@wasm-oj", `toolchain-${name}`);
+  const { version } = JSON.parse(await readFile(join(packageDir, "package.json"), "utf8")) as {
+    version?: unknown;
+  };
+  const expected = WASM_OJ_SERVER_VERSIONS[name];
+  if (version !== expected) {
+    throw new Error(
+      `@wasm-oj/toolchain-${name} in ${toolchainDir} is ${String(version)}; the worker needs ${expected}.`,
+    );
+  }
+  const entry = join(packageDir, "dist/index.js");
   return (await import(pathToFileURL(entry).href)) as ServerToolchainModule;
 }
 
 export async function loadServerToolchains(
   toolchainDir: string,
 ): Promise<ServerToolchainSource[]> {
-  const clang = await importToolchain(toolchainDir, "toolchain-clang");
-  const python = await importToolchain(toolchainDir, "toolchain-python");
+  const clang = await importToolchain(toolchainDir, "clang");
+  const python = await importToolchain(toolchainDir, "python");
   return [clang.serverSource(), python.serverSource()];
 }
 

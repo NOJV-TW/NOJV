@@ -1,5 +1,7 @@
 export const WASM_OJ_PCH_PATH = "wasm-oj.pch.hpp";
 
+const BITS_STDCPP_INCLUDE = /^\s*#\s*include\s*<bits\/stdc\+\+\.h>/m;
+
 export const CPP_STANDARD_HEADER_INCLUDES = `#include <any>
 #include <atomic>
 #include <bit>
@@ -40,4 +42,18 @@ export const CPP_STANDARD_HEADER_INCLUDES = `#include <any>
 
 export function cppStandardHeader(pchHeader: string): string {
   return `${pchHeader}\n${CPP_STANDARD_HEADER_INCLUDES}`;
+}
+
+export function withCppPlatformHeaders(
+  files: Readonly<Record<string, string>>,
+  pchHeader: string,
+): Record<string, string> {
+  const usesPlatformBitsStdcpp =
+    files["bits/stdc++.h"] === undefined &&
+    files["src/bits/stdc++.h"] === undefined &&
+    Object.values(files).some((content) => BITS_STDCPP_INCLUDE.test(content));
+  const result = { ...files };
+  result["src/bits/stdc++.h"] ??= files["bits/stdc++.h"] ?? cppStandardHeader(pchHeader);
+  if (usesPlatformBitsStdcpp) result[WASM_OJ_PCH_PATH] ??= pchHeader;
+  return result;
 }

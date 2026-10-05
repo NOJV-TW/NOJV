@@ -35,17 +35,19 @@ const interactiveCasesSchema = z
   .min(1)
   .max(TEST_JUDGE_MAX_CASES);
 
-const uploadedArtifactSchema = z.discriminatedUnion("kind", [
-  z
-    .object({
-      kind: z.literal("wasm"),
-      bytesBase64: z.string().min(1),
-      metadata: z.record(z.string(), z.unknown()),
-    })
-    .strict(),
-  z
-    .object({ kind: z.literal("runtime-bundle"), artifact: z.record(z.string(), z.unknown()) })
-    .strict(),
+const encodedBytesSchema = z.object({ base64: z.base64() }).strict();
+
+export const serialisedBuildArtifactSchema = z.discriminatedUnion("kind", [
+  z.looseObject({ kind: z.literal("wasm"), bytes: encodedBytesSchema }),
+  z.looseObject({
+    kind: z.literal("runtime-bundle"),
+    files: z.record(z.string(), z.union([z.string(), encodedBytesSchema])),
+  }),
+]);
+
+export const storedJudgeProgramSchema = z.discriminatedUnion("status", [
+  z.object({ status: z.literal("ok"), artifact: serialisedBuildArtifactSchema }).strict(),
+  z.object({ status: z.literal("failed"), diagnostics: z.string() }).strict(),
 ]);
 
 export const testJudgeRequestSchema = z.discriminatedUnion("kind", [
@@ -61,7 +63,7 @@ export const testJudgeRequestSchema = z.discriminatedUnion("kind", [
       kind: z.literal("interactive"),
       context: submissionContextSchema,
       language: languageSchema,
-      artifact: uploadedArtifactSchema,
+      artifact: serialisedBuildArtifactSchema,
       cases: interactiveCasesSchema,
     })
     .strict(),
@@ -123,7 +125,7 @@ export const testJudgeStoredRequestSchema = z.discriminatedUnion("kind", [
       kind: z.literal("interactive"),
       ...storedRequestBase,
       contestantLanguage: languageSchema,
-      artifact: uploadedArtifactSchema,
+      artifact: serialisedBuildArtifactSchema,
       cases: interactiveCasesSchema,
     })
     .strict(),
@@ -135,3 +137,6 @@ export type TestJudgeCaseResult = z.infer<typeof testJudgeCaseResultSchema>;
 export type TestJudgeResponse = z.infer<typeof testJudgeResponseSchema>;
 export type TestJudgeErrorCode = (typeof testJudgeErrorCodes)[number];
 export type TestJudgeStoredRequest = z.infer<typeof testJudgeStoredRequestSchema>;
+export type EncodedBytes = z.infer<typeof encodedBytesSchema>;
+export type SerialisedBuildArtifact = z.infer<typeof serialisedBuildArtifactSchema>;
+export type StoredJudgeProgram = z.infer<typeof storedJudgeProgramSchema>;

@@ -1,3 +1,5 @@
+import type { JudgeProgramRole } from "./test-judge-program";
+
 export const PYTHON_VALIDATOR_WRAPPER = `import sys as _sys, os as _os
 judge_input = open(_sys.argv[1]).read()
 judge_answer = open(_sys.argv[2]).read()
@@ -53,6 +55,6 @@ def wrong(team_msg=""):
 # --- your code below ---
 `;
 
-export function pythonJudgeWrapper(role: "checker" | "interactor"): string {
+export function pythonJudgeWrapper(role: JudgeProgramRole): string {
   return role === "checker" ? PYTHON_VALIDATOR_WRAPPER : PYTHON_INTERACTOR_WRAPPER;
 }
