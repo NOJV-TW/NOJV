@@ -2,7 +2,12 @@
   import { untrack } from "svelte";
   import type { SuperValidated } from "sveltekit-superforms";
   import { appSuperForm } from "$lib/utils/super-form";
-  import type { ProblemBasicInfo, ProblemDifficulty, ProblemVisibility } from "@nojv/core";
+  import type {
+    ProblemBasicInfo,
+    ProblemDifficulty,
+    ProblemSample,
+    ProblemVisibility,
+  } from "@nojv/core";
   import * as Select from "$lib/components/primitives/ui/select";
   import { m } from "$lib/paraglide/messages.js";
   import { inputClassName } from "$lib/utils/css";
@@ -107,7 +112,7 @@
     $form.tags = tags;
   });
 
-  let samples = $state<{ input: string; output: string }[]>($form.samples ?? []);
+  let samples = $state<ProblemSample[]>($form.samples ?? []);
   $effect(() => {
     $form.samples = samples;
   });

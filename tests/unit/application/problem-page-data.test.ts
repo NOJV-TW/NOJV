@@ -102,6 +102,23 @@ describe("problem solving page data", () => {
     expect(await getProblemPageData("p-access")).toEqual(problem);
   });
 
+  it("keeps the optional explanation on each sample", async () => {
+    m.findDetailById.mockResolvedValue({
+      ...persistedProblem("p-samples"),
+      samples: [
+        { input: "1 2", output: "3", explanation: "$1 + 2 = 3$" },
+        { input: "0 0", output: "0" },
+      ],
+    });
+
+    const problem = await getProblemPageData("p-samples");
+
+    expect(problem.samples).toEqual([
+      { input: "1 2", output: "3", explanation: "$1 + 2 = 3$" },
+      { input: "0 0", output: "0" },
+    ]);
+  });
+
   it("reads each workspace file version from object storage once", async () => {
     m.findDetailById.mockResolvedValue(persistedProblem("p-cache"));
     await getProblemPageData("p-cache");

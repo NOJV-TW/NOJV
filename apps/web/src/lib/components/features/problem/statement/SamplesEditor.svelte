@@ -6,6 +6,7 @@
   interface Sample {
     input: string;
     output: string;
+    explanation?: string | undefined;
   }
 
   interface Props {
@@ -31,6 +32,10 @@
 
   function updateOutput(index: number, value: string) {
     samples = samples.map((s, i) => (i === index ? { ...s, output: value } : s));
+  }
+
+  function updateExplanation(index: number, value: string) {
+    samples = samples.map((s, i) => (i === index ? { ...s, explanation: value } : s));
   }
 </script>
 
@@ -89,6 +94,16 @@
               ></textarea>
             </label>
           </div>
+          <label class="mt-3 block text-caption text-muted-foreground">
+            <span>{m.admin_sampleExplanation()}</span>
+            <textarea
+              class="{inputClassName} min-h-16 resize-y"
+              maxlength={5000}
+              placeholder={m.admin_sampleExplanationPlaceholder()}
+              value={sample.explanation ?? ""}
+              oninput={(e) => updateExplanation(index, (e.target as HTMLTextAreaElement).value)}
+            ></textarea>
+          </label>
         </div>
       {/each}
     </div>

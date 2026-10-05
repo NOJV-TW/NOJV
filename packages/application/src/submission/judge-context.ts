@@ -82,7 +82,7 @@ export async function getJudgeContext(submissionId: string): Promise<PinnedJudge
     }),
   }));
 
-  const samples = buildProblemSamples(problem);
+  const samples = buildProblemSamples(problem).map(({ input, output }) => ({ input, output }));
 
   const runtime: Runtime = {
     env: judgeConfig.runtime?.env ?? {},

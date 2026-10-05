@@ -111,6 +111,16 @@
                   <pre
                     class="mt-1 overflow-x-auto whitespace-pre-wrap rounded-md bg-muted px-3 py-2 font-mono text-caption leading-6 text-foreground">{sample.output}</pre>
                 </div>
+                {#if sample.explanation}
+                  <div>
+                    <p class="text-caption font-medium text-muted-foreground">
+                      {m.problemDetail_sampleExplanation()}
+                    </p>
+                    <div class="mt-1 text-micro leading-5 text-foreground">
+                      <MarkdownRenderer content={sample.explanation} />
+                    </div>
+                  </div>
+                {/if}
               </div>
             </div>
           {/each}

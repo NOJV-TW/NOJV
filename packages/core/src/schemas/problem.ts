@@ -37,6 +37,7 @@ const inlineTestcaseEditContentSchema = z
 export const problemSampleSchema = z.object({
   input: z.string().max(200_000),
   output: z.string().max(200_000),
+  explanation: z.string().max(5_000).optional(),
 });
 
 export type ProblemSample = z.infer<typeof problemSampleSchema>;

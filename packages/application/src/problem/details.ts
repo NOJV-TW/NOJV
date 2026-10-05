@@ -33,7 +33,7 @@ export interface ProblemDetail {
   memoryLimitMb: number;
   outputFormat: string;
   type: ProblemType;
-  samples: { input: string; output: string }[];
+  samples: ProblemSample[];
   starterByLanguage: Record<string, string>;
   statement: string;
   status: ProblemStatus;

@@ -69,4 +69,39 @@ describe("ProblemDescriptionPanel", () => {
     await unmount(component);
     target.remove();
   });
+
+  it("renders a sample explanation as markdown only when the sample has one", async () => {
+    const target = document.createElement("div");
+    document.body.append(target);
+    const component = mount(ProblemDescriptionPanel, {
+      target,
+      props: {
+        problem: {
+          displayId: 1,
+          title: "Sum",
+          difficulty: "easy",
+          tags: [],
+          type: "full_source",
+          judgeType: "standard",
+          timeLimitMs: 1000,
+          memoryLimitMb: 256,
+          statement: "",
+          inputFormat: "",
+          outputFormat: "",
+          samples: [
+            { input: "1 2", output: "3", explanation: "Add them: $1 + 2 = 3$" },
+            { input: "0 0", output: "0" },
+          ],
+        } as never,
+        testcaseSets: [],
+      },
+    });
+
+    expect(target.textContent).toContain("Add them:");
+    expect(target.querySelectorAll(".katex-html")).toHaveLength(1);
+    expect(target.textContent.match(/Explanation/g)).toHaveLength(1);
+
+    await unmount(component);
+    target.remove();
+  });
 });
