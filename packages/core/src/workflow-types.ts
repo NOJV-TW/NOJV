@@ -1,3 +1,5 @@
+import type { TestJudgeCaseResult, TestJudgeErrorCode } from "./schemas/test-judge";
+
 export type RejudgeInput =
   | {
       mode: "batch";
@@ -61,3 +63,15 @@ export interface PlagiarismCheckInput {
 export interface RegistryGarbageCollectInput {
   triggeredByUserId: string;
 }
+
+export interface TestJudgeWorkflowInput {
+  requestKey: string;
+}
+
+export interface TestJudgeProgramBuildInput {
+  problemId: string;
+}
+
+export type TestJudgeWorkflowOutput =
+  | { ok: true; cases: TestJudgeCaseResult[] }
+  | { ok: false; code: TestJudgeErrorCode; detail?: string };
