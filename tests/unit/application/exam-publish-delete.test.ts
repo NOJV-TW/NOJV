@@ -146,6 +146,7 @@ beforeEach(() => {
     })),
     dispatchJudgeExecution: vi.fn().mockResolvedValue(undefined),
     dispatchJudgeCleanup: vi.fn().mockResolvedValue(undefined),
+    dispatchTestJudgeProgramBuild: vi.fn().mockResolvedValue(undefined),
     ensureAssignmentDueSoon: vi.fn(async () => {}),
     ensureContestLifecycle: vi.fn(async () => {}),
     ensureExamAutoClose,
@@ -153,6 +154,7 @@ beforeEach(() => {
     replaceAssignmentDueSoon: vi.fn(async () => {}),
     replaceContestLifecycle: vi.fn(async () => {}),
     replaceExamAutoClose,
+    runTestJudge: vi.fn(async () => ({ ok: true as const, cases: [] })),
     terminateSubmissionJudge: vi.fn(async () => {}),
   });
 });

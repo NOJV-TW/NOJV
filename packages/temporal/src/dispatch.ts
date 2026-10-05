@@ -1,5 +1,8 @@
+import { randomUUID } from "node:crypto";
+
 import {
   WorkflowExecutionAlreadyStartedError,
+  WorkflowFailedError,
   WorkflowNotFoundError,
 } from "@temporalio/client";
 
@@ -11,6 +14,9 @@ import type {
   LifecycleScheduleIdentity,
   PlagiarismCheckInput,
   RegistryGarbageCollectInput,
+  TestJudgeProgramBuildInput,
+  TestJudgeWorkflowInput,
+  TestJudgeWorkflowOutput,
 } from "@nojv/core";
 
 import { getTemporalClient } from "./client";
@@ -19,7 +25,7 @@ import {
   type LifecycleReconciliationMode,
   type ObservedLifecycleRun,
 } from "./lifecycle-reconciliation";
-import { JUDGE_TASK_QUEUE, PLATFORM_TASK_QUEUE } from "./task-queues";
+import { JUDGE_TASK_QUEUE, PLATFORM_TASK_QUEUE, TEST_JUDGE_TASK_QUEUE } from "./task-queues";
 
 async function startUnlessRunning(start: Promise<unknown>): Promise<boolean> {
   try {
@@ -354,6 +360,41 @@ export async function dispatchJudgeCleanup(input: {
       workflowId: `judge-cleanup-${input.leaseToken}`,
       workflowIdReusePolicy: "ALLOW_DUPLICATE_FAILED_ONLY",
       taskQueue: JUDGE_TASK_QUEUE,
+      args: [input],
+    }),
+  );
+}
+
+type TestJudgeWorkflow = (input: TestJudgeWorkflowInput) => Promise<TestJudgeWorkflowOutput>;
+
+export async function runTestJudgeWorkflow(
+  input: TestJudgeWorkflowInput,
+  options: { timeoutMs: number },
+): Promise<TestJudgeWorkflowOutput> {
+  const client = await getTemporalClient();
+  try {
+    return await client.workflow.execute<TestJudgeWorkflow>("testJudgeWorkflow", {
+      taskQueue: TEST_JUDGE_TASK_QUEUE,
+      workflowId: `test-judge-${randomUUID()}`,
+      args: [input],
+      workflowExecutionTimeout: options.timeoutMs,
+    });
+  } catch (err) {
+    if (err instanceof WorkflowFailedError) return { ok: false, code: "test_judge_busy" };
+    throw err;
+  }
+}
+
+export async function dispatchTestJudgeProgramBuild(
+  input: TestJudgeProgramBuildInput,
+): Promise<void> {
+  const client = await getTemporalClient();
+  await startUnlessRunning(
+    client.workflow.start("testJudgeProgramBuildWorkflow", {
+      taskQueue: TEST_JUDGE_TASK_QUEUE,
+      workflowId: `test-judge-build-${input.role}-${input.language}-${input.scriptPointer.sha256}`,
+      workflowIdConflictPolicy: "USE_EXISTING",
+      workflowIdReusePolicy: "ALLOW_DUPLICATE",
       args: [input],
     }),
   );
