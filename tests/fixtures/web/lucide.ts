@@ -9,3 +9,4 @@ export { default as ListFilter } from "./empty-component.svelte";
 export { default as Loader2 } from "./empty-component.svelte";
 export { default as Search } from "./empty-component.svelte";
 export { default as UploadCloud } from "./empty-component.svelte";
+export { default as X } from "./empty-component.svelte";

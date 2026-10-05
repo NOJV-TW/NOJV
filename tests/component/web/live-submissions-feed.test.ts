@@ -11,6 +11,7 @@ vi.mock("$lib/components/primitives/ui/select/select-content.svelte", async () =
 vi.mock("@lucide/svelte", async () => ({
   ListFilter: (await import("../../fixtures/web/empty-component.svelte")).default,
   Loader2: (await import("../../fixtures/web/empty-component.svelte")).default,
+  X: (await import("../../fixtures/web/empty-component.svelte")).default,
 }));
 
 const mocks = vi.hoisted(() => ({

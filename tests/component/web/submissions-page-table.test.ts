@@ -27,6 +27,7 @@ vi.mock("@lucide/svelte", async () => {
     ChevronLast: Empty,
     ChevronLeft: Empty,
     ChevronRight: Empty,
+    X: Empty,
   };
 });
 

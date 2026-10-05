@@ -1,8 +1,9 @@
 <script lang="ts">
-  import { ListFilter } from "@lucide/svelte";
+  import { ListFilter, X } from "@lucide/svelte";
   import { Popover } from "bits-ui";
   import { Button } from "$lib/components/primitives/ui/button";
   import { Input } from "$lib/components/primitives/ui/input";
+  import { m } from "$lib/paraglide/messages.js";
 
   interface Props {
     label: string;
@@ -28,6 +29,12 @@
     value = draft.trim();
     onApply?.();
     open = false;
+  }
+
+  function clearFilter() {
+    value = "";
+    draft = "";
+    onApply?.();
   }
 
   function handleKeydown(event: KeyboardEvent) {
@@ -79,10 +86,17 @@
   </Popover.Root>
   {#if value}
     <span
-      class="max-w-28 truncate rounded-sm bg-primary/10 px-1.5 py-0.5 text-caption font-medium normal-case tracking-normal text-primary"
-      title={value}
+      class="inline-flex max-w-32 items-center gap-0.5 rounded-sm bg-primary/10 py-0.5 pl-1.5 pr-0.5 text-caption font-medium normal-case tracking-normal text-primary"
     >
-      {value}
+      <span class="truncate" title={value}>{value}</span>
+      <button
+        type="button"
+        class="shrink-0 rounded-sm p-0.5 hover:bg-primary/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        aria-label={m.common_clearFilter({ label: filterLabel })}
+        onclick={clearFilter}
+      >
+        <X aria-hidden="true" class="size-3" />
+      </button>
     </span>
   {/if}
 </div>
