@@ -24,6 +24,7 @@
   }: Props = $props();
   let open = $state(false);
   let draft = $state(value);
+  let trigger = $state<HTMLElement | null>(null);
 
   function applyFilter() {
     value = draft.trim();
@@ -33,8 +34,8 @@
 
   function clearFilter() {
     value = "";
-    draft = "";
     onApply?.();
+    trigger?.focus();
   }
 
   function handleKeydown(event: KeyboardEvent) {
@@ -52,6 +53,7 @@
     }}
   >
     <Popover.Trigger
+      bind:ref={trigger}
       type="button"
       class="-ml-1 inline-flex h-8 shrink-0 items-center gap-1.5 rounded-sm px-1 font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring {value
         ? 'bg-primary/10 text-primary hover:bg-primary/15'
@@ -92,7 +94,7 @@
       <button
         type="button"
         class="shrink-0 rounded-sm p-0.5 hover:bg-primary/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        aria-label={m.common_clearFilter({ label: filterLabel })}
+        aria-label={m.common_clearFilter({ label })}
         onclick={clearFilter}
       >
         <X aria-hidden="true" class="size-3" />

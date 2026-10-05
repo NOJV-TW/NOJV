@@ -23,7 +23,7 @@ describe("table sort", () => {
     expect(sortDirection(sort, "score")).toBeNull();
     expect(ariaSort("asc")).toBe("ascending");
     expect(ariaSort("desc")).toBe("descending");
-    expect(ariaSort(null)).toBe("none");
+    expect(ariaSort(null)).toBeUndefined();
   });
 
   it("sorts a copy stably in both directions", () => {

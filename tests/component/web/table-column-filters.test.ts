@@ -4,9 +4,9 @@ import TableSelectColumnFilter from "$lib/components/primitives/ui/TableSelectCo
 import TableTextColumnFilter from "$lib/components/primitives/ui/TableTextColumnFilter.svelte";
 import { m } from "$lib/paraglide/messages.js";
 
-function clearButton(target: HTMLElement, filterLabel: string) {
+function clearButton(target: HTMLElement, label: string) {
   return target.querySelector<HTMLButtonElement>(
-    `button[aria-label="${m.common_clearFilter({ label: filterLabel })}"]`,
+    `button[aria-label="${m.common_clearFilter({ label })}"]`,
   );
 }
 
@@ -25,14 +25,16 @@ it("clears an active text filter and re-applies it", async () => {
       onApply,
     },
   });
+  await tick();
 
   expect(target.textContent).toContain("alice");
-  clearButton(target, "Filter email")?.click();
+  clearButton(target, "Email")?.click();
   await tick();
 
   expect(onApply).toHaveBeenCalledOnce();
   expect(target.textContent).not.toContain("alice");
-  expect(clearButton(target, "Filter email")).toBeNull();
+  expect(clearButton(target, "Email")).toBeNull();
+  expect(document.activeElement).toBe(target.querySelector('[aria-label="Filter email"]'));
 
   await unmount(component);
   target.remove();
@@ -52,7 +54,7 @@ it("hides the text filter clear button while the filter is empty", async () => {
     },
   });
 
-  expect(clearButton(target, "Filter email")).toBeNull();
+  expect(clearButton(target, "Email")).toBeNull();
 
   await unmount(component);
   target.remove();
@@ -75,15 +77,17 @@ it("clears an active select filter", async () => {
       onChange,
     },
   });
+  await tick();
 
   const trigger = target.querySelector('[aria-label="Filter role"]');
   expect(trigger?.textContent).toContain("TA");
-  clearButton(target, "Filter role")?.click();
+  clearButton(target, "Role")?.click();
   await tick();
 
   expect(onChange).toHaveBeenCalledExactlyOnceWith("");
   expect(trigger?.textContent).toContain("Role");
-  expect(clearButton(target, "Filter role")).toBeNull();
+  expect(clearButton(target, "Role")).toBeNull();
+  expect(document.activeElement).toBe(trigger);
 
   await unmount(component);
   target.remove();

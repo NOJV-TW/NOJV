@@ -31,15 +31,23 @@
     options.find((option) => option.value === value)?.label ?? value,
   );
 
+  let trigger = $state<HTMLElement | null>(null);
+
   function handleChange(nextValue: string) {
     value = nextValue;
     onChange?.(value);
+  }
+
+  function clearFilter() {
+    handleChange("");
+    trigger?.focus();
   }
 </script>
 
 <div class="flex min-w-0 items-center gap-1">
   <Select.Root type="single" bind:value onValueChange={handleChange}>
     <SelectPrimitive.Trigger
+      bind:ref={trigger}
       type="button"
       class="-ml-1 inline-flex h-8 min-w-0 items-center gap-1.5 rounded-sm px-1 font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring {value
         ? 'bg-primary/10 text-primary hover:bg-primary/15'
@@ -61,9 +69,9 @@
   {#if value}
     <button
       type="button"
-      class="shrink-0 rounded-sm p-0.5 text-primary hover:bg-primary/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-      aria-label={m.common_clearFilter({ label: filterLabel })}
-      onclick={() => handleChange("")}
+      class="shrink-0 rounded-sm p-1 text-primary hover:bg-primary/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      aria-label={m.common_clearFilter({ label })}
+      onclick={clearFilter}
     >
       <X aria-hidden="true" class="size-3" />
     </button>

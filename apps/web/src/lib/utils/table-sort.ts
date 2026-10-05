@@ -17,9 +17,11 @@ export function sortDirection<K extends string>(
   return sort.key === key ? sort.direction : null;
 }
 
-export function ariaSort(direction: SortDirection | null): "ascending" | "descending" | "none" {
+export function ariaSort(
+  direction: SortDirection | null,
+): "ascending" | "descending" | undefined {
   if (direction === "asc") return "ascending";
-  return direction === "desc" ? "descending" : "none";
+  return direction === "desc" ? "descending" : undefined;
 }
 
 export function sortRows<T>(
