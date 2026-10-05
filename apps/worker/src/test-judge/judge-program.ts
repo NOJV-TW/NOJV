@@ -70,6 +70,7 @@ function toRecord(program: JudgeProgram): StoredJudgeProgram {
 export async function getJudgeProgram(
   deps: { engine: Pick<TestJudgeEngine, "compile">; store: JudgeProgramStore },
   source: JudgeProgramSource,
+  { throwOnStoreError = false }: { throwOnStoreError?: boolean } = {},
 ): Promise<JudgeProgram> {
   const objectKey = testJudgeProgramObjectKey(await testJudgeProgramCacheKey(source));
   const cached = await deps.store.get(objectKey);
@@ -91,6 +92,7 @@ export async function getJudgeProgram(
   try {
     await deps.store.put(objectKey, JSON.stringify(toRecord(program)));
   } catch (error) {
+    if (throwOnStoreError) throw error;
     logger.warn("Could not cache a test-judge program build", {
       objectKey,
       error: error instanceof Error ? error.message : String(error),

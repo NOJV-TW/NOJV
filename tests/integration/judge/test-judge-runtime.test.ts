@@ -2,12 +2,14 @@ import { mkdtemp, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 
+import { MockActivityEnvironment } from "@temporalio/testing";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 import {
   serialiseBuildArtifact,
   type JudgeProgramSource,
   type TestJudgeStoredRequest,
+  type TestJudgeWorkflowOutput,
 } from "@nojv/core";
 
 import {
@@ -90,6 +92,12 @@ int main() {
 }
 `;
 
+const CPP_SPIN_CONTESTANT = `int main() {
+  volatile unsigned long long spins = 0;
+  for (;;) spins = spins + 1;
+}
+`;
+
 const REQUEST_KEY = "test-judge-requests/integration.json";
 const SCRIPT_POINTER = { key: "problems/p1/judge.cpp", sha256: "a".repeat(64), size: 1 };
 
@@ -141,6 +149,44 @@ function useRequest(
   };
   setTestJudgeDeps({ pool, storage, programs: memoryStore() });
   return blobs;
+}
+
+function judgeRequest(): Promise<TestJudgeWorkflowOutput> {
+  return new MockActivityEnvironment({ scheduledTimestampMs: Date.now() }).run(runTestJudge, {
+    requestKey: REQUEST_KEY,
+  });
+}
+
+async function compileContestant(pool: EnginePool<TestJudgeEngine>, source: string) {
+  const { engine, release } = await pool.acquire();
+  try {
+    const build = await engine.compile({
+      language: "cpp",
+      entry: "main.cpp",
+      files: { "main.cpp": source },
+    });
+    expect(build.success, build.stderr).toBe(true);
+    return build.artifact!;
+  } finally {
+    release();
+  }
+}
+
+function interactiveRequest(
+  contestant: BuildArtifact,
+  secrets: string[],
+): TestJudgeStoredRequest {
+  return {
+    kind: "interactive",
+    judgeLanguage: "cpp",
+    judgeScriptPointer: SCRIPT_POINTER,
+    timeLimitMs: 1000,
+    memoryLimitMb: 256,
+    runtimeEnv: {},
+    contestantLanguage: "cpp",
+    artifact: serialiseBuildArtifact(contestant),
+    cases: secrets.map((secret) => ({ interactorInput: `${secret}\n` })),
+  };
 }
 
 describe.skipIf(!runtimeDir || !toolchainDir)("test-judge WASM-OJ runtime", () => {
@@ -272,7 +318,7 @@ describe.skipIf(!runtimeDir || !toolchainDir)("test-judge WASM-OJ runtime", () =
       CPP_SUM_CHECKER,
     );
 
-    await expect(runTestJudge({ requestKey: REQUEST_KEY })).resolves.toEqual({
+    await expect(judgeRequest()).resolves.toEqual({
       ok: true,
       cases: [
         { verdict: "AC", teamMessage: "sum ok" },
@@ -283,36 +329,14 @@ describe.skipIf(!runtimeDir || !toolchainDir)("test-judge WASM-OJ runtime", () =
   }, 300_000);
 
   it("judges an interactive request end to end with a C++ interactor", async () => {
-    const { engine, release } = await pool.acquire();
-    let contestant: BuildArtifact;
-    try {
-      const build = await engine.compile({
-        language: "cpp",
-        entry: "main.cpp",
-        files: { "main.cpp": CPP_GUESS_CONTESTANT },
-      });
-      expect(build.success, build.stderr).toBe(true);
-      contestant = build.artifact!;
-    } finally {
-      release();
-    }
+    const contestant = await compileContestant(pool, CPP_GUESS_CONTESTANT);
     const blobs = useRequest(
       pool,
-      {
-        kind: "interactive",
-        judgeLanguage: "cpp",
-        judgeScriptPointer: SCRIPT_POINTER,
-        timeLimitMs: 1000,
-        memoryLimitMb: 256,
-        runtimeEnv: {},
-        contestantLanguage: "cpp",
-        artifact: serialiseBuildArtifact(contestant),
-        cases: [{ interactorInput: "37\n" }, { interactorInput: "999999\n" }],
-      },
+      interactiveRequest(contestant, ["37", "999999"]),
       CPP_GUESS_INTERACTOR,
     );
 
-    const output = await runTestJudge({ requestKey: REQUEST_KEY });
+    const output = await judgeRequest();
 
     expect(output.ok).toBe(true);
     if (!output.ok) return;
@@ -320,8 +344,20 @@ describe.skipIf(!runtimeDir || !toolchainDir)("test-judge WASM-OJ runtime", () =
     for (const result of output.cases) {
       expect(result.transcript?.toInteractor).toMatch(/^500000\n/);
       expect(result.transcript?.toContestant).toMatch(/correct\n$/);
-      expect(result.timeMs).toBeGreaterThanOrEqual(0);
     }
     expect(blobs.size).toBe(0);
+  }, 300_000);
+
+  it("reports TLE for a spinning interactive contestant within its wall stop", async () => {
+    const contestant = await compileContestant(pool, CPP_SPIN_CONTESTANT);
+    useRequest(pool, interactiveRequest(contestant, ["37"]), CPP_GUESS_INTERACTOR);
+
+    const started = Date.now();
+    const output = await judgeRequest();
+    const elapsedMs = Date.now() - started;
+
+    expect(output).toMatchObject({ ok: true, cases: [{ verdict: "TLE" }] });
+    expect(elapsedMs).toBeGreaterThanOrEqual(3_000);
+    expect(elapsedMs).toBeLessThan(5_000);
   }, 300_000);
 });

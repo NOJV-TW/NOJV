@@ -1,4 +1,5 @@
 import {
+  boundedTestJudgeOutput,
   checkerCaseVerdict,
   deserialiseBuildArtifact,
   effectiveTimeLimitMs,
@@ -6,36 +7,51 @@ import {
   MAX_CASE_STDERR_BYTES,
   MAX_EXECUTION_OUTPUT_BYTES,
   TEST_JUDGE_MAX_ARTIFACT_BYTES,
+  TEST_JUDGE_REQUEST_PREFIX,
   TEST_JUDGE_TRANSCRIPT_BYTES,
   testJudgeCaseResultSchema,
   testJudgeStoredRequestSchema,
   truncateUtf8,
   validatorTimeoutMs,
+  type SerialisedBuildArtifact,
   type TestJudgeCaseResult,
   type TestJudgeProgramBuildInput,
   type TestJudgeStoredRequest,
   type TestJudgeWorkflowInput,
   type TestJudgeWorkflowOutput,
 } from "@nojv/core";
-import { deleteBlob, getText, getVerifiedText, type createStorageClient } from "@nojv/storage";
+import {
+  deleteBlob,
+  getText,
+  getVerifiedText,
+  isStorageObjectNotFoundError,
+  StorageIntegrityError,
+  type createStorageClient,
+} from "@nojv/storage";
+import { Context } from "@temporalio/activity";
 import type { BuildArtifact } from "@wasm-oj/core";
 
 import { createLogger } from "../logger.js";
-import { getJudgeProgram, type JudgeProgramStore } from "../test-judge/judge-program";
+import {
+  getJudgeProgram,
+  type JudgeProgram,
+  type JudgeProgramStore,
+} from "../test-judge/judge-program";
 import type { EngineLease, TestJudgeEngine } from "../test-judge/runtime";
 
 const logger = createLogger("test-judge");
 
 // ponytail: one 24 s budget per request keeps the awaited workflow inside web's 30 s deadline; stream per-case results to lift it
 const REQUEST_BUDGET_MS = 24_000;
-const CASE_WALL_LIMIT_MS = 10_000;
+const CHECKER_WALL_LIMIT_MS = 10_000;
+const MIN_INTERACTIVE_WALL_LIMIT_MS = 3_000;
 const MIB = 1024 * 1024;
 const JUDGE_PROGRAM_MEMORY_BYTES = 512 * MIB;
 const JUDGE_PROGRAM_ARGS = ["/judge/input", "/judge/answer", "/judge/feedback"];
 const TEAM_MESSAGE_PATH = "/judge/feedback/teammessage.txt";
 
 type ScriptPointer = TestJudgeStoredRequest["judgeScriptPointer"];
-type JudgeEngine = Pick<TestJudgeEngine, "compile" | "run" | "interact">;
+type JudgeEngine = Pick<TestJudgeEngine, "compile" | "run" | "interact" | "cancel">;
 type CheckerRequest = Extract<TestJudgeStoredRequest, { kind: "checker" }>;
 type InteractiveRequest = Extract<TestJudgeStoredRequest, { kind: "interactive" }>;
 
@@ -91,12 +107,33 @@ async function readRequest(
   }
 }
 
-function judgeProgramResources(timeLimitMs: number, wallTimeLimitMs: number) {
-  return {
-    logicalTimeLimitMs: validatorTimeoutMs(timeLimitMs),
-    memoryLimitBytes: JUDGE_PROGRAM_MEMORY_BYTES,
-    wallTimeLimitMs,
-  };
+async function readJudgeSource(
+  storage: TestJudgeStorage,
+  pointer: ScriptPointer,
+): Promise<string | null> {
+  try {
+    return await storage.getVerifiedText(pointer);
+  } catch (error) {
+    if (!(error instanceof StorageIntegrityError) && !isStorageObjectNotFoundError(error)) {
+      throw error;
+    }
+    logger.error("A test-judge program source is missing or corrupt", {
+      key: pointer.key,
+      error: errorMessage(error),
+    });
+    return null;
+  }
+}
+
+function decodedBytes(artifact: SerialisedBuildArtifact): number {
+  if (artifact.kind !== "wasm") return 0;
+  const { base64 } = artifact.bytes;
+  const padding = base64.endsWith("==") ? 2 : base64.endsWith("=") ? 1 : 0;
+  return (base64.length / 4) * 3 - padding;
+}
+
+function judgeProgramResources(logicalTimeLimitMs: number, wallTimeLimitMs: number) {
+  return { logicalTimeLimitMs, memoryLimitBytes: JUDGE_PROGRAM_MEMORY_BYTES, wallTimeLimitMs };
 }
 
 async function judgeCheckerCase(
@@ -104,7 +141,7 @@ async function judgeCheckerCase(
   checker: BuildArtifact,
   request: CheckerRequest,
   testCase: CheckerRequest["cases"][number],
-  wallTimeLimitMs: number,
+  remainingMs: number,
 ): Promise<TestJudgeCaseResult> {
   const run = await engine.run(checker, {
     args: JUDGE_PROGRAM_ARGS,
@@ -116,7 +153,10 @@ async function judgeCheckerCase(
       "/judge/feedback/.keep": "",
     },
     outputPaths: [TEAM_MESSAGE_PATH],
-    resources: judgeProgramResources(request.timeLimitMs, wallTimeLimitMs),
+    resources: judgeProgramResources(
+      validatorTimeoutMs(request.timeLimitMs),
+      Math.min(CHECKER_WALL_LIMIT_MS, remainingMs),
+    ),
   });
   const teamMessage = run.files[TEAM_MESSAGE_PATH];
   return checkerCaseVerdict(run, teamMessage && new TextDecoder().decode(teamMessage));
@@ -128,16 +168,16 @@ async function judgeInteractiveCase(
   contestant: BuildArtifact,
   request: InteractiveRequest,
   testCase: InteractiveRequest["cases"][number],
-  wallTimeLimitMs: number,
+  remainingMs: number,
 ): Promise<TestJudgeCaseResult> {
+  const timeLimitMs = effectiveTimeLimitMs(request.timeLimitMs, request.contestantLanguage);
+  const fullWallMs = Math.max(MIN_INTERACTIVE_WALL_LIMIT_MS, 3 * timeLimitMs);
+  const wallTimeLimitMs = Math.min(fullWallMs, remainingMs);
   const run = await engine.interact(contestant, interactor, {
     contestant: {
       env: request.runtimeEnv,
       resources: {
-        logicalTimeLimitMs: effectiveTimeLimitMs(
-          request.timeLimitMs,
-          request.contestantLanguage,
-        ),
+        logicalTimeLimitMs: timeLimitMs,
         memoryLimitBytes: request.memoryLimitMb * MIB,
         outputLimitBytes: MAX_EXECUTION_OUTPUT_BYTES,
         filesystemWriteLimitBytes: 64 * MIB,
@@ -152,12 +192,16 @@ async function judgeInteractiveCase(
         "/judge/answer": "",
         "/judge/feedback/.keep": "",
       },
-      resources: judgeProgramResources(request.timeLimitMs, wallTimeLimitMs),
+      resources: judgeProgramResources(validatorTimeoutMs(timeLimitMs), wallTimeLimitMs),
     },
   });
+  let { verdict } = interactiveCaseVerdict(run);
+  if (run.contestant.termination === "wall-time-limit") {
+    verdict = wallTimeLimitMs < fullWallMs ? "SE" : "TLE";
+  }
   const contestantStderr = truncateUtf8(run.contestant.stderr, MAX_CASE_STDERR_BYTES);
   return {
-    verdict: interactiveCaseVerdict(run).verdict,
+    verdict,
     ...(contestantStderr ? { contestantStderr } : {}),
     transcript: {
       toInteractor: truncateUtf8(run.contestantToInteractor, TEST_JUDGE_TRANSCRIPT_BYTES),
@@ -170,18 +214,18 @@ async function judgeInteractiveCase(
 async function judgeCases<C>(
   cases: readonly C[],
   deadline: number,
-  judge: (testCase: C, wallTimeLimitMs: number) => Promise<TestJudgeCaseResult>,
+  stop: AbortSignal,
+  judge: (testCase: C, remainingMs: number) => Promise<TestJudgeCaseResult>,
 ): Promise<TestJudgeCaseResult[]> {
   const results: TestJudgeCaseResult[] = [];
   for (const [index, testCase] of cases.entries()) {
     const remainingMs = deadline - Date.now();
-    if (remainingMs <= 0) {
+    if (stop.aborted || remainingMs <= 0) {
       results.push({ verdict: "SE" });
       continue;
     }
     try {
-      const result = await judge(testCase, Math.min(CASE_WALL_LIMIT_MS, remainingMs));
-      results.push(testJudgeCaseResultSchema.parse(result));
+      results.push(testJudgeCaseResultSchema.parse(await judge(testCase, remainingMs)));
     } catch (error) {
       logger.error("Test-judge case failed", { index, error: errorMessage(error) });
       results.push({ verdict: "SE" });
@@ -190,39 +234,42 @@ async function judgeCases<C>(
   return results;
 }
 
-function isOversized(artifact: BuildArtifact): boolean {
-  return artifact.kind === "wasm" && artifact.bytes.byteLength > TEST_JUDGE_MAX_ARTIFACT_BYTES;
+function systemErrors(count: number): TestJudgeWorkflowOutput {
+  return { ok: true, cases: Array.from({ length: count }, () => ({ verdict: "SE" })) };
 }
 
-async function withJudgeProgram(
+async function judgeWithProgram(
   { pool, storage, programs }: TestJudgeDeps,
   request: TestJudgeStoredRequest,
+  stop: AbortSignal,
   judge: (engine: JudgeEngine, program: BuildArtifact) => Promise<TestJudgeCaseResult[]>,
 ): Promise<TestJudgeWorkflowOutput> {
-  let source: string;
-  try {
-    source = await storage.getVerifiedText(request.judgeScriptPointer);
-  } catch (error) {
-    logger.error("Could not read a test-judge program source", {
-      key: request.judgeScriptPointer.key,
-      error: errorMessage(error),
-    });
-    return { ok: false, code: "test_judge_unavailable" };
-  }
+  const source = await readJudgeSource(storage, request.judgeScriptPointer);
+  if (source === null) return { ok: false, code: "test_judge_unavailable" };
 
   const lease = await pool.acquire();
+  const cancel = () => lease.engine.cancel();
+  stop.addEventListener("abort", cancel, { once: true });
   try {
-    const program = await getJudgeProgram(
-      { engine: lease.engine, store: programs },
-      {
-        role: request.kind === "checker" ? "checker" : "interactor",
-        language: request.judgeLanguage,
-        source,
-      },
-    );
+    let program: JudgeProgram;
+    try {
+      stop.throwIfAborted();
+      program = await getJudgeProgram(
+        { engine: lease.engine, store: programs },
+        {
+          role: request.kind === "checker" ? "checker" : "interactor",
+          language: request.judgeLanguage,
+          source,
+        },
+      );
+    } catch (error) {
+      if (!stop.aborted) throw error;
+      return systemErrors(request.cases.length);
+    }
     if (!program.ok) return { ok: false, code: "judge_program_build_failed" };
-    return { ok: true, cases: await judge(lease.engine, program.artifact) };
+    return boundedTestJudgeOutput(await judge(lease.engine, program.artifact));
   } finally {
+    stop.removeEventListener("abort", cancel);
     lease.release();
   }
 }
@@ -231,24 +278,25 @@ async function judgeRequest(
   current: TestJudgeDeps,
   request: TestJudgeStoredRequest,
   deadline: number,
+  stop: AbortSignal,
 ): Promise<TestJudgeWorkflowOutput> {
   if (request.kind === "checker") {
-    return await withJudgeProgram(current, request, (engine, checker) =>
-      judgeCases(request.cases, deadline, (testCase, wallTimeLimitMs) =>
-        judgeCheckerCase(engine, checker, request, testCase, wallTimeLimitMs),
+    return await judgeWithProgram(current, request, stop, (engine, checker) =>
+      judgeCases(request.cases, deadline, stop, (testCase, remainingMs) =>
+        judgeCheckerCase(engine, checker, request, testCase, remainingMs),
       ),
     );
   }
   if (request.judgeLanguage === "python") {
     return { ok: false, code: "judge_program_unsupported" };
   }
-  const contestant = deserialiseBuildArtifact(request.artifact) as BuildArtifact;
-  if (isOversized(contestant)) {
-    return { ok: true, cases: request.cases.map(() => ({ verdict: "SE" })) };
+  if (decodedBytes(request.artifact) > TEST_JUDGE_MAX_ARTIFACT_BYTES) {
+    return systemErrors(request.cases.length);
   }
-  return await withJudgeProgram(current, request, (engine, interactor) =>
-    judgeCases(request.cases, deadline, (testCase, wallTimeLimitMs) =>
-      judgeInteractiveCase(engine, interactor, contestant, request, testCase, wallTimeLimitMs),
+  const contestant = deserialiseBuildArtifact(request.artifact) as BuildArtifact;
+  return await judgeWithProgram(current, request, stop, (engine, interactor) =>
+    judgeCases(request.cases, deadline, stop, (testCase, remainingMs) =>
+      judgeInteractiveCase(engine, interactor, contestant, request, testCase, remainingMs),
     ),
   );
 }
@@ -256,12 +304,21 @@ async function judgeRequest(
 export async function runTestJudge({
   requestKey,
 }: TestJudgeWorkflowInput): Promise<TestJudgeWorkflowOutput> {
-  const deadline = Date.now() + REQUEST_BUDGET_MS;
+  const context = Context.current();
+  const deadline = Math.min(Date.now(), context.info.scheduledTimestampMs) + REQUEST_BUDGET_MS;
+  if (!requestKey.startsWith(TEST_JUDGE_REQUEST_PREFIX)) {
+    logger.error("Refusing a test-judge request outside the request prefix", { requestKey });
+    return { ok: false, code: "test_judge_unavailable" };
+  }
+  const stop = AbortSignal.any([
+    context.cancellationSignal,
+    AbortSignal.timeout(Math.max(0, deadline - Date.now())),
+  ]);
   const current = requireDeps();
   try {
     const request = await readRequest(current.storage, requestKey);
     if (!request) return { ok: false, code: "test_judge_unavailable" };
-    return await judgeRequest(current, request, deadline);
+    return await judgeRequest(current, request, deadline, stop);
   } finally {
     await current.storage.deleteBlob(requestKey).catch((error: unknown) => {
       logger.warn("Could not delete a test-judge request", {
@@ -284,6 +341,7 @@ export async function buildTestJudgeProgram({
     await getJudgeProgram(
       { engine: lease.engine, store: programs },
       { role, language, source },
+      { throwOnStoreError: true },
     );
   } finally {
     lease.release();

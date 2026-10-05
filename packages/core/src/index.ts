@@ -35,6 +35,7 @@ export * from "./judge/validator";
 export * from "./judge/time-factor";
 export * from "./judge/wasm-oj-verdict";
 export * from "./judge/test-judge-verdict";
+export * from "./judge/test-judge-response";
 export * from "./judge/test-capability";
 export * from "./judge/cpp-standard-header";
 export * from "./judge/python-judge-wrappers";

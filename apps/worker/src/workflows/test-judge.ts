@@ -9,6 +9,7 @@ import { TEST_JUDGE_QUEUE } from "./activity-options";
 
 const judge = proxyActivities<typeof testJudgeActivities>({
   taskQueue: TEST_JUDGE_QUEUE,
+  scheduleToCloseTimeout: "28s",
   startToCloseTimeout: "28s",
   retry: { maximumAttempts: 1 },
 });

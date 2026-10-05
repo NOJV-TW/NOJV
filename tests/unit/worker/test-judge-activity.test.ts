@@ -1,11 +1,15 @@
+import { MockActivityEnvironment } from "@temporalio/testing";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   serialiseBuildArtifact,
   TEST_JUDGE_MAX_ARTIFACT_BYTES,
+  TEST_JUDGE_RESPONSE_BYTES,
   TEST_JUDGE_TRANSCRIPT_BYTES,
   type TestJudgeStoredRequest,
+  type TestJudgeWorkflowOutput,
 } from "@nojv/core";
+import { StorageIntegrityError } from "@nojv/storage";
 
 import {
   buildTestJudgeProgram,
@@ -29,6 +33,7 @@ type InteractOptions = Parameters<TestJudgeEngine["interact"]>[2];
 
 const REQUEST_KEY = "test-judge-requests/req-1.json";
 const TEAM_MESSAGE = "/judge/feedback/teammessage.txt";
+const MIB = 1024 * 1024;
 
 const judgeArtifact: BuildArtifact = {
   wasmOjContract: 2,
@@ -133,6 +138,11 @@ function interactResult(overrides: {
   } as unknown as InteractResult;
 }
 
+const wallStopped = {
+  contestant: { code: 137, termination: "wall-time-limit" as const },
+  interactor: { code: 137, termination: "wall-time-limit" as const },
+};
+
 function buildResult(overrides: Partial<BuildResult> = {}): BuildResult {
   return {
     success: true,
@@ -156,7 +166,10 @@ function setup(request: TestJudgeStoredRequest | string | null) {
       if (body === undefined) throw Object.assign(new Error("missing"), { name: "NoSuchKey" });
       return body;
     }),
-    getVerifiedText: vi.fn(async () => "int main() { return 42; }\n"),
+    getVerifiedText: vi.fn(
+      async (_pointer: Parameters<TestJudgeStorage["getVerifiedText"]>[0]) =>
+        "int main() { return 42; }\n",
+    ),
     deleteBlob: vi.fn(async (key: string) => {
       blobs.delete(key);
     }),
@@ -171,21 +184,39 @@ function setup(request: TestJudgeStoredRequest | string | null) {
         _options?: InteractOptions,
       ) => interactResult({}),
     ),
+    cancel: vi.fn(),
   };
   const release = vi.fn();
   const pool = { acquire: vi.fn(async () => ({ engine, release })) };
   const programs = new Map<string, string>();
-  setTestJudgeDeps({
-    pool,
-    storage,
-    programs: {
-      get: async (key) => programs.get(key) ?? null,
-      put: async (key, body) => {
-        programs.set(key, body);
-      },
-    },
-  });
-  return { blobs, storage, engine, pool, release };
+  const programStore = {
+    get: async (key: string) => programs.get(key) ?? null,
+    put: vi.fn(async (key: string, body: string) => {
+      programs.set(key, body);
+    }),
+  };
+  setTestJudgeDeps({ pool, storage, programs: programStore });
+  return { blobs, storage, engine, pool, release, programStore };
+}
+
+function activity(scheduledTimestampMs = Date.now()) {
+  return new MockActivityEnvironment({ scheduledTimestampMs });
+}
+
+function judge(
+  requestKey = REQUEST_KEY,
+  environment = activity(),
+): Promise<TestJudgeWorkflowOutput> {
+  return environment.run(runTestJudge, { requestKey });
+}
+
+function pendingUntilCancelled(engine: ReturnType<typeof setup>["engine"]) {
+  return () =>
+    new Promise<never>((_resolve, reject) => {
+      engine.cancel.mockImplementationOnce(() =>
+        reject(new Error("Server execution was cancelled.")),
+      );
+    });
 }
 
 afterEach(() => {
@@ -199,7 +230,7 @@ describe("runTestJudge checker requests", () => {
       runResult(42, { [TEAM_MESSAGE]: "sum ok", "/judge/feedback/judgemessage.txt": "staff" }),
     );
 
-    const output = await runTestJudge({ requestKey: REQUEST_KEY });
+    const output = await judge();
 
     expect(output).toEqual({ ok: true, cases: [{ verdict: "AC", teamMessage: "sum ok" }] });
     expect(JSON.stringify(output)).not.toContain("staff");
@@ -211,7 +242,7 @@ describe("runTestJudge checker requests", () => {
       outputPaths: [TEAM_MESSAGE],
       resources: {
         logicalTimeLimitMs: 30_000,
-        memoryLimitBytes: 512 * 1024 * 1024,
+        memoryLimitBytes: 512 * MIB,
         wallTimeLimitMs: 10_000,
       },
     });
@@ -223,7 +254,7 @@ describe("runTestJudge checker requests", () => {
     const { engine } = setup(checkerRequest(["6\n"]));
     engine.run.mockResolvedValue(runResult(43, { [TEAM_MESSAGE]: "expected 5" }));
 
-    await expect(runTestJudge({ requestKey: REQUEST_KEY })).resolves.toEqual({
+    await expect(judge()).resolves.toEqual({
       ok: true,
       cases: [{ verdict: "WA", teamMessage: "expected 5" }],
     });
@@ -233,9 +264,10 @@ describe("runTestJudge checker requests", () => {
     const { engine } = setup(checkerRequest(["5\n", "5\n"]));
     engine.run.mockRejectedValueOnce(new Error("runner crashed: /secret/path"));
 
-    const output = await runTestJudge({ requestKey: REQUEST_KEY });
-
-    expect(output).toEqual({ ok: true, cases: [{ verdict: "SE" }, { verdict: "AC" }] });
+    await expect(judge()).resolves.toEqual({
+      ok: true,
+      cases: [{ verdict: "SE" }, { verdict: "AC" }],
+    });
   });
 
   it("marks the cases left after the 24 s budget as SE and caps wall time to the rest", async () => {
@@ -247,7 +279,7 @@ describe("runTestJudge checker requests", () => {
       return runResult(42);
     });
 
-    const output = await runTestJudge({ requestKey: REQUEST_KEY });
+    const output = await judge();
 
     expect(output).toEqual({
       ok: true,
@@ -258,15 +290,79 @@ describe("runTestJudge checker requests", () => {
     ).toEqual([10_000, 8_000]);
   });
 
+  it("anchors the budget to when the activity was scheduled", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    const { engine } = setup(checkerRequest(["5\n"]));
+
+    await judge(REQUEST_KEY, activity(Date.now() - 20_000));
+
+    expect(engine.run.mock.calls[0]?.[1]?.resources?.wallTimeLimitMs).toBe(4_000);
+  });
+
+  it("cancels the engine at the deadline and marks the remaining cases SE", async () => {
+    const { engine, release } = setup(checkerRequest(["5\n", "5\n"]));
+    engine.run.mockImplementationOnce(pendingUntilCancelled(engine));
+
+    const output = await judge(REQUEST_KEY, activity(Date.now() - 23_950));
+
+    expect(output).toEqual({ ok: true, cases: [{ verdict: "SE" }, { verdict: "SE" }] });
+    expect(engine.cancel).toHaveBeenCalledOnce();
+    expect(engine.run).toHaveBeenCalledOnce();
+    expect(release).toHaveBeenCalledOnce();
+  });
+
+  it("cancels the engine when the activity is cancelled", async () => {
+    const { engine } = setup(checkerRequest(["5\n", "5\n"]));
+    const environment = activity();
+    engine.run.mockImplementationOnce(() => {
+      const pending = pendingUntilCancelled(engine)();
+      environment.cancel();
+      return pending;
+    });
+
+    const output = await judge(REQUEST_KEY, environment);
+
+    expect(output).toEqual({ ok: true, cases: [{ verdict: "SE" }, { verdict: "SE" }] });
+    expect(engine.cancel).toHaveBeenCalledOnce();
+    expect(engine.run).toHaveBeenCalledOnce();
+  });
+
+  it("skips the build and every case once the activity is already cancelled", async () => {
+    const { engine, release } = setup(checkerRequest(["5\n", "5\n"]));
+    const environment = activity();
+    environment.cancel();
+
+    await expect(judge(REQUEST_KEY, environment)).resolves.toEqual({
+      ok: true,
+      cases: [{ verdict: "SE" }, { verdict: "SE" }],
+    });
+    expect(engine.compile).not.toHaveBeenCalled();
+    expect(release).toHaveBeenCalledOnce();
+  });
+
+  it("does not cache a judge program build interrupted by cancellation", async () => {
+    const { engine, programStore } = setup(checkerRequest(["5\n"]));
+    const environment = activity();
+    engine.compile.mockImplementationOnce(() => {
+      const pending = pendingUntilCancelled(engine)();
+      environment.cancel();
+      return pending;
+    });
+
+    await expect(judge(REQUEST_KEY, environment)).resolves.toEqual({
+      ok: true,
+      cases: [{ verdict: "SE" }],
+    });
+    expect(programStore.put).not.toHaveBeenCalled();
+  });
+
   it("reports a judge program build failure without its diagnostics", async () => {
     const { engine, blobs } = setup(checkerRequest(["5\n"]));
     engine.compile.mockResolvedValue(
       buildResult({ success: false, artifact: undefined, stderr: "main.cpp:1: secret_token" }),
     );
 
-    const output = await runTestJudge({ requestKey: REQUEST_KEY });
-
-    expect(output).toEqual({ ok: false, code: "judge_program_build_failed" });
+    await expect(judge()).resolves.toEqual({ ok: false, code: "judge_program_build_failed" });
     expect(engine.run).not.toHaveBeenCalled();
     expect(blobs.has(REQUEST_KEY)).toBe(false);
   });
@@ -285,7 +381,7 @@ describe("runTestJudge interactive requests", () => {
       }),
     );
 
-    const output = await runTestJudge({ requestKey: REQUEST_KEY });
+    const output = await judge();
 
     expect(output).toEqual({
       ok: true,
@@ -307,11 +403,11 @@ describe("runTestJudge interactive requests", () => {
         env: { MODE: "test" },
         resources: {
           logicalTimeLimitMs: 3000,
-          memoryLimitBytes: 256 * 1024 * 1024,
-          outputLimitBytes: 16 * 1024 * 1024,
-          filesystemWriteLimitBytes: 64 * 1024 * 1024,
+          memoryLimitBytes: 256 * MIB,
+          outputLimitBytes: 16 * MIB,
+          filesystemWriteLimitBytes: 64 * MIB,
           filesystemEntryLimit: 4096,
-          wallTimeLimitMs: 10_000,
+          wallTimeLimitMs: 9000,
         },
       },
       interactor: {
@@ -319,11 +415,46 @@ describe("runTestJudge interactive requests", () => {
         files: { "/judge/input": "37\n", "/judge/answer": "", "/judge/feedback/.keep": "" },
         resources: {
           logicalTimeLimitMs: 30_000,
-          memoryLimitBytes: 512 * 1024 * 1024,
-          wallTimeLimitMs: 10_000,
+          memoryLimitBytes: 512 * MIB,
+          wallTimeLimitMs: 9000,
         },
       },
     });
+  });
+
+  it("keeps the whole response within the Temporal payload budget", async () => {
+    const { engine } = setup(
+      interactiveRequest({
+        cases: Array.from({ length: 15 }, () => ({ interactorInput: "37\n" })),
+      }),
+    );
+    const control = "\u0001".repeat(200_000);
+    engine.interact.mockResolvedValue(
+      interactResult({
+        contestant: { stderr: control },
+        contestantToInteractor: control,
+        interactorToContestant: control,
+      }),
+    );
+
+    const output = await judge();
+
+    expect(new TextEncoder().encode(JSON.stringify(output)).byteLength).toBeLessThanOrEqual(
+      TEST_JUDGE_RESPONSE_BYTES,
+    );
+    expect(output.ok && output.cases.map(({ verdict }) => verdict)).toEqual(
+      Array.from({ length: 15 }, () => "AC"),
+    );
+  });
+
+  it("gives a short time limit a 3 s wall stop", async () => {
+    const { engine } = setup(interactiveRequest({ contestantLanguage: "cpp" }));
+
+    await judge();
+
+    expect(engine.interact.mock.calls[0]?.[2]?.contestant?.resources?.wallTimeLimitMs).toBe(
+      3000,
+    );
   });
 
   it("lets a contestant TLE win over the interactor's WA", async () => {
@@ -335,9 +466,31 @@ describe("runTestJudge interactive requests", () => {
       }),
     );
 
-    const output = await runTestJudge({ requestKey: REQUEST_KEY });
+    const output = await judge();
 
     expect(output.ok && output.cases[0]?.verdict).toBe("TLE");
+  });
+
+  it("reports TLE when the full wall stop ends both programs", async () => {
+    const { engine } = setup(interactiveRequest());
+    engine.interact.mockResolvedValue(interactResult(wallStopped));
+
+    const output = await judge();
+
+    expect(output.ok && output.cases[0]?.verdict).toBe("TLE");
+  });
+
+  it("reports SE when a wall stop cut short by the request budget ends the case", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    const { engine } = setup(interactiveRequest());
+    engine.interact.mockResolvedValue(interactResult(wallStopped));
+
+    const output = await judge(REQUEST_KEY, activity(Date.now() - 20_000));
+
+    expect(engine.interact.mock.calls[0]?.[2]?.contestant?.resources?.wallTimeLimitMs).toBe(
+      4000,
+    );
+    expect(output.ok && output.cases[0]?.verdict).toBe("SE");
   });
 
   it("truncates the transcript to the transcript cap", async () => {
@@ -347,7 +500,7 @@ describe("runTestJudge interactive requests", () => {
       interactResult({ contestantToInteractor: long, interactorToContestant: long }),
     );
 
-    const output = await runTestJudge({ requestKey: REQUEST_KEY });
+    const output = await judge();
 
     const transcript = output.ok ? output.cases[0]?.transcript : undefined;
     expect(new TextEncoder().encode(transcript?.toInteractor).byteLength).toBe(
@@ -369,20 +522,33 @@ describe("runTestJudge interactive requests", () => {
       }),
     );
 
-    const output = await runTestJudge({ requestKey: REQUEST_KEY });
-
-    expect(output).toEqual({ ok: true, cases: [{ verdict: "SE" }, { verdict: "SE" }] });
+    await expect(judge()).resolves.toEqual({
+      ok: true,
+      cases: [{ verdict: "SE" }, { verdict: "SE" }],
+    });
     expect(pool.acquire).not.toHaveBeenCalled();
     expect(blobs.has(REQUEST_KEY)).toBe(false);
+  });
+
+  it("accepts a Wasm artifact of exactly the maximum size", async () => {
+    const { engine } = setup(
+      interactiveRequest({
+        artifact: {
+          ...serialiseBuildArtifact(contestantArtifact),
+          bytes: { base64: Buffer.alloc(TEST_JUDGE_MAX_ARTIFACT_BYTES).toString("base64") },
+        },
+      }),
+    );
+
+    await judge();
+
+    expect(engine.interact).toHaveBeenCalledOnce();
   });
 
   it("refuses a Python interactor", async () => {
     const { pool } = setup(interactiveRequest({ judgeLanguage: "python" }));
 
-    await expect(runTestJudge({ requestKey: REQUEST_KEY })).resolves.toEqual({
-      ok: false,
-      code: "judge_program_unsupported",
-    });
+    await expect(judge()).resolves.toEqual({ ok: false, code: "judge_program_unsupported" });
     expect(pool.acquire).not.toHaveBeenCalled();
   });
 });
@@ -395,19 +561,47 @@ describe("runTestJudge request handling", () => {
   ])("reports a %s request blob as unavailable and deletes it", async (_label, body) => {
     const { storage, pool } = setup(body);
 
-    await expect(runTestJudge({ requestKey: REQUEST_KEY })).resolves.toEqual({
+    await expect(judge()).resolves.toEqual({ ok: false, code: "test_judge_unavailable" });
+    expect(storage.deleteBlob).toHaveBeenCalledWith(REQUEST_KEY);
+    expect(pool.acquire).not.toHaveBeenCalled();
+  });
+
+  it("neither reads nor deletes a key outside the request prefix", async () => {
+    const { storage } = setup(checkerRequest(["5\n"]));
+
+    await expect(judge("problems/p1/checker.cpp")).resolves.toEqual({
       ok: false,
       code: "test_judge_unavailable",
     });
-    expect(storage.deleteBlob).toHaveBeenCalledWith(REQUEST_KEY);
+    expect(storage.getText).not.toHaveBeenCalled();
+    expect(storage.deleteBlob).not.toHaveBeenCalled();
+  });
+
+  it("reports a judge program source that fails its integrity check as unavailable", async () => {
+    const { storage, pool, blobs } = setup(checkerRequest(["5\n"]));
+    storage.getVerifiedText.mockRejectedValue(
+      new StorageIntegrityError("problems/p1/checker.cpp", "SHA-256 mismatch"),
+    );
+
+    await expect(judge()).resolves.toEqual({ ok: false, code: "test_judge_unavailable" });
     expect(pool.acquire).not.toHaveBeenCalled();
+    expect(blobs.has(REQUEST_KEY)).toBe(false);
+  });
+
+  it("throws a transient judge program source read failure", async () => {
+    const { storage, pool, blobs } = setup(checkerRequest(["5\n"]));
+    storage.getVerifiedText.mockRejectedValue(new Error("socket hang up"));
+
+    await expect(judge()).rejects.toThrow("socket hang up");
+    expect(pool.acquire).not.toHaveBeenCalled();
+    expect(blobs.has(REQUEST_KEY)).toBe(false);
   });
 
   it("releases the engine and deletes the blob when the judge program build throws", async () => {
     const { engine, release, blobs } = setup(checkerRequest(["5\n"]));
     engine.compile.mockRejectedValue(new Error("compiler crashed"));
 
-    await expect(runTestJudge({ requestKey: REQUEST_KEY })).rejects.toThrow("compiler crashed");
+    await expect(judge()).rejects.toThrow("compiler crashed");
     expect(release).toHaveBeenCalledOnce();
     expect(blobs.has(REQUEST_KEY)).toBe(false);
   });
@@ -416,10 +610,7 @@ describe("runTestJudge request handling", () => {
     const { storage } = setup(checkerRequest(["5\n"]));
     storage.deleteBlob.mockRejectedValue(new Error("storage down"));
 
-    await expect(runTestJudge({ requestKey: REQUEST_KEY })).resolves.toEqual({
-      ok: true,
-      cases: [{ verdict: "AC" }],
-    });
+    await expect(judge()).resolves.toEqual({ ok: true, cases: [{ verdict: "AC" }] });
   });
 });
 
@@ -446,5 +637,13 @@ describe("buildTestJudgeProgram", () => {
 
     await expect(buildTestJudgeProgram(input)).rejects.toThrow("integrity failure");
     expect(pool.acquire).not.toHaveBeenCalled();
+  });
+
+  it("throws when the built program cannot be cached", async () => {
+    const { programStore, release } = setup(null);
+    programStore.put.mockRejectedValue(new Error("bucket unavailable"));
+
+    await expect(buildTestJudgeProgram(input)).rejects.toThrow("bucket unavailable");
+    expect(release).toHaveBeenCalledOnce();
   });
 });

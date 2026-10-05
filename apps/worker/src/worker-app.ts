@@ -374,6 +374,7 @@ export class WorkerApp {
       activities: await import("./activities/test-judge-bundle.js"),
       maxConcurrentActivityTaskExecutions: this.env.TEST_JUDGE_SLOTS,
       maxCachedWorkflows: 16,
+      maxConcurrentWorkflowTaskExecutions: 8,
       shutdownGraceTime: "30s",
     });
     this.addWorker(testJudgeWorker, TEST_JUDGE_TASK_QUEUE);

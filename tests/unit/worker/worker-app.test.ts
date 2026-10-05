@@ -276,27 +276,19 @@ describe("WorkerApp lifecycle", () => {
         });
         expect(mocks.workerCreate).toHaveBeenCalledTimes(queues.length);
         for (const taskQueue of queues) {
-          if (taskQueue === "test-judge") continue;
+          const testJudge = taskQueue === "test-judge";
           expect(mocks.workerCreate).toHaveBeenCalledWith(
             taskQueue === "judge-state" || taskQueue === "judge-cleanup"
               ? expect.not.objectContaining({ workflowsPath: expect.anything() })
               : expect.objectContaining({
                   taskQueue,
-                  maxCachedWorkflows: 32,
+                  workflowsPath: "workflow.js",
+                  maxCachedWorkflows: testJudge ? 16 : 32,
                   maxConcurrentWorkflowTaskExecutions: 8,
-                  maxConcurrentActivityTaskExecutions: 3,
+                  maxConcurrentActivityTaskExecutions: testJudge ? 2 : 3,
                 }),
           );
         }
-        if (queues.includes("test-judge"))
-          expect(mocks.workerCreate).toHaveBeenCalledWith(
-            expect.objectContaining({
-              taskQueue: "test-judge",
-              workflowsPath: "workflow.js",
-              maxCachedWorkflows: 16,
-              maxConcurrentActivityTaskExecutions: 2,
-            }),
-          );
         for (const activityQueue of ["judge-state", "judge-cleanup"])
           if (queues.includes(activityQueue))
             expect(mocks.workerCreate).toHaveBeenCalledWith(

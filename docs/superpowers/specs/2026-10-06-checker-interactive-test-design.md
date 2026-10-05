@@ -168,5 +168,6 @@ Develop in the owner's fork (`~/code/forge`), contribute upstream, then bump NOJ
 
 - **Image size.** The worker image grows by about 130–170 MB. Production pulls images over a ~0.5 MB/s uplink (OPS-20), so that layer must stay byte-identical across releases (built from a pinned forge version, normalised timestamps) and only change on a forge upgrade.
 - **In-process WASM sandbox.** Interactive Test runs untrusted contestant WASM inside the `test` worker. It relies on upstream admission, instruction budgets and memory limits. Isolate it in its own Deployment (above) and include it in the threat model.
+- **Interactive time limits.** Upstream `interact` (0.2.3) does not stop a CPU-bound contestant on its logical-time or instruction budget the way `run` does; only the shared wall stop ends it. Test therefore gives each interactive case a wall stop of max(3 s, 3 × the language-factored limit) and reports a full-length wall stop as TLE. To be raised upstream.
 - **Fidelity.** Test results stay previews (JDG-15). Logical time, WASI and clang flags differ from native judging, so a Test AC does not imply a Submit AC.
 - **Python checker latency.** About 1.1 s per case on the spike machine; 15 cases approach the 30 s deadline. Measure on production hardware and lower the per-request case cap for Python judge programs if needed.

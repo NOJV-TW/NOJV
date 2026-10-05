@@ -245,6 +245,17 @@ describe("test-judge program cache", () => {
     });
   });
 
+  it("throws a store failure when the caller needs the record cached", async () => {
+    const { store } = memoryStore();
+    vi.mocked(store.put).mockRejectedValueOnce(new Error("bucket unavailable"));
+    const engine = fakeEngine(buildResult({ artifact: wasmArtifact }));
+
+    await expect(
+      getJudgeProgram({ engine, store }, cppChecker, { throwOnStoreError: true }),
+    ).rejects.toThrow("bucket unavailable");
+    expect(logger.warn).not.toHaveBeenCalled();
+  });
+
   it("propagates a storage read failure without compiling", async () => {
     const { store } = memoryStore();
     vi.mocked(store.get).mockRejectedValueOnce(new Error("bucket unavailable"));
