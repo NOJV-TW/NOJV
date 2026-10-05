@@ -10,6 +10,7 @@ import type {
   SubmissionContext,
   SubmissionResult,
   SubmissionOperationStatus,
+  TestCapability,
 } from "@nojv/core";
 
 export interface ProblemSubmissionEntry {
@@ -53,6 +54,7 @@ export interface ProblemDetail extends ProblemOverview {
   statement: string;
   status: ProblemStatus;
   tags: string[];
+  testCapability: TestCapability;
   timeLimitMs: number;
   totalScore: number;
   visibility: ProblemVisibility;

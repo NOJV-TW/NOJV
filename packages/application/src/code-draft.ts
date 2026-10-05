@@ -34,7 +34,7 @@ export function codeDraftContextKey(context: SubmissionContext): string {
   }
 }
 
-async function assertDraftScopeAllowed(
+export async function assertProblemContextAllowed(
   actor: ActorContext,
   scope: CodeDraftScope,
   now: Date,
@@ -47,7 +47,7 @@ async function assertDraftScopeAllowed(
     actor.platformRole !== "admin" &&
     (context.type !== "exam" || context.examId !== activeExamSession.examId)
   ) {
-    throw new ForbiddenError("You are in an active exam — drafts must use that exam context.");
+    throw new ForbiddenError("You are in an active exam — use that exam context.");
   }
 
   switch (context.type) {
@@ -62,7 +62,7 @@ async function assertDraftScopeAllowed(
         ip: clientIp,
         now,
       });
-      if (!gate.ok) throw new ForbiddenError(`Draft access blocked: exam ${gate.reason}.`);
+      if (!gate.ok) throw new ForbiddenError(`Access blocked: exam ${gate.reason}.`);
       const exam = await examRepo.findById(context.examId);
       if (exam?.status !== "published") throw new NotFoundError("Exam not found.");
       if (now >= exam.endsAt) throw new ForbiddenError("Exam has ended.");
@@ -129,7 +129,7 @@ export async function listCodeDrafts(
   scope: CodeDraftScope,
   clientIp: string,
 ) {
-  await assertDraftScopeAllowed(actor, scope, new Date(), clientIp);
+  await assertProblemContextAllowed(actor, scope, new Date(), clientIp);
   const rows = await codeDraftRepo.listForProblem({
     userId: actor.userId,
     contextKey: codeDraftContextKey(scope.context),
@@ -143,7 +143,7 @@ export async function saveCodeDraft(
   draft: CodeDraftSave,
   clientIp: string,
 ) {
-  await assertDraftScopeAllowed(actor, draft, new Date(), clientIp);
+  await assertProblemContextAllowed(actor, draft, new Date(), clientIp);
   const saved = await codeDraftRepo.save(
     {
       userId: actor.userId,
