@@ -207,6 +207,16 @@ describe("exam credential lifecycle", () => {
     ).rejects.toThrow();
     expect((await credential(exam.id, student.id)).revision).toBe(1);
   });
+  it("accepts staff-set passwords of 8 to 64 characters", async () => {
+    const { actor, student, exam } = await classroom();
+    await expect(
+      examDomain.credentials.setPassword(actor, exam.id, student.id, "Synth7c"),
+    ).rejects.toThrow("8 to 64 characters");
+    await examDomain.credentials.setPassword(actor, exam.id, student.id, "Synth8ch");
+    expect(
+      await examDomain.credentials.authenticate(student.username!, "Synth8ch"),
+    ).toMatchObject({ userId: student.id, examId: exam.id });
+  });
   it("issues once for the full linked roster and catches late students without sending mail inline", async () => {
     const { actor, student, exam, course } = await classroom();
     await testPrisma.courseMembership.create({
@@ -229,7 +239,10 @@ describe("exam credential lifecycle", () => {
       status: "pending_account",
     });
     const entry = entries.find((row) => row.userId === student.id)!;
-    expect(entry.password).toHaveLength(16);
+    expect(entry.password).toHaveLength(8);
+    expect(
+      await examDomain.credentials.authenticate(student.username!, entry.password!),
+    ).toMatchObject({ userId: student.id, examId: exam.id });
     expect(first.passwordCiphertext).not.toContain(entry.password);
     expect(first.passwordHash).not.toContain(entry.password);
     const work = await testPrisma.durableWork.findMany({

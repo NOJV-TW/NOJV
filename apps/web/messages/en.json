@@ -2250,7 +2250,7 @@
   "examCredentials_password": "Temporary password",
   "examCredentials_passwordFor": "Temporary password for {username}",
   "examCredentials_schedule": "Passwords are issued and emailed from {at}, 24 hours before the exam. They expire at the exam’s final end.",
-  "examCredentials_editHint": "Teachers and TAs can change a password before the exam ends. Use 12–64 characters; the student receives the updated password by email.",
+  "examCredentials_editHint": "Teachers and TAs can change a password before the exam ends. Use 8–64 characters; the student receives the updated password by email.",
   "examCredentials_search": "Search names or accounts (student IDs)",
   "examCredentials_empty": "There are no students in this exam’s course yet. Add students to the course to prepare their access.",
   "examCredentials_noMatches": "No matching students. Try a different name or account (student ID).",

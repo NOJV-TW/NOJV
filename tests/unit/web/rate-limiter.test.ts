@@ -292,7 +292,7 @@ describe("rate limiter key prefixes", () => {
       { keyPrefix: "rl:write", points: 10, duration: 60 },
       { keyPrefix: "rl:auth", points: 60, duration: 60 },
       { keyPrefix: "rl:signin", points: 5, duration: 900 },
-      { keyPrefix: "rl:exam-signin", points: 5, duration: 900 },
+      { keyPrefix: "rl:exam-signin", points: 3, duration: 10 },
       { keyPrefix: "rl:2fa-otp", points: 3, duration: 600 },
       { keyPrefix: "rl:stepup", points: 5, duration: 600 },
       { keyPrefix: "rl:registry-token", points: 60, duration: 60 },

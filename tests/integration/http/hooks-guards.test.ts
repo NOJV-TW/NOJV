@@ -322,7 +322,7 @@ describe("hooks.server guard chain (request-layer redirects)", () => {
         password: "synthetic-test-password",
       });
     }
-    for (let attempt = 0; attempt < 4; attempt++) {
+    for (let attempt = 1; attempt < examSignInRateLimiter.points; attempt++) {
       expect((await signIn(" STUDENT_0 ")).status).toBe(200);
     }
     expect((await signIn("student_0")).status).toBe(429);

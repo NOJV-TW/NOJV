@@ -236,14 +236,16 @@ Exam submissions and code drafts must target a problem linked to the exam (a con
 
 ### ASM-22 Exam-scoped expiring passwords as an extra login path
 
-**Decided:** 2026-09 · **Source:** [2026-09-21-exam-access-safety](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/active/2026-09-21-exam-access-safety.md)
+**Decided:** 2026-09, revised 2026-10 · **Source:** [2026-09-21-exam-access-safety](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/active/2026-09-21-exam-access-safety.md)
 
 Each published exam issues one credential per active bound student membership, 24 hours before start via durable work; username plus a valid exam password creates a Better Auth session tied to the credential revision that becomes invalid after the hard end. Passwords are stored recoverably encrypted plus a verification hash and mailed only to the account security email. Students need exam login without their OAuth accounts, which stay intact.
 
 - Rejected: carrying credentials in generic notification payloads.
+- Rejected: 5 sign-in attempts per 15 minutes, which locked students out during an exam; 16-character issued passwords with a 12-character staff minimum.
 - Rule: Only active course teachers/TAs or effective admins view or change credentials; no plaintext passwords in logs, audit metadata, job payloads or student page data.
 - Rule: Exam-password sessions cannot change permanent credentials or security settings.
-- Rule: Rate-limit attempts per normalized username + IP (5 per 15 minutes); a Redis failure rejects authentication.
+- Rule: Rate-limit attempts per normalized username + IP at Better Auth's built-in `/sign-in/*` rule (3 per 10 seconds); a Redis failure rejects authentication.
+- Rule: Issued passwords are 8 random letters and digits; staff-set passwords are 8–64 characters.
 - Code: `packages/db/prisma/schema/exam-credential.prisma`, `apps/web/src/lib/server/exam-password-auth.ts`
 
 ### ASM-23 Plagiarism detection runs Dolos in-process in the worker

@@ -84,7 +84,7 @@ SvelteKit `csrf.checkOrigin` is disabled so `/api/registry/token` can accept the
 | `apiTokenAuthRateLimiter`     | 300 / min  | Whitelisted bearer requests, by IP before token database lookup             |
 | `authRateLimiter`             | 60 / min   | Every `/api/auth/*` request, including OAuth and exam sign-in               |
 | `signInRateLimiter`           | 5 / 15 min | `POST /api/auth/sign-in/email`, `/sign-in/username`                         |
-| `examSignInRateLimiter`       | 5 / 15 min | `POST /api/auth/sign-in/exam-password`, keyed by IP + normalized username ¹ |
+| `examSignInRateLimiter`       | 3 / 10 s   | `POST /api/auth/sign-in/exam-password`, keyed by IP + normalized username ¹ |
 | `otpSendRateLimiter`          | 3 / 10 min | Email OTP sends                                                             |
 | `stepUpAttemptRateLimiter`    | 5 / 10 min | Step-up verification attempts                                               |
 | `registryTokenRateLimiter`    | 60 / min   | `/api/registry/token`                                                       |

@@ -109,7 +109,7 @@ for 10 s on top of the scoreboard result and takes no lease.
 | `formActionRateLimiter`       | `rl:form`           | 20 / 60 s  | client IP                                | `withRateLimit` form actions            |
 | `authRateLimiter`             | `rl:auth`           | 60 / 60 s  | client IP                                | All Auth API routes (`hooks.server.ts`) |
 | `signInRateLimiter`           | `rl:signin`         | 5 / 15 min | client IP (`registry:{ip}` for registry) | Admin password sign-in, registry token  |
-| `examSignInRateLimiter`       | `rl:exam-signin`    | 5 / 15 min | `[ip, normalized username]`              | Exam password sign-in                   |
+| `examSignInRateLimiter`       | `rl:exam-signin`    | 3 / 10 s   | `[ip, normalized username]`              | Exam password sign-in                   |
 | `otpSendRateLimiter`          | `rl:2fa-otp`        | 3 / 10 min | user ID                                  | Email OTP sends                         |
 | `stepUpAttemptRateLimiter`    | `rl:stepup`         | 5 / 10 min | user ID                                  | Step-up verification attempts           |
 | `remoteAssetFetchRateLimiter` | `rl:remote-fetch`   | 120 / 60 s | authenticated user (`u:<id>`)            | `/api/images/proxy` (SEC-11)            |

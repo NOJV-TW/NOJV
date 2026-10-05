@@ -216,7 +216,7 @@ export async function setPassword(
 ): Promise<void> {
   const parsed = examCredentialPasswordSchema.safeParse(password);
   if (!parsed.success)
-    throw new ValidationError("Temporary passwords must contain 12 to 64 characters.");
+    throw new ValidationError("Temporary passwords must contain 8 to 64 characters.");
   await issue(examId, userId, parsed.data, actor);
 }
 
@@ -537,7 +537,7 @@ export async function reconcile(): Promise<{ issued: number; revoked: number }> 
     await issue(
       recipient.examId,
       recipient.userId,
-      generateRandomString(16, "a-z", "A-Z", "0-9"),
+      generateRandomString(8, "a-z", "A-Z", "0-9"),
     );
   return { issued: recipients.length, revoked };
 }

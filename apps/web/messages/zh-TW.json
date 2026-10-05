@@ -2250,7 +2250,7 @@
   "examCredentials_password": "臨時密碼",
   "examCredentials_passwordFor": "{username} 的臨時密碼",
   "examCredentials_schedule": "自 {at}（考試開始前 24 小時）起發送臨時密碼，並於考試最終結束時間失效。",
-  "examCredentials_editHint": "老師與助教可於考試結束前修改密碼。請使用 12–64 個字元；更新後會寄信通知學生。",
+  "examCredentials_editHint": "老師與助教可於考試結束前修改密碼。請使用 8–64 個字元；更新後會寄信通知學生。",
   "examCredentials_search": "搜尋姓名或帳號（學號）",
   "examCredentials_empty": "課程尚無學生，請先將學生加入課程以準備考試登入。",
   "examCredentials_noMatches": "沒有符合的學生，請嘗試其他姓名或帳號（學號）。",

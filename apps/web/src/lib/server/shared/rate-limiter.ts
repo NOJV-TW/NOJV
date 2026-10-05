@@ -151,7 +151,7 @@ export const authRateLimiter = createRateLimiter("rl:auth", 60, 60);
 export const apiTokenAuthRateLimiter = createRateLimiter("rl:api-token-auth", 300, 60);
 
 export const signInRateLimiter = createRateLimiter("rl:signin", 5, 900);
-export const examSignInRateLimiter = createRateLimiter("rl:exam-signin", 5, 900);
+export const examSignInRateLimiter = createRateLimiter("rl:exam-signin", 3, 10);
 
 export function examSignInRateLimitKey(ip: string, username: unknown): string {
   const normalized = typeof username === "string" ? username.trim().toLowerCase() : "";

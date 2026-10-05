@@ -166,7 +166,7 @@
                       name="password"
                       bind:value={password}
                       autocomplete="new-password"
-                      minlength={12}
+                      minlength={8}
                       maxlength={64}
                       required
                       disabled={busy === row.userId}
