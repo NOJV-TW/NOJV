@@ -92,6 +92,7 @@
       statement: $form.statement,
       inputFormat: $form.inputFormat,
       outputFormat: $form.outputFormat,
+      interactionFormat: $form.interactionFormat,
       samples: $form.samples,
       tags: $form.tags,
       ...(showRuntimeLimits

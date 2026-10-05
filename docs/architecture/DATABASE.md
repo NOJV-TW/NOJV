@@ -144,6 +144,9 @@ erDiagram
   as a private reference owned by the fork author.
 - `storageGeneration` advances on judge-affecting content changes and pins
   reference validation and judge snapshots.
+- `ProblemStatement` holds one Markdown statement per problem: `bodyMarkdown`,
+  `inputFormat`, `outputFormat` and `interactionFormat` (the interaction
+  protocol of an interactive problem).
 - Every `TestcaseSet` is a judged subtask (`weight` ≥ 0, `ordinal`); samples live in
   `Problem.samples`, not testcases (PRB-03). Samples saved on an interactive
   problem each need a non-blank `interactorInput`. `Testcase` and

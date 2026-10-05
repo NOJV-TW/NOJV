@@ -74,6 +74,10 @@ describe("problem forks", () => {
       where: { id: source.id },
       data: { checkerStorage, interactorStorage },
     });
+    await testPrisma.problemStatement.update({
+      where: { problemId: source.id },
+      data: { interactionFormat: "Read `n`, then answer each query." },
+    });
     const sourceCase = await testPrisma.testcase.findFirstOrThrow({
       where: { testcaseSet: { problemId: source.id } },
     });
@@ -128,6 +132,7 @@ describe("problem forks", () => {
     expect(copied.statement).toMatchObject({
       bodyMarkdown: "Test problem body",
       inputFormat: "Test input format",
+      interactionFormat: "Read `n`, then answer each query.",
       outputFormat: "Test output format",
     });
     expect(copied.checkerStorage).toEqual(checkerStorage);

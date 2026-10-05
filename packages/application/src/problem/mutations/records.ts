@@ -46,6 +46,7 @@ export interface CreateProblemDefinitionInput {
   authorId: string;
   difficulty?: ProblemDifficulty | undefined;
   inputFormat?: string | undefined;
+  interactionFormat?: string | undefined;
   judgeConfig?: unknown;
   memoryLimitMb?: number | undefined;
   outputFormat?: string | undefined;
@@ -92,6 +93,7 @@ export async function createProblemDefinition(
     await problemStatementRepo.withTx(tx).create({
       bodyMarkdown: input.statement,
       inputFormat: input.inputFormat ?? "",
+      interactionFormat: input.interactionFormat ?? "",
       outputFormat: input.outputFormat ?? "",
       problemId: problem.id,
     });
@@ -238,6 +240,7 @@ export async function createProblemRecord(actor: ProblemActorContext, payload: P
       authorId: author.id,
       difficulty: payload.difficulty,
       inputFormat: payload.inputFormat,
+      interactionFormat: payload.interactionFormat,
       judgeConfig: payload.judgeConfig,
       memoryLimitMb: payload.memoryLimitMb,
       outputFormat: payload.outputFormat,
@@ -442,7 +445,8 @@ export async function updateProblemRecord(
     if (
       payload.statement !== undefined ||
       payload.inputFormat !== undefined ||
-      payload.outputFormat !== undefined
+      payload.outputFormat !== undefined ||
+      payload.interactionFormat !== undefined
     ) {
       await problemStatementRepo.withTx(tx).upsert(
         target.id,
@@ -450,12 +454,16 @@ export async function updateProblemRecord(
           bodyMarkdown: payload.statement ?? "",
           inputFormat: payload.inputFormat ?? "",
           outputFormat: payload.outputFormat ?? "",
+          interactionFormat: payload.interactionFormat ?? "",
           problemId: target.id,
         },
         {
           ...(payload.statement !== undefined ? { bodyMarkdown: payload.statement } : {}),
           ...(payload.inputFormat !== undefined ? { inputFormat: payload.inputFormat } : {}),
           ...(payload.outputFormat !== undefined ? { outputFormat: payload.outputFormat } : {}),
+          ...(payload.interactionFormat !== undefined
+            ? { interactionFormat: payload.interactionFormat }
+            : {}),
         },
       );
     }

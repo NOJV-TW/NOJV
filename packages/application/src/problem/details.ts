@@ -28,6 +28,7 @@ export interface ProblemDetail {
   displayId: number | null;
   id: string;
   inputFormat: string;
+  interactionFormat: string;
   judgeConfig: JudgeConfig;
   judgeType: JudgeType;
   memoryLimitMb: number;
@@ -128,6 +129,7 @@ async function mapPersistedProblemDetail(
     displayId: problem.displayId,
     id: problem.id,
     inputFormat: statement?.inputFormat ?? "",
+    interactionFormat: statement?.interactionFormat ?? "",
     judgeConfig,
     judgeType: judgeConfig.type,
     memoryLimitMb: problem.memoryLimitMb,

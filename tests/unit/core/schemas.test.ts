@@ -23,6 +23,7 @@ describe("problemBasicInfoSchema", () => {
   const basic = {
     difficulty: "medium",
     inputFormat: "",
+    interactionFormat: "",
     outputFormat: "",
     statement: "",
     tags: [],
@@ -54,6 +55,7 @@ describe("problemBasicInfoSchema", () => {
   it.each([
     ["timeLimitMs", 50],
     ["memoryLimitMb", 0],
+    ["interactionFormat", "x".repeat(8_001)],
   ] as const)("rejects an out-of-range %s", (field, value) => {
     expect(problemBasicInfoSchema.safeParse({ ...basic, [field]: value }).success).toBe(false);
   });

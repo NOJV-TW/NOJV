@@ -68,6 +68,7 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
     {
       difficulty: problem.difficulty,
       inputFormat: problem.inputFormat,
+      interactionFormat: problem.interactionFormat,
       memoryLimitMb: problem.memoryLimitMb,
       outputFormat: problem.outputFormat,
       samples: problem.samples,

@@ -85,6 +85,7 @@ export function entryFileNameFor(language: Language): string {
 const problemCreateObjectSchema = z.object({
   difficulty: problemDifficultySchema,
   inputFormat: z.string().trim().max(4_000, "validation_tooLong"),
+  interactionFormat: z.string().trim().max(8_000, "validation_tooLong"),
   memoryLimitMb: z.coerce.number({ error: "validation_required" }).int().min(16).max(1024),
   outputFormat: z
     .string()
@@ -165,6 +166,7 @@ export const problemBasicInfoSchema = problemCreateObjectSchema
     statement: z.string().trim().max(12_000, "validation_tooLong"),
     inputFormat: z.string().trim().max(4_000, "validation_tooLong"),
     outputFormat: z.string().trim().max(4_000, "validation_tooLong"),
+    interactionFormat: z.string().trim().max(8_000, "validation_tooLong"),
     timeLimitMs: problemCreateObjectSchema.shape.timeLimitMs.optional(),
     memoryLimitMb: problemCreateObjectSchema.shape.memoryLimitMb.optional(),
     visibility: problemVisibilitySchema.optional(),

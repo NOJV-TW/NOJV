@@ -37,6 +37,7 @@ export interface ProblemDetail extends ProblemOverview {
   authorUsername: string;
   bookmarked?: boolean;
   inputFormat: string;
+  interactionFormat: string;
   judgeConfig: JudgeConfig;
   judgeType: JudgeType;
   memoryLimitMb: number;
