@@ -30,6 +30,8 @@ const historyQuerySchema = z.object({
   search: z.string().trim().max(200).optional(),
   userSearch: z.string().trim().max(200).optional(),
   ipSearch: z.string().trim().max(200).optional(),
+  sort: z.enum(["createdAt", "score"]).optional(),
+  order: z.enum(["asc", "desc"]).optional(),
 });
 
 export const GET: RequestHandler = apiHandler(async (event) => {
@@ -59,6 +61,9 @@ export const GET: RequestHandler = apiHandler(async (event) => {
     limit: SUBMISSIONS_PAGE_SIZE,
     page: query.page,
     ...(query.snapshot ? { snapshot: query.snapshot } : {}),
+    ...(query.sort || query.order
+      ? { sort: { key: query.sort ?? "createdAt", direction: query.order ?? "desc" } }
+      : {}),
     filters: {
       ...(query.filterProblemId ? { problemId: query.filterProblemId } : {}),
       ...(query.status ? { status: query.status } : {}),

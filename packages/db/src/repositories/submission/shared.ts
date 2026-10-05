@@ -143,6 +143,11 @@ export interface SubmissionHistoryFilters {
   ipSearch?: string;
 }
 
+export interface SubmissionHistorySort {
+  key: "createdAt" | "score";
+  direction: "asc" | "desc";
+}
+
 export interface SubmissionHistoryBoundary {
   id: string;
   createdAt: Date;
