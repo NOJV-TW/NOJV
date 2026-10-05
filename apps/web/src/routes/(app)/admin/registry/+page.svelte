@@ -6,29 +6,36 @@
   import ConfirmDialog from "$lib/components/primitives/ui/ConfirmDialog.svelte";
   import EmptyState from "$lib/components/primitives/ui/EmptyState.svelte";
   import TableTextColumnFilter from "$lib/components/primitives/ui/TableTextColumnFilter.svelte";
+  import TableSortButton from "$lib/components/primitives/ui/TableSortButton.svelte";
   import PageContainer from "$lib/components/primitives/layout/PageContainer.svelte";
   import { m } from "$lib/paraglide/messages.js";
   import { toasts } from "$lib/stores/toast";
+  import {
+    ariaSort,
+    sortDirection,
+    sortRows,
+    toggleSort,
+    type TableSort,
+  } from "$lib/utils/table-sort";
 
   let { data } = $props();
 
   let tagFilter = $state("");
-  let sizeFilter = $state("");
   let digestFilter = $state("");
+  let sort = $state<TableSort<"size">>({ key: "size", direction: "desc" });
 
   type RegistryTag = { tag: string; size: number | null; digest: string | null };
 
   function filteredTags(tags: RegistryTag[]): RegistryTag[] {
     const tagQuery = tagFilter.trim().toLowerCase();
-    const sizeQuery = sizeFilter.trim().toLowerCase();
     const digestQuery = digestFilter.trim().toLowerCase();
-    return tags.filter((tag) => {
+    const matches = tags.filter((tag) => {
       const matchesTag = !tagQuery || tag.tag.toLowerCase().includes(tagQuery);
-      const matchesSize = !sizeQuery || formatSize(tag.size).toLowerCase().includes(sizeQuery);
       const matchesDigest =
         !digestQuery || shortDigest(tag.digest).toLowerCase().includes(digestQuery);
-      return matchesTag && matchesSize && matchesDigest;
+      return matchesTag && matchesDigest;
     });
+    return sortRows(matches, sort.direction, (tag) => tag.size ?? -1);
   }
 
   function shortDigest(digest: string | null): string {
@@ -192,13 +199,14 @@
                       bind:value={tagFilter}
                     />
                   </th>
-                  <th class="px-5 py-3 align-middle font-medium">
-                    <TableTextColumnFilter
+                  <th
+                    class="px-5 py-3 align-middle font-medium"
+                    aria-sort={ariaSort(sortDirection(sort, "size"))}
+                  >
+                    <TableSortButton
                       label={m.admin_registry_colSize()}
-                      filterLabel={m.admin_registry_filterSize()}
-                      inputId={`registry-${repo.repo}-size-filter`}
-                      applyLabel={m.common_applyFilter()}
-                      bind:value={sizeFilter}
+                      direction={sortDirection(sort, "size")}
+                      onclick={() => (sort = toggleSort(sort, "size"))}
                     />
                   </th>
                   <th class="px-5 py-3 align-middle font-medium">

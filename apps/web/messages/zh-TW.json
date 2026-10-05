@@ -1916,7 +1916,6 @@
   "admin_registry_colSize": "大小",
   "admin_registry_colDigest": "Digest",
   "admin_registry_filterTag": "篩選標籤",
-  "admin_registry_filterSize": "篩選大小",
   "admin_registry_filterDigest": "篩選 Digest",
   "admin_registry_colActions": "操作",
   "admin_registry_deleteTag": "刪除標籤",
