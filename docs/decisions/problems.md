@@ -230,7 +230,7 @@ After an assignment, contest or exam ends, its participants can view and solve i
 
 ### PRB-21 Status and judge generation drive submission tracking
 
-**Decided:** 2026-09 · **Source:** [2026-09-21-submission-history](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/active/2026-09-21-submission-history.md), [#592](https://github.com/NOJV-TW/NOJV/pull/592)
+**Decided:** 2026-09 · **Source:** [2026-09-21-submission-history](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/active/2026-09-21-submission-history.md), [#592](https://github.com/NOJV-TW/NOJV/pull/592), [#637](https://github.com/NOJV-TW/NOJV/pull/637)
 
 Tracking belongs to the authenticated session (SSE wakeups, 5 s visible polling while work is in flight and 30 s otherwise, route invalidation only on an observed change, bounded reads) keyed on status and `judgeGeneration`, not on whether a result exists; pending rejudges hide previous scores and terminal errors need no result file. Workspace history appends batches of 50; teacher/standalone lists use numbered 50-row pages with stable scoped snapshots of the row set and a new-submission prompt.
 

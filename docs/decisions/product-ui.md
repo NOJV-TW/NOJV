@@ -117,7 +117,7 @@ Do not extract a shared component because surfaces look alike; list-page header 
 
 ### UI-12 Table columns filter or sort; filters and row editors use Bits UI
 
-**Decided:** 2026-09 · **Source:** [2026-09-07-member-table-filters](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-09-07-member-table-filters.md)
+**Decided:** 2026-09 · **Source:** [2026-09-07-member-table-filters](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-09-07-member-table-filters.md), [#637](https://github.com/NOJV-TW/NOJV/pull/637)
 
 `TableSelectColumnFilter` (every categorical column filter) and table row editors use Bits UI menus/Select instead of native overlays; filters stay reachable when no rows match, and tables scroll natively on mobile. This keeps visuals consistent and filtering accessible. Filters go on categorical or free-text columns and sorts on ordered columns (dates, counts, scores, sizes) with the shared `TableSortButton`; no column does both; a table with an ordered column always has exactly one active sort, so its order is always visible.
 
