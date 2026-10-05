@@ -4,6 +4,7 @@ import {
   entryFileNameFor,
   effectiveTimeLimitMs,
   isBrowserLocalLanguage,
+  wasmOjTerminationVerdict,
   type CaseResult,
   type CompareConfig,
   type JudgeType,
@@ -205,22 +206,6 @@ export function browserLocalFiles(request: SubmissionRequest): {
   return { entry, files };
 }
 
-export function browserLocalTerminationVerdict(
-  termination: RunResult["termination"],
-  exitCode: number,
-): CaseResult["verdict"] {
-  if (
-    termination === "instruction-limit" ||
-    termination === "logical-time-limit" ||
-    termination === "wall-time-limit"
-  ) {
-    return "TLE";
-  }
-  if (termination === "memory-limit") return "MLE";
-  if (termination === "exited" && exitCode === 0) return "AC";
-  return "RE";
-}
-
 export function browserLocalTerminationFeedback(
   termination: RunResult["termination"],
   exitCode: number,
@@ -250,7 +235,7 @@ export function mapBrowserLocalRunResult(
   compare: CompareConfig | null | undefined,
   index: number,
 ): CaseResult {
-  let verdict = browserLocalTerminationVerdict(run.termination, run.code);
+  let verdict: CaseResult["verdict"] = wasmOjTerminationVerdict(run.termination, run.code);
   if (verdict === "AC" && expectedOutput !== undefined) {
     verdict = compareStandard(run.stdout, expectedOutput, compare ?? {}) ? "AC" : "WA";
   }

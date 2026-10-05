@@ -6,7 +6,6 @@ import {
   browserLocalFiles,
   browserLocalErrorResult,
   browserLocalTerminationFeedback,
-  browserLocalTerminationVerdict,
   mapBrowserLocalRunResult,
   runBrowserLocally,
   shouldUseBrowserLocalRun,
@@ -193,12 +192,7 @@ describe("browser local run result mapping", () => {
     });
   });
 
-  it("maps resource termination to NOJV verdicts", () => {
-    expect(browserLocalTerminationVerdict("logical-time-limit", 0)).toBe("TLE");
-    expect(browserLocalTerminationVerdict("wall-time-limit", 0)).toBe("TLE");
-    expect(browserLocalTerminationVerdict("memory-limit", 0)).toBe("MLE");
-    expect(browserLocalTerminationVerdict("trap", 0)).toBe("RE");
-    expect(browserLocalTerminationVerdict("output-limit", 0)).toBe("RE");
+  it("maps resource termination to feedback", () => {
     expect(browserLocalTerminationFeedback("output-limit", 0)).toBe("Output limit exceeded.");
     expect(browserLocalTerminationFeedback("filesystem-limit", 0)).toBe(
       "Filesystem limit exceeded.",

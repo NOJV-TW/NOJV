@@ -32,6 +32,7 @@ export * from "./schemas/sandbox-output";
 export * from "./judge/compare";
 export * from "./judge/validator";
 export * from "./judge/time-factor";
+export * from "./judge/wasm-oj-verdict";
 export * from "./judge-environment";
 export * from "./reserved-username";
 export * from "./language-templates";
