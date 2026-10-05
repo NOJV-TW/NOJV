@@ -1,6 +1,6 @@
 # Browser Test for checker and interactive problems
 
-**Status:** Design approved by the owner, not implemented · **Date:** 2026-10-06 · **Touches:** JDG-03, JDG-05, JDG-15, PRB-03, SEC-12, DAT-06
+**Status:** Design approved by the owner, revised after the 2026-10-06 spike, in implementation · **Date:** 2026-10-06 · **Touches:** JDG-03, JDG-05, JDG-15, PRB-03, SEC-12, DAT-06
 
 ## Problem
 
@@ -62,10 +62,10 @@ Splitting an interactive run across the network (contestant in the browser, inte
 
 ### 2. Server execution
 
-- **Request.** The request carries `context` (practice, assignment or exam) and reuses the submission access rules: `assertProblemViewAccess`, the active exam session and the proctoring gate (`checkProctoringGateInTx`). At most 15 cases per request (5 samples + 10 custom).
-- **Artifact size.** The interactive artifact is capped at about 16 MiB. For runtime-bundle languages (Python) the client should send only the script plus the runtime identity, and the server resolves the runtime from its own verified toolchain cache. This depends on upstream work (§7); verify it before implementing.
-- **Queue and worker.** Web dispatches a workflow on a new Temporal task queue `test-judge` and awaits the result with a ~15 s deadline.
-  - A new `WORKER_MODE=test` Deployment (same worker image) polls it with a small fixed slot count (2–4), its own CPU limit and no access to the `judge` queue. Official judging never competes with Test.
+- **Request.** The request carries `context` and is authorised by the read-only draft-scope check in `code-draft.ts` (`assertDraftScopeAllowed`, exported): page lock, exam session + proctoring gate, assignment and contest membership, practice view access. It is looser than Submit (no assignment close, contest end or language check), which is acceptable because Test never creates a submission. At most 15 cases per request (5 samples + 10 custom).
+- **Artifact size.** The interactive artifact is capped at 16 MiB. A C++ contestant compiles to about 0.6 MB of Wasm. Runtime-bundle languages (Python) already reference their runtime by digest (`runtimePackage`), so the upload is only the script and manifest; the server resolves the runtime from its own pinned toolchain.
+- **Queue and worker.** Web executes a workflow on a new Temporal task queue `test-judge` and awaits its result with a 30 s deadline (a Python checker costs about 1.1 s per case). This is the first workflow whose result web awaits.
+  - A new `WORKER_MODE=test` Deployment (same worker image) polls it with a small fixed slot count (2–4), its own CPU limit and no access to the `judge` queue. Official judging never competes with Test. `ServerRunner` accepts one operation at a time, so the worker keeps one engine per slot.
   - Add the queue as a single partition in the three Temporal dynamic configs (docker, flux, gke), as was done for `judge-cleanup`.
 - **Limits.**
   - The contestant gets the problem time and memory limits, with time on the language-factored logical-time budget (JDG-15) plus a 10 s wall-clock safety stop.
@@ -79,21 +79,23 @@ Splitting an interactive run across the network (contestant in the browser, inte
 
 ### 3. Judge program WASM build and cache
 
-- The worker compiles the checker or interactor with `@wasm-oj/server`'s `ServerCompiler` into a `TrustedJudgeProgram`.
+- The worker compiles the checker or interactor with `@wasm-oj/server` into an ordinary build artifact and runs it with `Engine.run` / `Engine.interact`, not the `runTrusted` path (whose profiles exclude Python).
 - Results are stored in object storage, content-addressed by `sha256(source, language, toolchain identity)`. No DB column is needed.
-- Saving a problem enqueues a durable-work build. A cache miss at Test time builds on demand.
+- Saving the judge configuration starts a best-effort build workflow on `test-judge` after commit. A cache miss at Test time builds on demand, so a lost background build is harmless. The cached build record (success or diagnostics) also feeds the Test capability and the editor's build status.
 - A `@wasm-oj` upgrade changes the toolchain identity, so programs rebuild on next use with no author action.
 - The browser clang toolchain differs from server g++: no exceptions, no RTTI (`-fno-rtti`), no threads, `fork` or signals under WASI. Most judge programs are unaffected.
   - A build failure **does not block saving**. The editor shows "this judge program cannot run in Test: \<reason\>", and Test is disabled for that problem. Official judging is unaffected.
-- Python judge programs get the same DOMjudge wrapper the sandbox runner prepends (`apps/sandbox-runner/assets/wrappers/python-validator.py`, `python-interactor-domjudge.py`) once upstream supports Python trusted programs.
+- Python judge programs get the same DOMjudge wrapper the sandbox runner prepends (`apps/sandbox-runner/assets/wrappers/python-validator.py`, `python-interactor-domjudge.py`). Python checkers work on `@wasm-oj/server` 0.2.3 (spike: about 1.1 s per case). Python interactors need the upstream change in §7 and stay disabled until NOJV pins that release.
+- C++ builds get NOJV's `src/bits/stdc++.h` shim and PCH header, shared with browser Test.
+- **Packaging.** The worker image gains a stable layer with the `wasm-oj-compiler` / `wasm-oj-runner` binaries (built from forge `crates/runtime-core` at the pinned version, about 75 MB unstripped) and the server toolchains (`@wasm-oj/toolchain-clang` 54 MB, `toolchain-python` 5 MB), installed outside the app's `node_modules` so ordinary releases do not re-pull them. `WASM_OJ_RUNTIME_DIR` unset disables Test judging (local dev without the binaries).
 
 ### 4. Data model and authoring
 
 - **`problemSampleSchema`** gains an optional `interactorInput` (≤ 200 000 chars), like #638's `explanation`. It lives in `Problem.samples` JSON, so no migration is needed.
-  - It is **required on save for every sample of an interactive problem**.
+  - It is **required when samples are saved on an interactive problem**. Switching an existing problem to interactive does not block; samples without it are excluded from Test and the editor warns.
   - The problem page shows it in the sample block, next to the existing transcript-style `input`/`output`.
 - **`ProblemStatement.interactionFormat`** (Markdown, default `""`, migration required) is shown and edited only for interactive problems. It describes the interactor input format and the interactor's behaviour, and is also shown beside the custom-case input in the Test panel.
-  - `forkProblemInTransaction`, bundle export/import and the statement editor carry it.
+  - `forkProblemInTransaction` and the statement editor carry it. Problem bundles carry neither samples nor statements, so they are unchanged.
 - **Checker sample self-check.** On save the server runs the checker on each sample with `answer = output` and `contestant output = output`, and expects AC.
   - A failure warns the author: "this sample output cannot serve as the checker answer". That sample is excluded from Test.
   - Test uses `sample.output` as the answer file. No new field.
@@ -102,7 +104,8 @@ Splitting an interactive run across the network (contestant in the browser, inte
   - Interactive problems: `input` is the interactor input. The panel relabels it, hides "expected output" and shows `interactionFormat`.
 - **Seed data.**
   - Fill `interactorInput` and `interactionFormat` for the 4 interactive seed problems.
-  - Make the two-sum checker's answer file match its sample output.
+  - `problem_any-two-sum`: its hidden answers are `YES`/`NO` while its sample outputs are a pair or `-1`. Make the checker accept both answer forms instead of changing hidden data.
+  - `problem_guess-the-number`: sample 1 shows range `1 100`, but the interactor always writes `1 1000000`. Fix the transcript.
 
 ### 5. Test button states
 
@@ -134,15 +137,15 @@ Current production judge programs are all Python (no compile), so measure the C+
 
 Develop in the owner's fork (`~/code/forge`), contribute upstream, then bump NOJV's pinned `@wasm-oj/*` (JDG-15 rule: generic runtime fixes land upstream).
 
-1. **Python trusted judge programs.** Today `TrustedJudgeRuntimeProfile` is `c | cpp | rust | go` wasip1 only. Add CPython so `runTrusted` / `interactTrusted` run Python checkers and interactors.
-2. **Runtime-bundle contestants by reference for `interactTrusted`.** The client should be able to send script + runtime digest instead of the whole CPython bundle.
-3. **Later, not required.** The browser runner rejects non-standalone interactors (`src/runtime/runner.worker.ts:415`, present since the v1 baseline); it is irrelevant here because interactors run server-side. QuickJS streaming stdin would enable JS/TS interactive contestants.
+1. **Accept runtime-bundle interactors.** `Runner.interact` rejected any interactor that was not a standalone Wasm module (`src/server/server-runner.ts:307`, `src/runtime/runner.worker.ts:415`), although both sides share the same preparation. Removing the guard runs a CPython interactor end to end. Done on branch `feat/runtime-bundle-interactor` with a server integration test, pending an upstream PR.
+2. Not needed: Python checkers already run through `Engine.run`, and runtime-bundle artifacts already reference their runtime by digest.
+3. **Later, not required.** QuickJS streaming stdin would enable JS/TS interactive contestants.
 
 ## Rollout
 
-1. Upstream item 1 first. It is on the critical path, because every existing checker and interactive problem uses Python.
-2. Develop Parts 1–5 in NOJV in parallel against the fork, then bump `@wasm-oj/*` to the upstream release.
-3. Ship Parts 1–5 in one NOJV release: button states, `interactorInput`, `interactionFormat`, C++ and Python judge programs, and checker/interactive Test. Part B ships on its own.
+1. Ship Parts 1–5 against `@wasm-oj/*` 0.2.3: checker Test for C++ and Python, interactive Test for C++ interactors, Python interactors shown as not yet supported.
+2. Send upstream item 1; when its release lands, bump the pins and enable Python interactors in a small follow-up.
+3. Part B ships on its own.
 4. Before Test is used in an exam, run a load test with the virtual-student harness (`memory/stress-scripts/exam-real/`): 65 students pressing Test on checker and interactive problems. Check the `test-judge` worker CPU, queue rejections and web latency.
 
 ## Testing
@@ -163,7 +166,7 @@ Develop in the owner's fork (`~/code/forge`), contribute upstream, then bump NOJ
 
 ## Risks and open questions
 
-- **Image size.** The worker image grows by `@wasm-oj/server`, `@wasmer/sdk` and the clang toolchain. Production pulls images over a ~0.5 MB/s uplink (OPS-20). Measure, and fetch toolchain assets lazily into a cache if the growth is large.
+- **Image size.** The worker image grows by about 130–170 MB. Production pulls images over a ~0.5 MB/s uplink (OPS-20), so that layer must stay byte-identical across releases (built from a pinned forge version, normalised timestamps) and only change on a forge upgrade.
 - **In-process WASM sandbox.** Interactive Test runs untrusted contestant WASM inside the `test` worker. It relies on upstream admission, instruction budgets and memory limits. Isolate it in its own Deployment (above) and include it in the threat model.
 - **Fidelity.** Test results stay previews (JDG-15). Logical time, WASI and clang flags differ from native judging, so a Test AC does not imply a Submit AC.
-- **Payload size for runtime-bundle contestants** depends on upstream item 2.
+- **Python checker latency.** About 1.1 s per case on the spike machine; 15 cases approach the 30 s deadline. Measure on production hardware and lower the per-request case cap for Python judge programs if needed.
