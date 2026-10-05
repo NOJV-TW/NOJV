@@ -7,13 +7,22 @@
   import EmptyState from "$lib/components/primitives/ui/EmptyState.svelte";
   import TableSelectColumnFilter from "$lib/components/primitives/ui/TableSelectColumnFilter.svelte";
   import TableTextColumnFilter from "$lib/components/primitives/ui/TableTextColumnFilter.svelte";
+  import TableSortButton from "$lib/components/primitives/ui/TableSortButton.svelte";
   import { m } from "$lib/paraglide/messages.js";
   import { formatDate } from "$lib/utils/datetime";
+  import {
+    ariaSort,
+    sortDirection,
+    sortRows,
+    toggleSort,
+    type TableSort,
+  } from "$lib/utils/table-sort";
   import { Flag } from "@lucide/svelte";
 
   let { data } = $props();
   let search = $state("");
   let typeFilter = $state("");
+  let sort = $state<TableSort<"reported">>({ key: "reported", direction: "desc" });
   let selected = $state<(typeof data.reports)[number] | null>(null);
   let detailOpen = $state(false);
 
@@ -24,14 +33,18 @@
   }
 
   const filteredReports = $derived(
-    data.reports.filter((report) => {
-      if (typeFilter && report.targetType !== typeFilter) return false;
-      if (!search.trim()) return true;
-      const query = search.trim().toLocaleLowerCase();
-      return [report.preview, report.postTitle, report.authorName, report.reporterName]
-        .filter(Boolean)
-        .some((value) => value!.toLocaleLowerCase().includes(query));
-    }),
+    sortRows(
+      data.reports.filter((report) => {
+        if (typeFilter && report.targetType !== typeFilter) return false;
+        if (!search.trim()) return true;
+        const query = search.trim().toLocaleLowerCase();
+        return [report.preview, report.postTitle, report.authorName, report.reporterName]
+          .filter(Boolean)
+          .some((value) => value!.toLocaleLowerCase().includes(query));
+      }),
+      sort.direction,
+      (report) => report.createdAt,
+    ),
   );
 
   function openReport(report: (typeof data.reports)[number]) {
@@ -83,7 +96,16 @@
               <th class="px-3 py-3 align-middle font-medium">{m.adminReports_colProblem()}</th>
               <th class="px-3 py-3 align-middle font-medium">{m.adminReports_colAuthor()}</th>
               <th class="px-3 py-3 align-middle font-medium">{m.adminReports_colReporter()}</th>
-              <th class="px-3 py-3 align-middle font-medium">{m.adminReports_colReported()}</th>
+              <th
+                class="px-3 py-3 align-middle font-medium"
+                aria-sort={ariaSort(sortDirection(sort, "reported"))}
+              >
+                <TableSortButton
+                  label={m.adminReports_colReported()}
+                  direction={sortDirection(sort, "reported")}
+                  onclick={() => (sort = toggleSort(sort, "reported"))}
+                />
+              </th>
             </tr>
           </thead>
           <tbody>
