@@ -34,8 +34,16 @@
   import { Badge } from "$lib/components/primitives/ui/badge";
   import { Button, IconButton } from "$lib/components/primitives/ui/button";
   import TableSelectColumnFilter from "$lib/components/primitives/ui/TableSelectColumnFilter.svelte";
+  import TableSortButton from "$lib/components/primitives/ui/TableSortButton.svelte";
   import TableTextColumnFilter from "$lib/components/primitives/ui/TableTextColumnFilter.svelte";
   import { formatDateTime } from "$lib/utils/datetime";
+  import {
+    ariaSort,
+    sortDirection,
+    sortRows,
+    toggleSort,
+    type TableSort,
+  } from "$lib/utils/table-sort";
 
   interface Props {
     roster: ExamCredentialEntry[];
@@ -64,6 +72,8 @@
   let studentFilter = $state("");
   let sessionFilter = $state("");
   let ipFilter = $state("");
+  let ipPinFilter = $state("");
+  let sort = $state<TableSort<"leaves">>({ key: "leaves", direction: "desc" });
   let busy = $state<string | null>(null);
   let failed = $state<string | null>(null);
 
@@ -90,9 +100,14 @@
       (row) =>
         `${row.username} ${row.name} ${row.email ?? ""}`.toLocaleLowerCase().includes(query) &&
         (!sessionFilter || sessionFilter === row.state) &&
-        (!ipFilter || (ipFilter === "violation") === row.violations.length > 0),
+        (!ipFilter || (ipFilter === "violation") === row.violations.length > 0) &&
+        (!ipPinFilter ||
+          (row.ipPin ?? "").toLocaleLowerCase().includes(ipPinFilter.toLocaleLowerCase())),
     );
   });
+  const visible = $derived(
+    pageLockEnabled ? sortRows(filtered, sort.direction, (row) => row.leaveAttempts) : filtered,
+  );
   function typeLabel(type: IpViolationRow["violationType"]) {
     return type === "binding"
       ? m.examProctoring_typeBinding()
@@ -132,12 +147,27 @@
               />
             </th>
             {#if pageLockEnabled}
-              <th class="py-3 pr-4 align-middle font-medium">
-                {m.examProctoring_colLeaves()}
+              <th
+                class="py-3 pr-4 align-middle font-medium"
+                aria-sort={ariaSort(sortDirection(sort, "leaves"))}
+              >
+                <TableSortButton
+                  label={m.examProctoring_colLeaves()}
+                  direction={sortDirection(sort, "leaves")}
+                  onclick={() => (sort = toggleSort(sort, "leaves"))}
+                />
               </th>
             {/if}
             {#if ipBindingEnabled}
-              <th class="py-3 pr-4 align-middle font-medium">{m.examProctoring_colIpPin()}</th>
+              <th class="py-3 pr-4 align-middle font-medium">
+                <TableTextColumnFilter
+                  label={m.examProctoring_colIpPin()}
+                  filterLabel={m.examProctoring_colIpPin()}
+                  inputId="exam-proctoring-ip-pin-filter"
+                  applyLabel={m.common_applyFilter()}
+                  bind:value={ipPinFilter}
+                />
+              </th>
             {/if}
             <th class="py-3 pr-4 align-middle font-medium">
               <TableSelectColumnFilter
@@ -161,7 +191,7 @@
           </tr>
         </thead>
         <tbody>
-          {#if filtered.length === 0}
+          {#if visible.length === 0}
             <tr>
               <td
                 class="py-10 text-center text-muted-foreground"
@@ -175,7 +205,7 @@
               </td>
             </tr>
           {/if}
-          {#each filtered as row (row.membershipId)}
+          {#each visible as row (row.membershipId)}
             <tr class="border-b border-border-subtle align-top last:border-b-0">
               <td class="py-3 pr-4">
                 <p class="font-medium">{row.name}</p>

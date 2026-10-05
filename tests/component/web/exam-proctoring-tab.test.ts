@@ -106,6 +106,31 @@ async function choose(label: string, value: string) {
   await tick();
 }
 
+const sortedHeaders = () =>
+  [...target.querySelectorAll("th[aria-sort]")].map((th) => [
+    th.textContent?.trim(),
+    th.getAttribute("aria-sort"),
+  ]);
+
+const sortButton = (label: string) =>
+  [...target.querySelectorAll<HTMLButtonElement>("th button")].find(
+    (button) => button.textContent?.trim() === label,
+  );
+
+async function filterText(label: string, inputId: string, value: string) {
+  target.querySelector<HTMLButtonElement>(`th button[aria-label="${label}"]`)!.click();
+  const input = await vi.waitFor(() => {
+    const field = document.querySelector<HTMLInputElement>(`#${inputId}`);
+    expect(field).not.toBeNull();
+    return field!;
+  });
+  input.value = value;
+  input.dispatchEvent(new Event("input", { bubbles: true }));
+  await tick();
+  input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+  await vi.waitFor(() => expect(document.querySelector(`#${inputId}`)).toBeNull());
+}
+
 it("puts one IP reset on each student still in play with a bound IP or violations", async () => {
   await render({
     roster: [student("usr_a"), student("usr_b"), student("usr_c"), student("usr_d")],
@@ -150,6 +175,59 @@ it.each([true, false])(
     expect(target.textContent?.includes("203.0.113.9")).toBe(ipBindingEnabled);
   },
 );
+
+it("sorts students by leave attempts, most first, and flips from the header", async () => {
+  await render({
+    roster: ["usr_a", "usr_b", "usr_c", "usr_d", "usr_e"].map(student),
+    proctoring: [
+      proctored("usr_a", { leaveAttempts: 1 }),
+      proctored("usr_b", { leaveAttempts: 3 }),
+      proctored("usr_d", { leaveAttempts: 2 }),
+    ],
+    pageLockEnabled: true,
+  });
+  expect(visibleStudents()).toEqual(["usr_b", "usr_d", "usr_a", "usr_c", "usr_e"]);
+  expect(sortedHeaders()).toEqual([[m.examProctoring_colLeaves(), "descending"]]);
+
+  sortButton(m.examProctoring_colLeaves())!.click();
+  await tick();
+  expect(visibleStudents()).toEqual(["usr_c", "usr_e", "usr_a", "usr_d", "usr_b"]);
+  expect(sortedHeaders()).toEqual([[m.examProctoring_colLeaves(), "ascending"]]);
+});
+
+it("keeps roster order with no sort control when pages are not locked", async () => {
+  await render({
+    proctoring: [proctored("usr_c", { leaveAttempts: 4 })],
+  });
+  expect(visibleStudents()).toEqual(["usr_a", "usr_b", "usr_c"]);
+  expect(sortedHeaders()).toEqual([]);
+  expect(sortButton(m.examProctoring_colLeaves())).toBeUndefined();
+});
+
+it("filters students by bound IP", async () => {
+  await render({
+    roster: ["usr_a", "usr_b", "usr_c", "usr_d"].map(student),
+    proctoring: [
+      proctored("usr_a", { ipPin: "203.0.113.9" }),
+      proctored("usr_b", { ipPin: "198.51.100.4" }),
+      proctored("usr_d", { ipPin: "2001:DB8::1" }),
+    ],
+    ipBindingEnabled: true,
+  });
+  await filterText(m.examProctoring_colIpPin(), "exam-proctoring-ip-pin-filter", "203.0");
+  expect(visibleStudents()).toEqual(["usr_a"]);
+
+  await filterText(m.examProctoring_colIpPin(), "exam-proctoring-ip-pin-filter", "db8");
+  expect(visibleStudents()).toEqual(["usr_d"]);
+
+  target
+    .querySelector<HTMLButtonElement>(
+      `[aria-label="${m.common_clearFilter({ label: m.examProctoring_colIpPin() })}"]`,
+    )!
+    .click();
+  await tick();
+  expect(visibleStudents()).toEqual(["usr_a", "usr_b", "usr_c", "usr_d"]);
+});
 
 it("shows the latest violation in the row and the full history in a popover", async () => {
   await render({
