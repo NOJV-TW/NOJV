@@ -179,7 +179,7 @@ it("shows roster credentials and IP reset even without an active session or viol
   )!;
   expect(form.querySelector<HTMLInputElement>('input[name="userId"]')?.value).toBe("student_a");
   const input = form.querySelector<HTMLInputElement>('input[name="password"]')!;
-  expect(input.minLength).toBe(12);
+  expect(input.minLength).toBe(8);
   expect(input.maxLength).toBe(64);
 });
 

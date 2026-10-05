@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export const examCredentialPasswordSchema = z.string().min(12).max(64);
+export const examCredentialPasswordSchema = z.string().min(8).max(64);
 
 export const examCredentialEmailPayloadSchema = z
   .object({
