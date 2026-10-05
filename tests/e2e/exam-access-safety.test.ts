@@ -37,7 +37,7 @@ async function capture(page: Page, surface: string) {
   await page.setViewportSize({ width: 1440, height: 1000 });
 }
 
-test("teacher changes exam password and student signs in through the new login form", async ({
+test("teacher regenerates the exam password and student signs in through the new login form", async ({
   browser,
 }) => {
   test.setTimeout(120_000);
@@ -161,11 +161,12 @@ test("teacher changes exam password and student signs in through the new login f
       teacherPage.locator('[role="tablist"]').first().getByRole("tab").last(),
     ).toHaveAttribute("id", "exam-manage-tab-settings");
     teacherPage.on("dialog", (dialog) => void dialog.accept());
-    const passwordCode = teacherPage.locator('[aria-labelledby="exam-credentials-title"] code');
+    const studentRow = teacherPage.locator("tbody tr").filter({ hasText: user.username! });
+    const passwordCode = studentRow.locator("code");
     const passwords: string[] = [];
     for (let i = 0; i < 2; i++) {
       const previous = (await passwordCode.count()) ? await passwordCode.textContent() : null;
-      await teacherPage
+      await studentRow
         .getByRole("button", { name: "Regenerate password", exact: true })
         .click();
       await expect(passwordCode).toHaveText(/^[A-Za-z0-9]{8}$/);
