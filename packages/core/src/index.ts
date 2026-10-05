@@ -36,6 +36,8 @@ export * from "./judge/time-factor";
 export * from "./judge/wasm-oj-verdict";
 export * from "./judge/test-judge-verdict";
 export * from "./judge/test-capability";
+export * from "./judge/cpp-standard-header";
+export * from "./judge/python-judge-wrappers";
 export * from "./judge-environment";
 export * from "./reserved-username";
 export * from "./language-templates";

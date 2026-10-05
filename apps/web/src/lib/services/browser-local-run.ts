@@ -1,6 +1,8 @@
 import {
   MAX_EXECUTION_OUTPUT_BYTES,
+  WASM_OJ_PCH_PATH,
   compareStandard,
+  cppStandardHeader,
   entryFileNameFor,
   effectiveTimeLimitMs,
   isBrowserLocalLanguage,
@@ -32,44 +34,7 @@ import { m } from "$lib/paraglide/messages.js";
 import { formatJudgeOutput } from "$lib/utils/judge-output";
 import type { SubmissionRequest } from "./submission-service";
 
-const CPP_STANDARD_HEADER = `${WASM_OJ_LIBCXX_PCH_HEADER}
-#include <any>
-#include <atomic>
-#include <bit>
-#include <cfenv>
-#include <cinttypes>
-#include <clocale>
-#include <codecvt>
-#include <complex>
-#include <cstdarg>
-#include <ctime>
-#include <cuchar>
-#include <cwchar>
-#include <cwctype>
-#include <filesystem>
-#include <format>
-#include <forward_list>
-#include <fstream>
-#include <initializer_list>
-#include <istream>
-#include <list>
-#include <locale>
-#include <memory_resource>
-#include <new>
-#include <numbers>
-#include <ostream>
-#include <ratio>
-#include <regex>
-#include <scoped_allocator>
-#include <source_location>
-#include <stdexcept>
-#include <streambuf>
-#include <system_error>
-#include <typeindex>
-#include <typeinfo>
-#include <valarray>
-#include <version>
-`;
+const CPP_STANDARD_HEADER = cppStandardHeader(WASM_OJ_LIBCXX_PCH_HEADER);
 
 const BROWSER_TOOLCHAIN_BASE_URL = "/wasm-oj/toolchains/";
 const BROWSER_TOOLCHAINS = [
@@ -80,7 +45,6 @@ const BROWSER_TOOLCHAINS = [
   pythonSource(BROWSER_TOOLCHAIN_BASE_URL),
   rustSource(BROWSER_TOOLCHAIN_BASE_URL),
 ];
-const LIBCXX_PCH_HEADER_PATH = "wasm-oj.pch.hpp";
 const BITS_STDCPP_INCLUDE = /^\s*#\s*include\s*<bits\/stdc\+\+\.h>/m;
 const TOOLCHAIN_PRELOAD_RETRY_DELAYS_MS = [2_000, 5_000];
 let browserEnginePromise: Promise<Engine> | undefined;
@@ -201,7 +165,7 @@ export function browserLocalFiles(request: SubmissionRequest): {
       files["src/bits/stdc++.h"] === undefined &&
       Object.values(files).some((content) => BITS_STDCPP_INCLUDE.test(content));
     files["src/bits/stdc++.h"] ??= files["bits/stdc++.h"] ?? CPP_STANDARD_HEADER;
-    if (usesPlatformBitsStdcpp) files[LIBCXX_PCH_HEADER_PATH] ??= WASM_OJ_LIBCXX_PCH_HEADER;
+    if (usesPlatformBitsStdcpp) files[WASM_OJ_PCH_PATH] ??= WASM_OJ_LIBCXX_PCH_HEADER;
   }
   return { entry, files };
 }

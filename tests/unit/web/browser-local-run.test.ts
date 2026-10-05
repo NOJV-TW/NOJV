@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { CPP_STANDARD_HEADER_INCLUDES } from "@nojv/core";
 import { WASM_OJ_LIBCXX_PCH_HEADER } from "../../../apps/web/node_modules/@wasm-oj/browser";
 import { m } from "$lib/paraglide/messages.js";
 
@@ -326,6 +327,12 @@ describe("browser local C++ precompiled header", () => {
       expect(files(sourceCode)["wasm-oj.pch.hpp"]).toBeUndefined();
     },
   );
+
+  it("ships the platform bits/stdc++.h as the PCH header plus the remaining standard headers", () => {
+    expect(files("#include <bits/stdc++.h>\nint main() {}")["src/bits/stdc++.h"]).toBe(
+      `${WASM_OJ_LIBCXX_PCH_HEADER}\n${CPP_STANDARD_HEADER_INCLUDES}`,
+    );
+  });
 
   it("keeps a user-provided bits/stdc++.h without the platform PCH", () => {
     const result = files("#include <bits/stdc++.h>\nint main() {}", [

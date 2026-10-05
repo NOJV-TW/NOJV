@@ -30,6 +30,12 @@ describe("WASM-OJ server identity pins", () => {
     );
   });
 
+  it("pins the worker's @wasm-oj/core, the source of its libc++ PCH header, with the server", () => {
+    expect(dependencies("apps/worker/package.json")["@wasm-oj/core"]).toBe(
+      identityVersions().server,
+    );
+  });
+
   it("pins the web toolchains the worker mirrors to the identity's versions", () => {
     const web = dependencies("apps/web/package.json");
     const { clang, python } = identityVersions();

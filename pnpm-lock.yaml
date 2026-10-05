@@ -466,6 +466,9 @@ importers:
       '@temporalio/workflow':
         specifier: 1.24.0
         version: 1.24.0
+      '@wasm-oj/core':
+        specifier: 0.2.3
+        version: 0.2.3
       '@wasm-oj/server':
         specifier: 0.2.3
         version: 0.2.3
