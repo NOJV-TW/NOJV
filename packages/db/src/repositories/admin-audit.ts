@@ -24,11 +24,12 @@ export const adminAuditLogRepo = {
     });
   },
 
-  listPaged(opts: { limit: number; cursor?: string }) {
+  listPaged(opts: { limit: number; cursor?: string; order?: "asc" | "desc" }) {
     const where: Prisma.AdminAuditLogWhereInput = {};
+    const order = opts.order ?? "desc";
     return prisma.adminAuditLog.findMany({
       where,
-      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+      orderBy: [{ createdAt: order }, { id: order }],
       take: opts.limit + 1,
       ...(opts.cursor ? { cursor: { id: opts.cursor }, skip: 1 } : {}),
     });

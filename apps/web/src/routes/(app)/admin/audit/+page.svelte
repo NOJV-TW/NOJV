@@ -1,8 +1,11 @@
 <script lang="ts">
   import type { PageData } from "./$types";
+  import { goto } from "$app/navigation";
   import { m } from "$lib/paraglide/messages.js";
   import { formatDateTime } from "$lib/utils/datetime";
+  import { ariaSort } from "$lib/utils/table-sort";
   import { Badge } from "$lib/components/primitives/ui/badge";
+  import TableSortButton from "$lib/components/primitives/ui/TableSortButton.svelte";
   import PageContainer from "$lib/components/primitives/layout/PageContainer.svelte";
 
   type AuditAction = PageData["entries"][number]["action"];
@@ -38,7 +41,19 @@
     }
   }
 
-  let nextHref = $derived(data.nextCursor ? `?cursor=${data.nextCursor}` : null);
+  let nextHref = $derived.by(() => {
+    if (!data.nextCursor) return null;
+    const params = new URLSearchParams({ cursor: data.nextCursor });
+    if (data.order === "asc") params.set("order", "asc");
+    return `?${params.toString()}`;
+  });
+
+  function toggleOrder() {
+    goto(data.order === "desc" ? "/admin/audit?order=asc" : "/admin/audit", {
+      keepFocus: true,
+      noScroll: true,
+    });
+  }
 </script>
 
 <PageContainer class="animate-in animate-in-2 space-y-4">
@@ -57,7 +72,13 @@
           <tr
             class="border-b border-border-subtle bg-muted/40 text-left text-caption uppercase tracking-wider text-muted-foreground"
           >
-            <th class="px-3 py-2 font-medium">{m.admin_audit_colTime()}</th>
+            <th class="px-3 py-2 font-medium" aria-sort={ariaSort(data.order)}>
+              <TableSortButton
+                label={m.admin_audit_colTime()}
+                direction={data.order}
+                onclick={toggleOrder}
+              />
+            </th>
             <th class="px-3 py-2 font-medium">{m.admin_audit_colActor()}</th>
             <th class="px-3 py-2 font-medium">{m.admin_audit_colAction()}</th>
             <th class="px-3 py-2 font-medium">{m.admin_audit_colTarget()}</th>

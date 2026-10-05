@@ -3,14 +3,23 @@
   import { m } from "$lib/paraglide/messages.js";
   import { Button } from "$lib/components/primitives/ui/button";
   import PageContainer from "$lib/components/primitives/layout/PageContainer.svelte";
+  import TableSortButton from "$lib/components/primitives/ui/TableSortButton.svelte";
+  import TableTextColumnFilter from "$lib/components/primitives/ui/TableTextColumnFilter.svelte";
+  import {
+    ariaSort,
+    sortDirection,
+    sortRows,
+    toggleSort,
+    type TableSort,
+  } from "$lib/utils/table-sort";
   import type { PageData } from "./$types";
 
   let { data }: { data: PageData } = $props();
 
   const gradebook = $derived(data.gradebook);
   const isManager = $derived(data.isManager);
-  let sortKey = $state("name");
-  let sortDescending = $state(false);
+  let sort = $state<TableSort>({ key: "total", direction: "desc" });
+  let studentFilter = $state("");
 
   function cellKey(contextType: string, contextId: string, problemId: string): string {
     return `${contextType}:${contextId}:${problemId}`;
@@ -20,19 +29,10 @@
     return row.cells[key] ?? null;
   }
 
-  function toggleSort(key: string) {
-    if (sortKey === key) sortDescending = !sortDescending;
-    else {
-      sortKey = key;
-      sortDescending = false;
-    }
-  }
-
-  function sortValue(row: PageData["gradebook"]["rows"][number]): number | string {
-    if (sortKey === "name") return row.name.toLocaleLowerCase();
-    if (sortKey === "total") return row.total;
-    if (sortKey.split(":").length === 2) {
-      const [contextType = "", contextId = ""] = sortKey.split(":");
+  function sortValue(row: PageData["gradebook"]["rows"][number]): number {
+    if (sort.key === "total") return row.total;
+    if (sort.key.split(":").length === 2) {
+      const [contextType = "", contextId = ""] = sort.key.split(":");
       const column = gradebook.columns.find(
         (entry) => entry.contextType === contextType && entry.contextId === contextId,
       );
@@ -44,20 +44,25 @@
         ) ?? 0
       );
     }
-    return cellScore(row, sortKey) ?? -1;
+    return cellScore(row, sort.key) ?? -1;
   }
 
-  const sortedRows = $derived.by(() =>
-    [...gradebook.rows].sort((a, b) => {
-      const left = sortValue(a);
-      const right = sortValue(b);
-      const result =
-        typeof left === "string" && typeof right === "string"
-          ? left.localeCompare(right)
-          : Number(left) - Number(right);
-      return sortDescending ? -result : result;
-    }),
+  const filteredRows = $derived.by(() => {
+    const needle = studentFilter.trim().toLocaleLowerCase();
+    return gradebook.rows.filter((row) =>
+      [row.name, row.username ?? ""].some((value) =>
+        value.toLocaleLowerCase().includes(needle),
+      ),
+    );
+  });
+  const sortedRows = $derived(sortRows(filteredRows, sort.direction, sortValue));
+  const columnCount = $derived(
+    gradebook.columns.reduce((count, column) => count + Math.max(column.problems.length, 1), 2),
   );
+
+  function headerAriaSort(key: string) {
+    return isManager ? ariaSort(sortDirection(sort, key)) : undefined;
+  }
 
   function csvEscape(value: string | number): string {
     const s = String(value);
@@ -106,6 +111,19 @@
   <title>{m.courseGradebook_heading()} · {data.course.title} · NOJV</title>
 </svelte:head>
 
+{#snippet sortLabel(label: string, key: string, className: string)}
+  {#if isManager}
+    <TableSortButton
+      {label}
+      direction={sortDirection(sort, key)}
+      onclick={() => (sort = toggleSort(sort, key))}
+      class={className}
+    />
+  {:else}
+    {label}
+  {/if}
+{/snippet}
+
 <PageContainer class="space-y-6">
   <section data-slot="course-gradebook" class="animate-in animate-in-1 space-y-4">
     <div class="flex flex-wrap items-end justify-between gap-4">
@@ -135,33 +153,42 @@
             <tr>
               <th
                 rowspan="2"
-                class="sticky left-0 z-[3] border-b border-r border-border-subtle bg-muted px-5 py-3 text-left text-caption font-semibold uppercase tracking-[0.06em] text-muted-foreground"
+                class="sticky left-0 z-[3] border-b border-r border-border-subtle bg-muted px-5 py-3 text-left text-caption font-medium uppercase tracking-[0.06em] text-muted-foreground"
                 style="min-width: 200px"
               >
-                <button type="button" class="text-left" onclick={() => toggleSort("name")}>
+                {#if isManager}
+                  <TableTextColumnFilter
+                    label={m.courseGradebook_student()}
+                    filterLabel={m.courseGradebook_student()}
+                    inputId="gradebook-student-filter"
+                    applyLabel={m.common_applyFilter()}
+                    bind:value={studentFilter}
+                  />
+                {:else}
                   {m.courseGradebook_student()}
-                </button>
+                {/if}
               </th>
               {#each gradebook.columns as column (column.contextType + column.contextId)}
+                {@const key = `${column.contextType}:${column.contextId}`}
                 <th
                   colspan={Math.max(column.problems.length, 1)}
-                  class="border-b border-r border-border-subtle bg-muted px-3 py-2.5 text-center text-caption font-semibold text-foreground"
+                  class="border-b border-r border-border-subtle bg-muted px-3 py-1 text-center text-caption font-semibold text-foreground"
+                  aria-sort={headerAriaSort(key)}
                 >
-                  <button
-                    type="button"
-                    onclick={() => toggleSort(`${column.contextType}:${column.contextId}`)}
-                    >{column.contextTitle}</button
-                  >
+                  {@render sortLabel(
+                    column.contextTitle,
+                    key,
+                    "ml-0 h-auto min-h-8 whitespace-normal",
+                  )}
                 </th>
               {/each}
               <th
                 rowspan="2"
-                class="border-b border-border-subtle bg-primary/8 px-3 py-3 text-center text-caption font-semibold text-primary"
+                class="border-b border-border-subtle bg-primary/8 px-3 py-3 text-center text-caption font-semibold"
                 style="min-width: 110px"
+                aria-sort={headerAriaSort("total")}
               >
-                <button type="button" onclick={() => toggleSort("total")}
-                  >{m.courseGradebook_total()}</button
-                >
+                {@render sortLabel(m.courseGradebook_total(), "total", "ml-0")}
                 <span class="mt-1 block text-micro font-normal text-muted-foreground">
                   {m.courseGradebook_maxPoints({ points: gradebook.maxTotal })}
                 </span>
@@ -170,19 +197,22 @@
             <tr>
               {#each gradebook.columns as column (column.contextType + column.contextId)}
                 {#each column.problems as problem (problem.problemId)}
+                  {@const key = cellKey(
+                    column.contextType,
+                    column.contextId,
+                    problem.problemId,
+                  )}
                   <th
-                    class="border-b border-r border-border-subtle bg-muted px-3 py-2.5 text-center text-caption font-semibold"
+                    class="border-b border-r border-border-subtle bg-muted px-3 py-1 text-center text-caption font-semibold"
                     style="min-width: 80px"
                     title={problem.title}
+                    aria-sort={headerAriaSort(key)}
                   >
-                    <button
-                      type="button"
-                      class="block w-full leading-none text-foreground"
-                      onclick={() =>
-                        toggleSort(
-                          cellKey(column.contextType, column.contextId, problem.problemId),
-                        )}>{m.courseGradebook_problemOrdinal({ n: problem.ordinal })}</button
-                    >
+                    {@render sortLabel(
+                      m.courseGradebook_problemOrdinal({ n: problem.ordinal }),
+                      key,
+                      "ml-0",
+                    )}
                     <span class="mt-1 block text-micro font-normal text-muted-foreground">
                       {m.courseGradebook_maxPoints({ points: problem.maxScore })}
                     </span>
@@ -246,6 +276,15 @@
                   class="border-b border-border-subtle bg-primary/5 px-3 py-3 text-center text-body-lg font-medium text-foreground"
                 >
                   {row.total}
+                </td>
+              </tr>
+            {:else}
+              <tr>
+                <td
+                  colspan={columnCount}
+                  class="border-b border-border-subtle px-5 py-6 text-center text-body-sm text-muted-foreground"
+                >
+                  {m.common_noMatches()}
                 </td>
               </tr>
             {/each}

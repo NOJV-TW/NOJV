@@ -158,7 +158,7 @@ Security headers, CSP and exam rules are specified in [Security Requirements](..
 - One scheduler polls `/api/submissions/pending` and `/api/submissions/status` (batches of at most 100 ids) every 5 s while a tracked submission is non-terminal, a rejudge is running, a live history list is mounted or a page refresh is owed; otherwise every 30 s. SSE verdicts, reconnects, `online` and tab focus wake it early. Reads time out after 10 s; failures back off to 30 s. Logout aborts and clears state.
 - State is keyed by `status`, `judgeGeneration`, `updatedAt`: older responses never overwrite newer runs, and queued/running rejudges expose no stale result. Terminal summaries do not need the result blob; detailed-result reads retry separately.
 - Routes carrying submission data call `depends("submission:data")`. The tracker invalidates them only when a submission differs from its last observed state (on first observation, from the state a watching page says it rendered), the pending set changes, an SSE verdict names an unseen submission, a rejudge finishes or a caller requests it; an invalidate due during navigation waits for the navigation to settle. Teacher edit drafts and grading revisions survive refresh; configuration forms ignore page-data rebinding.
-- Workspace history loads cursor batches of 50 on scroll; teacher and standalone histories use numbered 50-row pages anchored to a time/id snapshot. New rows appear behind an explicit "view latest" prompt.
+- Workspace history loads cursor batches of 50 on scroll; teacher and standalone histories use numbered 50-row pages anchored to a time/id snapshot and ordered on the server by time (newest first by default) or stored `Submission.score` (`/api/submissions?sort=score&order=asc`). The snapshot fixes the row set, not the order: pending rows sort as score 0 and queued rejudges by their retained score. New rows appear behind an explicit "view latest" prompt.
 - Batch rejudge dialogs recover progress for active rejudges from `GET /api/rejudges`.
 
 ## Real-time events
@@ -173,9 +173,9 @@ Security headers, CSP and exam rules are specified in [Security Requirements](..
 - `AssessmentManageTabs`: Problems (default) / Submissions / Results (Grades, Plagiarism, Audit) / Proctoring (exam only: Credentials, IP records) / Clarifications when allowed / Settings, persisted in `?tab=` (UI-17).
 - `MatrixView`: one grade matrix for contests, assignments and exams. Assignments and exams open `ScoreOverrideDrawer` (override + feedback lists/forms) from a cell; contests are read-only (ASM-17).
 - `AuditTimeline`: merged lifecycle, override and rejudge feed on the Audit tab (contests: rejudge only).
-- `ExamProctoringTab`: exam proctoring roster (sessions, IP violations, temporary passwords) with column-header filters. `PlagiarismPairDiff`: pair diff page.
+- `ExamProctoringTab`: exam proctoring roster (sessions, IP violations, temporary passwords) with column-header filters (Bound IP when IP binding is on) and, when page lock is on, a leave-attempts sort (most first by default). `PlagiarismPairDiff`: pair diff page.
 - `AssessmentHero` + `StatRail`/`StatTile` for detail pages, `AssessmentRow` for lists; visuals in [Design Rules](DESIGN.md#assessment-surfaces).
-- Table filters: `TableTextColumnFilter` and `TableSelectColumnFilter` (Bits UI menus, UI-12); filter headers stay visible on empty results; tables scroll horizontally on narrow screens.
+- Table filters and sorts: `TableTextColumnFilter`, `TableSelectColumnFilter` (Bits UI menus) and `TableSortButton` (UI-12; conventions in [Design Rules](DESIGN.md#components)); filter headers stay visible on empty results; tables scroll horizontally on narrow screens.
 - `ImageDropZone` for Markdown textareas (problem statement fields, announcements); `TagSelect` for problem tags.
 - `Skeleton` / `SkeletonTable` for loading states.
 

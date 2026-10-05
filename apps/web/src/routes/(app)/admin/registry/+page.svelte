@@ -6,29 +6,36 @@
   import ConfirmDialog from "$lib/components/primitives/ui/ConfirmDialog.svelte";
   import EmptyState from "$lib/components/primitives/ui/EmptyState.svelte";
   import TableTextColumnFilter from "$lib/components/primitives/ui/TableTextColumnFilter.svelte";
+  import TableSortButton from "$lib/components/primitives/ui/TableSortButton.svelte";
   import PageContainer from "$lib/components/primitives/layout/PageContainer.svelte";
   import { m } from "$lib/paraglide/messages.js";
   import { toasts } from "$lib/stores/toast";
+  import {
+    ariaSort,
+    sortDirection,
+    sortRows,
+    toggleSort,
+    type TableSort,
+  } from "$lib/utils/table-sort";
 
   let { data } = $props();
 
   let tagFilter = $state("");
-  let sizeFilter = $state("");
   let digestFilter = $state("");
+  let sort = $state<TableSort<"size">>({ key: "size", direction: "desc" });
 
   type RegistryTag = { tag: string; size: number | null; digest: string | null };
 
   function filteredTags(tags: RegistryTag[]): RegistryTag[] {
     const tagQuery = tagFilter.trim().toLowerCase();
-    const sizeQuery = sizeFilter.trim().toLowerCase();
     const digestQuery = digestFilter.trim().toLowerCase();
-    return tags.filter((tag) => {
+    const matches = tags.filter((tag) => {
       const matchesTag = !tagQuery || tag.tag.toLowerCase().includes(tagQuery);
-      const matchesSize = !sizeQuery || formatSize(tag.size).toLowerCase().includes(sizeQuery);
       const matchesDigest =
         !digestQuery || shortDigest(tag.digest).toLowerCase().includes(digestQuery);
-      return matchesTag && matchesSize && matchesDigest;
+      return matchesTag && matchesDigest;
     });
+    return sortRows(matches, sort.direction, (tag) => tag.size ?? -1);
   }
 
   function shortDigest(digest: string | null): string {
@@ -177,6 +184,7 @@
             {m.admin_registry_noTags()}
           </p>
         {:else}
+          {@const rows = filteredTags(repo.tags)}
           <div class="overflow-x-auto">
             <table class="w-full text-body-sm">
               <thead>
@@ -192,13 +200,14 @@
                       bind:value={tagFilter}
                     />
                   </th>
-                  <th class="px-5 py-3 align-middle font-medium">
-                    <TableTextColumnFilter
+                  <th
+                    class="px-5 py-3 align-middle font-medium"
+                    aria-sort={ariaSort(sortDirection(sort, "size"))}
+                  >
+                    <TableSortButton
                       label={m.admin_registry_colSize()}
-                      filterLabel={m.admin_registry_filterSize()}
-                      inputId={`registry-${repo.repo}-size-filter`}
-                      applyLabel={m.common_applyFilter()}
-                      bind:value={sizeFilter}
+                      direction={sortDirection(sort, "size")}
+                      onclick={() => (sort = toggleSort(sort, "size"))}
                     />
                   </th>
                   <th class="px-5 py-3 align-middle font-medium">
@@ -216,7 +225,7 @@
                 </tr>
               </thead>
               <tbody>
-                {#each filteredTags(repo.tags) as t (t.tag)}
+                {#each rows as t (t.tag)}
                   <tr class="border-b border-border-subtle last:border-b-0">
                     <td class="px-5 py-3 font-mono">{t.tag}</td>
                     <td class="px-5 py-3 text-muted-foreground">{formatSize(t.size)}</td>
@@ -257,13 +266,13 @@
                     </td>
                   </tr>
                 {/each}
-                {#if filteredTags(repo.tags).length === 0}
+                {#if rows.length === 0}
                   <tr>
                     <td
                       colspan="4"
                       class="px-5 py-8 text-center text-caption text-muted-foreground"
                     >
-                      {m.submissions_noMatches()}
+                      {m.common_noMatches()}
                     </td>
                   </tr>
                 {/if}

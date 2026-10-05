@@ -23,6 +23,9 @@ vi.mock("$lib/components/features/course/BulkHandleAddPanel.svelte", async () =>
 vi.mock("@lucide/svelte", async () => {
   const Empty = (await import("../../fixtures/web/empty-component.svelte")).default;
   return {
+    ArrowDown: (await import("../../fixtures/web/arrow-down-icon.svelte")).default,
+    ArrowUp: (await import("../../fixtures/web/arrow-up-icon.svelte")).default,
+    ArrowUpDown: (await import("../../fixtures/web/arrow-up-down-icon.svelte")).default,
     Check: Empty,
     ChevronDown: Empty,
     ChevronUp: Empty,
@@ -31,6 +34,7 @@ vi.mock("@lucide/svelte", async () => {
     Pencil: Empty,
     Search: Empty,
     X: Empty,
+    Trash2: Empty,
   };
 });
 afterEach(() => {
@@ -181,6 +185,53 @@ it("hides role controls the server would deny", async () => {
       view.target.querySelector(`[aria-label="${m.members_roleFor({ name: "Locked" })}"]`),
     ).toBe(null);
     expect(view.target.textContent).toContain(m.members_roleTa());
+  } finally {
+    await view.cleanup();
+  }
+});
+
+it("lists members newest-joined first and flips the order from the joined header", async () => {
+  const view = render({
+    canAssignTeacher: false,
+    members: [
+      member({
+        membershipId: "teacher-1",
+        role: "teacher",
+        joinedAt: "2026-08-01T00:00:00.000Z",
+      }),
+      member({ membershipId: "ta-1", role: "ta", joinedAt: "2026-09-15T00:00:00.000Z" }),
+      member({
+        membershipId: "student-1",
+        username: "amy",
+        joinedAt: "2026-09-01T00:00:00.000Z",
+      }),
+      member({
+        membershipId: "student-2",
+        username: "zed",
+        joinedAt: "2026-09-01T00:00:00.000Z",
+      }),
+    ],
+  });
+  const order = () =>
+    [...view.target.querySelectorAll<HTMLElement>("tr[data-membership-id]")].map(
+      (row) => row.dataset.membershipId,
+    );
+  try {
+    await tick();
+    const button = [...view.target.querySelectorAll<HTMLButtonElement>("thead button")].find(
+      (candidate) => candidate.textContent?.trim() === m.members_joinedLabel(),
+    );
+    expect(button).toBeDefined();
+    const header = button!.closest("th")!;
+    expect(order()).toEqual(["ta-1", "student-1", "student-2", "teacher-1"]);
+    expect(header.getAttribute("aria-sort")).toBe("descending");
+    expect(header.querySelector("[data-icon]")?.getAttribute("data-icon")).toBe("down");
+
+    button!.click();
+    await tick();
+    expect(order()).toEqual(["teacher-1", "student-1", "student-2", "ta-1"]);
+    expect(header.getAttribute("aria-sort")).toBe("ascending");
+    expect(header.querySelector("[data-icon]")?.getAttribute("data-icon")).toBe("up");
   } finally {
     await view.cleanup();
   }

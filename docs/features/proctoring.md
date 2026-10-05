@@ -56,7 +56,7 @@ The global hook reads the user's active session and the exam's current `pageLock
 - In both modes a violation writes an `IpViolationLog` row, throttled to one per (exam, user, violation type) per 60 seconds. Denied exam entries and denied exam submissions commit the transaction holding the gate's writes and raise the denial afterwards, so the row survives the rejection.
 - Row fields: `userId`, `examId` (both cascade on delete), `violationType` (`whitelist | binding`), `actualIp`, `expectedIp` (joined whitelist for whitelist violations, the pin for binding violations), `createdAt`.
 - Mode changes apply from the student's next request.
-- Managers see each student's exam state, leave attempts (`visibility_lost` events, page lock only), bound IP (binding only) and violations in the exam's Proctoring roster table. "Reset IP" shows on students with a bound IP or violations; "Lift page lock" (instructor release) shows only when page lock is on, since without it a release only sends the student back to the start screen.
+- Managers see each student's exam state, leave attempts (`visibility_lost` events, page lock only), bound IP (binding only) and violations in the exam's Proctoring roster table. With page lock on the roster sorts by leave attempts (most first by default; the header flips it); with binding on, a Bound IP header filter matches the pinned address. "Reset IP" shows on students with a bound IP or violations; "Lift page lock" (instructor release) shows only when page lock is on, since without it a release only sends the student back to the start screen.
 
 ### Client IP
 

@@ -33,12 +33,15 @@ export type SubmissionHistoryFilters = Parameters<
   typeof submissionRepo.listHistoryPage
 >[0]["filters"];
 
+type SubmissionHistorySort = Parameters<typeof submissionRepo.listHistoryPage>[0]["sort"];
+
 interface HistoryOptions {
   actor: ActorContext;
   limit: number;
   page?: number;
   snapshot?: string;
   filters?: SubmissionHistoryFilters;
+  sort?: SubmissionHistorySort;
 }
 
 const historySnapshotSchema = z
@@ -97,6 +100,7 @@ async function historyPage(opts: HistoryOptions, context?: SubmissionContextRef)
     ...(!context && opts.actor.platformRole !== "admin" ? { userId: opts.actor.userId } : {}),
     ...(context ? { context } : {}),
     filters,
+    ...(opts.sort ? { sort: opts.sort } : {}),
     page,
     limit: 50,
     ...(snapshot ? { snapshot } : {}),

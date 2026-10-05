@@ -29,6 +29,9 @@ vi.mock("$lib/components/primitives/ui/select/select-content.svelte", async () =
   default: (await import("../../fixtures/web/select-content.svelte")).default,
 }));
 vi.mock("@lucide/svelte", async () => ({
+  ArrowDown: (await import("../../fixtures/web/arrow-down-icon.svelte")).default,
+  ArrowUp: (await import("../../fixtures/web/arrow-up-icon.svelte")).default,
+  ArrowUpDown: (await import("../../fixtures/web/arrow-up-down-icon.svelte")).default,
   ListFilter: (await import("../../fixtures/web/empty-component.svelte")).default,
 }));
 

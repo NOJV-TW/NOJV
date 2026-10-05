@@ -1,12 +1,22 @@
 // @vitest-environment jsdom
 
-import { mount, unmount } from "svelte";
+import { mount, tick, unmount } from "svelte";
 import { describe, expect, it, vi } from "vitest";
+import { m } from "$lib/paraglide/messages.js";
 import MatrixView from "$lib/components/features/course/submissions/MatrixView.svelte";
 
 vi.mock("@lucide/svelte", async () => {
   const Empty = (await import("../../fixtures/web/empty-component.svelte")).default;
-  return { Download: Empty, Loader2: Empty, Search: Empty };
+  return {
+    ArrowDown: (await import("../../fixtures/web/arrow-down-icon.svelte")).default,
+    ArrowUp: (await import("../../fixtures/web/arrow-up-icon.svelte")).default,
+    ArrowUpDown: (await import("../../fixtures/web/arrow-up-down-icon.svelte")).default,
+    Download: Empty,
+    ListFilter: Empty,
+    Loader2: Empty,
+    Search: Empty,
+    X: Empty,
+  };
 });
 
 vi.mock("$lib/components/features/course/submissions/MatrixLegend.svelte", async () => ({
@@ -15,6 +25,41 @@ vi.mock("$lib/components/features/course/submissions/MatrixLegend.svelte", async
 vi.mock("$lib/components/primitives/ui/button", async () => ({
   Button: (await import("../../fixtures/web/empty-component.svelte")).default,
 }));
+
+function order(target: HTMLElement) {
+  return [...target.querySelectorAll("tbody tr")].map((row) =>
+    row.querySelector("td div")?.textContent?.trim(),
+  );
+}
+
+function sortedHeaders(target: HTMLElement) {
+  return [...target.querySelectorAll("th[aria-sort]")].map((th) => [
+    th.querySelector("button")?.textContent?.trim(),
+    th.getAttribute("aria-sort"),
+  ]);
+}
+
+function sortButton(target: HTMLElement, label: string) {
+  const button = [...target.querySelectorAll<HTMLButtonElement>("th button")].find(
+    (candidate) => candidate.textContent?.trim() === label,
+  );
+  expect(button).toBeDefined();
+  return button!;
+}
+
+async function searchStudents(target: HTMLElement, value: string) {
+  target.querySelector<HTMLButtonElement>('th button[aria-label="搜尋學生"]')!.click();
+  const input = await vi.waitFor(() => {
+    const field = document.querySelector<HTMLInputElement>("#matrix-student-filter");
+    expect(field).not.toBeNull();
+    return field!;
+  });
+  input.value = value;
+  input.dispatchEvent(new Event("input", { bubbles: true }));
+  await tick();
+  input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+  await vi.waitFor(() => expect(document.querySelector("#matrix-student-filter")).toBeNull());
+}
 
 describe("MatrixView header", () => {
   it("can hide the heading and matrix metadata without hiding its controls", async () => {
@@ -128,25 +173,45 @@ describe("MatrixView header", () => {
       },
     });
 
-    expect(target.querySelector('input[placeholder="搜尋學生"]')?.closest("th")).not.toBeNull();
+    expect(target.querySelector('th button[aria-label="搜尋學生"]')).not.toBeNull();
     expect(target.querySelectorAll("select")).toHaveLength(0);
     expect(target.textContent).not.toContain("查看提交");
 
-    const problemSort = [...target.querySelectorAll("thead button")].find((button) =>
-      button.textContent?.includes("A"),
-    ) as HTMLButtonElement;
-    const totalSort = [...target.querySelectorAll("thead button")].find((button) =>
-      button.textContent?.includes("總分"),
-    );
-    expect(problemSort).toBeDefined();
-    expect(totalSort).toBeDefined();
+    expect(order(target)).toEqual(["Alice", "Bob"]);
+    expect(sortedHeaders(target)).toEqual([["總分", "descending"]]);
 
-    problemSort.click();
-    await Promise.resolve();
-    expect(target.querySelector("tbody tr td")?.textContent).toContain("Bob");
-    problemSort.click();
-    await Promise.resolve();
-    expect(target.querySelector("tbody tr td")?.textContent).toContain("Alice");
+    sortButton(target, "A").click();
+    await tick();
+    expect(order(target)).toEqual(["Bob", "Alice"]);
+    expect(sortedHeaders(target)).toEqual([["A", "descending"]]);
+
+    sortButton(target, "A").click();
+    await tick();
+    expect(order(target)).toEqual(["Alice", "Bob"]);
+    expect(sortedHeaders(target)).toEqual([["A", "ascending"]]);
+
+    sortButton(target, "總分").click();
+    await tick();
+    expect(order(target)).toEqual(["Alice", "Bob"]);
+    expect(sortedHeaders(target)).toEqual([["總分", "descending"]]);
+
+    sortButton(target, "總分").click();
+    await tick();
+    expect(order(target)).toEqual(["Bob", "Alice"]);
+    expect(sortedHeaders(target)).toEqual([["總分", "ascending"]]);
+
+    await searchStudents(target, "s002");
+    expect(order(target)).toEqual(["Bob"]);
+
+    await searchStudents(target, "ALICE");
+    expect(order(target)).toEqual(["Alice"]);
+
+    await searchStudents(target, "nobody");
+    const cells = target.querySelectorAll("tbody td");
+    expect(cells).toHaveLength(1);
+    expect(cells[0]?.getAttribute("colspan")).toBe("3");
+    expect(cells[0]?.textContent?.trim()).toBe(m.common_noMatches());
+    expect(target.querySelector('th button[aria-label="搜尋學生"]')).not.toBeNull();
 
     await unmount(component);
     target.remove();

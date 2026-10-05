@@ -32,6 +32,9 @@ vi.mock("@nojv/db", () => ({
   assessmentRepo: {
     findByCourseAndId: vi.fn(),
   },
+  contestRepo: {
+    findById: vi.fn().mockResolvedValue({ createdByUserId: "user_alice" }),
+  },
   problemRepo: {
     findById: vi.fn(),
   },
@@ -256,6 +259,35 @@ describe("numbered submission history snapshots", () => {
       newCount: 2,
       snapshot: first.snapshot,
     });
+  });
+
+  it("forwards the requested sort to the history page and keeps the snapshot valid", async () => {
+    const first = await submissionDomain.listUserSubmissions({ actor, limit: 50 });
+    await submissionDomain.listUserSubmissions({
+      actor,
+      limit: 50,
+      page: 2,
+      snapshot: first.snapshot,
+      sort: { key: "score", direction: "asc" },
+    });
+    expect(listHistoryPage).toHaveBeenLastCalledWith(
+      expect.objectContaining({ sort: { key: "score", direction: "asc" }, page: 2 }),
+    );
+  });
+
+  it("forwards the requested sort for context submissions", async () => {
+    await submissionDomain.listContextSubmissionsPaged({
+      actor,
+      limit: 50,
+      context: { type: "contest", id: "contest_1" },
+      sort: { key: "createdAt", direction: "asc" },
+    });
+    expect(listHistoryPage).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        context: { type: "contest", id: "contest_1" },
+        sort: { key: "createdAt", direction: "asc" },
+      }),
+    );
   });
 
   it("rejects snapshots after actor or filters change", async () => {

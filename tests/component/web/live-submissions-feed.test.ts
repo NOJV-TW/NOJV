@@ -9,8 +9,12 @@ vi.mock("$lib/components/primitives/ui/select/select-content.svelte", async () =
 }));
 
 vi.mock("@lucide/svelte", async () => ({
+  ArrowDown: (await import("../../fixtures/web/arrow-down-icon.svelte")).default,
+  ArrowUp: (await import("../../fixtures/web/arrow-up-icon.svelte")).default,
+  ArrowUpDown: (await import("../../fixtures/web/arrow-up-down-icon.svelte")).default,
   ListFilter: (await import("../../fixtures/web/empty-component.svelte")).default,
   Loader2: (await import("../../fixtures/web/empty-component.svelte")).default,
+  X: (await import("../../fixtures/web/empty-component.svelte")).default,
 }));
 
 const mocks = vi.hoisted(() => ({
@@ -215,6 +219,99 @@ describe("LiveSubmissionsFeed", () => {
     const cleared = new URL(mocks.read.mock.lastCall?.[0], "http://localhost").searchParams;
     expect(cleared.get("userSearch")).toBe("student01");
     expect(cleared.has("ipSearch")).toBe(false);
+
+    await unmount(component);
+    target.remove();
+  });
+
+  it("sorts server history by time or score from the column headers", async () => {
+    const target = document.createElement("div");
+    document.body.append(target);
+    const component = mount(LiveSubmissionsFeed, {
+      target,
+      props: { rows, refreshUrl: "/api/submissions?context=assignment&id=a1" },
+    });
+    const lastQuery = () =>
+      new URL(mocks.read.mock.lastCall?.[0], "http://localhost").searchParams;
+    const header = (label: string) =>
+      [...target.querySelectorAll<HTMLButtonElement>("th button")].find(
+        (button) => button.textContent?.trim() === label,
+      )!;
+    const sorted = () =>
+      [...target.querySelectorAll("th[aria-sort]")].map((th) => [
+        th.textContent?.trim(),
+        th.getAttribute("aria-sort"),
+      ]);
+    await vi.waitFor(() => expect(mocks.read).toHaveBeenCalled());
+    expect(lastQuery().has("sort")).toBe(false);
+    expect(lastQuery().has("order")).toBe(false);
+    expect(sorted()).toEqual([[m.admin_submissions_colTime(), "descending"]]);
+
+    header(m.admin_submissions_colScore()).click();
+    await vi.waitFor(() => expect(lastQuery().get("sort")).toBe("score"));
+    expect(Object.fromEntries(lastQuery())).toMatchObject({
+      context: "assignment",
+      id: "a1",
+      page: "1",
+    });
+    expect(lastQuery().has("order")).toBe(false);
+    expect(sorted()).toEqual([[m.admin_submissions_colScore(), "descending"]]);
+
+    header(m.admin_submissions_colScore()).click();
+    await vi.waitFor(() => expect(lastQuery().get("order")).toBe("asc"));
+    expect(lastQuery().get("sort")).toBe("score");
+    expect(sorted()).toEqual([[m.admin_submissions_colScore(), "ascending"]]);
+
+    header(m.admin_submissions_colTime()).click();
+    await vi.waitFor(() => expect(lastQuery().has("sort")).toBe(false));
+    expect(lastQuery().has("order")).toBe(false);
+    expect(sorted()).toEqual([[m.admin_submissions_colTime(), "descending"]]);
+
+    header(m.admin_submissions_colTime()).click();
+    await vi.waitFor(() => expect(lastQuery().get("order")).toBe("asc"));
+    expect(lastQuery().has("sort")).toBe(false);
+    expect(sorted()).toEqual([[m.admin_submissions_colTime(), "ascending"]]);
+
+    await unmount(component);
+    target.remove();
+  });
+
+  it("returns to the first page without the old snapshot when the sort changes", async () => {
+    mocks.read.mockImplementation(async (url: string) => {
+      const query = new URL(url, "http://localhost").searchParams;
+      return {
+        ...page(rows),
+        page: Number(query.get("page")),
+        totalCount: 120,
+        totalPages: 3,
+        snapshot: "paged-snapshot",
+      };
+    });
+    const target = document.createElement("div");
+    document.body.append(target);
+    const component = mount(LiveSubmissionsFeed, {
+      target,
+      props: { rows, refreshUrl: "/api/submissions?context=assignment&id=a1" },
+    });
+    const lastQuery = () =>
+      new URL(mocks.read.mock.lastCall?.[0], "http://localhost").searchParams;
+    const next = await vi.waitFor(() => {
+      const button = [...target.querySelectorAll<HTMLButtonElement>("nav button")].find(
+        (candidate) => candidate.textContent?.trim() === m.submissions_next(),
+      );
+      expect(button).toBeDefined();
+      return button!;
+    });
+    next.click();
+    await vi.waitFor(() => expect(lastQuery().get("page")).toBe("2"));
+    expect(lastQuery().get("snapshot")).toBe("paged-snapshot");
+
+    [...target.querySelectorAll<HTMLButtonElement>("th button")]
+      .find((button) => button.textContent?.trim() === m.admin_submissions_colScore())!
+      .click();
+    await vi.waitFor(() => expect(lastQuery().get("sort")).toBe("score"));
+    expect(lastQuery().get("page")).toBe("1");
+    expect(lastQuery().has("snapshot")).toBe(false);
 
     await unmount(component);
     target.remove();

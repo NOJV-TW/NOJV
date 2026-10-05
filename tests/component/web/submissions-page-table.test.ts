@@ -19,6 +19,9 @@ vi.mock("$lib/components/primitives/ui/select/select-content.svelte", async () =
 vi.mock("@lucide/svelte", async () => {
   const Empty = (await import("../../fixtures/web/empty-component.svelte")).default;
   return {
+    ArrowDown: (await import("../../fixtures/web/arrow-down-icon.svelte")).default,
+    ArrowUp: (await import("../../fixtures/web/arrow-up-icon.svelte")).default,
+    ArrowUpDown: (await import("../../fixtures/web/arrow-up-down-icon.svelte")).default,
     Code2: Empty,
     History: Empty,
     ListFilter: Empty,
@@ -27,6 +30,7 @@ vi.mock("@lucide/svelte", async () => {
     ChevronLast: Empty,
     ChevronLeft: Empty,
     ChevronRight: Empty,
+    X: Empty,
   };
 });
 
@@ -170,6 +174,88 @@ describe("submissions page", () => {
       target.remove();
     },
   );
+
+  it("sorts server history by time or score from the column headers", async () => {
+    const row = {
+      id: "sub_1",
+      user: null,
+      createdAt: "2026-08-20T08:00:00.000Z",
+      updatedAt: "2026-08-20T08:00:00.000Z",
+      judgeGeneration: 1,
+      language: "python",
+      problemId: "p1",
+      problemTitle: "A + B",
+      runtimeMs: 12,
+      memoryKb: 1024,
+      score: 100,
+      totalScore: 100,
+      status: "accepted",
+      context: "practice",
+    };
+    const read = vi.fn(
+      async () =>
+        new Response(
+          JSON.stringify({
+            items: [row],
+            page: 1,
+            pageSize: 50,
+            totalCount: 1,
+            totalPages: 1,
+            snapshot: "s",
+            newCount: 0,
+          }),
+        ),
+    );
+    vi.stubGlobal("fetch", read);
+    const { default: SubmissionsPage } =
+      await import("../../../apps/web/src/routes/(app)/submissions/+page.svelte");
+    const target = document.body.appendChild(document.createElement("div"));
+    const component = mount(SubmissionsPage, {
+      target,
+      props: { data: { adminAccessActive: false, nextCursor: null, submissions: [row] } },
+    });
+    const lastQuery = () =>
+      new URL(read.mock.calls.at(-1)![0], "http://localhost").searchParams;
+    const header = (label: string) =>
+      [...target.querySelectorAll<HTMLButtonElement>("th button")].find(
+        (button) => button.textContent?.trim() === label,
+      )!;
+    const sorted = () =>
+      [...target.querySelectorAll("th[aria-sort]")].map((th) => [
+        th.textContent?.trim(),
+        th.getAttribute("aria-sort"),
+      ]);
+    try {
+      await vi.waitFor(() => expect(read).toHaveBeenCalled());
+      expect(lastQuery().has("sort")).toBe(false);
+      expect(lastQuery().has("order")).toBe(false);
+      expect(sorted()).toEqual([[m.admin_submissions_colTime(), "descending"]]);
+
+      header(m.admin_submissions_colScore()).click();
+      await vi.waitFor(() => expect(lastQuery().get("sort")).toBe("score"));
+      expect(lastQuery().has("order")).toBe(false);
+      expect(lastQuery().get("page")).toBe("1");
+      expect(sorted()).toEqual([[m.admin_submissions_colScore(), "descending"]]);
+
+      header(m.admin_submissions_colScore()).click();
+      await vi.waitFor(() => expect(lastQuery().get("order")).toBe("asc"));
+      expect(lastQuery().get("sort")).toBe("score");
+      expect(sorted()).toEqual([[m.admin_submissions_colScore(), "ascending"]]);
+
+      header(m.admin_submissions_colTime()).click();
+      await vi.waitFor(() => expect(lastQuery().has("sort")).toBe(false));
+      expect(lastQuery().has("order")).toBe(false);
+      expect(sorted()).toEqual([[m.admin_submissions_colTime(), "descending"]]);
+
+      header(m.admin_submissions_colTime()).click();
+      await vi.waitFor(() => expect(lastQuery().get("order")).toBe("asc"));
+      expect(lastQuery().has("sort")).toBe(false);
+      expect(sorted()).toEqual([[m.admin_submissions_colTime(), "ascending"]]);
+    } finally {
+      await unmount(component);
+      target.remove();
+    }
+  });
 
   it("applies the user popover to server history and keeps it available to clear empty results", async () => {
     const row = {

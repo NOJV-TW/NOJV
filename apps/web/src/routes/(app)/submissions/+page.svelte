@@ -8,9 +8,11 @@
   import PageHeader from "$lib/components/primitives/layout/PageHeader.svelte";
   import EmptyState from "$lib/components/primitives/ui/EmptyState.svelte";
   import TableSelectColumnFilter from "$lib/components/primitives/ui/TableSelectColumnFilter.svelte";
+  import TableSortButton from "$lib/components/primitives/ui/TableSortButton.svelte";
   import TableTextColumnFilter from "$lib/components/primitives/ui/TableTextColumnFilter.svelte";
   import { Button } from "$lib/components/primitives/ui/button";
   import { formatDateTime } from "$lib/utils/datetime";
+  import { ariaSort, sortDirection, toggleSort, type TableSort } from "$lib/utils/table-sort";
   import { formatVerdictLabel } from "$lib/utils/verdict-style";
   import VerdictBadge from "$lib/components/primitives/ui/VerdictBadge.svelte";
 
@@ -23,6 +25,7 @@
   let problemFilter = $state("");
   let contextFilter = $state("");
   let userFilter = $state("");
+  let sort = $state<TableSort<"createdAt" | "score">>({ key: "createdAt", direction: "desc" });
   const history = createSubmissionHistory<SubmissionRow>(
     () => {
       const query = new URLSearchParams();
@@ -31,6 +34,8 @@
       if (problemFilter) query.set("filterProblemId", problemFilter);
       if (contextFilter) query.set("contextType", contextFilter);
       if (data.adminAccessActive && userFilter) query.set("userSearch", userFilter);
+      if (sort.key !== "createdAt") query.set("sort", sort.key);
+      if (sort.direction !== "desc") query.set("order", sort.direction);
       return query.toString();
     },
     () => data.submissions,
@@ -128,8 +133,15 @@
         <table class="w-full text-body-sm">
           <thead class="font-mono text-micro uppercase tracking-wider text-muted-foreground">
             <tr>
-              <th class="px-4 py-3 text-left align-middle font-medium">
-                {m.admin_submissions_colTime()}
+              <th
+                class="px-4 py-3 text-left align-middle font-medium"
+                aria-sort={ariaSort(sortDirection(sort, "createdAt"))}
+              >
+                <TableSortButton
+                  label={m.admin_submissions_colTime()}
+                  direction={sortDirection(sort, "createdAt")}
+                  onclick={() => (sort = toggleSort(sort, "createdAt"))}
+                />
               </th>
               {#if data.adminAccessActive}
                 <th class="px-4 py-3 text-left align-middle font-medium">
@@ -187,9 +199,17 @@
                   onChange={() => undefined}
                 />
               </th>
-              <th class="px-3 py-3 text-right align-middle font-medium"
-                >{m.admin_submissions_colScore()}</th
+              <th
+                class="px-3 py-3 text-right align-middle font-medium"
+                aria-sort={ariaSort(sortDirection(sort, "score"))}
               >
+                <TableSortButton
+                  label={m.admin_submissions_colScore()}
+                  direction={sortDirection(sort, "score")}
+                  onclick={() => (sort = toggleSort(sort, "score"))}
+                  class="ml-0 -mr-1"
+                />
+              </th>
             </tr>
           </thead>
           <tbody>

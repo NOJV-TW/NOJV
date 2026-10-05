@@ -119,6 +119,39 @@ describe("submission history database scopes", () => {
     expect(mock.count.mock.calls[0]?.[0].where).toEqual(query.where);
   });
 
+  it.each([
+    [
+      { key: "score", direction: "asc" },
+      [{ score: "asc" }, { createdAt: "desc" }, { id: "desc" }],
+    ],
+    [
+      { key: "score", direction: "desc" },
+      [{ score: "desc" }, { createdAt: "desc" }, { id: "desc" }],
+    ],
+    [{ key: "createdAt", direction: "asc" }, [{ createdAt: "asc" }, { id: "asc" }]],
+  ] as const)("orders rows by %j inside the same snapshot bound", async (sort, orderBy) => {
+    await submissionRepo.listHistoryPage({
+      userId: "owner",
+      filters: {},
+      sort,
+      page: 2,
+      limit: 50,
+    });
+    const query = mock.many.mock.calls[0]?.[0];
+    expect(query).toMatchObject({ skip: 50, take: 50, orderBy });
+    expect(mock.first.mock.calls[0]?.[0].orderBy).toEqual([
+      { createdAt: "desc" },
+      { id: "desc" },
+    ]);
+    expect(query.where.AND[1]).toEqual({
+      OR: [
+        { createdAt: { lt: boundary.createdAt } },
+        { createdAt: boundary.createdAt, id: { lte: boundary.id } },
+      ],
+    });
+    expect(mock.count.mock.calls[0]?.[0].where).toEqual(query.where);
+  });
+
   it("excludes queued rejudges from their retained previous verdict filter", async () => {
     await submissionRepo.listHistoryPage({
       userId: "owner",

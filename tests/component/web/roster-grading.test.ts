@@ -200,12 +200,24 @@ describe("roster grading controls", () => {
         },
       },
     });
+    await tick();
     expect(target.querySelectorAll("tbody tr")).toHaveLength(2);
     expect(target.querySelectorAll("tbody a")).toHaveLength(0);
     expect(target.textContent).toContain("0 attempts");
     (target.querySelectorAll("tbody button")[1] as HTMLButtonElement).click();
     expect(oncellclick).toHaveBeenCalledWith("membership-2", "problem-1");
-    fill('input[type="search"]', "pending_two");
+    (
+      target.querySelector('th button[aria-label="Search students"]') as HTMLButtonElement
+    ).click();
+    const search = await vi.waitFor(() => {
+      const input = document.querySelector<HTMLInputElement>("#matrix-student-filter");
+      expect(input).not.toBeNull();
+      return input!;
+    });
+    search.value = "pending_two";
+    search.dispatchEvent(new Event("input", { bubbles: true }));
+    await tick();
+    search.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
     await vi.waitFor(() => expect(target.querySelectorAll("tbody tr")).toHaveLength(1));
     expect(target.querySelector("tbody")?.textContent).toContain("Pending Two");
   });

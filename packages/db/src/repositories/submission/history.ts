@@ -7,6 +7,7 @@ import {
   type SubmissionClient,
   type SubmissionHistoryBoundary,
   type SubmissionHistoryFilters,
+  type SubmissionHistorySort,
   userFacingSubmissionWhere,
 } from "./shared";
 
@@ -80,6 +81,7 @@ export const submissionHistory = {
     userId?: string;
     context?: SubmissionContext;
     filters: SubmissionHistoryFilters;
+    sort?: SubmissionHistorySort;
     queuedRejudgeIds?: string[];
     page: number;
     limit: number;
@@ -136,6 +138,13 @@ export const submissionHistory = {
         },
       ],
     };
+    const orderBy: Prisma.SubmissionOrderByWithRelationInput[] =
+      input.sort?.key === "score"
+        ? [{ score: input.sort.direction }, { createdAt: "desc" }, { id: "desc" }]
+        : [
+            { createdAt: input.sort?.direction ?? "desc" },
+            { id: input.sort?.direction ?? "desc" },
+          ];
     return prisma.$transaction(
       async (tx) => {
         if (input.snapshot?.id) {
@@ -167,7 +176,7 @@ export const submissionHistory = {
         const [rows, totalCount, newCount] = await Promise.all([
           tx.submission.findMany({
             where: bounded,
-            orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+            orderBy,
             skip: (input.page - 1) * input.limit,
             take: input.limit,
             select: {

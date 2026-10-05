@@ -15,7 +15,11 @@ export async function recordAdminAudit(input: RecordAdminAuditInput): Promise<vo
   await adminAuditLogRepo.create(input);
 }
 
-export async function listAdminAuditPaged(opts: { limit: number; cursor?: string }) {
+export async function listAdminAuditPaged(opts: {
+  limit: number;
+  cursor?: string;
+  order?: "asc" | "desc";
+}) {
   const rows = await adminAuditLogRepo.listPaged(opts);
   const hasMore = rows.length > opts.limit;
   const items = hasMore ? rows.slice(0, opts.limit) : rows;

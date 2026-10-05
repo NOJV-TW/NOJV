@@ -59,6 +59,7 @@
 <script lang="ts">
   import { Button } from "$lib/components/primitives/ui/button";
   import { cn } from "$lib/utils/css.js";
+  import { toggleSort, type TableSort } from "$lib/utils/table-sort";
   import MatrixTable from "./MatrixTable.svelte";
   import MatrixLegend from "./MatrixLegend.svelte";
 
@@ -84,10 +85,7 @@
     class: className,
   }: Props = $props();
 
-  type SortDirection = "asc" | "desc";
-
-  let sortKey = $state("total");
-  let sortDirection = $state<SortDirection>("desc");
+  let sort = $state<TableSort>({ key: "total", direction: "desc" });
   let search = $state("");
 
   const filteredRows = $derived.by(() => {
@@ -97,16 +95,16 @@
           (r) => r.handle.toLowerCase().includes(q) || r.displayName.toLowerCase().includes(q),
         )
       : [...matrix.rows];
-    const multiplier = sortDirection === "desc" ? -1 : 1;
+    const multiplier = sort.direction === "desc" ? -1 : 1;
     base.sort((a, b) => {
       const aScore =
-        sortKey === "total"
+        sort.key === "total"
           ? a.total
-          : (a.cells.find((cell) => cell.problemId === sortKey)?.score ?? -Infinity);
+          : (a.cells.find((cell) => cell.problemId === sort.key)?.score ?? -Infinity);
       const bScore =
-        sortKey === "total"
+        sort.key === "total"
           ? b.total
-          : (b.cells.find((cell) => cell.problemId === sortKey)?.score ?? -Infinity);
+          : (b.cells.find((cell) => cell.problemId === sort.key)?.score ?? -Infinity);
       return (aScore - bScore) * multiplier || a.handle.localeCompare(b.handle);
     });
     return base;
@@ -140,14 +138,6 @@
     a.remove();
     URL.revokeObjectURL(url);
   }
-
-  function toggleSort(key: string) {
-    if (sortKey === key) sortDirection = sortDirection === "desc" ? "asc" : "desc";
-    else {
-      sortKey = key;
-      sortDirection = "desc";
-    }
-  }
 </script>
 
 <section data-slot={dataSlot} class={cn("space-y-4", className)}>
@@ -179,7 +169,7 @@
     </Button>
   </div>
 
-  {#if filteredRows.length === 0}
+  {#if matrix.rows.length === 0}
     <div
       class="rounded-md border border-dashed border-border-strong bg-[color:var(--color-panel)]/60 px-8 py-12 text-center text-body-sm text-muted-foreground"
     >
@@ -192,9 +182,8 @@
       totalPoints={matrix.totalPoints}
       {labels}
       bind:search
-      {sortKey}
-      {sortDirection}
-      onsort={toggleSort}
+      {sort}
+      onsort={(key) => (sort = toggleSort(sort, key))}
       {oncellclick}
     />
 

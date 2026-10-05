@@ -58,4 +58,46 @@ describe("GET /api/submissions?context=contest", () => {
     const denied = await read(student);
     expect(denied.status).toBe(403);
   });
+
+  it("orders the contest's history by score on request and rejects unknown sort keys", async () => {
+    const organizer = await createTestUser();
+    const student = await createTestUser();
+    const contest = await createTestContest({ createdByUserId: organizer.id });
+    const problem = await createTestProblem({ authorId: organizer.id });
+    const seeded = [];
+    for (const [minute, score] of [
+      [1, 50],
+      [2, 10],
+      [3, 90],
+    ] as const) {
+      seeded.push(
+        await createTestSubmission({
+          userId: student.id,
+          problemId: problem.id,
+          contestId: contest.id,
+          score,
+          createdAt: new Date(Date.UTC(2026, 9, 1, 0, minute)),
+        }),
+      );
+    }
+    const read = (params: Record<string, string>) =>
+      callRoute({
+        path: `/api/submissions?${new URLSearchParams({ context: "contest", id: contest.id, ...params })}`,
+        module: submissionHistoryRoute,
+        user: organizer,
+      });
+
+    const ascending = await read({ sort: "score", order: "asc" });
+    expect(ascending.status).toBe(200);
+    const body = (await ascending.json()) as { items: { id: string; score: number }[] };
+    expect(body.items.map((item) => item.score)).toEqual([10, 50, 90]);
+    expect(body.items.map((item) => item.id)).toEqual([
+      seeded[1]!.id,
+      seeded[0]!.id,
+      seeded[2]!.id,
+    ]);
+
+    const invalid = await read({ sort: "id" });
+    expect(invalid.status).toBe(400);
+  });
 });

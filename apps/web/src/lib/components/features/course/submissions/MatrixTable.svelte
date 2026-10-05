@@ -1,6 +1,9 @@
 <script lang="ts">
+  import TableSortButton from "$lib/components/primitives/ui/TableSortButton.svelte";
+  import TableTextColumnFilter from "$lib/components/primitives/ui/TableTextColumnFilter.svelte";
   import { m } from "$lib/paraglide/messages.js";
   import { cn } from "$lib/utils/css.js";
+  import { ariaSort, sortDirection, type TableSort } from "$lib/utils/table-sort";
   import type {
     MatrixCell,
     MatrixProblemColumn,
@@ -14,8 +17,7 @@
     totalPoints: number;
     labels: MatrixViewLabels;
     search: string;
-    sortKey: string;
-    sortDirection: "asc" | "desc";
+    sort: TableSort;
     onsort: (key: string) => void;
     oncellclick?: ((rowId: string, problemId: string) => void) | undefined;
   }
@@ -26,8 +28,7 @@
     totalPoints,
     labels,
     search = $bindable(),
-    sortKey,
-    sortDirection,
+    sort,
     onsort,
     oncellclick,
   }: Props = $props();
@@ -63,64 +64,42 @@
           class="sticky left-0 z-[3] border-b border-r border-border-subtle bg-muted px-5 py-3 text-left text-caption font-semibold uppercase tracking-[0.06em] text-muted-foreground"
           style="min-width: 200px"
         >
-          <input
-            type="search"
+          <TableTextColumnFilter
+            label={labels.student()}
+            filterLabel={labels.searchPlaceholder()}
+            inputId="matrix-student-filter"
+            applyLabel={m.common_applyFilter()}
             bind:value={search}
-            aria-label={labels.searchPlaceholder()}
-            placeholder={labels.searchPlaceholder()}
-            class="h-8 w-full rounded border border-border bg-background px-2 font-normal normal-case tracking-normal text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
           />
         </th>
         {#each problems as problem (problem.problemId)}
           <th
             class="border-b border-r border-border-subtle bg-muted px-3 py-3 text-center text-caption font-semibold"
             style="min-width: 88px"
-            aria-sort={sortKey === problem.problemId
-              ? sortDirection === "desc"
-                ? "descending"
-                : "ascending"
-              : "none"}
+            aria-sort={ariaSort(sortDirection(sort, problem.problemId))}
           >
-            <button
-              type="button"
-              class="w-full cursor-pointer rounded-sm focus-visible:outline-2 focus-visible:outline-primary"
+            <TableSortButton
+              label={problem.letter}
+              direction={sortDirection(sort, problem.problemId)}
               onclick={() => onsort(problem.problemId)}
-            >
-              <span
-                class="block text-title font-medium leading-none tracking-[-0.02em] text-foreground"
-              >
-                {problem.letter}{sortKey === problem.problemId
-                  ? sortDirection === "desc"
-                    ? " ↓"
-                    : " ↑"
-                  : ""}
-              </span>
-              <span class="mt-1 block text-micro font-normal text-muted-foreground">
-                {labels.maxPoints({ points: problem.points })}
-              </span>
-            </button>
+              class="ml-0 h-auto text-title leading-none tracking-[-0.02em]"
+            />
+            <span class="mt-1 block text-micro font-normal text-muted-foreground">
+              {labels.maxPoints({ points: problem.points })}
+            </span>
           </th>
         {/each}
         <th
-          class="border-b border-r border-border-subtle bg-primary/8 px-3 py-3 text-center text-caption font-semibold text-primary"
+          class="border-b border-r border-border-subtle bg-primary/8 px-3 py-3 text-center text-caption font-semibold"
           style="min-width: 110px"
-          aria-sort={sortKey === "total"
-            ? sortDirection === "desc"
-              ? "descending"
-              : "ascending"
-            : "none"}
+          aria-sort={ariaSort(sortDirection(sort, "total"))}
         >
-          <button
-            type="button"
-            class="w-full cursor-pointer rounded-sm focus-visible:outline-2 focus-visible:outline-primary"
+          <TableSortButton
+            label={labels.total()}
+            direction={sortDirection(sort, "total")}
             onclick={() => onsort("total")}
-          >
-            {labels.total()}{sortKey === "total"
-              ? sortDirection === "desc"
-                ? " ↓"
-                : " ↑"
-              : ""}
-          </button>
+            class="ml-0"
+          />
         </th>
       </tr>
     </thead>
@@ -178,6 +157,15 @@
             <span class="text-caption font-normal text-muted-foreground">
               {totalPoints}
             </span>
+          </td>
+        </tr>
+      {:else}
+        <tr>
+          <td
+            colspan={problems.length + 2}
+            class="border-b border-border-subtle px-5 py-6 text-center text-body-sm text-muted-foreground"
+          >
+            {m.common_noMatches()}
           </td>
         </tr>
       {/each}
