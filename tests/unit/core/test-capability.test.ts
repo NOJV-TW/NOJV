@@ -3,10 +3,15 @@ import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
 
 import {
+  CPP_STANDARD_HEADER_INCLUDES,
+  PYTHON_INTERACTOR_WRAPPER,
+  PYTHON_VALIDATOR_WRAPPER,
   interactiveContestantSupported,
+  pythonJudgeWrapper,
   staticTestCapability,
   supportedLanguages,
   testJudgeProgramCacheKey,
+  testJudgeProgramObjectKey,
   WASM_OJ_SERVER_IDENTITY,
   type Language,
 } from "@nojv/core";
@@ -96,17 +101,34 @@ describe("interactiveContestantSupported", () => {
 describe("testJudgeProgramCacheKey", () => {
   const base = { role: "checker", language: "cpp", source: "int main() {}" } as const;
 
-  it("is the SHA-256 hex of the toolchain identity, role, language and source", async () => {
-    const expected = createHash("sha256")
-      .update(JSON.stringify([WASM_OJ_SERVER_IDENTITY, base.role, base.language, base.source]))
-      .digest("hex");
+  it.each([
+    ["checker", "cpp", CPP_STANDARD_HEADER_INCLUDES],
+    ["interactor", "cpp", CPP_STANDARD_HEADER_INCLUDES],
+    ["checker", "python", PYTHON_VALIDATOR_WRAPPER],
+    ["interactor", "python", PYTHON_INTERACTOR_WRAPPER],
+  ] as const)(
+    "hashes the toolchain identity, role, language, NOJV build input and source (%s, %s)",
+    async (role, language, platformSource) => {
+      const input = { role, language, source: base.source };
+      const expected = createHash("sha256")
+        .update(
+          JSON.stringify([
+            WASM_OJ_SERVER_IDENTITY,
+            role,
+            language,
+            platformSource,
+            base.source,
+          ]),
+        )
+        .digest("hex");
 
-    const key = await testJudgeProgramCacheKey(base);
+      const key = await testJudgeProgramCacheKey(input);
 
-    expect(key).toMatch(/^[0-9a-f]{64}$/);
-    expect(key).toBe(expected);
-    expect(await testJudgeProgramCacheKey({ ...base })).toBe(key);
-  });
+      expect(key).toMatch(/^[0-9a-f]{64}$/);
+      expect(key).toBe(expected);
+      expect(await testJudgeProgramCacheKey({ ...input })).toBe(key);
+    },
+  );
 
   it.each([
     { role: "interactor" },
@@ -116,5 +138,18 @@ describe("testJudgeProgramCacheKey", () => {
     expect(await testJudgeProgramCacheKey({ ...base, ...change })).not.toBe(
       await testJudgeProgramCacheKey(base),
     );
+  });
+});
+
+describe("pythonJudgeWrapper", () => {
+  it("gives checkers the validator wrapper and interactors the interactor wrapper", () => {
+    expect(pythonJudgeWrapper("checker")).toBe(PYTHON_VALIDATOR_WRAPPER);
+    expect(pythonJudgeWrapper("interactor")).toBe(PYTHON_INTERACTOR_WRAPPER);
+  });
+});
+
+describe("testJudgeProgramObjectKey", () => {
+  it("stores programs under the versioned test-judge prefix", () => {
+    expect(testJudgeProgramObjectKey("ab12")).toBe("test-judge-programs/v1/ab12.json");
   });
 });

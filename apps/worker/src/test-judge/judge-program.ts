@@ -1,9 +1,9 @@
 import {
-  PYTHON_INTERACTOR_WRAPPER,
-  PYTHON_VALIDATOR_WRAPPER,
   WASM_OJ_PCH_PATH,
   cppStandardHeader,
+  pythonJudgeWrapper,
   testJudgeProgramCacheKey,
+  testJudgeProgramObjectKey,
   truncateUtf8,
   type JudgeScriptLanguage,
 } from "@nojv/core";
@@ -49,8 +49,6 @@ export interface JudgeProgramStore {
   put(key: string, body: string): Promise<void>;
 }
 
-// ponytail: content-addressed test-judge programs are never collected; add a prefix sweep if the bucket grows
-const JUDGE_PROGRAM_PREFIX = "test-judge-programs/";
 const MAX_DIAGNOSTIC_BYTES = 4 * 1024;
 
 function encodeBytes(bytes: Uint8Array): EncodedBytes {
@@ -87,8 +85,11 @@ export function deserialiseBuildArtifact(serialised: SerialisedBuildArtifact): B
 
 function compileInput({ role, language, source }: JudgeProgramInput): CompileInput {
   if (language === "python") {
-    const wrapper = role === "checker" ? PYTHON_VALIDATOR_WRAPPER : PYTHON_INTERACTOR_WRAPPER;
-    return { language, entry: "main.py", files: { "main.py": `${wrapper}${source}` } };
+    return {
+      language,
+      entry: "main.py",
+      files: { "main.py": `${pythonJudgeWrapper(role)}${source}` },
+    };
   }
   return {
     language,
@@ -124,7 +125,7 @@ export async function getJudgeProgram(
   deps: { engine: Pick<TestJudgeEngine, "compile">; store: JudgeProgramStore },
   input: JudgeProgramInput,
 ): Promise<JudgeProgram> {
-  const objectKey = `${JUDGE_PROGRAM_PREFIX}${await testJudgeProgramCacheKey(input)}.json`;
+  const objectKey = testJudgeProgramObjectKey(await testJudgeProgramCacheKey(input));
   const cached = await deps.store.get(objectKey);
   if (cached !== null) return fromStored(JSON.parse(cached) as StoredJudgeProgram);
 

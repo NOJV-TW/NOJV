@@ -1,5 +1,7 @@
 import type { JudgeScriptLanguage } from "../schemas/judge-config";
 import type { JudgeType, Language } from "../types";
+import { CPP_STANDARD_HEADER_INCLUDES } from "./cpp-standard-header";
+import { pythonJudgeWrapper } from "./python-judge-wrappers";
 
 export const WASM_OJ_SERVER_IDENTITY = "wasm-oj-server@0.2.3+clang@0.2.0+python@0.2.0";
 
@@ -30,15 +32,25 @@ export function interactiveContestantSupported(language: Language): boolean {
   return language !== "javascript" && language !== "typescript";
 }
 
+// ponytail: content-addressed test-judge programs are never collected; add a prefix sweep if the bucket grows
+export const TEST_JUDGE_PROGRAM_PREFIX = "test-judge-programs/";
+
+export function testJudgeProgramObjectKey(cacheKey: string): string {
+  return `${TEST_JUDGE_PROGRAM_PREFIX}v1/${cacheKey}.json`;
+}
+
 export async function testJudgeProgramCacheKey(input: {
   role: "checker" | "interactor";
   language: JudgeScriptLanguage;
   source: string;
 }): Promise<string> {
+  const platformSource =
+    input.language === "python" ? pythonJudgeWrapper(input.role) : CPP_STANDARD_HEADER_INCLUDES;
   const payload = JSON.stringify([
     WASM_OJ_SERVER_IDENTITY,
     input.role,
     input.language,
+    platformSource,
     input.source,
   ]);
   const data = new TextEncoder().encode(payload);

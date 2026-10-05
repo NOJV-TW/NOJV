@@ -98,7 +98,7 @@ describe("test-judge program cache", () => {
     expect(second).toEqual({ ok: true, artifact: wasmArtifact });
     expect(engine.compile).toHaveBeenCalledTimes(1);
     expect([...objects.keys()]).toEqual([
-      `test-judge-programs/${await testJudgeProgramCacheKey(cppChecker)}.json`,
+      `test-judge-programs/v1/${await testJudgeProgramCacheKey(cppChecker)}.json`,
     ]);
   });
 

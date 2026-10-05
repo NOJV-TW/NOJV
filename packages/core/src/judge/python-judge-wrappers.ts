@@ -52,3 +52,7 @@ def wrong(team_msg=""):
 
 # --- your code below ---
 `;
+
+export function pythonJudgeWrapper(role: "checker" | "interactor"): string {
+  return role === "checker" ? PYTHON_VALIDATOR_WRAPPER : PYTHON_INTERACTOR_WRAPPER;
+}
