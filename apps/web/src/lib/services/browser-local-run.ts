@@ -15,6 +15,8 @@ import {
 import {
   WASM_OJ_LIBCXX_PCH_HEADER,
   createBrowserEngine,
+  prefetchBrowserToolchain,
+  type BrowserToolchainPrefetchProgress,
   type BuildResult,
   type Engine,
   type RunResult,
@@ -25,6 +27,7 @@ import { browserSource as javaSource } from "@wasm-oj/toolchain-java";
 import { browserSource as javascriptSource } from "@wasm-oj/toolchain-javascript";
 import { browserSource as pythonSource } from "@wasm-oj/toolchain-python";
 import { browserSource as rustSource } from "@wasm-oj/toolchain-rust";
+import { m } from "$lib/paraglide/messages.js";
 import { formatJudgeOutput } from "$lib/utils/judge-output";
 import type { SubmissionRequest } from "./submission-service";
 
@@ -68,7 +71,27 @@ const CPP_STANDARD_HEADER = `${WASM_OJ_LIBCXX_PCH_HEADER}
 `;
 
 const BROWSER_TOOLCHAIN_BASE_URL = "/wasm-oj/toolchains/";
+const BROWSER_TOOLCHAINS = [
+  clangSource(BROWSER_TOOLCHAIN_BASE_URL),
+  goSource(BROWSER_TOOLCHAIN_BASE_URL),
+  javaSource(BROWSER_TOOLCHAIN_BASE_URL),
+  javascriptSource(BROWSER_TOOLCHAIN_BASE_URL),
+  pythonSource(BROWSER_TOOLCHAIN_BASE_URL),
+  rustSource(BROWSER_TOOLCHAIN_BASE_URL),
+];
+const LIBCXX_PCH_HEADER_PATH = "wasm-oj.pch.hpp";
+const BITS_STDCPP_INCLUDE = /^\s*#\s*include\s*<bits\/stdc\+\+\.h>/m;
+const TOOLCHAIN_PRELOAD_RETRY_DELAYS_MS = [2_000, 5_000];
 let browserEnginePromise: Promise<Engine> | undefined;
+
+interface ToolchainPreload {
+  promise: Promise<void>;
+  progress: BrowserToolchainPrefetchProgress;
+  listeners: Set<(progress: BrowserToolchainPrefetchProgress) => void>;
+  settled: boolean;
+}
+
+const toolchainPreloads = new Map<Language, ToolchainPreload>();
 
 export function supportsBrowserLocalRun(language: Language): boolean {
   return isBrowserLocalLanguage(language);
@@ -91,14 +114,7 @@ export function shouldUseBrowserLocalRun(args: {
 async function getBrowserEngine(): Promise<Engine> {
   browserEnginePromise ??= createBrowserEngine({
     artifactCache: true,
-    toolchains: [
-      clangSource(BROWSER_TOOLCHAIN_BASE_URL),
-      goSource(BROWSER_TOOLCHAIN_BASE_URL),
-      javaSource(BROWSER_TOOLCHAIN_BASE_URL),
-      javascriptSource(BROWSER_TOOLCHAIN_BASE_URL),
-      pythonSource(BROWSER_TOOLCHAIN_BASE_URL),
-      rustSource(BROWSER_TOOLCHAIN_BASE_URL),
-    ],
+    toolchains: BROWSER_TOOLCHAINS,
   }).catch((error: unknown) => {
     browserEnginePromise = undefined;
     throw error;
@@ -108,6 +124,65 @@ async function getBrowserEngine(): Promise<Engine> {
 
 export async function prewarmBrowserLocalEngine(): Promise<void> {
   await getBrowserEngine();
+}
+
+export function browserToolchainPercent(progress: BrowserToolchainPrefetchProgress): number {
+  if (progress.totalBytes === 0) return 0;
+  return Math.min(100, Math.floor((progress.loadedBytes / progress.totalBytes) * 100));
+}
+
+export function preloadBrowserToolchain(
+  language: Language,
+  onProgress?: (progress: BrowserToolchainPrefetchProgress) => void,
+): Promise<void> {
+  const existing = toolchainPreloads.get(language);
+  if (existing) {
+    if (onProgress && !existing.settled) {
+      existing.listeners.add(onProgress);
+      onProgress(existing.progress);
+    }
+    return existing.promise;
+  }
+  const preload: ToolchainPreload = {
+    promise: Promise.resolve(),
+    progress: { loadedBytes: 0, totalBytes: 0 },
+    listeners: new Set(onProgress ? [onProgress] : []),
+    settled: false,
+  };
+  toolchainPreloads.set(language, preload);
+  preload.promise = prefetchWithRetries(language, (progress) => {
+    preload.progress = progress;
+    for (const listener of preload.listeners) listener(progress);
+  })
+    .catch((error: unknown) => {
+      toolchainPreloads.delete(language);
+      throw error;
+    })
+    .finally(() => {
+      preload.settled = true;
+      preload.listeners.clear();
+    });
+  return preload.promise;
+}
+
+async function prefetchWithRetries(
+  language: Language,
+  onProgress: (progress: BrowserToolchainPrefetchProgress) => void,
+): Promise<void> {
+  for (let attempt = 0; ; attempt += 1) {
+    try {
+      await prefetchBrowserToolchain(BROWSER_TOOLCHAINS, {
+        language,
+        libcxxPrecompiledHeader: language === "cpp",
+        onProgress,
+      });
+      return;
+    } catch (error) {
+      const delay = TOOLCHAIN_PRELOAD_RETRY_DELAYS_MS[attempt];
+      if (delay === undefined) throw error;
+      await new Promise((resolve) => setTimeout(resolve, delay));
+    }
+  }
 }
 
 export function browserLocalFiles(request: SubmissionRequest): {
@@ -120,7 +195,12 @@ export function browserLocalFiles(request: SubmissionRequest): {
       ? Object.fromEntries(request.sourceFiles.map((file) => [file.path, file.content]))
       : { [entry]: request.sourceCode };
   if (request.language === "cpp") {
+    const usesPlatformBitsStdcpp =
+      files["bits/stdc++.h"] === undefined &&
+      files["src/bits/stdc++.h"] === undefined &&
+      Object.values(files).some((content) => BITS_STDCPP_INCLUDE.test(content));
     files["src/bits/stdc++.h"] ??= files["bits/stdc++.h"] ?? CPP_STANDARD_HEADER;
+    if (usesPlatformBitsStdcpp) files[LIBCXX_PCH_HEADER_PATH] ??= WASM_OJ_LIBCXX_PCH_HEADER;
   }
   return { entry, files };
 }
@@ -220,12 +300,25 @@ function compileFeedback(build: BuildResult): string {
   ).slice(0, 10_000);
 }
 
+function browserLocalErrorHint(message: string): string {
+  if (/exceeded the \d+ ms browser boundary/.test(message))
+    return m.editor_browserBuildTimeout();
+  if (/Failed to fetch|NetworkError|Load failed|Unable to load/.test(message)) {
+    return m.editor_toolchainUnavailable();
+  }
+  if (message.includes("cross-origin-isolated")) return m.editor_browserIsolationRequired();
+  return "Browser local execution failed.";
+}
+
 export function browserLocalErrorResult(error: unknown): SubmissionResult {
   const message = error instanceof Error ? error.message : String(error);
   return {
     accepted: false,
     caseResults: [],
-    feedback: formatJudgeOutput(`Browser local execution failed.\n${message}`).slice(0, 10_000),
+    feedback: formatJudgeOutput(`${browserLocalErrorHint(message)}\n${message}`).slice(
+      0,
+      10_000,
+    ),
     runtimeMs: 0,
     score: 0,
     verdict: "system_error",

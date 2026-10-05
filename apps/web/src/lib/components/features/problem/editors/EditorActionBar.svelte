@@ -3,7 +3,7 @@
 
   interface Props {
     isRunning: boolean;
-    isBrowserEngineInitializing?: boolean;
+    toolchainPercent?: number | null | undefined;
     isSubmitting: boolean;
     hasSubmittableSource: boolean;
     availableLanguageCount: number;
@@ -18,7 +18,7 @@
 
   let {
     isRunning,
-    isBrowserEngineInitializing = false,
+    toolchainPercent = null,
     isSubmitting,
     hasSubmittableSource,
     availableLanguageCount,
@@ -72,16 +72,16 @@
   <div class="flex items-center gap-2">
     <button
       class="rounded-full border border-border px-3 py-1 text-caption font-medium text-foreground transition-[transform,box-shadow,background-color] duration-fast ease-out-soft hover:-translate-y-0.5 hover:bg-accent disabled:cursor-not-allowed disabled:opacity-60"
-      disabled={isRunning || isBrowserEngineInitializing || disabled}
-      aria-busy={isRunning || isBrowserEngineInitializing}
+      disabled={isRunning || disabled}
+      aria-busy={isRunning || toolchainPercent !== null}
       onclick={onRun}
       title={!hasSubmittableSource ? m.editor_emptySourceTooltip() : undefined}
       type="button"
     >
-      {#if isBrowserEngineInitializing}
-        {m.editor_initializing()}
-      {:else if isRunning}
+      {#if isRunning}
         {m.editor_running()}
+      {:else if toolchainPercent !== null}
+        {m.editor_toolchainDownloading({ percent: toolchainPercent })}
       {:else}
         {m.editor_run()}
       {/if}

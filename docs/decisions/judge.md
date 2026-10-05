@@ -168,7 +168,7 @@ With `WORKER_MIN_CONCURRENCY` set, the judge worker's activity slots come from a
 
 ### JDG-15 Browser Test runs locally in WASM-OJ; official verdicts stay on the server
 
-**Decided:** 2026-09 · **Source:** [2026-08-18-forge-judge-spike-design](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-08-18-forge-judge-spike-design.md), [2026-08-21-browser-local-run-npm-migration](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/active/2026-08-21-browser-local-run-npm-migration.md), [2026-09-08-test-submit-parity](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/active/2026-09-08-test-submit-parity.md), [2026-09-09-test-reliability](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/active/2026-09-09-test-reliability.md)
+**Decided:** 2026-09, revised 2026-10 · **Source:** [2026-08-18-forge-judge-spike-design](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-08-18-forge-judge-spike-design.md), [2026-08-21-browser-local-run-npm-migration](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/active/2026-08-21-browser-local-run-npm-migration.md), [2026-09-08-test-submit-parity](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/active/2026-09-08-test-submit-parity.md), [2026-09-09-test-reliability](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/active/2026-09-09-test-reliability.md), [#639](https://github.com/NOJV-TW/NOJV/pull/639)
 
 Standard-mode Test for sample and custom cases runs client-side in all eight languages (a firm requirement to keep cost off the server) using pinned `@wasm-oj/browser` and `@wasm-oj/toolchain-*`, same-origin assets verified by digest, and the shared comparator. It never creates a submission; Submit, checker, interactive and Advanced stay on the server. Exact stdin bytes are preserved on both paths.
 
@@ -176,6 +176,8 @@ Standard-mode Test for sample and custom cases runs client-side in all eight lan
 - Rule: generic runtime fixes land upstream and are consumed as pinned releases; keep document CSP at `wasm-unsafe-eval`.
 - Rule: browser results are previews on Forge logical time; do not claim resource or toolchain-version equivalence; fix sample data, not engine input.
 - Rule: source diagnostics are CE, toolchain/infrastructure faults SE; custom cases without expected output are execution-only.
+- Rule: the editor preloads the selected language's toolchain through `prefetchBrowserToolchain` (Worker URLs, so the HTTP cache serves the build) and Test waits for it; download failures are reported without building and never point students to Submit. A first build otherwise spends its 60 s boundary downloading on slow exam networks and fails the same way on every retry.
+- Rule: add the admitted libc++ PCH only when a C++ source includes `<bits/stdc++.h>` and ships no own copy; forcing standard headers into other sources would let Test accept code Submit rejects.
 - Code: `apps/web/src/lib/services/browser-local-run.ts`, `apps/web/package.json`, `apps/web/svelte.config.js`
 
 ### JDG-16 Advanced Mode is a platform-orchestrated run/grade split

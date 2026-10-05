@@ -13,7 +13,12 @@ import {
 } from "$lib/services/submission-service";
 import { submitProblem } from "$lib/services/problem-submission";
 import { toasts } from "$lib/stores/toast";
-import { runBrowserLocally, shouldUseBrowserLocalRun } from "$lib/services/browser-local-run";
+import {
+  browserToolchainPercent,
+  preloadBrowserToolchain,
+  runBrowserLocally,
+  shouldUseBrowserLocalRun,
+} from "$lib/services/browser-local-run";
 import type { ProblemDetail } from "$lib/types";
 import {
   buildSubmissionRequest,
@@ -72,6 +77,8 @@ function messageForSubmitError(code: string | null): string {
       return m.editor_clientTestPrivateJudge();
     case "client_test_language":
       return m.editor_clientTestLanguage();
+    case "browser_toolchain_unavailable":
+      return m.editor_toolchainUnavailable();
     case "invalid_source":
       return m.editor_invalidSource();
     case "invalid_run_cases":
@@ -160,6 +167,23 @@ export function createEditorRunController(args: EditorRunArgs): EditorRunControl
         null,
       );
     runSource = "local";
+    try {
+      await preloadBrowserToolchain(args.language(), (progress) => {
+        if (!destroyed) {
+          runStatus = m.editor_toolchainDownloading({
+            percent: browserToolchainPercent(progress),
+          });
+        }
+      });
+    } catch {
+      throw new SubmissionRequestError(
+        "Browser toolchain unavailable.",
+        "browser_toolchain_unavailable",
+        null,
+      );
+    }
+    if (signal.aborted) return null;
+    runStatus = m.editor_running();
     const result = await runBrowserLocally({
       request: projectBrowserSubmission(request, args.workspaceFiles()),
       cases: runCases,

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onDestroy, onMount, untrack } from "svelte";
+  import { onDestroy, untrack } from "svelte";
   import { m } from "$lib/paraglide/messages.js";
   import type { Language, SubmissionContext, SubmissionResult } from "@nojv/core";
   import type { ProblemDetail } from "$lib/types";
@@ -27,6 +27,8 @@
   import { createEditorRunController } from "./use-editor-run.svelte";
   import { createWorkspaceFilesController } from "./use-workspace-files.svelte";
   import {
+    browserToolchainPercent,
+    preloadBrowserToolchain,
     prewarmBrowserLocalEngine,
     shouldUseBrowserLocalRun,
   } from "$lib/services/browser-local-run";
@@ -75,31 +77,34 @@
   let fontSize = $state(readEditorFontSize());
   let drafts = $state({ ...initialProblem.starterByLanguage });
   let isFullscreen = $state(false);
-  let isBrowserEngineInitializing = $state(false);
+  let toolchainPercent = $state<number | null>(null);
 
   let isWorkspaceMode = $derived(isWorkspaceProblem(problem.type));
   let isSpecialEnv = $derived(isSpecialEnvProblem(problem.type));
 
-  onMount(() => {
+  $effect(() => {
+    const selected = language;
     if (
       !shouldUseBrowserLocalRun({
         sampleOnly: true,
         specialEnv: isSpecialEnv,
         judgeType: initialProblem.judgeType,
-        language,
+        language: selected,
       })
     ) {
+      toolchainPercent = null;
       return;
     }
 
-    isBrowserEngineInitializing = true;
     let active = true;
+    const finish = () => {
+      if (active) toolchainPercent = null;
+    };
     const timer = window.setTimeout(() => {
-      void prewarmBrowserLocalEngine()
-        .catch(() => undefined)
-        .finally(() => {
-          if (active) isBrowserEngineInitializing = false;
-        });
+      void prewarmBrowserLocalEngine().catch(() => undefined);
+      preloadBrowserToolchain(selected, (progress) => {
+        if (active) toolchainPercent = browserToolchainPercent(progress);
+      }).then(finish, finish);
     }, 0);
 
     return () => {
@@ -295,7 +300,7 @@
 
   <EditorActionBar
     isRunning={runController.isRunning}
-    {isBrowserEngineInitializing}
+    {toolchainPercent}
     isSubmitting={runController.isSubmitting}
     {hasSubmittableSource}
     {attemptsExhausted}

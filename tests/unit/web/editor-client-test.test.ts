@@ -5,6 +5,7 @@ import { m } from "$lib/paraglide/messages.js";
 const mocks = vi.hoisted(() => ({
   execute: vi.fn(),
   run: vi.fn(),
+  preload: vi.fn(),
   toast: vi.fn(),
 }));
 vi.mock("$lib/services/submission-service", async (importOriginal) => ({
@@ -14,11 +15,22 @@ vi.mock("$lib/services/submission-service", async (importOriginal) => ({
 vi.mock("$lib/services/browser-local-run", () => ({
   shouldUseBrowserLocalRun: () => true,
   runBrowserLocally: mocks.run,
+  preloadBrowserToolchain: mocks.preload,
+  browserToolchainPercent: ({
+    loadedBytes,
+    totalBytes,
+  }: {
+    loadedBytes: number;
+    totalBytes: number;
+  }) => Math.floor((loadedBytes / totalBytes) * 100),
 }));
 vi.mock("$lib/stores/toast", () => ({ toasts: { error: mocks.toast } }));
 import { createEditorRunController } from "$lib/components/features/problem/editors/use-editor-run.svelte";
 
-beforeEach(() => vi.clearAllMocks());
+beforeEach(() => {
+  vi.clearAllMocks();
+  mocks.preload.mockResolvedValue(undefined);
+});
 
 function controller(judgeType: JudgeType, specialEnv = false) {
   return createEditorRunController({
@@ -99,4 +111,40 @@ it("asks for a testcase before starting the browser when the problem has no samp
   expect(mocks.execute).not.toHaveBeenCalled();
   expect(mocks.run).not.toHaveBeenCalled();
   expect(run.runError).toBe(m.editor_invalidRunCases());
+});
+
+it("waits for the language toolchain download before running and shows its progress", async () => {
+  let finishDownload!: () => void;
+  mocks.preload.mockImplementation(
+    (
+      _language: string,
+      onProgress: (progress: { loadedBytes: number; totalBytes: number }) => void,
+    ) =>
+      new Promise<void>((resolve) => {
+        onProgress({ loadedBytes: 25, totalBytes: 100 });
+        finishDownload = resolve;
+      }),
+  );
+  mocks.run.mockResolvedValue(null);
+  const run = controller("standard");
+  const pending = run.run();
+  await vi.waitFor(() =>
+    expect(mocks.preload).toHaveBeenCalledWith("cpp", expect.any(Function)),
+  );
+  expect(run.runStatus).toBe(m.editor_toolchainDownloading({ percent: 25 }));
+  expect(mocks.run).not.toHaveBeenCalled();
+
+  finishDownload();
+  await pending;
+  expect(mocks.run).toHaveBeenCalledOnce();
+});
+
+it("reports an unavailable browser toolchain without running Test or pointing to Submit", async () => {
+  mocks.preload.mockRejectedValue(new Error("Failed to fetch"));
+  const run = controller("standard");
+  await run.run();
+  expect(mocks.run).not.toHaveBeenCalled();
+  expect(mocks.execute).not.toHaveBeenCalled();
+  expect(run.runError).toBe(m.editor_toolchainUnavailable());
+  expect(mocks.toast).toHaveBeenCalledWith(m.editor_toolchainUnavailable());
 });

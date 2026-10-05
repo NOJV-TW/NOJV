@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { WASM_OJ_LIBCXX_PCH_HEADER } from "../../../apps/web/node_modules/@wasm-oj/browser";
+import { m } from "$lib/paraglide/messages.js";
 
 import {
   browserLocalFiles,
@@ -295,5 +297,79 @@ describe("browser local run result mapping", () => {
         "    a, b = map(int, input().split())\n" +
         "ValueError: not enough values to unpack",
     );
+  });
+});
+
+describe("browser local C++ precompiled header", () => {
+  const files = (sourceCode: string, extra: { path: string; content: string }[] = []) =>
+    browserLocalFiles({
+      context: { type: "practice" },
+      language: "cpp",
+      problemId: "problem_1",
+      sourceCode,
+      ...(extra.length > 0
+        ? { sourceFiles: [{ path: "main.cpp", content: sourceCode }, ...extra] }
+        : {}),
+    }).files;
+
+  it.each([
+    "#include <bits/stdc++.h>\nint main() {}",
+    "  # include<bits/stdc++.h>\nint main() {}",
+  ])(
+    "adds the admitted libc++ PCH header when the source includes the platform header: %j",
+    (sourceCode) => {
+      expect(files(sourceCode)["wasm-oj.pch.hpp"]).toBe(WASM_OJ_LIBCXX_PCH_HEADER);
+    },
+  );
+
+  it.each([
+    "#include <vector>\nint main() {}",
+    "// #include <bits/stdc++.h>\nint main() {}",
+    'const char *text = "#include <bits/stdc++.h>";',
+  ])(
+    "never forces standard headers into a source that does not include them: %j",
+    (sourceCode) => {
+      expect(files(sourceCode)["wasm-oj.pch.hpp"]).toBeUndefined();
+    },
+  );
+
+  it("keeps a user-provided bits/stdc++.h without the platform PCH", () => {
+    const result = files("#include <bits/stdc++.h>\nint main() {}", [
+      { path: "bits/stdc++.h", content: "#define CUSTOM_HEADER 1" },
+    ]);
+    expect(result["wasm-oj.pch.hpp"]).toBeUndefined();
+  });
+
+  it("never adds the C++ PCH to C sources", () => {
+    const result = browserLocalFiles({
+      context: { type: "practice" },
+      language: "c",
+      problemId: "problem_1",
+      sourceCode: "#include <stdio.h>\nint main(void) { return 0; }",
+    });
+    expect(result.files["wasm-oj.pch.hpp"]).toBeUndefined();
+  });
+});
+
+describe("browser local environment failures", () => {
+  it.each([
+    [
+      "Compiler request exceeded the 60000 ms browser boundary.",
+      () => m.editor_browserBuildTimeout(),
+    ],
+    ["Failed to fetch", () => m.editor_toolchainUnavailable()],
+    [
+      "Unable to load pinned toolchain asset '/toolchains/x.bin' (403).",
+      () => m.editor_toolchainUnavailable(),
+    ],
+    [
+      "Wasmer requires a cross-origin-isolated page. Serve this app with COOP and COEP headers.",
+      () => m.editor_browserIsolationRequired(),
+    ],
+  ])("explains %j as a system error and keeps the engine message", (message, hint) => {
+    expect(browserLocalErrorResult(new Error(message))).toMatchObject({
+      verdict: "system_error",
+      feedback: `${hint()}\n${message}`,
+    });
   });
 });

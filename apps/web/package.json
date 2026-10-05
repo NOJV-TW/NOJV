@@ -36,7 +36,7 @@
     "@opentelemetry/exporter-metrics-otlp-http": "^0.222.0",
     "@opentelemetry/resources": "^2.11.0",
     "@opentelemetry/sdk-node": "^0.222.0",
-    "@wasm-oj/browser": "0.2.2",
+    "@wasm-oj/browser": "0.2.3",
     "@wasm-oj/toolchain-clang": "0.2.0",
     "@wasm-oj/toolchain-go": "0.2.0",
     "@wasm-oj/toolchain-java": "0.2.0",

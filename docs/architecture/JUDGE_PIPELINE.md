@@ -485,6 +485,16 @@ Advanced.
   assets; until those exist the controller reports the missing capability.
 - Results are previews: WASI toolchains, logical time, linear memory and filesystem
   caps differ from native judging; passing samples implies nothing about hidden tests.
+- Opening the editor or switching language preloads that language's pinned toolchain
+  through WASM-OJ's `prefetchBrowserToolchain` (the Workers' digest-addressed URLs),
+  with progress on the Test button. Test waits for the preload, and WASM-OJ downloads
+  a build's toolchain before its 60 s C/C++ build boundary starts, so the download never
+  counts toward it; a failed preload is retried twice, then reported without building.
+- A C++ source that includes `<bits/stdc++.h>` (and ships no `bits/stdc++.h` of its
+  own) also gets WASM-OJ's admitted libc++ PCH header; other sources never get forced
+  standard headers.
+- Engine failures stay SE; build-boundary timeouts, toolchain download failures and
+  missing cross-origin isolation add a localized hint above the engine message.
 
 ## Advanced Mode pipeline
 
