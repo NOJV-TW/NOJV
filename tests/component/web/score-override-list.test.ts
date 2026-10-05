@@ -2,6 +2,7 @@ import { mount, tick, unmount } from "svelte";
 import { afterEach, expect, it, vi } from "vitest";
 import { m } from "$lib/paraglide/messages.js";
 import FeedbackList from "$lib/components/features/score-override/FeedbackList.svelte";
+import ScoreOverrideDrawer from "$lib/components/features/score-override/ScoreOverrideDrawer.svelte";
 import ScoreOverrideList from "$lib/components/features/score-override/ScoreOverrideList.svelte";
 
 vi.mock("@lucide/svelte", async () => {
@@ -21,6 +22,7 @@ vi.mock("@lucide/svelte", async () => {
 const cleanups: Array<() => Promise<void>> = [];
 afterEach(async () => {
   for (const cleanup of cleanups.splice(0)) await cleanup();
+  vi.unstubAllGlobals();
 });
 
 const students = [
@@ -178,18 +180,23 @@ it("keeps the empty state when there are no overrides", async () => {
   expect(target.querySelector("table")).toBeNull();
 });
 
-it("lists feedback newest first and filters it by student", async () => {
-  const feedback = (id: string, courseMembershipId: string, updatedAt: string) => ({
+it("lists feedback newest first and filters it by student and problem", async () => {
+  const feedback = (
+    id: string,
+    courseMembershipId: string,
+    problemId: string,
+    updatedAt: string,
+  ) => ({
     id,
     courseMembershipId,
-    problemId: "p1",
+    problemId,
     comment: `comment-${id}`,
     updatedAt,
   });
   const target = render(FeedbackList, [
-    feedback("f1", "m1", "2026-09-01T00:00:00.000Z"),
-    feedback("f2", "m2", "2026-09-03T00:00:00.000Z"),
-    feedback("f3", "m1", "2026-09-02T00:00:00.000Z"),
+    feedback("f1", "m1", "p1", "2026-09-01T00:00:00.000Z"),
+    feedback("f2", "m2", "p1", "2026-09-03T00:00:00.000Z"),
+    feedback("f3", "m1", "p2", "2026-09-02T00:00:00.000Z"),
   ]);
   await tick();
 
@@ -204,4 +211,71 @@ it("lists feedback newest first and filters it by student", async () => {
   await filterText(target, m.feedback_staff_fieldStudent(), "feedback-student-filter", "alice");
   expect(order(target)).toEqual(["comment-f1", "comment-f3"]);
   expect(sortedHeaders(target)).toEqual([[m.common_updatedAt(), "ascending"]]);
+
+  await filterSelect(target, m.feedback_staff_fieldProblem(), "p2");
+  expect(order(target)).toEqual(["comment-f3"]);
+});
+
+it("keeps override filters while the drawer reloads after a delete", async () => {
+  let overrideLoads = 0;
+  let release: () => void = () => undefined;
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (input: string, init?: RequestInit) => {
+      if (init?.method === "DELETE") return new Response(null, { status: 204 });
+      if (input.includes("/api/feedback")) return Response.json({ items: [] });
+      overrideLoads += 1;
+      const items = [
+        override("o1", "m1", "p1", 95, "2026-09-01T00:00:00.000Z"),
+        override("o2", "m2", "p1", 90, "2026-09-03T00:00:00.000Z"),
+      ];
+      if (overrideLoads === 1)
+        return Response.json({
+          items: [...items, override("o3", "m1", "p2", 20, "2026-09-02T00:00:00.000Z")],
+        });
+      await new Promise<void>((resolve) => (release = resolve));
+      return Response.json({ items });
+    }),
+  );
+  const target = document.createElement("div");
+  document.body.append(target);
+  const instance = mount(ScoreOverrideDrawer, {
+    target,
+    props: {
+      open: true,
+      onOpenChange: vi.fn(),
+      contextType: "assignment",
+      contextId: "assignment-1",
+      students,
+      problems,
+    },
+  });
+  cleanups.push(async () => {
+    await unmount(instance);
+    target.remove();
+  });
+  const body = document.body;
+  const clearStudent = `button[aria-label="${m.common_clearFilter({ label: m.override_staff_fieldStudent() })}"]`;
+
+  await vi.waitFor(() => expect(order(body)).toHaveLength(3));
+  await filterText(body, m.override_staff_fieldStudent(), "override-student-filter", "alice");
+  expect(order(body)).toEqual(["reason-o3", "reason-o1"]);
+
+  body
+    .querySelector("tbody td[title='reason-o3']")!
+    .closest("tr")!
+    .querySelector<HTMLButtonElement>(`button[aria-label="${m.override_staff_deleteBtn()}"]`)!
+    .click();
+  await tick();
+  [...body.querySelectorAll<HTMLButtonElement>('[role="dialog"] button')]
+    .find((button) => button.textContent?.trim() === m.override_staff_deleteBtn())!
+    .click();
+  await vi.waitFor(() => expect(overrideLoads).toBe(2));
+  await tick();
+  expect(body.querySelector(clearStudent)).not.toBeNull();
+  expect(order(body)).toEqual(["reason-o3", "reason-o1"]);
+
+  release();
+  await vi.waitFor(() => expect(order(body)).toEqual(["reason-o1"]));
+  expect(body.querySelector(clearStudent)).not.toBeNull();
 });

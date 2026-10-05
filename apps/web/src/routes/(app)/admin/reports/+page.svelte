@@ -152,7 +152,7 @@
                 ><td
                   colspan="6"
                   class="px-4 py-10 text-center text-body-sm text-muted-foreground"
-                  >{m.submissions_noMatches()}</td
+                  >{m.common_noMatches()}</td
                 ></tr
               >
             {/if}

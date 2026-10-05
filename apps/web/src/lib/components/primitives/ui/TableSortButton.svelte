@@ -16,7 +16,7 @@
 <button
   type="button"
   class={cn(
-    "-ml-1 inline-flex h-8 items-center gap-1.5 rounded-sm px-1 font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+    "-ml-1 inline-flex h-8 items-center gap-1.5 whitespace-nowrap rounded-sm px-1 font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
     direction ? "text-primary hover:bg-primary/10" : "hover:bg-muted hover:text-foreground",
     className,
   )}

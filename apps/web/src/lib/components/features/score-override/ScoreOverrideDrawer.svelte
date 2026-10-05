@@ -129,7 +129,7 @@
         <h3 class="text-title-sm font-medium">
           {m.override_staff_buttonLabel()}
         </h3>
-        {#if loading}
+        {#if loading && rows.length === 0}
           <div
             aria-busy="true"
             aria-live="polite"
@@ -188,7 +188,7 @@
         <h3 class="text-title-sm font-medium">
           {m.feedback_staff_sectionTitle()}
         </h3>
-        {#if feedbackLoading}
+        {#if feedbackLoading && feedbackRows.length === 0}
           <div
             aria-busy="true"
             aria-live="polite"
