@@ -60,6 +60,7 @@ Durable decisions for NOJV, grouped by area. Each entry records what was decided
 - PRB-19 One case-result schema and one verdict style source
 - PRB-20 Closed activities become practice without touching grades
 - PRB-21 Status and judge generation drive submission tracking
+- PRB-22 Every non-sample submission waits a per-problem cooldown with a platform minimum
 
 ## [Courses, contests, exams and scoring](assessments.md)
 

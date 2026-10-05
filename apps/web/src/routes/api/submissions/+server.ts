@@ -120,6 +120,7 @@ export const POST: RequestHandler = writeApiHandler(async (event) => {
     );
     return json(
       {
+        cooldownSec: submission.cooldownSec,
         pollUrl: `/api/submissions/${submission.id}`,
         status: submission.status,
         submissionId: submission.id,

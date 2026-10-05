@@ -35,8 +35,8 @@ import {
 } from "../shared/storage-object-lifecycle";
 import { requireCourseAssignment, requireProblem, requireUser } from "../shared/require";
 import { attemptWindowStart, DEFAULT_ATTEMPT_RESET_MINUTE } from "./attempt-window";
-import { ensureContestParticipation, checkSubmitCooldown } from "../contest/mutations";
-import { checkExamSubmitCooldown } from "../exam/mutations";
+import { ensureContestParticipation } from "../contest/mutations";
+import { enforceSubmitCooldown, getSubmitCooldownFloorSec } from "../shared/submit-cooldown";
 import { assertCanSubmitToVirtualContest } from "../virtual-contest/queries";
 import { assertProblemViewAccess, lockProblemForEdit } from "../problem/permissions";
 import { checkProctoringGateInTx } from "../proctoring/gate";
@@ -74,13 +74,12 @@ async function assertActiveExamSubmissionAllowed(
   ctx: {
     activeExamSession: ActiveExamSession;
     clientIp: string;
-    payload: SubmissionDraft;
     problem: SubmissionProblem;
     receivedAt: Date;
     user: SubmissionUser;
   },
 ): Promise<{ exam: SubmissionExam } | { rejection: ForbiddenError }> {
-  const { activeExamSession, clientIp, payload, problem, receivedAt, user } = ctx;
+  const { activeExamSession, clientIp, problem, receivedAt, user } = ctx;
 
   const exam = await examRepo.withTx(tx).findById(activeExamSession.examId);
   if (exam?.status !== "published") {
@@ -110,17 +109,6 @@ async function assertActiveExamSubmissionAllowed(
           : `Submission blocked: exam ${gate.reason}.`,
       ),
     };
-  }
-
-  if (!payload.sampleOnly && exam.submitCooldownSec > 0) {
-    await checkExamSubmitCooldown(
-      tx,
-      exam.id,
-      user.id,
-      problem.id,
-      exam.submitCooldownSec,
-      receivedAt,
-    );
   }
 
   return { exam };
@@ -269,6 +257,7 @@ export async function createQueuedSubmissionRecord(
   const sources = normalizeSubmissionSources(payload);
   const sourcePlan = planSubmissionSources(submissionId, sourceGeneration, sources);
   const judgeJob = buildSubmissionJudgeJob(payload, submissionId);
+  let cooldownSec = 0;
 
   const rejection = await runTransaction(async (tx) => {
     if (payload.context.type === "exam") {
@@ -334,7 +323,6 @@ export async function createQueuedSubmissionRecord(
       const admission = await assertActiveExamSubmissionAllowed(tx, {
         activeExamSession,
         clientIp,
-        payload,
         problem,
         receivedAt,
         user,
@@ -385,21 +373,6 @@ export async function createQueuedSubmissionRecord(
 
     await assertSubmissionFilesValid(payload, problem);
 
-    if (contestResult && !payload.sampleOnly && contestResult.contest.submitCooldownSec > 0) {
-      await checkSubmitCooldown(
-        tx,
-        contestResult.contest.id,
-        user.id,
-        problem.id,
-        contestResult.contest.submitCooldownSec,
-        receivedAt,
-      );
-    }
-
-    if (courseContext?.assignment && !payload.sampleOnly) {
-      await assertDailyAttemptLimit(tx, courseContext, user, problem.id, receivedAt);
-    }
-
     let submissionContext: SubmissionCreateContext;
     switch (payload.context.type) {
       case "assignment":
@@ -426,6 +399,26 @@ export async function createQueuedSubmissionRecord(
         break;
       default:
         submissionContext = { type: "practice" };
+    }
+
+    cooldownSec =
+      payload.sampleOnly === true || isReferenceSolution
+        ? 0
+        : Math.max(
+            exam?.submitCooldownSec ?? contestResult?.contest.submitCooldownSec ?? 0,
+            getSubmitCooldownFloorSec(),
+          );
+    await enforceSubmitCooldown(
+      tx,
+      submissionContext,
+      user.id,
+      problem.id,
+      cooldownSec,
+      receivedAt,
+    );
+
+    if (courseContext?.assignment && !payload.sampleOnly) {
+      await assertDailyAttemptLimit(tx, courseContext, user, problem.id, receivedAt);
     }
 
     await submissionRepo.withTx(tx).create({
@@ -457,7 +450,7 @@ export async function createQueuedSubmissionRecord(
     await putSubmissionSourcePlan(storage(), sourcePlan);
     const pinned = await prepareJudgeSnapshot(submissionId, judgeJob.draft, sources);
 
-    return await runTransaction(async (tx) => {
+    const published = await runTransaction(async (tx) => {
       if (payload.referenceSolution === true) {
         await lockProblemForEdit(tx, actor, payload.problemId);
       } else {
@@ -470,6 +463,7 @@ export async function createQueuedSubmissionRecord(
       await createJudgeExecution(tx, { submissionId, ...pinned });
       return submission;
     });
+    return { ...published, cooldownSec };
   } catch (uploadError) {
     try {
       await submissionRepo.completeIfInProgress(submissionId, {

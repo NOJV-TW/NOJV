@@ -290,6 +290,9 @@ web:
   nodeEnv: production
   advancedImageAllowedRegistries: ""
   dbPoolMax: "10"
+  # Seconds between two submissions to the same problem in the same context;
+  # also the minimum for exam and contest cooldown settings.
+  submitCooldownMinSec: "30"
   nodeSelector: {}
   resources:
     requests:

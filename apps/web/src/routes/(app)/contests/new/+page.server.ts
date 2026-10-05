@@ -7,7 +7,12 @@ import type { Actions, PageServerLoad } from "./$types";
 import { requireAuth } from "$lib/server/auth";
 import { classifyRequestError } from "$lib/server/shared/handle-action-error";
 import { withAction } from "$lib/server/shared/action-handlers";
-import { canCreateCourse, contestDomain, problemDomain } from "@nojv/application";
+import {
+  canCreateCourse,
+  contestDomain,
+  problemDomain,
+  submissionDomain,
+} from "@nojv/application";
 
 const { createContestRecord, contestFormSchema } = contestDomain;
 
@@ -17,7 +22,11 @@ export const load: PageServerLoad = async (event) => {
     redirect(303, "/contests");
   }
   const [form, candidateProblems] = await Promise.all([
-    superValidate(zod4(contestFormSchema), { errors: false }),
+    superValidate(
+      { submitCooldownSec: submissionDomain.getSubmitCooldownFloorSec() },
+      zod4(contestFormSchema),
+      { errors: false },
+    ),
     problemDomain.listProblemPickerGroups(actor.userId),
   ]);
   return { form, candidateProblems };

@@ -111,6 +111,12 @@ Exams follow the [activity allocation and official score contract](assignments.m
 
 - Whitelist, binding, violation modes and logging are specified in [Proctoring](proctoring.md) (ASM-20).
 
+### Submission cooldown
+
+- A non-sample submission must come at least `max(submitCooldownSec, SUBMIT_COOLDOWN_MIN_SEC)` seconds after the student's previous exam submission to the same problem; otherwise `403 submit_cooldown` with `retryAfterSec` (PRB-22). Other problems are not affected.
+- The create and settings forms start at and require at least `SUBMIT_COOLDOWN_MIN_SEC` and state the platform minimum; a stored value below it is shown raised.
+- The student rules list states the effective interval and asks students to leave time before the end.
+
 ### Drafts
 
 - With an active session on a running exam, `PUT /api/drafts` stores drafts under the `exam:<examId>` context key per problem and language (WEB-05).
