@@ -16,6 +16,9 @@ vi.mock("$lib/components/features/course/BulkHandleAddPanel.svelte", async () =>
 vi.mock("@lucide/svelte", async () => {
   const Empty = (await import("../../fixtures/web/empty-component.svelte")).default;
   return {
+    ArrowDown: Empty,
+    ArrowUp: Empty,
+    ArrowUpDown: Empty,
     Pencil: Empty,
     X: Empty,
     Trash2: Empty,

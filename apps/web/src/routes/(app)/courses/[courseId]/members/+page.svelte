@@ -10,11 +10,19 @@
   import { submitFormAction } from "$lib/utils/actions";
   import TableTextColumnFilter from "$lib/components/primitives/ui/TableTextColumnFilter.svelte";
   import TableSelectColumnFilter from "$lib/components/primitives/ui/TableSelectColumnFilter.svelte";
+  import TableSortButton from "$lib/components/primitives/ui/TableSortButton.svelte";
   import ConfirmDialog from "$lib/components/primitives/ui/ConfirmDialog.svelte";
   import BulkHandleAddPanel from "$lib/components/features/course/BulkHandleAddPanel.svelte";
   import PageContainer from "$lib/components/primitives/layout/PageContainer.svelte";
   import { formatDate } from "$lib/utils/datetime";
   import { avatarSrc } from "$lib/utils/avatar-src";
+  import {
+    ariaSort,
+    sortDirection,
+    sortRows,
+    toggleSort,
+    type TableSort,
+  } from "$lib/utils/table-sort";
   import type { PageData } from "./$types";
 
   let { data }: { data: PageData } = $props();
@@ -25,6 +33,7 @@
   let roleFilter = $state("");
   let search = $state("");
   let emailSearch = $state("");
+  let sort = $state<TableSort<"joined">>({ key: "joined", direction: "desc" });
   let editingMembershipId = $state<string | null>(null);
   let correctedUsername = $state("");
   let correcting = $state(false);
@@ -33,7 +42,7 @@
   const filtered = $derived.by(() => {
     const needle = search.trim().toLowerCase();
     const emailNeedle = emailSearch.trim().toLowerCase();
-    return members.filter((member) => {
+    const matches = members.filter((member) => {
       if (roleFilter && member.role !== roleFilter) return false;
       if (emailNeedle && !member.email?.toLowerCase().includes(emailNeedle)) return false;
       if (!needle) return true;
@@ -41,6 +50,7 @@
       const handle = member.username?.toLowerCase() ?? "";
       return name.includes(needle) || handle.includes(needle);
     });
+    return sortRows(matches, sort.direction, (member) => member.joinedAt);
   });
 
   function initialFor(name: string): string {
@@ -118,8 +128,16 @@
               />
             </th>
           {/if}
-          <th scope="col" class="px-4 py-3 text-left align-middle font-medium">
-            {m.members_joinedLabel()}
+          <th
+            scope="col"
+            class="px-4 py-3 text-left align-middle font-medium"
+            aria-sort={ariaSort(sortDirection(sort, "joined"))}
+          >
+            <TableSortButton
+              label={m.members_joinedLabel()}
+              direction={sortDirection(sort, "joined")}
+              onclick={() => (sort = toggleSort(sort, "joined"))}
+            />
           </th>
           <th scope="col" class="px-4 py-3 text-left align-middle font-medium">
             <TableSelectColumnFilter
