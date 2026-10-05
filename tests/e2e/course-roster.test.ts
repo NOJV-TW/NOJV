@@ -118,7 +118,15 @@ for (const assessment of [
       ).toBeEnabled();
       await page.getByRole("tab", { name: "Results & audit", exact: true }).click();
       const matrix = page.locator(`[data-slot="${assessment.slot}"]`);
-      await matrix.getByRole("searchbox").fill(handle);
+      await matrix
+        .getByRole("button", { name: "Search students by name or handle", exact: true })
+        .click();
+      const search = page.getByRole("searchbox", {
+        name: "Search students by name or handle",
+        exact: true,
+      });
+      await search.fill(handle);
+      await search.press("Enter");
       const gradeRow = matrix.locator("tbody tr").filter({ hasText: handle });
       await expect(gradeRow).toContainText("Not yet activated");
       await expect(gradeRow.locator("a")).toHaveCount(0);

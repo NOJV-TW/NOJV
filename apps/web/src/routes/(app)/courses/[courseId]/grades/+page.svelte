@@ -60,6 +60,10 @@
     gradebook.columns.reduce((count, column) => count + Math.max(column.problems.length, 1), 2),
   );
 
+  function headerAriaSort(key: string) {
+    return isManager ? ariaSort(sortDirection(sort, key)) : undefined;
+  }
+
   function csvEscape(value: string | number): string {
     const s = String(value);
     if (/[",\n]/.test(s)) return `"${s.replaceAll('"', '""')}"`;
@@ -107,6 +111,19 @@
   <title>{m.courseGradebook_heading()} · {data.course.title} · NOJV</title>
 </svelte:head>
 
+{#snippet sortLabel(label: string, key: string, className: string)}
+  {#if isManager}
+    <TableSortButton
+      {label}
+      direction={sortDirection(sort, key)}
+      onclick={() => (sort = toggleSort(sort, key))}
+      class={className}
+    />
+  {:else}
+    {label}
+  {/if}
+{/snippet}
+
 <PageContainer class="space-y-6">
   <section data-slot="course-gradebook" class="animate-in animate-in-1 space-y-4">
     <div class="flex flex-wrap items-end justify-between gap-4">
@@ -136,7 +153,7 @@
             <tr>
               <th
                 rowspan="2"
-                class="sticky left-0 z-[3] border-b border-r border-border-subtle bg-muted px-5 py-3 text-left text-caption font-semibold uppercase tracking-[0.06em] text-muted-foreground"
+                class="sticky left-0 z-[3] border-b border-r border-border-subtle bg-muted px-5 py-3 text-left text-caption font-medium uppercase tracking-[0.06em] text-muted-foreground"
                 style="min-width: 200px"
               >
                 {#if isManager}
@@ -155,29 +172,23 @@
                 {@const key = `${column.contextType}:${column.contextId}`}
                 <th
                   colspan={Math.max(column.problems.length, 1)}
-                  class="border-b border-r border-border-subtle bg-muted px-3 py-2.5 text-center text-caption font-semibold text-foreground"
-                  aria-sort={ariaSort(sortDirection(sort, key))}
+                  class="border-b border-r border-border-subtle bg-muted px-3 py-1 text-center text-caption font-semibold text-foreground"
+                  aria-sort={headerAriaSort(key)}
                 >
-                  <TableSortButton
-                    label={column.contextTitle}
-                    direction={sortDirection(sort, key)}
-                    onclick={() => (sort = toggleSort(sort, key))}
-                    class="ml-0"
-                  />
+                  {@render sortLabel(
+                    column.contextTitle,
+                    key,
+                    "ml-0 h-auto min-h-8 whitespace-normal",
+                  )}
                 </th>
               {/each}
               <th
                 rowspan="2"
-                class="border-b border-border-subtle bg-primary/8 px-3 py-3 text-center text-caption font-semibold text-primary"
+                class="border-b border-border-subtle bg-primary/8 px-3 py-3 text-center text-caption font-semibold"
                 style="min-width: 110px"
-                aria-sort={ariaSort(sortDirection(sort, "total"))}
+                aria-sort={headerAriaSort("total")}
               >
-                <TableSortButton
-                  label={m.courseGradebook_total()}
-                  direction={sortDirection(sort, "total")}
-                  onclick={() => (sort = toggleSort(sort, "total"))}
-                  class="ml-0"
-                />
+                {@render sortLabel(m.courseGradebook_total(), "total", "ml-0")}
                 <span class="mt-1 block text-micro font-normal text-muted-foreground">
                   {m.courseGradebook_maxPoints({ points: gradebook.maxTotal })}
                 </span>
@@ -192,17 +203,16 @@
                     problem.problemId,
                   )}
                   <th
-                    class="border-b border-r border-border-subtle bg-muted px-3 py-2.5 text-center text-caption font-semibold"
+                    class="border-b border-r border-border-subtle bg-muted px-3 py-1 text-center text-caption font-semibold"
                     style="min-width: 80px"
                     title={problem.title}
-                    aria-sort={ariaSort(sortDirection(sort, key))}
+                    aria-sort={headerAriaSort(key)}
                   >
-                    <TableSortButton
-                      label={m.courseGradebook_problemOrdinal({ n: problem.ordinal })}
-                      direction={sortDirection(sort, key)}
-                      onclick={() => (sort = toggleSort(sort, key))}
-                      class="ml-0"
-                    />
+                    {@render sortLabel(
+                      m.courseGradebook_problemOrdinal({ n: problem.ordinal }),
+                      key,
+                      "ml-0",
+                    )}
                     <span class="mt-1 block text-micro font-normal text-muted-foreground">
                       {m.courseGradebook_maxPoints({ points: problem.maxScore })}
                     </span>

@@ -90,7 +90,7 @@
           </th>
         {/each}
         <th
-          class="border-b border-r border-border-subtle bg-primary/8 px-3 py-3 text-center text-caption font-semibold text-primary"
+          class="border-b border-r border-border-subtle bg-primary/8 px-3 py-3 text-center text-caption font-semibold"
           style="min-width: 110px"
           aria-sort={ariaSort(sortDirection(sort, "total"))}
         >

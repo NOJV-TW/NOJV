@@ -35,7 +35,7 @@ const managerData = {
   isManager: true,
   course: { id: "course_1", title: "Course" },
   gradebook: {
-    maxTotal: 200,
+    maxTotal: 300,
     columns: [
       {
         contextType: "assignment",
@@ -47,6 +47,15 @@ const managerData = {
           { problemId: "p2", ordinal: 2, title: "Second", maxScore: 100, rawMaxScore: 100 },
         ],
       },
+      {
+        contextType: "exam",
+        contextId: "e1",
+        contextTitle: "Final",
+        maxTotal: 100,
+        problems: [
+          { problemId: "p3", ordinal: 1, title: "Third", maxScore: 100, rawMaxScore: 100 },
+        ],
+      },
     ],
     rows: [
       {
@@ -54,16 +63,16 @@ const managerData = {
         userId: "u1",
         name: "Alice",
         username: "s001",
-        cells: { "assignment:a1:p1": 100, "assignment:a1:p2": 20 },
-        total: 120,
+        cells: { "assignment:a1:p1": 100, "assignment:a1:p2": 50, "exam:e1:p3": 10 },
+        total: 160,
       },
       {
         membershipId: "m2",
         userId: "u2",
         name: "Bob",
         username: "s002",
-        cells: { "assignment:a1:p1": 70, "assignment:a1:p2": 80 },
-        total: 150,
+        cells: { "assignment:a1:p1": 70, "assignment:a1:p2": 30, "exam:e1:p3": 90 },
+        total: 190,
       },
     ],
   },
@@ -135,19 +144,22 @@ it("keeps a withheld activity column aligned without problem headings", async ()
   expect(cells).toHaveLength(4);
   expect(cells[2]?.textContent?.trim()).toBe("—");
   expect(contexts!.querySelector("th")?.textContent?.trim()).toBe(m.courseGradebook_student());
-  expect(
-    target.querySelector(`th button[aria-label="${m.courseGradebook_student()}"]`),
-  ).toBeNull();
+  expect(target.querySelectorAll("th button")).toHaveLength(0);
+  expect(target.querySelector("th[aria-sort]")).toBeNull();
+  expect(problems!.textContent).toContain(m.courseGradebook_problemOrdinal({ n: 1 }));
+  expect(target.querySelector("thead")?.textContent).toContain(
+    m.courseGradebook_maxPoints({ points: 200 }),
+  );
 });
 
-it("orders students by total and sorts by a problem from its header", async () => {
+it("orders students by total and sorts by a problem or activity from its header", async () => {
   const target = render(managerData);
   await tick();
 
   expect(order(target)).toEqual(["Bob", "Alice"]);
   expect(sortedHeaders(target)).toEqual([[m.courseGradebook_total(), "descending"]]);
 
-  const problem = m.courseGradebook_problemOrdinal({ n: 1 });
+  const problem = m.courseGradebook_problemOrdinal({ n: 2 });
   sortButton(target, problem).click();
   await tick();
   expect(order(target)).toEqual(["Alice", "Bob"]);
@@ -157,6 +169,11 @@ it("orders students by total and sorts by a problem from its header", async () =
   await tick();
   expect(order(target)).toEqual(["Bob", "Alice"]);
   expect(sortedHeaders(target)).toEqual([[problem, "ascending"]]);
+
+  sortButton(target, "HW 1").click();
+  await tick();
+  expect(order(target)).toEqual(["Alice", "Bob"]);
+  expect(sortedHeaders(target)).toEqual([["HW 1", "descending"]]);
 });
 
 async function filterStudents(target: HTMLElement, value: string) {
@@ -190,7 +207,7 @@ it("filters students by name or username and keeps the filter when nothing match
   await filterStudents(target, "nobody");
   const cells = target.querySelectorAll("tbody td");
   expect(cells).toHaveLength(1);
-  expect(cells[0]?.getAttribute("colspan")).toBe("4");
+  expect(cells[0]?.getAttribute("colspan")).toBe("5");
   expect(cells[0]?.textContent?.trim()).toBe(m.common_noMatches());
   expect(
     target.querySelector(`th button[aria-label="${m.courseGradebook_student()}"]`),
