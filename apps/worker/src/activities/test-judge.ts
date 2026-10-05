@@ -34,6 +34,7 @@ import type { BuildArtifact } from "@wasm-oj/core";
 import { createLogger } from "../logger.js";
 import {
   getJudgeProgram,
+  readCachedJudgeProgram,
   type JudgeProgram,
   type JudgeProgramStore,
 } from "../test-judge/judge-program";
@@ -335,14 +336,13 @@ export async function buildTestJudgeProgram({
   scriptPointer,
 }: TestJudgeProgramBuildInput): Promise<void> {
   const { pool, storage, programs } = requireDeps();
-  const source = await storage.getVerifiedText(scriptPointer);
+  const program = { role, language, source: await storage.getVerifiedText(scriptPointer) };
+  if (await readCachedJudgeProgram(programs, program)) return;
   const lease = await pool.acquire();
   try {
-    await getJudgeProgram(
-      { engine: lease.engine, store: programs },
-      { role, language, source },
-      { throwOnStoreError: true },
-    );
+    await getJudgeProgram({ engine: lease.engine, store: programs }, program, {
+      throwOnStoreError: true,
+    });
   } finally {
     lease.release();
   }

@@ -67,6 +67,16 @@ function toRecord(program: JudgeProgram): StoredJudgeProgram {
     : { status: "failed", diagnostics: program.diagnostics };
 }
 
+export async function readCachedJudgeProgram(
+  store: JudgeProgramStore,
+  source: JudgeProgramSource,
+): Promise<JudgeProgram | null> {
+  const cached = await store.get(
+    testJudgeProgramObjectKey(await testJudgeProgramCacheKey(source)),
+  );
+  return cached === null ? null : readRecord(cached);
+}
+
 export async function getJudgeProgram(
   deps: { engine: Pick<TestJudgeEngine, "compile">; store: JudgeProgramStore },
   source: JudgeProgramSource,

@@ -631,6 +631,30 @@ describe("buildTestJudgeProgram", () => {
     expect(release).toHaveBeenCalledOnce();
   });
 
+  it("returns a cached program without acquiring an engine", async () => {
+    const { engine, pool } = setup(null);
+    await buildTestJudgeProgram(input);
+    pool.acquire.mockClear();
+
+    await buildTestJudgeProgram(input);
+
+    expect(pool.acquire).not.toHaveBeenCalled();
+    expect(engine.compile).toHaveBeenCalledOnce();
+  });
+
+  it("rebuilds under a lease when the cached record is unreadable", async () => {
+    const { engine, pool, programStore } = setup(null);
+    await buildTestJudgeProgram(input);
+    const [key] = programStore.put.mock.calls[0] ?? [];
+    await programStore.put(String(key), "not json");
+    pool.acquire.mockClear();
+
+    await buildTestJudgeProgram(input);
+
+    expect(pool.acquire).toHaveBeenCalledOnce();
+    expect(engine.compile).toHaveBeenCalledTimes(2);
+  });
+
   it("throws on storage errors so Temporal retries", async () => {
     const { storage, pool } = setup(null);
     storage.getVerifiedText.mockRejectedValue(new Error("integrity failure"));
