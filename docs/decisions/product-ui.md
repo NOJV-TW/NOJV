@@ -119,10 +119,10 @@ Do not extract a shared component because surfaces look alike; list-page header 
 
 **Decided:** 2026-09 · **Source:** [2026-09-07-member-table-filters](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-09-07-member-table-filters.md)
 
-`TableSelectColumnFilter` (every categorical column filter) and table row editors use Bits UI menus/Select instead of native overlays; filters stay reachable when no rows match, and tables scroll natively on mobile. This keeps visuals consistent and filtering accessible. Categorical and free-text columns filter, ordered columns (dates, counts, scores, sizes) sort with the shared `TableSortButton`, and no column does both; a table with an ordered column always has exactly one active sort, so its order is always visible.
+`TableSelectColumnFilter` (every categorical column filter) and table row editors use Bits UI menus/Select instead of native overlays; filters stay reachable when no rows match, and tables scroll natively on mobile. This keeps visuals consistent and filtering accessible. Filters go on categorical or free-text columns and sorts on ordered columns (dates, counts, scores, sizes) with the shared `TableSortButton`; no column does both; a table with an ordered column always has exactly one active sort, so its order is always visible.
 
 - Rejected: filters on ordered columns (the registry size filter); a name sort in place of a student filter (gradebook); a sort that clears back to unsorted.
-- Rule: clicking the active sort flips ↓/↑ and another column becomes active at ↓; paginated tables (submissions, live submissions, admin audit) sort on the server. Rank-ordered scoreboards, static reference tables and dashboard widgets are exempt.
+- Rule: clicking the active sort flips ↓/↑ and another column becomes active at ↓; paginated tables (submissions, live submissions, admin users, admin audit) sort on the server. Rank-ordered scoreboards, static reference tables and dashboard widgets are exempt.
 - Rule: privileged-role changes keep confirmation and reset the row selection on cancel or rejection; the confirmation cancel uses Bits UI `Dialog.Close` so caller cleanup runs.
 - Code: `apps/web/src/routes/(app)/courses/[courseId]/members/+page.svelte`, `apps/web/src/lib/utils/table-sort.ts`, `apps/web/src/lib/components/primitives/ui/TableSortButton.svelte`
 

@@ -65,6 +65,7 @@ Work that is known, not done, and not covered by an in-flight plan. Remove an it
 ### Code and product
 
 - SonarQube reports 83 functions over the cognitive complexity limit (rule S3776, threshold 15). The worst are the better-auth `hooks.before` middleware in `apps/web/src/lib/auth.server.ts` (77), `scripts/judge-benchmark.ts` (72), `scripts/check-supply-chain-policy.mjs` (63) and `durableJudgeWorkflow` (61; any split must keep replay determinism).
+- The admin audit log's actor, action and target columns have no filters; adding them needs server-side filtering in `adminAuditLogRepo.listPaged` (UI-12).
 - Browser Test (WASM-OJ) deferred scope: official Submit from the browser, checker/interactive/Advanced problems, and limit calibration stay server-only until decided otherwise (JDG-15).
 
 ## Evidence rules

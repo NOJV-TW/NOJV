@@ -90,7 +90,7 @@ Tables are feature-specific (for example `features/admin/users/UsersTable.svelte
 
 Table column controls (UI-12):
 
-- Categorical and free-text columns get a `TableTextColumnFilter` or `TableSelectColumnFilter`; ordered columns (dates, counts, scores, sizes) get a `TableSortButton`; no column gets both. An active filter's ✕ clears it, re-applies and returns focus to the header trigger.
+- Filters (`TableTextColumnFilter`, `TableSelectColumnFilter`) go on categorical or free-text columns; sorts (`TableSortButton`) go on ordered columns (dates, counts, scores, sizes); no column gets both. An active filter's ✕ clears it, re-applies and returns focus to the header trigger.
 - A table with an ordered column always has exactly one active sort (`lib/utils/table-sort.ts`), which is never cleared: clicking the active column flips ↓/↑, clicking another column makes it active at ↓. Inactive sortable headers show a muted ⇅, and only the active `<th>` carries `aria-sort`. Tables without an ordered column have no sort control.
 - Right-aligned headers pass `class="ml-0 -mr-1"` to `TableSortButton`.
 - Rank-ordered scoreboards, static reference tables and small dashboard widgets are exempt.

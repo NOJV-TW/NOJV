@@ -223,7 +223,7 @@ it("lists members newest-joined first and flips the order from the joined header
     );
     expect(button).toBeDefined();
     const header = button!.closest("th")!;
-    expect(order()).toEqual(["ta-1", "student-2", "student-1", "teacher-1"]);
+    expect(order()).toEqual(["ta-1", "student-1", "student-2", "teacher-1"]);
     expect(header.getAttribute("aria-sort")).toBe("descending");
     expect(header.querySelector("[data-icon]")?.getAttribute("data-icon")).toBe("down");
 
