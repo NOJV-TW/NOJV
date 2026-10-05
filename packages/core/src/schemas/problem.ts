@@ -14,6 +14,7 @@ import { advancedConfigSchema } from "./advanced-mode";
 import { judgeConfigSchema } from "./judge-config";
 import { safeRelativePath } from "./path";
 import { requiredPathsSchema } from "./required-paths";
+import { MAX_RUN_CASE_FIELD_LEN } from "./submission";
 
 const WORKSPACE_FILE_MAX_CHARS = 16 * 1024 * 1024;
 export const MAX_TESTCASE_FILE_BYTES = 10 * 1024 * 1024;
@@ -38,6 +39,7 @@ export const problemSampleSchema = z.object({
   input: z.string().max(200_000),
   output: z.string().max(200_000),
   explanation: z.string().max(5_000).optional(),
+  interactorInput: z.string().max(MAX_RUN_CASE_FIELD_LEN).optional(),
 });
 
 export type ProblemSample = z.infer<typeof problemSampleSchema>;

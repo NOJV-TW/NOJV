@@ -145,7 +145,8 @@ erDiagram
 - `storageGeneration` advances on judge-affecting content changes and pins
   reference validation and judge snapshots.
 - Every `TestcaseSet` is a judged subtask (`weight` ≥ 0, `ordinal`); samples live in
-  `Problem.samples`, not testcases (PRB-03). `Testcase` and
+  `Problem.samples`, not testcases (PRB-03). Samples saved on an interactive
+  problem each need a non-blank `interactorInput`. `Testcase` and
   `ProblemWorkspaceFile` bodies are storage pointers (PRB-04). Workspace
   `visibility` is `editable` / `readonly` / `hidden`; submitted contents cannot
   override readonly or hidden files at merge time. Hidden content is omitted from
@@ -261,7 +262,7 @@ Every persisted JSON blob is validated on read (WEB-03).
 | ---------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
 | `Problem.judgeConfig`                                                                                                                                | `judgeConfigSchema` in `packages/core/src/schemas/judge-config.ts` (PRB-02); ignored for `special_env` |
 | `Problem.advancedConfig`                                                                                                                             | `packages/core/src/schemas/advanced-mode.ts`                                                           |
-| `Problem.samples`                                                                                                                                    | `{ input, output, explanation? }[]` in `packages/core/src/schemas/problem.ts`                          |
+| `Problem.samples`                                                                                                                                    | `{ input, output, explanation?, interactorInput? }[]` in `packages/core/src/schemas/problem.ts`        |
 | `Assessment.adjustmentRules`, `Exam.adjustmentRules`                                                                                                 | `packages/core/src/schemas/assessment-adjustments.ts`                                                  |
 | `Submission.verdictSummary`                                                                                                                          | `verdictSummarySchema` in `packages/core/src/schemas/submission.ts`                                    |
 | `*Storage` pointers (`Submission`, `Testcase`, `ProblemWorkspaceFile`, `Problem` checker/interactor, `JudgeExecution.snapshot`, `JudgeStage.result`) | `StorageObjectPointer` in `packages/storage/src/object.ts`                                             |

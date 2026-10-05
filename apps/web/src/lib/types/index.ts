@@ -46,6 +46,7 @@ export interface ProblemDetail extends ProblemOverview {
     input: string;
     output: string;
     explanation?: string | undefined;
+    interactorInput?: string | undefined;
   }[];
   starterByLanguage: Record<Language, string>;
   statement: string;

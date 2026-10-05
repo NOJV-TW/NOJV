@@ -38,6 +38,7 @@ import {
   type ProblemActorContext,
 } from "../permissions";
 import { forkProblemInTransaction } from "../fork";
+import { parsePersistedJudgeConfig } from "../judge-config";
 import { assertProblemPublishable } from "./publishing";
 import { problemStoragePointers } from "./storage-pointers";
 
@@ -290,6 +291,19 @@ function assertSpecialEnvImageConsistency(
   }
 }
 
+function assertInteractiveSamplesHaveInput(
+  payload: ProblemUpdate,
+  problem: { id: string; judgeConfig: unknown },
+): void {
+  if (payload.samples === undefined) return;
+  const judgeConfig =
+    payload.judgeConfig ?? parsePersistedJudgeConfig(problem.judgeConfig, problem.id);
+  if (judgeConfig.type !== "interactive") return;
+  if (payload.samples.some((sample) => !sample.interactorInput?.trim())) {
+    throw new ValidationError("Every interactive sample needs an interactor input.");
+  }
+}
+
 export async function updateProblemRecord(
   actor: ProblemActorContext,
   problemId: string,
@@ -393,6 +407,7 @@ export async function updateProblemRecord(
     }
 
     assertSpecialEnvImageConsistency(payload, problem);
+    assertInteractiveSamplesHaveInput(payload, problem);
 
     const target = publishesFork
       ? await forkProblemInTransaction(tx, problem.id, {

@@ -73,6 +73,7 @@ type SeedProblemSample = {
   readonly input: string;
   readonly output: string;
   readonly explanation?: string;
+  readonly interactorInput?: string;
 };
 
 function toSamplesJson(
@@ -83,6 +84,7 @@ function toSamplesJson(
     input: sample.input,
     output: sample.output,
     ...(sample.explanation ? { explanation: sample.explanation } : {}),
+    ...(sample.interactorInput ? { interactorInput: sample.interactorInput } : {}),
   }));
 }
 
