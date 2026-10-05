@@ -241,7 +241,7 @@ Tracking belongs to the authenticated session (SSE wakeups, 5 s visible polling 
 
 ### PRB-22 Every non-sample submission waits a per-problem cooldown with a platform minimum
 
-**Decided:** 2026-10 · **Source:** [PR #SOURCE](https://github.com/NOJV-TW/NOJV/pull/SOURCE)
+**Decided:** 2026-10 · **Source:** [PR #634](https://github.com/NOJV-TW/NOJV/pull/634)
 
 In every context (practice, assignment, exam, contest, virtual) a user's non-sample submission to a problem must come at least `max(activity submitCooldownSec, SUBMIT_COOLDOWN_MIN_SEC)` seconds after their previous one to the same problem in the same context; assignments, practice and virtual contests use the platform minimum alone. One env value is both the platform cooldown and the minimum for exam and contest settings, so teachers and students learn one rule: "wait N seconds before resubmitting this problem". Browser Test never reaches the server and stays unlimited. The Data Structures exams of 2026-10 had 29–58% of submissions within 60 s of the same student's previous one on the same problem.
 
