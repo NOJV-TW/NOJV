@@ -1,7 +1,8 @@
 <script lang="ts">
   import { invalidateAll } from "$app/navigation";
   import { enhance } from "$app/forms";
-  import { Pencil, X } from "@lucide/svelte";
+  import { Pencil, Trash2 } from "@lucide/svelte";
+  import { Tooltip } from "bits-ui";
   import { Button } from "$lib/components/primitives/ui/button";
   import * as Select from "$lib/components/primitives/ui/select";
   import { m } from "$lib/paraglide/messages.js";
@@ -23,6 +24,7 @@
 
   let roleFilter = $state("");
   let search = $state("");
+  let emailSearch = $state("");
   let editingMembershipId = $state<string | null>(null);
   let correctedUsername = $state("");
   let correcting = $state(false);
@@ -30,8 +32,10 @@
 
   const filtered = $derived.by(() => {
     const needle = search.trim().toLowerCase();
+    const emailNeedle = emailSearch.trim().toLowerCase();
     return members.filter((member) => {
       if (roleFilter && member.role !== roleFilter) return false;
+      if (emailNeedle && !member.email?.toLowerCase().includes(emailNeedle)) return false;
       if (!needle) return true;
       const name = member.name?.toLowerCase() ?? "";
       const handle = member.username?.toLowerCase() ?? "";
@@ -105,7 +109,13 @@
           </th>
           {#if isManager}
             <th scope="col" class="px-4 py-3 text-left align-middle font-medium">
-              {m.account_email()}
+              <TableTextColumnFilter
+                label={m.account_email()}
+                filterLabel={m.account_email()}
+                inputId="course-member-email-search"
+                applyLabel={m.common_applyFilter()}
+                bind:value={emailSearch}
+              />
             </th>
           {/if}
           <th scope="col" class="px-4 py-3 text-left align-middle font-medium">
@@ -298,19 +308,37 @@
               {#if isManager}
                 <td class="px-4 py-3 text-right">
                   {#if member.canRemove}
-                    <button
-                      type="button"
-                      class="rounded-sm bg-transparent p-1.5 text-muted-foreground transition-colors duration-fast ease-out-soft hover:bg-transparent hover:text-destructive"
-                      aria-label={m.members_removeAction()}
-                      title={m.members_removeAction()}
-                      onclick={() =>
-                        (pendingRemove = {
-                          membershipId: member.membershipId,
-                          name: member.name,
-                        })}
-                    >
-                      <X aria-hidden="true" class="size-4" />
-                    </button>
+                    <Tooltip.Provider delayDuration={200}>
+                      <Tooltip.Root>
+                        <Tooltip.Trigger
+                          onclick={() =>
+                            (pendingRemove = {
+                              membershipId: member.membershipId,
+                              name: member.name,
+                            })}
+                        >
+                          {#snippet child({ props })}
+                            <button
+                              {...props}
+                              type="button"
+                              class="rounded-sm bg-transparent p-1.5 text-destructive transition-colors duration-fast ease-out-soft hover:bg-destructive/10"
+                              aria-label={m.members_removeAction()}
+                            >
+                              <Trash2 aria-hidden="true" class="size-4" />
+                            </button>
+                          {/snippet}
+                        </Tooltip.Trigger>
+                        <Tooltip.Portal>
+                          <Tooltip.Content
+                            class="z-50 rounded-md border border-border bg-popover px-3 py-2 text-caption text-popover-foreground shadow-hover"
+                            sideOffset={4}
+                          >
+                            {m.members_removeAction()}
+                            <Tooltip.Arrow class="fill-popover stroke-border" />
+                          </Tooltip.Content>
+                        </Tooltip.Portal>
+                      </Tooltip.Root>
+                    </Tooltip.Provider>
                   {/if}
                 </td>
               {/if}

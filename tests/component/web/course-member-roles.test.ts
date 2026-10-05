@@ -31,6 +31,7 @@ vi.mock("@lucide/svelte", async () => {
     Pencil: Empty,
     Search: Empty,
     X: Empty,
+    Trash2: Empty,
   };
 });
 afterEach(() => {

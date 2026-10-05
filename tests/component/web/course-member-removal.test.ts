@@ -18,6 +18,7 @@ vi.mock("@lucide/svelte", async () => {
   return {
     Pencil: Empty,
     X: Empty,
+    Trash2: Empty,
     Loader2: Empty,
     Search: Empty,
     ChevronDown: Empty,
