@@ -19,26 +19,19 @@
   import { tick, untrack } from "svelte";
   import type { SubmitFunction } from "@sveltejs/kit";
   import { enhance } from "$app/forms";
-  import {
-    ArrowDown,
-    ArrowUp,
-    Ban,
-    CircleCheck,
-    ListFilter,
-    Trash2,
-    UserCog,
-    X,
-  } from "@lucide/svelte";
-  import { Popover } from "bits-ui";
+  import { Ban, CircleCheck, Trash2, UserCog, X } from "@lucide/svelte";
   import * as Select from "$lib/components/primitives/ui/select";
   import { Badge } from "$lib/components/primitives/ui/badge";
   import { isReservedUsername } from "$lib/utils/school";
   import { Button } from "$lib/components/primitives/ui/button";
   import ConfirmDialog from "$lib/components/primitives/ui/ConfirmDialog.svelte";
+  import TableSelectColumnFilter from "$lib/components/primitives/ui/TableSelectColumnFilter.svelte";
+  import TableSortButton from "$lib/components/primitives/ui/TableSortButton.svelte";
   import TableTextColumnFilter from "$lib/components/primitives/ui/TableTextColumnFilter.svelte";
   import { m } from "$lib/paraglide/messages.js";
   import { toasts } from "$lib/stores/toast";
   import { formatDate } from "$lib/utils/datetime";
+  import { ariaSort } from "$lib/utils/table-sort";
 
   interface Props {
     users: UsersTableUser[];
@@ -106,46 +99,6 @@
 
   function displayName(user: UsersTableUser): string {
     return user.username ?? user.name;
-  }
-
-  let roleFilterOpen = $state(false);
-  let statusFilterOpen = $state(false);
-  let createdAtOrderOpen = $state(false);
-
-  const roleFilterOptions = [
-    { value: "", label: m.admin_usersFilterAll },
-    { value: "admin", label: m.common_roleAdmin },
-    { value: "teacher", label: m.common_roleTeacher },
-    { value: "student", label: m.common_roleStudent },
-  ] as const;
-
-  const statusFilterOptions = [
-    { value: "", label: m.admin_usersFilterAll },
-    { value: "active", label: m.admin_usersStatusActive },
-    { value: "disabled", label: m.admin_usersStatusDisabled },
-  ] as const;
-
-  const createdAtOrderOptions = [
-    { value: "desc", label: m.admin_usersNewestFirst },
-    { value: "asc", label: m.admin_usersOldestFirst },
-  ] as const;
-
-  function applyRoleFilter(value: PlatformRole | "") {
-    roleFilter = value;
-    roleFilterOpen = false;
-    onApply();
-  }
-
-  function applyStatusFilter(value: "active" | "disabled" | "") {
-    statusFilter = value;
-    statusFilterOpen = false;
-    onApply();
-  }
-
-  function applyCreatedAtOrder(value: "asc" | "desc") {
-    createdAtOrder = value;
-    createdAtOrderOpen = false;
-    onApply();
   }
 
   let pending = $state<{
@@ -442,142 +395,42 @@
           />
         </th>
         <th class="px-5 py-3 font-medium">
-          <div class="flex items-center gap-1">
-            <Popover.Root bind:open={roleFilterOpen}>
-              <Popover.Trigger
-                type="button"
-                class="-ml-1 inline-flex h-8 items-center gap-1.5 rounded-sm px-1 font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring {roleFilter
-                  ? 'bg-primary/10 text-primary hover:bg-primary/15'
-                  : 'hover:bg-muted hover:text-foreground'}"
-                aria-label={m.admin_usersFilterRole()}
-                aria-pressed={Boolean(roleFilter)}
-              >
-                <span>{roleFilter ? roleLabel(roleFilter) : m.admin_usersRole()}</span>
-                <ListFilter aria-hidden="true" class="size-3.5 shrink-0" />
-              </Popover.Trigger>
-              <Popover.Portal>
-                <Popover.Content
-                  sideOffset={6}
-                  align="start"
-                  role="dialog"
-                  aria-label={m.admin_usersFilterRole()}
-                  class="z-50 w-48 rounded-md border border-border bg-popover p-1.5 text-popover-foreground shadow-md outline-none data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95"
-                >
-                  <p class="px-2 pb-1.5 pt-1 text-caption font-medium text-muted-foreground">
-                    {m.admin_usersFilterRole()}
-                  </p>
-                  {#each roleFilterOptions as option}
-                    <button
-                      type="button"
-                      class="flex w-full items-center justify-between rounded-sm px-2 py-2 text-left text-body-sm font-normal hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                      aria-pressed={roleFilter === option.value}
-                      onclick={() => applyRoleFilter(option.value)}
-                    >
-                      {option.label()}
-                      {#if roleFilter === option.value}
-                        <CircleCheck aria-hidden="true" class="size-4 text-primary" />
-                      {/if}
-                    </button>
-                  {/each}
-                </Popover.Content>
-              </Popover.Portal>
-            </Popover.Root>
-          </div>
+          <TableSelectColumnFilter
+            label={m.admin_usersRole()}
+            filterLabel={m.admin_usersFilterRole()}
+            allLabel={m.admin_usersFilterAll()}
+            options={[
+              { value: "admin", label: m.common_roleAdmin() },
+              { value: "teacher", label: m.common_roleTeacher() },
+              { value: "student", label: m.common_roleStudent() },
+            ]}
+            bind:value={roleFilter}
+            onChange={onApply}
+          />
         </th>
         <th class="px-5 py-3 font-medium">{m.admin_usersAdvancedColumn()}</th>
         <th class="px-5 py-3 font-medium">
-          <div class="flex items-center gap-1">
-            <Popover.Root bind:open={statusFilterOpen}>
-              <Popover.Trigger
-                type="button"
-                class="-ml-1 inline-flex h-8 items-center gap-1.5 rounded-sm px-1 font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring {statusFilter
-                  ? 'bg-primary/10 text-primary hover:bg-primary/15'
-                  : 'hover:bg-muted hover:text-foreground'}"
-                aria-label={m.admin_usersFilterStatus()}
-                aria-pressed={Boolean(statusFilter)}
-              >
-                <span>
-                  {statusFilter === "active"
-                    ? m.admin_usersStatusActive()
-                    : statusFilter === "disabled"
-                      ? m.admin_usersStatusDisabled()
-                      : m.admin_usersStatus()}
-                </span>
-                <ListFilter aria-hidden="true" class="size-3.5 shrink-0" />
-              </Popover.Trigger>
-              <Popover.Portal>
-                <Popover.Content
-                  sideOffset={6}
-                  align="start"
-                  role="dialog"
-                  aria-label={m.admin_usersFilterStatus()}
-                  class="z-50 w-48 rounded-md border border-border bg-popover p-1.5 text-popover-foreground shadow-md outline-none data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95"
-                >
-                  <p class="px-2 pb-1.5 pt-1 text-caption font-medium text-muted-foreground">
-                    {m.admin_usersFilterStatus()}
-                  </p>
-                  {#each statusFilterOptions as option}
-                    <button
-                      type="button"
-                      class="flex w-full items-center justify-between rounded-sm px-2 py-2 text-left text-body-sm font-normal hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                      aria-pressed={statusFilter === option.value}
-                      onclick={() => applyStatusFilter(option.value)}
-                    >
-                      {option.label()}
-                      {#if statusFilter === option.value}
-                        <CircleCheck aria-hidden="true" class="size-4 text-primary" />
-                      {/if}
-                    </button>
-                  {/each}
-                </Popover.Content>
-              </Popover.Portal>
-            </Popover.Root>
-          </div>
+          <TableSelectColumnFilter
+            label={m.admin_usersStatus()}
+            filterLabel={m.admin_usersFilterStatus()}
+            allLabel={m.admin_usersFilterAll()}
+            options={[
+              { value: "active", label: m.admin_usersStatusActive() },
+              { value: "disabled", label: m.admin_usersStatusDisabled() },
+            ]}
+            bind:value={statusFilter}
+            onChange={onApply}
+          />
         </th>
-        <th
-          class="px-5 py-3 font-medium"
-          aria-sort={createdAtOrder === "asc" ? "ascending" : "descending"}
-        >
-          <Popover.Root bind:open={createdAtOrderOpen}>
-            <Popover.Trigger
-              type="button"
-              class="-ml-1 inline-flex h-8 items-center gap-1.5 rounded-sm px-1 font-medium transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              aria-label={m.admin_usersSortCreated()}
-            >
-              <span>{m.admin_usersCreated()}</span>
-              {#if createdAtOrder === "asc"}
-                <ArrowUp aria-hidden="true" class="size-3.5" />
-              {:else}
-                <ArrowDown aria-hidden="true" class="size-3.5" />
-              {/if}
-            </Popover.Trigger>
-            <Popover.Portal>
-              <Popover.Content
-                sideOffset={6}
-                align="start"
-                role="dialog"
-                aria-label={m.admin_usersSortCreated()}
-                class="z-50 w-48 rounded-md border border-border bg-popover p-1.5 text-popover-foreground shadow-md outline-none data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95"
-              >
-                <p class="px-2 pb-1.5 pt-1 text-caption font-medium text-muted-foreground">
-                  {m.admin_usersSortCreated()}
-                </p>
-                {#each createdAtOrderOptions as option}
-                  <button
-                    type="button"
-                    class="flex w-full items-center justify-between rounded-sm px-2 py-2 text-left text-body-sm font-normal hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                    aria-pressed={createdAtOrder === option.value}
-                    onclick={() => applyCreatedAtOrder(option.value)}
-                  >
-                    {option.label()}
-                    {#if createdAtOrder === option.value}
-                      <CircleCheck aria-hidden="true" class="size-4 text-primary" />
-                    {/if}
-                  </button>
-                {/each}
-              </Popover.Content>
-            </Popover.Portal>
-          </Popover.Root>
+        <th class="px-5 py-3 font-medium" aria-sort={ariaSort(createdAtOrder)}>
+          <TableSortButton
+            label={m.admin_usersCreated()}
+            direction={createdAtOrder}
+            onclick={() => {
+              createdAtOrder = createdAtOrder === "desc" ? "asc" : "desc";
+              onApply();
+            }}
+          />
         </th>
         <th class="px-5 py-3 text-right font-medium">
           <span class="inline-flex items-center gap-1">

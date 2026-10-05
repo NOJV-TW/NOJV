@@ -73,24 +73,21 @@ test.describe("Admin panel — gating + pages", () => {
     await page.goto("/admin/users");
     await expect(page.getByRole("button", { name: /Open account menu/ })).toBeEnabled();
     await page.getByRole("button", { name: "Filter role", exact: true }).click();
-    await page
-      .getByRole("dialog", { name: "Filter role" })
-      .getByRole("button", { name: "Teacher", exact: true })
-      .click();
+    await page.getByRole("option", { name: "Teacher", exact: true }).click();
     await expect(page).toHaveURL(/role=teacher/);
     await expect(page.getByRole("button", { name: "Filter role", exact: true })).toContainText(
       "Teacher",
     );
     await page.getByRole("button", { name: "Filter status", exact: true }).click();
-    await page
-      .getByRole("dialog", { name: "Filter status" })
-      .getByRole("button", { name: "Active", exact: true })
-      .click();
+    await page.getByRole("option", { name: "Active", exact: true }).click();
     await expect(page).toHaveURL(/role=teacher/);
     await expect(page).toHaveURL(/status=active/);
     await expect(
       page.getByRole("button", { name: "Filter status", exact: true }),
     ).toContainText("Active");
+    await page.getByRole("button", { name: "Clear filter: Role", exact: true }).click();
+    await expect(page).not.toHaveURL(/role=/);
+    await expect(page).toHaveURL(/status=active/);
     await context.close();
   });
 
@@ -127,16 +124,11 @@ test.describe("Admin panel — gating + pages", () => {
     await expect(page).toHaveURL(/name=Teacher/);
 
     await page.goBack();
-    await page.getByRole("button", { name: "Sort created time" }).click();
-    await page
-      .getByRole("dialog", { name: "Sort created time" })
-      .getByRole("button", { name: "Oldest first" })
-      .click();
+    await page.getByRole("button", { name: "Created", exact: true }).click();
     await expect(page).toHaveURL(/created=asc/);
-    await expect(page.getByRole("columnheader", { name: "Sort created time" })).toHaveAttribute(
-      "aria-sort",
-      "ascending",
-    );
+    await expect(
+      page.getByRole("columnheader", { name: "Created", exact: true }),
+    ).toHaveAttribute("aria-sort", "ascending");
 
     await page.goto("/admin/users?username=__no_such_user__");
     await expect(page.getByText("No users found", { exact: true })).toBeVisible();
