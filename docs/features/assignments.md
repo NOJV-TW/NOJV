@@ -1,6 +1,6 @@
 # Feature: Course Assignments
 
-Acceptance spec for course homework (`Assessment`, routes `/assignments/[assignmentId]` and `/courses/[courseId]/assignments`). Assignments are unproctored: no session, IP or page lock. Controls are the time window, late policy and per-problem daily attempt caps. After close, past participants keep practice access without affecting grades.
+Acceptance spec for course homework (`Assessment`, routes `/assignments/[assignmentId]` and `/courses/[courseId]/assignments`). Assignments are unproctored: no session, IP or page lock. Controls are the time window, late policy, per-problem daily attempt caps and the platform submission cooldown. After close, past participants keep practice access without affecting grades.
 
 ## Key code
 
@@ -98,6 +98,7 @@ Rules come from PRB-10 and PRB-11; data model in [Database](../architecture/DATA
 
 - `maxAttemptsPerDay` counts per `(student, assignment, problem)` from the window start at `attemptResetMinuteOfDay` Taipei time (fixed UTC+8). The count runs under a per-window advisory lock, so concurrent submits cannot exceed the cap.
 - Sample-only runs never count. `system_error` never counts, including submissions swept to `system_error` by the stale-submission sweeper (PRB-16).
+- A non-sample submission must come at least `SUBMIT_COOLDOWN_MIN_SEC` seconds after the student's previous submission to the same problem in the same assignment; otherwise `403 submit_cooldown` with `retryAfterSec` and no attempt is used (PRB-22).
 
 ### Lists and aggregation
 

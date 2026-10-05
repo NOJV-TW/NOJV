@@ -17,6 +17,7 @@ import {
 import { getOverridesForContext } from "../scoring/resolve-final-score";
 import { getProblemTotalScores, requireProblemTotalScore } from "../problem/total-score";
 import { hidesProblemsBeforeStart } from "../shared/activity-visibility";
+import { getSubmitCooldownFloorSec } from "../shared/submit-cooldown";
 
 export type ExamDetailStatus = "draft" | "upcoming" | "running" | "ended";
 
@@ -66,6 +67,7 @@ export interface ExamDetailPage {
   ipBindingEnabled: boolean;
   ipWhitelistEnabled: boolean;
   ipWhitelistCount: number;
+  submitIntervalSec: number;
   ipViolationMode: "block" | "notify";
   problems: ExamDetailProblem[];
   registeredCount: number | null;
@@ -268,6 +270,7 @@ export async function getExamDetailPage(
     ipBindingEnabled: exam.ipBindingEnabled,
     ipWhitelistEnabled: exam.ipWhitelistEnabled,
     ipWhitelistCount: exam.ipWhitelist.length,
+    submitIntervalSec: Math.max(exam.submitCooldownSec, getSubmitCooldownFloorSec()),
     ipViolationMode: exam.ipViolationMode,
     problems,
     registeredCount: options.isManager ? exam._count.participations : null,

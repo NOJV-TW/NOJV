@@ -7,7 +7,7 @@ import {
   contestUpdateSchema,
   type ContestSettingsForm,
 } from "@nojv/core";
-import { contestDomain } from "@nojv/application";
+import { contestDomain, submissionDomain } from "@nojv/application";
 
 import type { Actions, PageServerLoad, PageServerLoadEvent } from "./$types";
 import { requireAuth, getActorContext, hasActorUsername } from "$lib/server/auth";
@@ -54,7 +54,10 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
             scoringMode: contest.scoringMode,
             scoreboardMode: contest.scoreboardMode,
             allowedLanguages: contest.allowedLanguages,
-            submitCooldownSec: contest.submitCooldownSec,
+            submitCooldownSec: Math.max(
+              contest.submitCooldownSec,
+              submissionDomain.getSubmitCooldownFloorSec(),
+            ),
             penaltyMinutesPerWrong: contest.penaltyMinutesPerWrong,
           },
           zod4(contestSettingsFormSchema),

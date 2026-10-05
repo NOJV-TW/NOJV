@@ -17,7 +17,13 @@ import {
   type ExamCreate,
   type ExamPublishStatus,
 } from "@nojv/core";
-import { canManageCourse, examDomain, courseDomain, scoring } from "@nojv/application";
+import {
+  canManageCourse,
+  examDomain,
+  courseDomain,
+  scoring,
+  submissionDomain,
+} from "@nojv/application";
 
 import type { Actions, PageServerLoad, PageServerLoadEvent, RequestEvent } from "./$types";
 import { getCoursePermissionRole, requireAuth } from "$lib/server/auth";
@@ -108,7 +114,7 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
         ipWhitelistText: "",
         scoringMode: "point_sum",
         scoreboardMode: "hidden",
-        submitCooldownSec: 0,
+        submitCooldownSec: submissionDomain.getSubmitCooldownFloorSec(),
       },
       zod4(examFormSchema),
       { errors: false },

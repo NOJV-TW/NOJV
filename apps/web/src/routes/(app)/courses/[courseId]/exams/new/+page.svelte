@@ -476,7 +476,7 @@
                 id="submitCooldownSec"
                 class="{inputClassName} mt-0 flex-1"
                 type="number"
-                min="0"
+                min={data.submitCooldownFloorSec}
                 max="3600"
                 bind:value={$form.submitCooldownSec}
               />
@@ -485,7 +485,9 @@
               </span>
             </div>
             <p class="mt-1 text-caption text-muted-foreground">
-              {m.examCreate_cooldownDesc()}
+              {data.submitCooldownFloorSec > 0
+                ? m.activitySettings_cooldownFloorHint({ floor: data.submitCooldownFloorSec })
+                : m.examCreate_cooldownDesc()}
             </p>
             {#if $errors.submitCooldownSec}
               <p class="mt-1 text-xs text-destructive">{$errors.submitCooldownSec}</p>

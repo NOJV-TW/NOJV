@@ -19,7 +19,10 @@
   } from "../layouts/ProblemLeftPanel.svelte";
   import AdvancedUploader, { type StagedFile } from "./AdvancedUploader.svelte";
   import AdvancedFileManager from "./AdvancedFileManager.svelte";
-  import { buildSubmissionBody } from "$lib/services/submission-service";
+  import {
+    buildSubmissionBody,
+    SubmissionRequestError,
+  } from "$lib/services/submission-service";
   import {
     submitProblem,
     watchProblemSubmissions,
@@ -239,7 +242,14 @@
       staged = null;
     } catch (err) {
       if ((err as { name?: string }).name === "AbortError") return;
-      const message = err instanceof Error ? err.message : m.editor_submitFailed();
+      const message =
+        err instanceof SubmissionRequestError &&
+        err.code === "submit_cooldown" &&
+        err.retryAfterSec != null
+          ? m.submit_error_cooldown({ seconds: err.retryAfterSec })
+          : err instanceof Error
+            ? err.message
+            : m.editor_submitFailed();
       submitError = message;
       toasts.error(message);
     } finally {

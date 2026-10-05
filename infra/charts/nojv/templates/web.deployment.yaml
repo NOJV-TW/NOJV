@@ -109,6 +109,8 @@ spec:
             {{- end }}
             - name: DB_POOL_MAX
               value: {{ .Values.web.dbPoolMax | quote }}
+            - name: SUBMIT_COOLDOWN_MIN_SEC
+              value: {{ .Values.web.submitCooldownMinSec | quote }}
             - name: SANDBOX_IMAGE
               value: {{ include "nojv.image" (dict "root" . "component" "sandbox") }}
             - name: S3_BUCKET

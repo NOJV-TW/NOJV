@@ -10,7 +10,6 @@ import { lockCourseForStaffMutation } from "../course/problem-library";
 import { requireUser } from "../shared/require";
 import { stripUndefined } from "../shared/strip-undefined";
 import { getDomainOrchestration } from "../shared/orchestration";
-import { enforceSubmitCooldown } from "../shared/submit-cooldown";
 import { assertEffectiveTimeWindow } from "../shared/effective-time-window";
 import { examAutoCloseInput } from "../shared/lifecycle-input";
 import { enqueueLifecycleCancellation } from "../shared/lifecycle-cancellation";
@@ -24,17 +23,6 @@ async function requireExam(tx: TransactionClient, examId: string) {
     throw new NotFoundError(`Exam not found: ${examId}`);
   }
   return exam;
-}
-
-export async function checkExamSubmitCooldown(
-  tx: TransactionClient,
-  examId: string,
-  userId: string,
-  problemId: string,
-  cooldownSec: number,
-  now: Date = new Date(),
-) {
-  await enforceSubmitCooldown(tx, { examId }, userId, problemId, cooldownSec, now);
 }
 
 export async function createExamRecord(actor: ActorContext, payload: ExamCreate) {

@@ -228,6 +228,8 @@ export function createEditorRunController(args: EditorRunArgs): EditorRunControl
           dispatched.submissionId = dispatch.submissionId;
           if (destroyed) return;
           isSubmitting = false;
+          if (dispatch.cooldownSec > 0)
+            cooldownUntil = Date.now() + dispatch.cooldownSec * 1000;
           args.onSubmissionDispatched?.(dispatch.submissionId, language);
         },
       });

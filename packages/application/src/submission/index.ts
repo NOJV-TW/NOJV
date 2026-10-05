@@ -29,6 +29,7 @@ export {
   type ActorContext as SubmissionActorContext,
 } from "./creation";
 export { completeJudge } from "./judge-lifecycle";
+export { getSubmitCooldownFloorSec } from "../shared/submit-cooldown";
 export { deriveSystemErrorVerdictSummary, deriveVerdictSummary } from "./verdict-summary";
 export type {
   AdjustmentContext,

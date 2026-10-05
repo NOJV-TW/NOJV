@@ -49,6 +49,7 @@
       frozenAt: string | null;
     };
     candidateProblems?: problemDomain.ProblemPickerGroups;
+    cooldownFloorSec: number;
     class?: string;
   }
 
@@ -56,6 +57,7 @@
     form: formProp,
     liveStatus,
     initialSchedule,
+    cooldownFloorSec,
     candidateProblems = { personalProblems: [], publicProblems: [] },
     class: className,
   }: Props = $props();
@@ -441,11 +443,16 @@
             id="contest-settings-cooldown"
             class={inputClassName}
             type="number"
-            min="0"
+            min={cooldownFloorSec}
             max="3600"
             bind:value={$form.submitCooldownSec}
             disabled={!editableScoring}
           />
+          {#if cooldownFloorSec > 0}
+            <p class="mt-1 text-caption text-muted-foreground">
+              {m.activitySettings_cooldownFloorHint({ floor: cooldownFloorSec })}
+            </p>
+          {/if}
           {#if $errors.submitCooldownSec}
             <p class="mt-1 text-xs text-destructive">{$errors.submitCooldownSec}</p>
           {/if}

@@ -154,7 +154,7 @@ Controls: [Exam and Contest Integrity](SECURITY.md#exam-and-contest-integrity).
 
 - **Taking the exam from another machine** — IP whitelist / first-binding with block or notify, logged violations. _Residual:_ VPN or shared NAT defeats IP-based signals; no device fingerprinting.
 - **Submitting to non-exam problems from inside the exam** — Context problem-membership checks (ASM-21).
-- **Submitting after close or rapid-fire submissions** — Server-side window checks; cooldown under advisory lock.
+- **Submitting after close or rapid-fire submissions** — Server-side window checks; per-problem cooldown with a platform minimum in every context, under advisory lock (PRB-22).
 - **Reading the previous user's code on a shared lab computer** — Owner-only server drafts; per-user sealed local edits; legacy v1 exam drafts deleted on the first draft load. _Residual:_ Unsynced local entries expose metadata (user id, context, problem); a legacy v1 exam draft stays in plaintext on a computer where nobody has opened a problem workspace since.
 - **Seeing the live scoreboard during a freeze** — Freeze applied at read time from Postgres ([Contests](../features/contests.md#scoreboard-freeze--unfreeze)).
 - **Tampering with Redis to change scores or cooldowns** — Scores and cooldowns live in Postgres; Redis only nudges (DAT-10, DAT-11). _Residual:_ Forged pub/sub nudges can trigger refetches.

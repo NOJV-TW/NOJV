@@ -220,6 +220,14 @@ describeHelm("env schema ↔ chart deployment parity", () => {
     },
   );
 
+  it.each(["values-gke.yaml", "values-single-machine.yaml"])(
+    "%s sets the platform submit cooldown on web",
+    (valuesFile) => {
+      const web = isolateDoc(renderChart(valuesFile), "Deployment", "nojv-web");
+      expect(web).toContain('name: SUBMIT_COOLDOWN_MIN_SEC\n              value: "30"');
+    },
+  );
+
   it("GKE worker Deployment provides every env the kubernetes backend requires", () => {
     const worker = isolateDoc(renderChart(), "Deployment", "nojv-worker");
     const provided = containerEnvNames(worker);

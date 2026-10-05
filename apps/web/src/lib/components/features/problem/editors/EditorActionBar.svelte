@@ -95,7 +95,9 @@
         ? m.editor_attemptsExhaustedTooltip()
         : !hasSubmittableSource
           ? m.editor_emptySourceTooltip()
-          : undefined}
+          : cooldownRemaining > 0
+            ? m.editor_submitCooldownTooltip()
+            : undefined}
       type="button"
     >
       {#if isSubmitting}
