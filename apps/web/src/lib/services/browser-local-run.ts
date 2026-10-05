@@ -14,6 +14,7 @@ import {
 } from "@nojv/core";
 import {
   WASM_OJ_LIBCXX_PCH_HEADER,
+  browserToolchainAssetUrl,
   createBrowserEngine,
   type BuildResult,
   type Engine,
@@ -25,6 +26,7 @@ import { browserSource as javaSource } from "@wasm-oj/toolchain-java";
 import { browserSource as javascriptSource } from "@wasm-oj/toolchain-javascript";
 import { browserSource as pythonSource } from "@wasm-oj/toolchain-python";
 import { browserSource as rustSource } from "@wasm-oj/toolchain-rust";
+import { m } from "$lib/paraglide/messages.js";
 import { formatJudgeOutput } from "$lib/utils/judge-output";
 import type { SubmissionRequest } from "./submission-service";
 
@@ -68,7 +70,32 @@ const CPP_STANDARD_HEADER = `${WASM_OJ_LIBCXX_PCH_HEADER}
 `;
 
 const BROWSER_TOOLCHAIN_BASE_URL = "/wasm-oj/toolchains/";
+const BROWSER_TOOLCHAINS = [
+  clangSource(BROWSER_TOOLCHAIN_BASE_URL),
+  goSource(BROWSER_TOOLCHAIN_BASE_URL),
+  javaSource(BROWSER_TOOLCHAIN_BASE_URL),
+  javascriptSource(BROWSER_TOOLCHAIN_BASE_URL),
+  pythonSource(BROWSER_TOOLCHAIN_BASE_URL),
+  rustSource(BROWSER_TOOLCHAIN_BASE_URL),
+];
+const LIBCXX_PCH_HEADER_PATH = "wasm-oj.pch.hpp";
+const BITS_STDCPP_INCLUDE = /^\s*#\s*include\s*<bits\/stdc\+\+\.h>/m;
+const TOOLCHAIN_PRELOAD_RETRY_DELAYS_MS = [2_000, 5_000];
 let browserEnginePromise: Promise<Engine> | undefined;
+
+export interface BrowserToolchainProgress {
+  loadedBytes: number;
+  totalBytes: number;
+}
+
+interface ToolchainPreload {
+  promise: Promise<void>;
+  progress: BrowserToolchainProgress;
+  listeners: Set<(progress: BrowserToolchainProgress) => void>;
+  settled: boolean;
+}
+
+const toolchainPreloads = new Map<Language, ToolchainPreload>();
 
 export function supportsBrowserLocalRun(language: Language): boolean {
   return isBrowserLocalLanguage(language);
@@ -91,14 +118,7 @@ export function shouldUseBrowserLocalRun(args: {
 async function getBrowserEngine(): Promise<Engine> {
   browserEnginePromise ??= createBrowserEngine({
     artifactCache: true,
-    toolchains: [
-      clangSource(BROWSER_TOOLCHAIN_BASE_URL),
-      goSource(BROWSER_TOOLCHAIN_BASE_URL),
-      javaSource(BROWSER_TOOLCHAIN_BASE_URL),
-      javascriptSource(BROWSER_TOOLCHAIN_BASE_URL),
-      pythonSource(BROWSER_TOOLCHAIN_BASE_URL),
-      rustSource(BROWSER_TOOLCHAIN_BASE_URL),
-    ],
+    toolchains: BROWSER_TOOLCHAINS,
   }).catch((error: unknown) => {
     browserEnginePromise = undefined;
     throw error;
@@ -108,6 +128,103 @@ async function getBrowserEngine(): Promise<Engine> {
 
 export async function prewarmBrowserLocalEngine(): Promise<void> {
   await getBrowserEngine();
+}
+
+export function browserToolchainAssets(language: Language) {
+  const source = BROWSER_TOOLCHAINS.find((candidate) =>
+    candidate.descriptor.languages.includes(language),
+  );
+  return (source?.descriptor.assets ?? []).filter(({ path }) => {
+    if (path.endsWith(".libcxx-pch.json")) return language === "cpp";
+    if (path.endsWith(".pch.gz.bin")) {
+      return language === "cpp" && path.endsWith(".cpp-release.pch.gz.bin");
+    }
+    return true;
+  });
+}
+
+export function browserToolchainPercent(progress: BrowserToolchainProgress): number {
+  if (progress.totalBytes === 0) return 100;
+  return Math.min(100, Math.floor((progress.loadedBytes / progress.totalBytes) * 100));
+}
+
+export function preloadBrowserToolchain(
+  language: Language,
+  onProgress?: (progress: BrowserToolchainProgress) => void,
+): Promise<void> {
+  let preload = toolchainPreloads.get(language);
+  if (!preload) {
+    const assets = browserToolchainAssets(language);
+    const created: ToolchainPreload = {
+      promise: Promise.resolve(),
+      progress: {
+        loadedBytes: 0,
+        totalBytes: assets.reduce((sum, asset) => sum + asset.bytes, 0),
+      },
+      listeners: new Set(),
+      settled: false,
+    };
+    const report = (loadedBytes: number) => {
+      created.progress = { ...created.progress, loadedBytes };
+      for (const listener of created.listeners) listener(created.progress);
+    };
+    created.promise = downloadToolchainAssets(assets, report)
+      .catch((error: unknown) => {
+        toolchainPreloads.delete(language);
+        throw error;
+      })
+      .finally(() => {
+        created.settled = true;
+        created.listeners.clear();
+      });
+    toolchainPreloads.set(language, created);
+    preload = created;
+  }
+  if (onProgress && !preload.settled) {
+    preload.listeners.add(onProgress);
+    onProgress(preload.progress);
+  }
+  return preload.promise;
+}
+
+async function downloadToolchainAssets(
+  assets: ReturnType<typeof browserToolchainAssets>,
+  report: (loadedBytes: number) => void,
+): Promise<void> {
+  for (let attempt = 0; ; attempt += 1) {
+    let loadedBytes = 0;
+    report(0);
+    try {
+      await Promise.all(
+        assets.map(async (asset) => {
+          const url = browserToolchainAssetUrl(BROWSER_TOOLCHAINS, asset.path, location.href);
+          const response = await fetch(url);
+          if (!response.ok || !response.body) {
+            throw new Error(
+              `Unable to load toolchain asset ${asset.path} (${String(response.status)}).`,
+            );
+          }
+          const reader = response.body.getReader();
+          let received = 0;
+          for (;;) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            received += value.byteLength;
+            loadedBytes += value.byteLength;
+            report(loadedBytes);
+          }
+          if (received !== asset.bytes) {
+            throw new Error(`Toolchain asset ${asset.path} is incomplete.`);
+          }
+        }),
+      );
+      return;
+    } catch (error) {
+      const delay = TOOLCHAIN_PRELOAD_RETRY_DELAYS_MS[attempt];
+      if (delay === undefined) throw error;
+      await new Promise((resolve) => setTimeout(resolve, delay));
+    }
+  }
 }
 
 export function browserLocalFiles(request: SubmissionRequest): {
@@ -120,7 +237,12 @@ export function browserLocalFiles(request: SubmissionRequest): {
       ? Object.fromEntries(request.sourceFiles.map((file) => [file.path, file.content]))
       : { [entry]: request.sourceCode };
   if (request.language === "cpp") {
+    const usesPlatformBitsStdcpp =
+      files["bits/stdc++.h"] === undefined &&
+      files["src/bits/stdc++.h"] === undefined &&
+      Object.values(files).some((content) => BITS_STDCPP_INCLUDE.test(content));
     files["src/bits/stdc++.h"] ??= files["bits/stdc++.h"] ?? CPP_STANDARD_HEADER;
+    if (usesPlatformBitsStdcpp) files[LIBCXX_PCH_HEADER_PATH] ??= WASM_OJ_LIBCXX_PCH_HEADER;
   }
   return { entry, files };
 }
@@ -220,12 +342,25 @@ function compileFeedback(build: BuildResult): string {
   ).slice(0, 10_000);
 }
 
+function browserLocalErrorHint(message: string): string {
+  if (/exceeded the \d+ ms browser boundary/.test(message))
+    return m.editor_browserBuildTimeout();
+  if (/Failed to fetch|NetworkError|Load failed|Unable to load/.test(message)) {
+    return m.editor_toolchainUnavailable();
+  }
+  if (message.includes("cross-origin-isolated")) return m.editor_browserIsolationRequired();
+  return "Browser local execution failed.";
+}
+
 export function browserLocalErrorResult(error: unknown): SubmissionResult {
   const message = error instanceof Error ? error.message : String(error);
   return {
     accepted: false,
     caseResults: [],
-    feedback: formatJudgeOutput(`Browser local execution failed.\n${message}`).slice(0, 10_000),
+    feedback: formatJudgeOutput(`${browserLocalErrorHint(message)}\n${message}`).slice(
+      0,
+      10_000,
+    ),
     runtimeMs: 0,
     score: 0,
     verdict: "system_error",
