@@ -169,7 +169,7 @@
             <p class="text-caption font-medium text-muted-foreground">
               {m.problemDetail_sampleExplanation()}
             </p>
-            <div class="mt-1 text-caption leading-6 text-foreground">
+            <div class="mt-1 text-micro leading-5 text-foreground">
               <MarkdownRenderer content={sample.explanation} />
             </div>
           </div>
