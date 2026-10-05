@@ -145,6 +145,7 @@ export function createSubmissionHistory<T extends HistoryRow>(
       void load();
     };
     untrack(observeItems);
+    void untrack(load);
     const stop = onSubmissionRefresh((signal) => load(signal, true));
     return () => {
       controller.abort();
