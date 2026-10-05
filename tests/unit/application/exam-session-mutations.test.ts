@@ -3,7 +3,6 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const {
   examFindById,
   membershipFindByComposite,
-  sessionFindAllActive,
   sessionUpdate,
   sessionRecordEvent,
   sessionFindByUserAndExam,
@@ -16,7 +15,6 @@ const {
 } = vi.hoisted(() => ({
   examFindById: vi.fn(),
   membershipFindByComposite: vi.fn(),
-  sessionFindAllActive: vi.fn(),
   sessionUpdate: vi.fn(),
   sessionRecordEvent: vi.fn(),
   sessionFindByUserAndExam: vi.fn(),
@@ -41,7 +39,6 @@ vi.mock("@nojv/db", () => ({
   courseMembershipRepo: { withTx: () => ({ findByComposite: membershipFindByComposite }) },
   examSessionRepo: {
     withTx: () => ({
-      findAllActiveForExam: sessionFindAllActive,
       update: sessionUpdate,
       recordEvent: sessionRecordEvent,
       findByUserAndExam: sessionFindByUserAndExam,
@@ -55,8 +52,7 @@ vi.mock("@nojv/db", () => ({
 
 import { examDomain } from "@nojv/application";
 
-const { releaseAllSessionsAsInstructor, releaseSessionAsInstructor, resetStudentIpBinding } =
-  examDomain.session;
+const { releaseSessionAsInstructor, resetStudentIpBinding } = examDomain.session;
 
 const teacherActor = {
   userId: "usr_teacher",
@@ -73,82 +69,6 @@ const studentActor = {
   platformRole: "student" as const,
 };
 const adminActor = { ...teacherActor, userId: "usr_admin", platformRole: "admin" as const };
-
-describe("releaseAllSessionsAsInstructor", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-    examFindById.mockResolvedValue({ id: "exm_1", courseId: "crs_1" });
-    sessionUpdate.mockResolvedValue({});
-    sessionRecordEvent.mockResolvedValue({});
-  });
-
-  it("releases every active session and returns the count", async () => {
-    membershipFindByComposite.mockResolvedValue({ role: "teacher", status: "active" });
-    sessionFindAllActive.mockResolvedValue([
-      { id: "s1", userId: "u1" },
-      { id: "s2", userId: "u2" },
-      { id: "s3", userId: "u3" },
-    ]);
-
-    const result = await releaseAllSessionsAsInstructor(teacherActor, { examId: "exm_1" });
-
-    expect(result).toEqual({ released: 3, releasedUserIds: ["u1", "u2", "u3"] });
-    expect(sessionUpdate).toHaveBeenCalledTimes(3);
-    expect(sessionRecordEvent).toHaveBeenCalledTimes(3);
-    expect(sessionUpdate).toHaveBeenCalledWith("s1", {
-      endedAt: expect.any(Date),
-      releaseReason: "released_by_instructor",
-    });
-  });
-
-  it("allows a TA and is a no-op when no sessions are active", async () => {
-    membershipFindByComposite.mockResolvedValue({ role: "ta", status: "active" });
-    sessionFindAllActive.mockResolvedValue([]);
-
-    const result = await releaseAllSessionsAsInstructor(teacherActor, { examId: "exm_1" });
-
-    expect(result).toEqual({ released: 0, releasedUserIds: [] });
-    expect(sessionUpdate).not.toHaveBeenCalled();
-  });
-
-  it("rejects a non-staff actor", async () => {
-    membershipFindByComposite.mockResolvedValue({ role: "student", status: "active" });
-
-    await expect(
-      releaseAllSessionsAsInstructor(studentActor, { examId: "exm_1" }),
-    ).rejects.toThrow(/staff/i);
-    expect(sessionUpdate).not.toHaveBeenCalled();
-  });
-
-  it("allows an effective admin without a course membership", async () => {
-    membershipFindByComposite.mockResolvedValue(null);
-    sessionFindAllActive.mockResolvedValue([{ id: "s1", userId: "u1" }]);
-
-    const result = await releaseAllSessionsAsInstructor(adminActor, { examId: "exm_1" });
-
-    expect(result).toEqual({ released: 1, releasedUserIds: ["u1"] });
-  });
-
-  it.each([
-    { role: "teacher", status: "removed" },
-    { role: "ta", status: "removed" },
-  ])("rejects inactive staff membership %j", async (membership) => {
-    membershipFindByComposite.mockResolvedValue(membership);
-
-    await expect(
-      releaseAllSessionsAsInstructor(teacherActor, { examId: "exm_1" }),
-    ).rejects.toThrow(/staff/i);
-    expect(sessionUpdate).not.toHaveBeenCalled();
-  });
-
-  it("throws when the exam does not exist", async () => {
-    examFindById.mockResolvedValue(null);
-
-    await expect(
-      releaseAllSessionsAsInstructor(teacherActor, { examId: "missing" }),
-    ).rejects.toThrow(/not found/i);
-  });
-});
 
 describe("releaseSessionAsInstructor", () => {
   beforeEach(() => {
@@ -339,13 +259,11 @@ describe("archived course proctoring", () => {
     vi.clearAllMocks();
     examFindById.mockResolvedValue({ id: "exm_1", courseId: "crs_1" });
     membershipFindByComposite.mockResolvedValue({ role: "teacher", status: "active" });
-    sessionFindAllActive.mockResolvedValue([{ id: "s1", userId: "u1" }]);
     sessionFindByUserAndExam.mockResolvedValue({ id: "s1", endedAt: null });
     courseFindById.mockResolvedValueOnce({ id: "crs_1", archived: true });
   });
 
   it.each([
-    ["release all", () => releaseAllSessionsAsInstructor(teacherActor, { examId: "exm_1" })],
     [
       "release one",
       () => releaseSessionAsInstructor(teacherActor, { examId: "exm_1", targetUserId: "u1" }),
@@ -365,7 +283,7 @@ describe("archived course proctoring", () => {
   it("checks staff authority before the archive state", async () => {
     membershipFindByComposite.mockResolvedValue({ role: "student", status: "active" });
     await expect(
-      releaseAllSessionsAsInstructor(studentActor, { examId: "exm_1" }),
+      releaseSessionAsInstructor(studentActor, { examId: "exm_1", targetUserId: "u1" }),
     ).rejects.toMatchObject({ name: "ForbiddenError" });
   });
 });

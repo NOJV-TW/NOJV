@@ -486,6 +486,30 @@ export interface ActiveSessionRow {
   startedAt: string;
 }
 
+export interface StudentProctoringRow {
+  userId: string;
+  submittedAt: string | null;
+  ipPin: string | null;
+  leaveAttempts: number;
+}
+
+export async function listStudentProctoring(examId: string): Promise<StudentProctoringRow[]> {
+  const [participants, sessions] = await Promise.all([
+    participationRepo.listExamParticipantsWithUser(examId),
+    examSessionRepo.listLeaveAttemptCounts(examId),
+  ]);
+  const leaves = new Map(sessions.map((session) => [session.userId, session._count.events]));
+  return participants.map((participant) => ({
+    userId: participant.userId,
+    submittedAt:
+      participant.status === "submitted"
+        ? (participant.submittedAt?.toISOString() ?? null)
+        : null,
+    ipPin: participant.ipPin,
+    leaveAttempts: leaves.get(participant.userId) ?? 0,
+  }));
+}
+
 export async function listActiveSessions(examId: string): Promise<ActiveSessionRow[]> {
   const rows = await examSessionRepo.findAllActiveForExamWithUser(examId);
   return rows.map((r) => ({
@@ -494,37 +518,4 @@ export async function listActiveSessions(examId: string): Promise<ActiveSessionR
     handle: r.user.displayUsername ?? r.user.email,
     startedAt: r.startedAt.toISOString(),
   }));
-}
-
-export async function releaseAllSessionsAsInstructor(
-  actor: ActorContext,
-  { examId }: { examId: string },
-): Promise<{ released: number; releasedUserIds: string[] }> {
-  return runTransaction(async (tx) => {
-    const exam = await examRepo.withTx(tx).findById(examId);
-    if (!exam) {
-      throw new NotFoundError(`Exam not found: ${examId}`);
-    }
-
-    if (!canManageCourse(await getCourseRole(actor, exam.courseId, tx))) {
-      throw new ForbiddenError("Only course staff can release exam sessions.");
-    }
-    await lockWritableCourse(tx, exam.courseId);
-
-    const active = await examSessionRepo.withTx(tx).findAllActiveForExam(examId);
-    const now = new Date();
-    for (const session of active) {
-      await examSessionRepo.withTx(tx).update(session.id, {
-        endedAt: now,
-        releaseReason: "released_by_instructor",
-      });
-      await examSessionRepo.withTx(tx).recordEvent({
-        sessionId: session.id,
-        eventType: "release",
-        metadata: { reason: "released_by_instructor", endedByUserId: actor.userId },
-      });
-    }
-
-    return { released: active.length, releasedUserIds: active.map((s) => s.userId) };
-  });
 }

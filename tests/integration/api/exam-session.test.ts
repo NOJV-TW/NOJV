@@ -500,83 +500,46 @@ describe("examDomain.session — end (released_by_instructor)", () => {
   });
 });
 
-describe("examDomain.session — releaseAll (instructor)", () => {
-  it("ends every active session for the exam and reports the count", async () => {
-    const teacher = await buildActor({ platformRole: "teacher" });
-    const { course } = await createCourseWithMember(teacher.userId, "teacher");
+describe("examDomain.session — student proctoring rows", () => {
+  it("reports hand-in time, bound IP and page-lock leave attempts per student", async () => {
+    const handedIn = await buildActor();
+    const { course } = await createCourseWithMember(handedIn.userId);
+    const working = await buildActor();
+    await testPrisma.courseMembership.create({
+      data: {
+        courseId: course.id,
+        userId: working.userId,
+        role: "student",
+        status: "active",
+        joinedAt: new Date(),
+      },
+    });
     const exam = await createTestExam({
       courseId: course.id,
       status: "published",
+      ipBindingEnabled: true,
       ...inWindow(),
     });
 
-    const sessionIds: string[] = [];
-    for (let i = 0; i < 3; i++) {
-      const student = await buildActor();
-      await testPrisma.courseMembership.create({
-        data: {
-          courseId: course.id,
-          userId: student.userId,
-          role: "student",
-          status: "active",
-          joinedAt: new Date(),
-        },
-      });
-      const { session: started } = await session.startSessionWithGate(student, {
-        examId: exam.id,
-      });
-      sessionIds.push(started.id);
-    }
+    await session.startSessionWithGate(handedIn, { examId: exam.id, ip: "203.0.113.4" });
+    for (let i = 0; i < 2; i++)
+      await session.recordEvent(handedIn, { examId: exam.id, eventType: "visibility_lost" });
+    const ended = await session.endSession(handedIn, { examId: exam.id, reason: "submitted" });
+    await session.startSessionWithGate(working, { examId: exam.id, ip: "203.0.113.5" });
 
-    const result = await session.releaseAllSessionsAsInstructor(teacher, { examId: exam.id });
-    expect(result.released).toBe(3);
-
-    const rows = await testPrisma.activeExamSession.findMany({
-      where: { id: { in: sessionIds } },
+    const rows = await session.listStudentProctoring(exam.id);
+    expect(rows).toHaveLength(2);
+    expect(rows.find((row) => row.userId === handedIn.userId)).toEqual({
+      userId: handedIn.userId,
+      submittedAt: ended.endedAt!.toISOString(),
+      ipPin: "203.0.113.4",
+      leaveAttempts: 2,
     });
-    expect(rows).toHaveLength(3);
-    expect(
-      rows.every((r) => r.endedAt !== null && r.releaseReason === "released_by_instructor"),
-    ).toBe(true);
-
-    const releaseEvents = await testPrisma.examSessionEvent.findMany({
-      where: { sessionId: { in: sessionIds }, eventType: "release" },
+    expect(rows.find((row) => row.userId === working.userId)).toEqual({
+      userId: working.userId,
+      submittedAt: null,
+      ipPin: "203.0.113.5",
+      leaveAttempts: 0,
     });
-    expect(releaseEvents).toHaveLength(3);
-  });
-
-  it("returns released: 0 when the exam has no active sessions", async () => {
-    const teacher = await buildActor({ platformRole: "teacher" });
-    const { course } = await createCourseWithMember(teacher.userId, "teacher");
-    const exam = await createTestExam({
-      courseId: course.id,
-      status: "published",
-      ...inWindow(),
-    });
-
-    const result = await session.releaseAllSessionsAsInstructor(teacher, { examId: exam.id });
-    expect(result.released).toBe(0);
-  });
-
-  it("throws ForbiddenError when a plain student calls it", async () => {
-    const student = await buildActor();
-    const { course } = await createCourseWithMember(student.userId, "student");
-    const exam = await createTestExam({
-      courseId: course.id,
-      status: "published",
-      ...inWindow(),
-    });
-
-    await expect(
-      session.releaseAllSessionsAsInstructor(student, { examId: exam.id }),
-    ).rejects.toBeInstanceOf(ForbiddenError);
-  });
-
-  it("throws NotFoundError for a missing exam", async () => {
-    const teacher = await buildActor({ platformRole: "teacher" });
-
-    await expect(
-      session.releaseAllSessionsAsInstructor(teacher, { examId: "exam_does_not_exist" }),
-    ).rejects.toBeInstanceOf(NotFoundError);
   });
 });

@@ -15,7 +15,12 @@ import { listRecentContextSubmissions } from "../submission/history";
 import * as credentials from "./credentials";
 import { getExamDetailPage } from "./detail";
 import { listExamIpViolations } from "./queries";
-import { getSessionState, listActiveSessions, listSubmittedProblemIds } from "./session";
+import {
+  getSessionState,
+  listActiveSessions,
+  listStudentProctoring,
+  listSubmittedProblemIds,
+} from "./session";
 import { buildExamSubmissionsMatrix } from "./submissions-matrix";
 
 export async function getExamPageView(
@@ -41,6 +46,7 @@ export async function getExamPageView(
     submittedProblemIds,
     recentSubmissions,
     examCredentials,
+    studentProctoring,
   ] = await Promise.all([
     getExamDetailPage(examId, { viewerUserId: actor.userId, isManager }),
     isManager ? canSetScoreOverride(actor, { type: "exam", examId }) : Promise.resolve(false),
@@ -61,6 +67,7 @@ export async function getExamPageView(
       ? listRecentContextSubmissions({ actor, context: { type: "exam", id: examId } })
       : Promise.resolve([]),
     isManager ? credentials.list(actor, examId) : Promise.resolve([]),
+    isManager ? listStudentProctoring(examId) : Promise.resolve([]),
   ]);
 
   const candidateProblems: ProblemPickerGroups =
@@ -115,5 +122,6 @@ export async function getExamPageView(
     candidateProblems,
     recentSubmissions,
     examCredentials,
+    studentProctoring,
   };
 }

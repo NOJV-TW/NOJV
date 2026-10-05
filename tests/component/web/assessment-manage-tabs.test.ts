@@ -75,24 +75,38 @@ it.each(["assignment", "exam", "contest"] as const)(
   },
 );
 
-it("hides unavailable clarifications and opens the exam roster from Proctoring", async () => {
+it("hides unavailable clarifications and shows exam proctoring as one view", async () => {
   component = mount(AssessmentManageTabs, {
     target,
     props: {
       kind: "exam",
-      value: "credentials",
-      url: new URL("https://nojv.test/exams/example?tab=credentials"),
+      value: "proctoring",
+      url: new URL("https://nojv.test/exams/example?tab=proctoring"),
       canViewClarifications: false,
       children: createRawSnippet(() => ({ render: () => "<p>Student roster</p>" })),
     },
   });
   await tick();
   expect(target.querySelector("#exam-manage-tab-clarifications")).toBeNull();
-  expect([...target.querySelectorAll("nav a")].map((link) => link.textContent?.trim())).toEqual(
-    [m.examCredentials_tab(), m.examCredentials_ipRecords()],
-  );
-  target.querySelector<HTMLAnchorElement>('a[href$="tab=proctoring"]')!.click();
-  expect(mocks.goto).toHaveBeenCalledWith("/exams/example?tab=proctoring", expect.any(Object));
+  expect(
+    target.querySelector("#exam-manage-tab-proctoring")?.getAttribute("aria-selected"),
+  ).toBe("true");
+  expect(target.querySelector("nav")).toBeNull();
+  expect(target.querySelector('[role="tabpanel"]')?.textContent).toContain("Student roster");
+});
+
+it("leaves modified clicks on child views to the browser", async () => {
+  component = mount(AssessmentManageTabs, {
+    target,
+    props: {
+      kind: "exam",
+      value: "results",
+      url: new URL("https://nojv.test/exams/example?tab=results"),
+      canViewClarifications: true,
+      children: createRawSnippet(() => ({ render: () => "<p>Grades</p>" })),
+    },
+  });
+  await tick();
   const modifiedClick = new MouseEvent("click", {
     ctrlKey: true,
     bubbles: true,
@@ -107,9 +121,7 @@ it("hides unavailable clarifications and opens the exam roster from Proctoring",
     },
     { once: true },
   );
-  target
-    .querySelector<HTMLAnchorElement>('a[href$="tab=proctoring"]')!
-    .dispatchEvent(modifiedClick);
+  target.querySelector<HTMLAnchorElement>('a[href$="tab=audit"]')!.dispatchEvent(modifiedClick);
   expect(preventedByNavigation).toBe(false);
-  expect(mocks.goto).toHaveBeenCalledTimes(1);
+  expect(mocks.goto).not.toHaveBeenCalled();
 });

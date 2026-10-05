@@ -28,15 +28,12 @@ describe("assessment tab state", () => {
   );
 
   it("keeps exam-only views out of assignments and contests", () => {
-    for (const tab of ["credentials", "proctoring"] as const) {
-      expect(parseAssessmentSubTab(tab, "exam")).toBe(tab);
-      expect(parseAssessmentSubTab(tab, "assignment")).toBe("problems");
-      expect(parseAssessmentSubTab(tab, "contest")).toBe("problems");
-    }
+    expect(parseAssessmentSubTab("proctoring", "exam")).toBe("proctoring");
+    expect(parseAssessmentSubTab("proctoring", "assignment")).toBe("problems");
+    expect(parseAssessmentSubTab("proctoring", "contest")).toBe("problems");
   });
 
   it("keeps child views under their primary management section", () => {
-    expect(assessmentPrimaryTab("credentials")).toBe("proctoring");
     expect(assessmentPrimaryTab("proctoring")).toBe("proctoring");
     expect(assessmentPrimaryTab("plagiarism")).toBe("results");
     expect(assessmentPrimaryTab("audit")).toBe("results");

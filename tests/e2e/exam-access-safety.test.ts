@@ -37,7 +37,7 @@ async function capture(page: Page, surface: string) {
   await page.setViewportSize({ width: 1440, height: 1000 });
 }
 
-test("teacher changes exam password and student signs in through the new login form", async ({
+test("teacher regenerates the exam password and student signs in through the new login form", async ({
   browser,
 }) => {
   test.setTimeout(120_000);
@@ -121,10 +121,10 @@ test("teacher changes exam password and student signs in through the new login f
     await teacherPage.getByRole("button", { name: "Save", exact: true }).click();
     await expect(teacherPage.getByText("Saved.", { exact: true })).toBeVisible();
 
-    await teacherPage.goto(`/exams/${id}?tab=credentials`);
-    await expect(teacherPage.getByRole("status")).toContainText(
-      "Temporary password sign-in is disabled for this exam.",
-    );
+    await teacherPage.goto(`/exams/${id}?tab=proctoring`);
+    await expect(
+      teacherPage.getByRole("columnheader", { name: "Temporary password", exact: true }),
+    ).toHaveCount(0);
     await teacherPage.goto(`/exams/${id}?tab=settings`);
     await expect(settingsSwitch).not.toBeChecked();
     await settingsSwitch.focus();
@@ -151,7 +151,7 @@ test("teacher changes exam password and student signs in through the new login f
       (response) =>
         new URL(response.url()).pathname === "/api/submissions/pending" && response.ok(),
     );
-    await teacherPage.goto(`/exams/${id}?tab=credentials`);
+    await teacherPage.goto(`/exams/${id}?tab=proctoring`);
     await ready;
     await expect(teacherPage.locator("#exam-manage-tab-proctoring")).toHaveAttribute(
       "aria-selected",
@@ -160,13 +160,18 @@ test("teacher changes exam password and student signs in through the new login f
     await expect(
       teacherPage.locator('[role="tablist"]').first().getByRole("tab").last(),
     ).toHaveAttribute("id", "exam-manage-tab-settings");
-    for (const password of ["ExampleOnlyPass123", "ExampleOnlyPass456"]) {
-      await teacherPage.getByRole("button", { name: "Change password", exact: true }).click();
-      const form = teacherPage.locator('form[action="?/updateCredentialPassword"]');
-      await form.getByLabel(`Temporary password for ${user.username}`).fill(password);
-      await form.getByRole("button", { name: "Save", exact: true }).click();
-      await expect(teacherPage.locator("code").filter({ hasText: password })).toBeVisible();
-      await expect(form).not.toBeVisible();
+    teacherPage.on("dialog", (dialog) => void dialog.accept());
+    const studentRow = teacherPage.locator("tbody tr").filter({ hasText: user.username! });
+    const passwordCode = studentRow.locator("code");
+    const passwords: string[] = [];
+    for (let i = 0; i < 2; i++) {
+      const previous = (await passwordCode.count()) ? await passwordCode.textContent() : null;
+      await studentRow
+        .getByRole("button", { name: "Regenerate password", exact: true })
+        .click();
+      await expect(passwordCode).toHaveText(/^[A-Za-z0-9]{8}$/);
+      if (previous) await expect(passwordCode).not.toHaveText(previous);
+      passwords.push((await passwordCode.textContent())!);
     }
     await capture(teacherPage, "credentials");
     await loginPage.goto("/signin");
@@ -182,10 +187,10 @@ test("teacher changes exam password and student signs in through the new login f
     }).toPass({ timeout: 30_000 });
     await capture(loginPage, "password-login");
     await loginDialog.locator('input[name="username"]').fill(user.username!);
-    await loginDialog.locator('input[name="password"]').fill("ExampleOnlyPass123");
+    await loginDialog.locator('input[name="password"]').fill(passwords[0]!);
     await loginPage.getByRole("button", { name: "Sign in to exam", exact: true }).click();
     await expect(loginPage.getByRole("alert")).toContainText("incorrect or has expired");
-    await loginDialog.locator('input[name="password"]').fill("ExampleOnlyPass456");
+    await loginDialog.locator('input[name="password"]').fill(passwords[1]!);
     await loginPage.getByRole("button", { name: "Sign in to exam", exact: true }).click();
     await expect(loginPage).toHaveURL(new RegExp(`/exams/${id}$`));
     await expect(

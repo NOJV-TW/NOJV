@@ -23,6 +23,16 @@ export const examSessionRepo = {
     });
   },
 
+  listLeaveAttemptCounts(examId: string) {
+    return prisma.activeExamSession.findMany({
+      where: { examId },
+      select: {
+        userId: true,
+        _count: { select: { events: { where: { eventType: "visibility_lost" } } } },
+      },
+    });
+  },
+
   findAllActiveForExamWithUser(examId: string) {
     return prisma.activeExamSession.findMany({
       where: { examId, endedAt: null },
@@ -136,12 +146,6 @@ export const examSessionRepo = {
       findByUserAndExam(userId: string, examId: string) {
         return tx.activeExamSession.findUnique({
           where: { userId_examId: { userId, examId } },
-        });
-      },
-
-      findAllActiveForExam(examId: string) {
-        return tx.activeExamSession.findMany({
-          where: { examId, endedAt: null },
         });
       },
 

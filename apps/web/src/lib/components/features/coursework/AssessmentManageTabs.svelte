@@ -48,12 +48,7 @@
           { key: "plagiarism", label: m.assessmentNav_plagiarism() },
           { key: "audit", label: m.assessmentNav_audit() },
         ]
-      : primaryTab === "proctoring" && kind === "exam"
-        ? [
-            { key: "credentials", label: m.examCredentials_tab() },
-            { key: "proctoring", label: m.examCredentials_ipRecords() },
-          ]
-        : [],
+      : [],
   );
 
   function selectTab(next: AssessmentSubTab): void {
@@ -66,7 +61,7 @@
 <Tabs
   {tabs}
   value={primaryTab}
-  onValueChange={(next) => selectTab(next === "proctoring" ? "credentials" : next)}
+  onValueChange={selectTab}
   label={kind === "exam"
     ? m.examDetail_subTabsLabel()
     : kind === "contest"
@@ -79,9 +74,7 @@
   {#if childTabs.length > 0}
     <nav
       class="mb-6 flex flex-wrap gap-2 border-b border-border-subtle pb-4"
-      aria-label={primaryTab === "results"
-        ? m.assessmentNav_results()
-        : m.examDetail_subTabProctoring()}
+      aria-label={m.assessmentNav_results()}
     >
       {#each childTabs as tab (tab.key)}
         <a

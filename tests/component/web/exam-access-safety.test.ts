@@ -3,7 +3,7 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import type { SubmitFunction } from "@sveltejs/kit";
 import { m } from "$lib/paraglide/messages.js";
 import ExamPasswordLogin from "$lib/components/features/auth/ExamPasswordLogin.svelte";
-import ExamCredentialsPanel from "$lib/components/features/course/exam/ExamCredentialsPanel.svelte";
+import ExamProctoringTab from "$lib/components/features/course/exam/ExamProctoringTab.svelte";
 import ExamHandInPanel from "$lib/components/features/course/exam/ExamHandInPanel.svelte";
 
 const mocks = vi.hoisted(() => ({
@@ -150,37 +150,48 @@ const roster = [
   },
 ];
 
-it("shows roster credentials and IP reset even without an active session or violation", async () => {
-  component = mount(ExamCredentialsPanel, {
+const panelProps = {
+  violations: [],
+  activeSessions: [],
+  proctoring: [],
+  passwordEnabled: true,
+  pageLockEnabled: false,
+  ipBindingEnabled: false,
+  canManage: true,
+  canRegenerate: true,
+};
+
+it("regenerates a roster password only after the teacher confirms", async () => {
+  const confirm = vi.fn().mockReturnValueOnce(false).mockReturnValueOnce(true);
+  vi.stubGlobal("confirm", confirm);
+  component = mount(ExamProctoringTab, {
     target,
-    props: {
-      rows: roster,
-      startsAt: "2030-01-02T00:00:00Z",
-      enabled: true,
-      canEdit: true,
-      canResetIp: true,
-    },
+    props: { ...panelProps, roster },
   });
   await tick();
   expect(target.textContent).toContain("ExampleOnlyPass123");
-  expect(target.textContent).toContain(m.examCredentials_pendingAccount());
-  const reset = target.querySelector('form[action="?/resetStudentIpBinding"]');
-  expect(reset?.querySelector<HTMLInputElement>('input[name="targetUserId"]')?.value).toBe(
-    "student_a",
+  expect(target.querySelector('input[name="password"]')).toBeNull();
+  expect(target.querySelector('form[action="?/resetStudentIpBinding"]')).toBeNull();
+  const forms = target.querySelectorAll<HTMLFormElement>(
+    'form[action="?/regenerateCredentialPassword"]',
   );
-  expect(target.querySelectorAll('form[action="?/resetStudentIpBinding"]')).toHaveLength(1);
-  const edit = [...target.querySelectorAll<HTMLButtonElement>("button")].find(
-    (button) => button.textContent?.trim() === m.examCredentials_edit(),
-  )!;
-  edit.click();
-  await tick();
-  const form = target.querySelector<HTMLFormElement>(
-    'form[action="?/updateCredentialPassword"]',
-  )!;
+  expect(forms).toHaveLength(1);
+  const form = forms[0]!;
   expect(form.querySelector<HTMLInputElement>('input[name="userId"]')?.value).toBe("student_a");
-  const input = form.querySelector<HTMLInputElement>('input[name="password"]')!;
-  expect(input.minLength).toBe(8);
-  expect(input.maxLength).toBe(64);
+  expect(form.querySelector("button")?.getAttribute("aria-label")).toBe(
+    m.examCredentials_regenerate(),
+  );
+  const cancel = vi.fn();
+  const submit = mocks.enhanced.get(form)!;
+  expect(await submit({ cancel } as unknown as Parameters<SubmitFunction>[0])).toBeUndefined();
+  expect(cancel).toHaveBeenCalledOnce();
+  expect(confirm).toHaveBeenCalledWith(
+    m.examCredentials_regenerateConfirm({ username: "example_student" }),
+  );
+  expect(await submit({ cancel } as unknown as Parameters<SubmitFunction>[0])).toBeTypeOf(
+    "function",
+  );
+  expect(cancel).toHaveBeenCalledOnce();
 });
 
 it("moves hand-in into a protected dialog with cancel initially focused", async () => {
@@ -245,40 +256,21 @@ it("explains the pending hand-in on hover while earlier submissions are still se
 });
 
 it("keeps password management available when only email delivery is unavailable", async () => {
-  component = mount(ExamCredentialsPanel, {
+  component = mount(ExamProctoringTab, {
     target,
-    props: {
-      rows: [{ ...roster[0]!, status: "email_unavailable" }],
-      startsAt: "2030-01-02T00:00:00Z",
-      enabled: true,
-      canEdit: true,
-      canResetIp: false,
-    },
+    props: { ...panelProps, roster: [{ ...roster[0]!, status: "email_unavailable" }] },
   });
   await tick();
-  expect(target.textContent).toContain(m.examCredentials_emailUnavailable());
-  expect(target.textContent).not.toContain(m.examCredentials_unavailable());
-  expect(
-    [...target.querySelectorAll("button")].some(
-      (button) => button.textContent?.trim() === m.examCredentials_edit(),
-    ),
-  ).toBe(true);
+  expect(target.querySelector('form[action="?/regenerateCredentialPassword"]')).not.toBeNull();
 });
 
-it("hides passwords and editing while exam password sign-in is disabled", async () => {
-  component = mount(ExamCredentialsPanel, {
+it("hides passwords and regeneration while exam password sign-in is disabled", async () => {
+  component = mount(ExamProctoringTab, {
     target,
-    props: {
-      rows: roster,
-      startsAt: "2030-01-02T00:00:00Z",
-      enabled: false,
-      canEdit: true,
-      canResetIp: true,
-    },
+    props: { ...panelProps, roster, passwordEnabled: false },
   });
   await tick();
-  expect(target.textContent).toContain(m.examPassword_disabled());
   expect(target.textContent).not.toContain("ExampleOnlyPass123");
-  expect(target.textContent).not.toContain(m.examCredentials_edit());
-  expect(target.querySelectorAll('form[action="?/resetStudentIpBinding"]')).toHaveLength(1);
+  expect(target.querySelector('form[action="?/regenerateCredentialPassword"]')).toBeNull();
+  expect(target.querySelectorAll("thead th")).toHaveLength(4);
 });
