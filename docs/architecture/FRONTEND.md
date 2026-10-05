@@ -173,7 +173,7 @@ Security headers, CSP and exam rules are specified in [Security Requirements](..
 - `AssessmentManageTabs`: Problems (default) / Submissions / Results (Grades, Plagiarism, Audit) / Proctoring (exam only: Credentials, IP records) / Clarifications when allowed / Settings, persisted in `?tab=` (UI-17).
 - `MatrixView`: one grade matrix for contests, assignments and exams. Assignments and exams open `ScoreOverrideDrawer` (override + feedback lists/forms) from a cell; contests are read-only (ASM-17).
 - `AuditTimeline`: merged lifecycle, override and rejudge feed on the Audit tab (contests: rejudge only).
-- `ExamProctoringTab`: exam IP violation log. `PlagiarismPairDiff`: pair diff page.
+- `ExamProctoringTab`: exam proctoring roster (sessions, IP violations, temporary passwords) with column-header filters. `PlagiarismPairDiff`: pair diff page.
 - `AssessmentHero` + `StatRail`/`StatTile` for detail pages, `AssessmentRow` for lists; visuals in [Design Rules](DESIGN.md#assessment-surfaces).
 - Table filters: `TableTextColumnFilter` and `TableSelectColumnFilter` (Bits UI menus, UI-12); filter headers stay visible on empty results; tables scroll horizontally on narrow screens.
 - `ImageDropZone` for Markdown textareas (problem statement fields, announcements); `TagSelect` for problem tags.

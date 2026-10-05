@@ -217,6 +217,26 @@ describe("exam credential lifecycle", () => {
       await examDomain.credentials.authenticate(student.username!, "Synth8ch"),
     ).toMatchObject({ userId: student.id, examId: exam.id });
   });
+  it("lets only staff regenerate a random password that replaces the old one", async () => {
+    const { actor, student, exam } = await classroom();
+    await examDomain.credentials.setPassword(actor, exam.id, student.id, password);
+    const before = await credential(exam.id, student.id);
+    const outsider = { ...actor, userId: student.id, platformRole: "student" as const };
+    await expect(
+      examDomain.credentials.regeneratePassword(outsider, exam.id, student.id),
+    ).rejects.toBeInstanceOf(ForbiddenError);
+
+    await examDomain.credentials.regeneratePassword(actor, exam.id, student.id);
+    const entry = (await examDomain.credentials.list(actor, exam.id)).find(
+      (row) => row.userId === student.id,
+    )!;
+    expect(entry.password).toMatch(/^[A-Za-z0-9]{8}$/);
+    expect((await credential(exam.id, student.id)).revision).toBe(before.revision + 1);
+    expect(await examDomain.credentials.authenticate(student.username!, password)).toBeNull();
+    expect(
+      await examDomain.credentials.authenticate(student.username!, entry.password!),
+    ).toMatchObject({ userId: student.id, examId: exam.id });
+  });
   it("issues once for the full linked roster and catches late students without sending mail inline", async () => {
     const { actor, student, exam, course } = await classroom();
     await testPrisma.courseMembership.create({

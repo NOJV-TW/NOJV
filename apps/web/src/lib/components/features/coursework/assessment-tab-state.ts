@@ -10,15 +10,11 @@ const commonSubTabs = [
   "settings",
 ] as const;
 
-export type AssessmentSubTab = (typeof commonSubTabs)[number] | "proctoring" | "credentials";
-export type AssessmentPrimaryTab = Exclude<
-  AssessmentSubTab,
-  "plagiarism" | "audit" | "credentials"
->;
+export type AssessmentSubTab = (typeof commonSubTabs)[number] | "proctoring";
+export type AssessmentPrimaryTab = Exclude<AssessmentSubTab, "plagiarism" | "audit">;
 
 export function assessmentPrimaryTab(tab: AssessmentSubTab): AssessmentPrimaryTab {
   if (tab === "plagiarism" || tab === "audit") return "results";
-  if (tab === "credentials") return "proctoring";
   return tab;
 }
 
@@ -28,7 +24,7 @@ export function parseAssessmentSubTab(
   canViewClarifications = true,
 ): AssessmentSubTab {
   if (value === "clarifications" && !canViewClarifications) return "problems";
-  if (kind === "exam" && (value === "proctoring" || value === "credentials")) return value;
+  if (kind === "exam" && value === "proctoring") return value;
   return commonSubTabs.includes(value as (typeof commonSubTabs)[number])
     ? (value as AssessmentSubTab)
     : "problems";

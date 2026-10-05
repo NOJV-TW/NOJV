@@ -244,16 +244,9 @@ describe("archived course writes (real DB)", () => {
     const f = await archivedCourse();
     const target = { examId: f.exam.id, targetUserId: f.student.userId };
     const writes = [
-      () => examDomain.session.releaseAllSessionsAsInstructor(f.teacher, { examId: f.exam.id }),
       () => examDomain.session.releaseSessionAsInstructor(f.teacher, target),
       () => examDomain.session.resetStudentIpBinding(f.teacher, target),
-      () =>
-        examDomain.credentials.setPassword(
-          f.teacher,
-          f.exam.id,
-          f.student.userId,
-          "SyntheticExamPassword24",
-        ),
+      () => examDomain.credentials.regeneratePassword(f.teacher, f.exam.id, f.student.userId),
     ];
     for (const write of writes) await expect(write()).rejects.toMatchObject(readOnly);
     expect(await testPrisma.activeExamSession.count({ where: { examId: f.exam.id } })).toBe(0);

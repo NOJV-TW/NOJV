@@ -108,6 +108,10 @@ async function removeCredentialSessions(tx: TransactionClient, credentialId: str
   await tx.session.deleteMany({ where: { examCredential: { credentialId } } });
 }
 
+function generatePassword(): string {
+  return generateRandomString(8, "a-z", "A-Z", "0-9");
+}
+
 async function issue(
   examId: string,
   userId: string,
@@ -218,6 +222,14 @@ export async function setPassword(
   if (!parsed.success)
     throw new ValidationError("Temporary passwords must contain 8 to 64 characters.");
   await issue(examId, userId, parsed.data, actor);
+}
+
+export async function regeneratePassword(
+  actor: ActorContext,
+  examId: string,
+  userId: string,
+): Promise<void> {
+  await issue(examId, userId, generatePassword(), actor);
 }
 
 export async function list(
@@ -534,10 +546,6 @@ export async function reconcile(): Promise<{ issued: number; revoked: number }> 
   }
   const recipients = await examCredentialRepo.listDueRecipients(now);
   for (const recipient of recipients)
-    await issue(
-      recipient.examId,
-      recipient.userId,
-      generateRandomString(8, "a-z", "A-Z", "0-9"),
-    );
+    await issue(recipient.examId, recipient.userId, generatePassword());
   return { issued: recipients.length, revoked };
 }

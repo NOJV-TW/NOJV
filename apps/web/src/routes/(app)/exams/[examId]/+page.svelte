@@ -19,7 +19,6 @@
   import ExamProblemsTab from "$lib/components/features/course/exam/ExamProblemsTab.svelte";
   import ExamProctoringTab from "$lib/components/features/course/exam/ExamProctoringTab.svelte";
   import ExamResultsTab from "$lib/components/features/course/exam/ExamResultsTab.svelte";
-  import ExamCredentialsPanel from "$lib/components/features/course/exam/ExamCredentialsPanel.svelte";
   import ExamHandInPanel from "$lib/components/features/course/exam/ExamHandInPanel.svelte";
   import ExamStartModal from "$lib/components/features/course/exam/ExamStartModal.svelte";
   import AssignmentPlagiarismReport from "$lib/components/features/plagiarism/AssignmentPlagiarismReport.svelte";
@@ -610,15 +609,7 @@
           />
         {/if}
       {/snippet}
-      {#if activeSubTabKey === "credentials"}
-        <ExamCredentialsPanel
-          rows={data.examCredentials}
-          startsAt={detail.startsAt}
-          enabled={detail.manager?.examPasswordEnabled ?? false}
-          canEdit={writable && liveStatus !== "draft" && !past}
-          canResetIp={writable && liveStatus === "running"}
-        />
-      {:else if activeSubTabKey === "submissions" && data.matrix}
+      {#if activeSubTabKey === "submissions" && data.matrix}
         <LiveSubmissionsFeed
           rows={data.recentSubmissions}
           refreshUrl={`/api/submissions?context=exam&id=${detail.id}`}
@@ -652,9 +643,15 @@
         />
       {:else if activeSubTabKey === "proctoring"}
         <ExamProctoringTab
+          roster={data.examCredentials}
           violations={data.ipViolations ?? []}
           activeSessions={data.activeSessions ?? []}
+          proctoring={data.studentProctoring}
+          passwordEnabled={detail.manager?.examPasswordEnabled ?? false}
+          pageLockEnabled={detail.pageLockEnabled}
+          ipBindingEnabled={detail.ipBindingEnabled}
           canManage={writable}
+          canRegenerate={writable && liveStatus !== "draft" && !past}
         />
       {:else if activeSubTabKey === "settings" && data.settingsForm}
         {#key detail.id}

@@ -6,14 +6,14 @@ Acceptance spec for course exams (`Exam`, routes `/exams/[examId]/...`). Student
 
 - `packages/application/src/exam/mutations.ts` — `createExamRecord`, `updateExamRecord`, `publishExam`, `deleteExamDraft`
 - `packages/application/src/exam/publish.ts` — `publishExamInTransaction`, the one publish transition shared by `publishExam` and create-as-published
-- `packages/application/src/exam/session.ts` — `startSessionWithGate`, `endSession`, `recordEvent`, `autoCloseForExam`, `releaseSessionAsInstructor`, `releaseAllSessionsAsInstructor`, `resetStudentIpBinding`, `listActiveSessions`, `getActiveSessionContext`, `getSessionState`, `listSubmittedProblemIds`, `requireActiveSessionForUserExam`
+- `packages/application/src/exam/session.ts` — `startSessionWithGate`, `endSession`, `recordEvent`, `autoCloseForExam`, `releaseSessionAsInstructor`, `resetStudentIpBinding`, `listActiveSessions`, `listStudentProctoring`, `getActiveSessionContext`, `getSessionState`, `listSubmittedProblemIds`, `requireActiveSessionForUserExam`
 - `packages/application/src/exam/credentials.ts` — temporary exam passwords
 - `packages/application/src/exam/detail.ts` (`getExamDetailPage`), `exam/submissions-matrix.ts` (`buildExamSubmissionsMatrix`), `exam/scoring.ts` (`updateExamScores`), `exam/queries.ts` (`listExamIpViolations`)
 - `packages/application/src/clarification/` — `ask`, `answer`, `dismiss`, `listForViewer`, `canSeeAuthor`
 - `packages/application/src/feedback/`, `score-override/permissions.ts`, `shared/context-window.ts`, `audit/queries.ts` — post-close grading and audit
 - `packages/core/src/schemas/exam.ts`, `schemas/exam-credential.ts`; `packages/db/prisma/schema/contest.prisma` (`Exam`, `ExamProblem`, `Participation`, `ActiveExamSession`, `ExamSessionEvent`, `IpViolationLog`), `exam-credential.prisma`
 - Worker: `apps/worker/src/workflows/exam-auto-close.ts`, `apps/worker/src/activities/lifecycle.ts` (`closeActiveSessionsForExam`)
-- Web: `apps/web/src/hooks.server.ts`, `apps/web/src/lib/server/exam-lock.ts`, `apps/web/src/routes/(app)/exams/[examId]/+page.server.ts` (actions `startExam`, `releaseSession`, `releaseStudentSession`, `releaseAllSessions`, `resetStudentIpBinding`, `updateCredentialPassword`, `updateSettings`, `updateProblems`, `publishExam`, `deleteExam`), `exams/[examId]/problems/[problemId]/`
+- Web: `apps/web/src/hooks.server.ts`, `apps/web/src/lib/server/exam-lock.ts`, `apps/web/src/routes/(app)/exams/[examId]/+page.server.ts` (actions `startExam`, `releaseSession`, `releaseStudentSession`, `resetStudentIpBinding`, `regenerateCredentialPassword`, `updateSettings`, `updateProblems`, `publishExam`, `deleteExam`), `exams/[examId]/problems/[problemId]/`
 - Tests: `tests/unit/application/exam-session.test.ts`, `exam-publish-delete.test.ts`, `exam-auto-close.test.ts`, `exam-submissions-matrix.test.ts`, `proctoring-gate.test.ts`; `tests/integration/api/exam-session.test.ts`; `tests/e2e/advanced-mode-lifecycle.test.ts`
 
 ## Model
@@ -22,7 +22,7 @@ Acceptance spec for course exams (`Exam`, routes `/exams/[examId]/...`). Student
 - `scoringMode` accepts only `point_sum`; official scores use [activity allocations](#activity-allocations). `scoreboardMode` (`hidden | live | frozen`, default `hidden`) is a stored setting; exams have no scoreboard page and no freeze control.
 - Proctoring fields: `pageLockEnabled`, `ipWhitelistEnabled`, `ipWhitelist`, `ipBindingEnabled`, `ipViolationMode`. Participants are `Participation` rows with `type = exam`, which hold the IP pin.
 - Publishing, or creating as published, ensures the auto-close workflow; a window change on a published exam replaces it; deleting a draft cancels it.
-- Manager tabs: Results (grades, plagiarism, audit), Proctoring (sessions, students and sign-in, IP records), Settings last.
+- Manager tabs: Results (grades, plagiarism, audit), Proctoring (one roster table per student: in exam / submitted, page-lock leave attempts, bound IP, latest IP violation with full history in a popover, temporary password and actions; filtered from the column headers like `/submissions`), Settings last.
 
 Out of scope: invite codes (membership gates access), remote proctoring (webcam, screen recording, lockdown browser), a late flag in the matrix.
 
@@ -31,7 +31,7 @@ Out of scope: invite codes (membership gates access), remote proctoring (webcam,
 Decision: ASM-22. Security model: [Security](../operations/SECURITY.md).
 
 - Exams opt in at creation (`examPasswordEnabled`, default off). Enabled, published exams issue an independent username/password credential for each active, linked student membership at `startsAt - 24 hours`. The minute-based durable processor catches late enablement, publication and enrollment. Unlinked roster rows show an account-linking status and get no mail until a User exists.
-- Credentials never replace OAuth bindings or a permanent password. Current course managers can reveal and set the password under Proctoring → Students and sign-in. Issued passwords are 8 random letters and digits; edits require 8–64 characters, rotate the credential revision, invalidate its sessions and enqueue an updated email.
+- Credentials never replace OAuth bindings or a permanent password. Current course managers can reveal and regenerate a password under Proctoring but never choose one. Passwords are 8 random letters and digits; regenerating, after a confirmation, rotates the credential revision, invalidates its sessions and enqueues an updated email.
 - Validity starts at the earlier of `startsAt - 24 hours` and the first SMTP attempt, and ends at `endsAt` (hard end, not `dueAt`). The first real SMTP attempt, including ambiguous or failed ones, permanently locks the setting (`examPasswordLockedAt`); test-sink delivery does not. Disabling before the lock revokes credentials and their sessions in the same transaction; after it, disabling fails. Extending `endsAt` extends attached session expiry. A password change, withdrawal, course archive, account disable or promotion, or security-generation change invalidates the temporary session on its next request.
 - A password login can use ordinary coursework before entering the exam; after starting, confinement applies only if page lock is on.
 - Only ordinary students qualify: platform admins and teachers, super admins, and users with an active teacher/TA membership anywhere keep their usual sign-in, so a staff-visible password never grants staff access.
@@ -104,7 +104,6 @@ Exams follow the [activity allocation and official score contract](assignments.m
 
 - At `endsAt` the auto-close workflow calls `autoCloseForExam`, which checks the exam's schedule revision and fingerprint and then sets `endedAt`, `releaseReason = time_up` and an `auto_close` event on every active session. Re-runs are no-ops.
 - `releaseSessionAsInstructor({ examId, targetUserId })` by a course manager (active teacher/TA or effective admin) ends the session with `released_by_instructor` and a `release` event carrying `{ reason, endedByUserId }`. Non-staff get `"Only course staff can release exam sessions."`; no active session gives `NotFoundError`.
-- `releaseAllSessionsAsInstructor({ examId })`, for the same managers, ends every active session in one transaction and returns `{ released, releasedUserIds }`; zero sessions returns `released: 0`. Unknown exams give `NotFoundError`.
 - `resetStudentIpBinding`, for the same managers, clears the student's IP pin, grants a 10-minute IP-gate exemption and always records an `ip_reset` event with `{ resetByUserId, clearedIpPin, exemptUntil }`, under the student's session lock. A student who never entered gets a closed session row (`endedAt` set, no `releaseReason`) to hold the event; `endSession` treats that row as no session, and the next start reopens it.
 
 ### IP rules

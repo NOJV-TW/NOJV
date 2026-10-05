@@ -106,15 +106,11 @@ function parseSettingsUpdate(data: ExamSettingsForm) {
 }
 
 export const actions = {
-  updateCredentialPassword: withAction(async (event) => {
+  regenerateCredentialPassword: withAction(async (event) => {
     const actor = requireAuth(event);
-    const form = await event.request.formData();
-    const userId = form.get("userId");
-    const password = form.get("password");
-    if (typeof userId !== "string" || typeof password !== "string") {
-      return fail(400, { error: "Enter the student and a temporary password." });
-    }
-    await examDomain.credentials.setPassword(actor, event.params.examId, userId, password);
+    const userId = (await event.request.formData()).get("userId");
+    if (typeof userId !== "string") return fail(400, { error: "Missing student." });
+    await examDomain.credentials.regeneratePassword(actor, event.params.examId, userId);
     return { success: true };
   }),
   startExam: withAction(async (event) => {
@@ -130,14 +126,6 @@ export const actions = {
     await examDomain.session.endSession(actor, {
       examId: event.params.examId,
       reason: "submitted",
-    });
-    return { success: true };
-  }),
-
-  releaseAllSessions: withAction(async (event) => {
-    const actor = requireAuth(event);
-    await examDomain.session.releaseAllSessionsAsInstructor(actor, {
-      examId: event.params.examId,
     });
     return { success: true };
   }),

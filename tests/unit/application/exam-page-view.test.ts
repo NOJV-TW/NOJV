@@ -10,6 +10,7 @@ const m = vi.hoisted(() => ({
   flags: vi.fn(),
   ipViolations: vi.fn(),
   activeSessions: vi.fn(),
+  studentProctoring: vi.fn(),
   feedback: vi.fn(),
   audit: vi.fn(),
   sessionState: vi.fn(),
@@ -42,6 +43,7 @@ vi.mock("../../../packages/application/src/exam/queries", () => ({
 }));
 vi.mock("../../../packages/application/src/exam/session", () => ({
   listActiveSessions: m.activeSessions,
+  listStudentProctoring: m.studentProctoring,
   getSessionState: m.sessionState,
   listSubmittedProblemIds: m.submitted,
 }));
@@ -100,6 +102,7 @@ beforeEach(() => {
     },
   ]);
   m.activeSessions.mockResolvedValue([{ userId: "s1" }]);
+  m.studentProctoring.mockResolvedValue([{ userId: "s1", leaveAttempts: 2 }]);
   m.audit.mockResolvedValue({
     auditEvents: [{ kind: "lifecycle", actorUserId: "u1" }],
     auditActorNames: { u1: "U1" },
@@ -146,6 +149,7 @@ describe("getExamPageView", () => {
       candidateProblems: { personalProblems: [{ id: "p2" }], publicProblems: [] },
       recentSubmissions: [{ id: "sub1" }],
       examCredentials: [{ userId: "s1" }],
+      studentProctoring: [{ userId: "s1", leaveAttempts: 2 }],
     });
     expect(m.audit).toHaveBeenCalledWith({ type: "exam", examId: "e1" });
     expect(m.picker).toHaveBeenCalledWith(actor, "c1", ["p1"]);
@@ -182,6 +186,7 @@ describe("getExamPageView", () => {
       candidateProblems: { personalProblems: [], publicProblems: [] },
       recentSubmissions: [],
       examCredentials: [],
+      studentProctoring: [],
     });
     for (const managerOnly of [
       m.canSetOverride,
@@ -189,6 +194,7 @@ describe("getExamPageView", () => {
       m.flags,
       m.ipViolations,
       m.activeSessions,
+      m.studentProctoring,
       m.audit,
       m.recent,
       m.credentials,
