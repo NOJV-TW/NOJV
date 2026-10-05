@@ -47,6 +47,7 @@ const basicFields = {
   statement: "Add two numbers.",
   inputFormat: "",
   outputFormat: "One integer.",
+  interactionFormat: "x",
 };
 
 beforeEach(() => {

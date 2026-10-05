@@ -3,6 +3,7 @@
   import type { SuperValidated } from "sveltekit-superforms";
   import { appSuperForm } from "$lib/utils/super-form";
   import type {
+    JudgeType,
     ProblemBasicInfo,
     ProblemDifficulty,
     ProblemSample,
@@ -29,6 +30,7 @@
     runtimeLimitsLocked?: boolean;
     isOwner?: boolean;
     canManageVisibility?: boolean;
+    judgeType?: JudgeType | undefined;
     ondirtychange?: (dirty: boolean) => void;
   }
 
@@ -41,6 +43,7 @@
     runtimeLimitsLocked = false,
     isOwner = false,
     canManageVisibility = true,
+    judgeType,
     ondirtychange,
   }: Props = $props();
 
@@ -352,7 +355,25 @@
     </label>
   </div>
 
-  <SamplesEditor bind:samples />
+  {#if judgeType === "interactive"}
+    <label class="text-body-sm text-muted-foreground">
+      <span
+        >{m.problemEditor_interactionFormat()}
+        <HelpTooltip text={m.problemEditor_interactionFormatTooltip()} /></span
+      >
+      <ImageDropZone
+        class={textareaClassName}
+        name="interactionFormat"
+        bind:value={$form.interactionFormat}
+        {problemId}
+      />
+      {#if attempted && $errors.interactionFormat}<span class="text-body-sm text-destructive"
+          >{tr($errors.interactionFormat)}</span
+        >{/if}
+    </label>
+  {/if}
+
+  <SamplesEditor bind:samples {judgeType} />
 
   <button
     type="button"

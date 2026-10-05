@@ -1,5 +1,6 @@
 <script lang="ts">
   import X from "@lucide/svelte/icons/x";
+  import type { JudgeType } from "@nojv/core";
   import { inputClassName, monoTextareaClassName } from "$lib/utils/css";
   import { m } from "$lib/paraglide/messages.js";
 
@@ -7,13 +8,18 @@
     input: string;
     output: string;
     explanation?: string | undefined;
+    interactorInput?: string | undefined;
   }
 
   interface Props {
     samples: Sample[];
+    judgeType?: JudgeType | undefined;
   }
 
-  let { samples = $bindable([]) }: Props = $props();
+  let { samples = $bindable([]), judgeType }: Props = $props();
+
+  const uid = $props.id();
+  let interactive = $derived(judgeType === "interactive");
 
   const MAX_SAMPLES = 5;
 
@@ -36,6 +42,10 @@
 
   function updateExplanation(index: number, value: string) {
     samples = samples.map((s, i) => (i === index ? { ...s, explanation: value } : s));
+  }
+
+  function updateInteractorInput(index: number, value: string) {
+    samples = samples.map((s, i) => (i === index ? { ...s, interactorInput: value } : s));
   }
 </script>
 
@@ -76,9 +86,35 @@
               <X aria-hidden="true" class="size-4" />
             </button>
           </div>
+          {#if interactive}
+            <label class="mt-2 block text-caption text-muted-foreground">
+              <span
+                >{m.problemEditor_sampleInteractorInput()}
+                <span class="text-destructive">*</span></span
+              >
+              <textarea
+                class={monoTextareaClassName}
+                required
+                aria-describedby="{uid}-interactor-help-{index}"
+                value={sample.interactorInput ?? ""}
+                oninput={(e) =>
+                  updateInteractorInput(index, (e.target as HTMLTextAreaElement).value)}
+              ></textarea>
+            </label>
+            <p
+              id="{uid}-interactor-help-{index}"
+              class="mt-1 text-caption text-muted-foreground"
+            >
+              {m.problemEditor_sampleInteractorInputHelp()}
+            </p>
+          {/if}
           <div class="mt-2 grid gap-3 md:grid-cols-2">
             <label class="text-caption text-muted-foreground">
-              <span>{m.admin_sampleInput()}</span>
+              <span
+                >{interactive
+                  ? m.problemEditor_sampleTranscriptInteractor()
+                  : m.admin_sampleInput()}</span
+              >
               <textarea
                 class="{monoTextareaClassName} min-h-24"
                 value={sample.input}
@@ -86,7 +122,11 @@
               ></textarea>
             </label>
             <label class="text-caption text-muted-foreground">
-              <span>{m.admin_sampleOutput()}</span>
+              <span
+                >{interactive
+                  ? m.problemEditor_sampleTranscriptProgram()
+                  : m.admin_sampleOutput()}</span
+              >
               <textarea
                 class="{monoTextareaClassName} min-h-24"
                 value={sample.output}

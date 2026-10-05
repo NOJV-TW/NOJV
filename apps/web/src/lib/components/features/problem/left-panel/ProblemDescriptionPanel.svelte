@@ -18,6 +18,8 @@
   }
 
   let { problem, testcaseSets, allowedLanguages, dailyAttempts }: Props = $props();
+
+  let interactive = $derived(problem.judgeType === "interactive");
 </script>
 
 <div class="p-5" data-tour="problem-statement">
@@ -131,6 +133,15 @@
     </div>
   {/if}
 
+  {#if interactive && problem.interactionFormat}
+    <div class="mt-4">
+      <p class="text-body-sm font-semibold">{m.problem_interactionFormat()}:</p>
+      <div class="mt-1 text-body leading-relaxed text-muted-foreground">
+        <MarkdownRenderer content={problem.interactionFormat} />
+      </div>
+    </div>
+  {/if}
+
   {#each problem.samples as sample, index (`sample-${index}`)}
     <div class="mt-6 {index > 0 ? 'border-t border-border-subtle pt-6' : ''}">
       <p class="text-body font-semibold">
@@ -138,6 +149,21 @@
         {index + 1}
       </p>
       <div class="mt-3 space-y-3 text-caption">
+        {#if interactive && sample.interactorInput}
+          <div>
+            <p class="text-caption font-medium text-muted-foreground">
+              {m.problem_interactionSampleInput()}
+            </p>
+            <div class="group relative mt-1">
+              <pre
+                class="overflow-x-auto whitespace-pre-wrap rounded-md bg-muted px-4 py-3 font-mono text-caption leading-6 text-foreground">{sample.interactorInput}</pre>
+              <CopyButton
+                text={sample.interactorInput}
+                class="pointer-events-none absolute right-1.5 top-1.5 opacity-0 transition-opacity duration-fast ease-out-soft group-hover:pointer-events-auto group-hover:opacity-100 focus-visible:pointer-events-auto focus-visible:opacity-100"
+              />
+            </div>
+          </div>
+        {/if}
         <div>
           <p class="text-caption font-medium text-muted-foreground">
             {m.problemDetail_input()}
