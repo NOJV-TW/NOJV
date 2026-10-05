@@ -4,39 +4,57 @@ import {
   checkerCaseVerdict,
   interactiveCaseVerdict,
   MAX_FEEDBACK_LEN,
+  testJudgeCaseResultSchema,
   truncateUtf8,
 } from "@nojv/core";
 
 describe("checkerCaseVerdict", () => {
+  const exited = (code: number) => ({ termination: "exited", code });
+
   it("maps exit 42 to AC and keeps the trimmed team message", () => {
-    expect(checkerCaseVerdict(42, "exited", "  looks good\n")).toEqual({
+    expect(checkerCaseVerdict(exited(42), "  looks good\n")).toEqual({
       verdict: "AC",
       teamMessage: "looks good",
     });
   });
 
+  it("maps exit 42 without a team message to a bare AC", () => {
+    expect(checkerCaseVerdict(exited(42))).toEqual({ verdict: "AC" });
+  });
+
   it("maps exit 43 to WA", () => {
-    expect(checkerCaseVerdict(43, "exited", "off by one")).toEqual({
+    expect(checkerCaseVerdict(exited(43), "off by one")).toEqual({
       verdict: "WA",
       teamMessage: "off by one",
     });
   });
 
   it("omits an empty team message", () => {
-    expect(checkerCaseVerdict(43, "exited", " \n")).toEqual({ verdict: "WA" });
+    expect(checkerCaseVerdict(exited(43), " \n")).toEqual({ verdict: "WA" });
   });
 
   it("maps any other exit code to SE without a team message", () => {
-    expect(checkerCaseVerdict(1, "exited", "partial")).toEqual({ verdict: "SE" });
+    expect(checkerCaseVerdict(exited(1), "partial")).toEqual({ verdict: "SE" });
   });
 
   it("maps a checker that did not exit to SE", () => {
-    expect(checkerCaseVerdict(42, "logical-time-limit", "late")).toEqual({ verdict: "SE" });
+    expect(checkerCaseVerdict({ termination: "logical-time-limit", code: 42 }, "late")).toEqual(
+      {
+        verdict: "SE",
+      },
+    );
   });
 
   it("caps the team message at the feedback limit", () => {
-    const result = checkerCaseVerdict(43, "exited", "x".repeat(MAX_FEEDBACK_LEN + 50));
+    const result = checkerCaseVerdict(exited(43), "x".repeat(MAX_FEEDBACK_LEN + 50));
     expect(result.teamMessage).toHaveLength(MAX_FEEDBACK_LEN);
+  });
+
+  it("caps an astral team message without splitting a surrogate pair", () => {
+    const result = checkerCaseVerdict(exited(43), `a${"😀".repeat(MAX_FEEDBACK_LEN)}`);
+    expect(result.teamMessage).toHaveLength(MAX_FEEDBACK_LEN - 1);
+    expect(result.teamMessage?.endsWith("😀")).toBe(true);
+    expect(testJudgeCaseResultSchema.safeParse(result).success).toBe(true);
   });
 });
 

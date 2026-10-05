@@ -4,6 +4,7 @@ import {
   TEST_JUDGE_MAX_CASES,
   testJudgeCaseResultSchema,
   testJudgeRequestSchema,
+  testJudgeResponseSchema,
   testJudgeStoredRequestSchema,
 } from "@nojv/core";
 
@@ -41,13 +42,14 @@ describe("testJudgeRequestSchema", () => {
     expect(testJudgeRequestSchema.safeParse(request).success).toBe(true);
   });
 
-  it(`rejects more than ${String(TEST_JUDGE_MAX_CASES)} cases`, () => {
-    const request = {
+  it("accepts exactly 15 cases and rejects 16", () => {
+    const withCases = (length: number) => ({
       ...checkerRequest,
-      cases: Array.from({ length: TEST_JUDGE_MAX_CASES + 1 }, () => checkerCase),
-    };
+      cases: Array.from({ length }, () => checkerCase),
+    });
     expect(TEST_JUDGE_MAX_CASES).toBe(15);
-    expect(testJudgeRequestSchema.safeParse(request).success).toBe(false);
+    expect(testJudgeRequestSchema.safeParse(withCases(15)).success).toBe(true);
+    expect(testJudgeRequestSchema.safeParse(withCases(16)).success).toBe(false);
   });
 
   it("rejects an empty case list", () => {
@@ -87,17 +89,45 @@ describe("testJudgeCaseResultSchema", () => {
   });
 });
 
+describe("testJudgeResponseSchema", () => {
+  it(`rejects more than ${String(TEST_JUDGE_MAX_CASES)} case results`, () => {
+    const cases = Array.from({ length: TEST_JUDGE_MAX_CASES + 1 }, () => ({ verdict: "AC" }));
+    expect(testJudgeResponseSchema.safeParse({ cases }).success).toBe(false);
+  });
+});
+
 describe("testJudgeStoredRequestSchema", () => {
+  const storedBase = {
+    judgeLanguage: "cpp",
+    judgeScriptPointer: { key: "checkers/a.cpp", sha256: "a".repeat(64), size: 120 },
+    timeLimitMs: 1000,
+    memoryLimitMb: 256,
+    runtimeEnv: {},
+  };
+  const storedInteractive = {
+    ...storedBase,
+    kind: "interactive",
+    contestantLanguage: "cpp",
+    artifact: interactiveRequest.artifact,
+    cases: interactiveRequest.cases,
+  };
+
   it("accepts a stored checker request", () => {
-    const stored = {
-      kind: "checker",
-      judgeLanguage: "cpp",
-      judgeScriptPointer: { key: "checkers/a.cpp", sha256: "a".repeat(64), size: 120 },
-      timeLimitMs: 1000,
-      memoryLimitMb: 256,
-      runtimeEnv: {},
-      checkerCases: [checkerCase],
-    };
+    const stored = { ...storedBase, kind: "checker", cases: [checkerCase] };
     expect(testJudgeStoredRequestSchema.safeParse(stored).success).toBe(true);
+  });
+
+  it("accepts a stored interactive request", () => {
+    expect(testJudgeStoredRequestSchema.safeParse(storedInteractive).success).toBe(true);
+  });
+
+  it("rejects a stored interactive request without an artifact", () => {
+    const stored = { ...storedInteractive, artifact: undefined };
+    expect(testJudgeStoredRequestSchema.safeParse(stored).success).toBe(false);
+  });
+
+  it("rejects a stored checker request carrying interactive cases", () => {
+    const stored = { ...storedBase, kind: "checker", cases: interactiveRequest.cases };
+    expect(testJudgeStoredRequestSchema.safeParse(stored).success).toBe(false);
   });
 });

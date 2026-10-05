@@ -41,7 +41,7 @@ const problemIdentifierSchema = z
   .regex(/^[A-Za-z0-9_-]+$/, "validation_slugFormat");
 
 export const MAX_RUN_CASES = 10;
-const MAX_RUN_CASE_FIELD_LEN = 200_000;
+export const MAX_RUN_CASE_FIELD_LEN = 200_000;
 
 export const runCaseSchema = z.object({
   input: z.string().max(MAX_RUN_CASE_FIELD_LEN),
