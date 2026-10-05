@@ -276,6 +276,47 @@ describe("LiveSubmissionsFeed", () => {
     target.remove();
   });
 
+  it("returns to the first page without the old snapshot when the sort changes", async () => {
+    mocks.read.mockImplementation(async (url: string) => {
+      const query = new URL(url, "http://localhost").searchParams;
+      return {
+        ...page(rows),
+        page: Number(query.get("page")),
+        totalCount: 120,
+        totalPages: 3,
+        snapshot: "paged-snapshot",
+      };
+    });
+    const target = document.createElement("div");
+    document.body.append(target);
+    const component = mount(LiveSubmissionsFeed, {
+      target,
+      props: { rows, refreshUrl: "/api/submissions?context=assignment&id=a1" },
+    });
+    const lastQuery = () =>
+      new URL(mocks.read.mock.lastCall?.[0], "http://localhost").searchParams;
+    const next = await vi.waitFor(() => {
+      const button = [...target.querySelectorAll<HTMLButtonElement>("nav button")].find(
+        (candidate) => candidate.textContent?.trim() === m.submissions_next(),
+      );
+      expect(button).toBeDefined();
+      return button!;
+    });
+    next.click();
+    await vi.waitFor(() => expect(lastQuery().get("page")).toBe("2"));
+    expect(lastQuery().get("snapshot")).toBe("paged-snapshot");
+
+    [...target.querySelectorAll<HTMLButtonElement>("th button")]
+      .find((button) => button.textContent?.trim() === m.admin_submissions_colScore())!
+      .click();
+    await vi.waitFor(() => expect(lastQuery().get("sort")).toBe("score"));
+    expect(lastQuery().get("page")).toBe("1");
+    expect(lastQuery().has("snapshot")).toBe(false);
+
+    await unmount(component);
+    target.remove();
+  });
+
   it("keeps new rows behind a latest action during shared background refresh", async () => {
     const target = document.createElement("div");
     document.body.append(target);
