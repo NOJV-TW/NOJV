@@ -313,6 +313,8 @@
           status={judgeProgramStatus}
           testJudgeDisabled={!problem.testCapability.available &&
             problem.testCapability.reason === "test_judge_unavailable"}
+          pythonInteractor={problem.judgeConfig.type === "interactive" &&
+            problem.judgeConfig.interactorLanguage === "python"}
           checksSamples={judgeType === "checker"}
           hasUnsavedChanges={dirty}
         />

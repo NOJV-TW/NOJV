@@ -606,11 +606,13 @@ Judge program builds:
   builds on demand. Builds run at priority 5 and `testJudgeWorkflow` at priority 1;
   each workflow passes its priority to its activity, so a queued Test request takes
   the next free engine before queued builds. A build workflow has a 15-minute
-  execution timeout and its activity 5 minutes per attempt, three attempts. The edit page shows authors the cached status (ready, failed
-  with diagnostics, or pending; a pending status re-checks every 3 s for a minute
-  through `invalidate("problem:judge-program-status")`, skipping a check during
-  navigation) and, for checker problems, a sample check that runs
-  the checker with each sample's `output` as both the answer and the team output.
+  execution timeout and its activity 5 minutes per attempt, three attempts.
+- The edit page shows authors the cached status (ready, failed with diagnostics,
+  pending, or unavailable when the status cannot be read; only a pending status
+  re-checks, every 3 s for a minute through
+  `invalidate("problem:judge-program-status")`, skipping a check during
+  navigation) and, for checker problems, a sample check that runs the checker with
+  each sample's `output` as both the answer and the team output.
 
 Errors (`{ code, message }`):
 

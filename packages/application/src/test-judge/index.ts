@@ -280,7 +280,8 @@ export async function checkSamplesWithChecker(
 }
 
 export type JudgeProgramStatus =
-  { status: "ok" | "pending" | "not_applicable" } | { status: "failed"; diagnostics: string };
+  | { status: "ok" | "pending" | "not_applicable" | "unavailable" }
+  | { status: "failed"; diagnostics: string };
 
 function parseJson(body: string): unknown {
   try {

@@ -10,11 +10,13 @@
   interface Props {
     status: testJudgeDomain.JudgeProgramStatus;
     testJudgeDisabled: boolean;
+    pythonInteractor: boolean;
     checksSamples: boolean;
     hasUnsavedChanges: boolean;
   }
 
-  let { status, testJudgeDisabled, checksSamples, hasUnsavedChanges }: Props = $props();
+  let { status, testJudgeDisabled, pythonInteractor, checksSamples, hasUnsavedChanges }: Props =
+    $props();
 
   const STATUS_POLL_MS = 3000;
   const STATUS_POLL_LIMIT_MS = 60_000;
@@ -80,7 +82,15 @@
 {#if status.status === "not_applicable"}
   {#if testJudgeDisabled}
     <p class="text-caption text-muted-foreground">{m.admin_testJudgeDisabled()}</p>
+  {:else if pythonInteractor}
+    <p class="text-caption text-muted-foreground">
+      {m.admin_testPythonInteractorUnsupported()}
+    </p>
   {/if}
+{:else if status.status === "unavailable"}
+  <p class="text-caption text-muted-foreground" role="status">
+    {m.admin_judgeProgramTestUnavailable()}
+  </p>
 {:else}
   <div class="space-y-3">
     <div

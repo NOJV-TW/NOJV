@@ -57,7 +57,7 @@ async function loadJudgeProgramStatus(
     return await testJudgeDomain.getJudgeProgramStatus(actor, problemId);
   } catch (err) {
     logger.warn("Could not load the test-judge program status", { problemId, err });
-    return { status: "pending" };
+    return { status: "unavailable" };
   }
 }
 

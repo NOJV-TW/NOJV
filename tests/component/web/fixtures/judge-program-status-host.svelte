@@ -13,6 +13,7 @@
 <JudgeProgramTestStatus
   {status}
   testJudgeDisabled={false}
+  pythonInteractor={false}
   checksSamples
   hasUnsavedChanges={false}
 />

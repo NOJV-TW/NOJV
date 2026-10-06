@@ -46,6 +46,7 @@ function render(
   options: {
     checksSamples?: boolean;
     testJudgeDisabled?: boolean;
+    pythonInteractor?: boolean;
     hasUnsavedChanges?: boolean;
   } = {},
 ) {
@@ -55,6 +56,7 @@ function render(
       status,
       checksSamples: options.checksSamples ?? true,
       testJudgeDisabled: options.testJudgeDisabled ?? false,
+      pythonInteractor: options.pythonInteractor ?? false,
       hasUnsavedChanges: options.hasUnsavedChanges ?? false,
     },
   });
@@ -113,6 +115,31 @@ describe("JudgeProgramTestStatus", () => {
     render({ status: "not_applicable" }, { testJudgeDisabled: true });
 
     expect(target.textContent?.trim()).toBe(m.admin_testJudgeDisabled());
+  });
+
+  it("says Test does not support a Python interactor", () => {
+    render({ status: "not_applicable" }, { checksSamples: false, pythonInteractor: true });
+
+    expect(target.textContent?.trim()).toBe(m.admin_testPythonInteractorUnsupported());
+  });
+
+  it("says when Test judging is off even for a Python interactor", () => {
+    render(
+      { status: "not_applicable" },
+      { checksSamples: false, pythonInteractor: true, testJudgeDisabled: true },
+    );
+
+    expect(target.textContent?.trim()).toBe(m.admin_testJudgeDisabled());
+  });
+
+  it("says the status could not be checked, without a sample check or re-checks", async () => {
+    vi.useFakeTimers();
+    render({ status: "unavailable" });
+
+    expect(statusText()).toBe(m.admin_judgeProgramTestUnavailable());
+    expect(checkButton()).toBeNull();
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(mocks.invalidate).not.toHaveBeenCalled();
   });
 
   it("offers no sample check on an interactive problem", () => {

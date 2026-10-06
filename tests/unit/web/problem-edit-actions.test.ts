@@ -190,14 +190,14 @@ describe("load", () => {
     expect(data.judgeProgramStatus).toEqual({ status: "failed", diagnostics: "boom" });
   });
 
-  it("degrades to pending when the status cannot be read", async () => {
+  it("reports the status as unavailable when it cannot be read", async () => {
     mocks.getProblemEditPageView.mockResolvedValue(editView("interactive", true));
     const failure = new Error("storage down");
     mocks.getJudgeProgramStatus.mockRejectedValue(failure);
 
     const data = (await load(loadEvent())) as { judgeProgramStatus: unknown };
 
-    expect(data.judgeProgramStatus).toEqual({ status: "pending" });
+    expect(data.judgeProgramStatus).toEqual({ status: "unavailable" });
     expect(mocks.warn).toHaveBeenCalledWith("Could not load the test-judge program status", {
       problemId: "prob_1",
       err: failure,
