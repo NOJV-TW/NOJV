@@ -17,12 +17,14 @@ import type {
 
 export interface TestCaseView extends CaseResult {
   executionOnly?: true;
+  serverJudged?: true;
   teamMessage?: string;
   transcript?: NonNullable<TestJudgeCaseResult["transcript"]>;
 }
 
 export interface TestRunResult extends SubmissionResult {
   caseResults?: TestCaseView[] | undefined;
+  serverNotice?: string | undefined;
 }
 
 export interface ProblemSubmissionEntry {

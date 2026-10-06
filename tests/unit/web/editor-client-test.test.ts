@@ -19,7 +19,6 @@ vi.mock("$lib/services/submission-service", async (importOriginal) => ({
 }));
 vi.mock("$lib/services/browser-local-run", async (importOriginal) => ({
   ...(await importOriginal<typeof import("$lib/services/browser-local-run")>()),
-  shouldUseBrowserLocalRun: () => true,
   runBrowserLocally: mocks.run,
   compileBrowserLocally: mocks.compile,
   runBrowserCases: mocks.runCases,
@@ -254,13 +253,61 @@ it("judges only locally accepted sample cases through the checker and keeps cust
   const cases = run.runResult?.caseResults ?? [];
   expect(cases[0]).toMatchObject({ verdict: "WA", teamMessage: "expected 10", stdout: "10" });
   expect(cases[0]).not.toHaveProperty("executionOnly");
-  expect(cases[1]).toMatchObject({ verdict: "AC", stdout: "3" });
+  expect(cases[0]).toHaveProperty("serverJudged", true);
+  expect(cases[1]).toMatchObject({ verdict: "AC", stdout: "3", serverJudged: true });
   expect(cases[1]).not.toHaveProperty("executionOnly");
   expect(cases[2]).toMatchObject({ verdict: "AC", executionOnly: true, stdout: "18" });
+  expect(cases[2]).not.toHaveProperty("serverJudged");
   expect(cases[3]).toMatchObject({ verdict: "TLE" });
   expect(cases[3]).not.toHaveProperty("executionOnly");
+  expect(cases[3]).not.toHaveProperty("serverJudged");
   expect(cases[4]).toMatchObject({ verdict: "AC", executionOnly: true });
+  expect(run.runResult).not.toHaveProperty("serverNotice");
 });
+
+it("shows that the server is judging while the checker request is pending", async () => {
+  mocks.runCases.mockResolvedValue([caseRun("3")]);
+  let answer!: (response: Response) => void;
+  mocks.fetch.mockReturnValueOnce(new Promise<Response>((resolve) => (answer = resolve)));
+  const run = controller("checker", { samples: checkerSamples });
+  run.panelRunCases = [{ input: "1 2" }];
+  const pending = run.run();
+  await vi.waitFor(() => expect(mocks.fetch).toHaveBeenCalledOnce());
+  expect(run.runStatus).toBe(m.editor_judgingOnServer());
+  answer(Response.json({ cases: [{ verdict: "AC" }] }));
+  await pending;
+  expect(run.runStatus).toBeNull();
+  expect(run.runResult?.verdict).toBe("accepted");
+});
+
+it.each([
+  [429, { code: "test_judge_busy" }, () => m.editor_testJudgeBusy()],
+  [429, { message: "Too many requests" }, () => m.editor_testJudgeBusy()],
+  [503, { code: "test_judge_unavailable" }, () => m.editor_testUnavailableForProblem()],
+] as const)(
+  "keeps local checker results when the server answers %i %j",
+  async (status, body, message) => {
+    mocks.runCases.mockResolvedValue([caseRun("3"), caseRun("", "TLE"), caseRun("custom out")]);
+    respond(status, body);
+    const run = controller("checker", { samples: checkerSamples });
+    run.panelRunCases = [{ input: "1 2" }, { input: "5 5" }, { input: "custom" }];
+    await run.run();
+    expect(run.runError).toBeNull();
+    expect(mocks.toast).not.toHaveBeenCalled();
+    expect(run.runResult?.serverNotice).toBe(message());
+    expect(run.runResult?.verdict).toBe("time_limit_exceeded");
+    const cases = run.runResult?.caseResults ?? [];
+    expect(cases[0]).toMatchObject({ verdict: "AC", executionOnly: true, stdout: "3" });
+    expect(cases[1]).toMatchObject({ verdict: "TLE" });
+    expect(cases[2]).toMatchObject({
+      verdict: "AC",
+      executionOnly: true,
+      stdout: "custom out",
+    });
+    expect(cases.some((caseResult) => caseResult.serverJudged)).toBe(false);
+    expect(run.testDisabledReason).toBeNull();
+  },
+);
 
 it("skips the checker request when no sample case runs cleanly", async () => {
   mocks.runCases.mockResolvedValue([caseRun("", "RE"), caseRun("anything")]);
@@ -270,6 +317,7 @@ it("skips the checker request when no sample case runs cleanly", async () => {
   expect(mocks.fetch).not.toHaveBeenCalled();
   expect(run.runResult?.verdict).toBe("runtime_error");
   expect(run.runResult?.caseResults?.[1]).toMatchObject({ verdict: "AC", executionOnly: true });
+  expect(run.runResult?.caseResults?.some((caseResult) => caseResult.serverJudged)).toBe(false);
   expect(run.customCasesAllowed).toBe(true);
 });
 
@@ -329,10 +377,18 @@ it("judges interactive samples with an interactor input on the server with the c
     {
       index: 0,
       verdict: "AC",
+      serverJudged: true,
       timeMs: 12,
       transcript: { toInteractor: "? 50\n? 42\n", toContestant: "<\n=\n" },
     },
-    { index: 1, verdict: "WA", timeMs: 0, stderr: "debug", teamMessage: "too many guesses" },
+    {
+      index: 1,
+      verdict: "WA",
+      serverJudged: true,
+      timeMs: 0,
+      stderr: "debug",
+      teamMessage: "too many guesses",
+    },
   ]);
 });
 
@@ -358,30 +414,99 @@ it("explains that an interactive problem without interactor inputs has nothing t
 });
 
 it.each([
-  [429, "test_judge_busy", () => m.editor_testJudgeBusy(), false],
-  [503, "test_judge_busy", () => m.editor_testJudgeBusy(), false],
-  [503, "test_judge_unavailable", () => m.editor_testUnavailableForProblem(), false],
-  [409, "judge_program_build_failed", () => m.editor_testJudgeProgramBuildFailed(), true],
-  [409, "judge_program_unsupported", () => m.editor_testUnavailableForProblem(), true],
-  [400, "test_rejected", () => m.editor_runFailed(), false],
+  [429, { code: "test_judge_busy" }, () => m.editor_testJudgeBusy(), false],
+  [429, { message: "Too many requests" }, () => m.editor_testJudgeBusy(), false],
+  [503, { code: "test_judge_busy" }, () => m.editor_testJudgeBusy(), false],
+  [503, { code: "test_judge_unavailable" }, () => m.editor_testUnavailableForProblem(), false],
+  [413, { message: "Request body too large" }, () => m.editor_testTooLarge(), false],
+  [
+    409,
+    { code: "judge_program_build_failed" },
+    () => m.editor_testJudgeProgramBuildFailed(),
+    true,
+  ],
+  [
+    409,
+    { code: "judge_program_unsupported" },
+    () => m.editor_testUnavailableForProblem(),
+    true,
+  ],
+  [400, { code: "test_rejected" }, () => m.editor_runFailed(), false],
+  [500, { message: "Internal Error" }, () => m.editor_runFailed(), false],
 ] as const)(
-  "maps a %i %s response to its Test message",
-  async (status, code, message, disablesTest) => {
-    mocks.runCases.mockResolvedValue([caseRun("3")]);
-    respond(status, { code, message: code });
-    const run = controller("checker", { samples: checkerSamples });
+  "maps a %i %j interactive response to its Test message",
+  async (status, body, message, disablesTest) => {
+    respond(status, body);
+    const run = controller("interactive", { samples: interactiveSamples });
     await run.run();
+    expect(run.runResult).toBeNull();
     expect(run.runError).toBe(message());
     expect(mocks.toast).toHaveBeenCalledWith(message());
     expect(run.testDisabledReason).toBe(disablesTest ? message() : null);
   },
 );
 
-it("treats an uncoded test-judge failure as a generic Test failure", async () => {
+it("disables Test when the checker cannot be built, without judging locally", async () => {
   mocks.runCases.mockResolvedValue([caseRun("3")]);
-  respond(429, { message: "Too many requests" });
+  respond(409, { code: "judge_program_build_failed" });
   const run = controller("checker", { samples: checkerSamples });
   await run.run();
+  expect(run.runError).toBe(m.editor_testJudgeProgramBuildFailed());
+  expect(run.testDisabledReason).toBe(m.editor_testJudgeProgramBuildFailed());
+});
+
+it("reports a response with the wrong number of cases as a failed Test", async () => {
+  respond(200, { cases: [{ verdict: "AC" }] });
+  const run = controller("interactive", { samples: interactiveSamples });
+  await run.run();
+  expect(run.runResult).toBeNull();
   expect(run.runError).toBe(m.editor_runFailed());
-  expect(run.testDisabledReason).toBeNull();
+});
+
+it("ignores a second Test press while one is running", async () => {
+  let answer!: (response: Response) => void;
+  mocks.fetch.mockReturnValueOnce(new Promise<Response>((resolve) => (answer = resolve)));
+  const run = controller("interactive", { samples: interactiveSamples });
+  const first = run.run();
+  await vi.waitFor(() => expect(mocks.fetch).toHaveBeenCalledOnce());
+  await run.run();
+  expect(mocks.compile).toHaveBeenCalledOnce();
+  answer(Response.json({ cases: [{ verdict: "AC" }, { verdict: "AC" }] }));
+  await first;
+  expect(mocks.fetch).toHaveBeenCalledOnce();
+  expect(run.runResult?.verdict).toBe("accepted");
+});
+
+it("stays silent when the editor is destroyed while the response body is read", async () => {
+  let failBody!: (error: unknown) => void;
+  const response = new Response(null, { status: 200 });
+  vi.spyOn(response, "json").mockReturnValue(new Promise((_, reject) => (failBody = reject)));
+  mocks.fetch.mockResolvedValueOnce(response);
+  const run = controller("interactive", { samples: interactiveSamples });
+  const pending = run.run();
+  await vi.waitFor(() => expect(response.json).toHaveBeenCalled());
+  run.markDestroyed();
+  failBody(new DOMException("The operation was aborted.", "AbortError"));
+  await pending;
+  expect(mocks.toast).not.toHaveBeenCalled();
+  expect(run.runResult).toBeNull();
+  expect(run.runError).toBeNull();
+});
+
+it("stays silent when the editor is destroyed while the request is in flight", async () => {
+  mocks.fetch.mockImplementationOnce(
+    (_url: string, init: RequestInit) =>
+      new Promise((_, reject) =>
+        init.signal?.addEventListener("abort", () =>
+          reject(new DOMException("The operation was aborted.", "AbortError")),
+        ),
+      ),
+  );
+  const run = controller("interactive", { samples: interactiveSamples });
+  const pending = run.run();
+  await vi.waitFor(() => expect(mocks.fetch).toHaveBeenCalledOnce());
+  run.markDestroyed();
+  await pending;
+  expect(mocks.toast).not.toHaveBeenCalled();
+  expect(run.runError).toBeNull();
 });

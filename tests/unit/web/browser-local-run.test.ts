@@ -9,7 +9,6 @@ import {
   browserLocalTerminationFeedback,
   mapBrowserLocalRunResult,
   runBrowserLocally,
-  shouldUseBrowserLocalRun,
   supportsBrowserLocalRun,
 } from "$lib/services/browser-local-run";
 
@@ -56,54 +55,11 @@ describe("browser local run result mapping", () => {
     "accepts %s for browser local runs",
     (language) => {
       expect(supportsBrowserLocalRun(language)).toBe(true);
-      expect(
-        shouldUseBrowserLocalRun({
-          sampleOnly: true,
-          specialEnv: false,
-          judgeType: "standard",
-          language,
-        }),
-      ).toBe(true);
     },
   );
 
   it("uses the browser for Java sample runs", () => {
     expect(supportsBrowserLocalRun("java")).toBe(true);
-    expect(
-      shouldUseBrowserLocalRun({
-        sampleOnly: true,
-        specialEnv: false,
-        judgeType: "standard",
-        language: "java",
-      }),
-    ).toBe(true);
-  });
-
-  it("uses the browser only for standard sample runs", () => {
-    expect(
-      shouldUseBrowserLocalRun({
-        sampleOnly: true,
-        specialEnv: false,
-        judgeType: "standard",
-        language: "python",
-      }),
-    ).toBe(true);
-    expect(
-      shouldUseBrowserLocalRun({
-        sampleOnly: false,
-        specialEnv: false,
-        judgeType: "standard",
-        language: "python",
-      }),
-    ).toBe(false);
-    expect(
-      shouldUseBrowserLocalRun({
-        sampleOnly: true,
-        specialEnv: false,
-        judgeType: "checker",
-        language: "python",
-      }),
-    ).toBe(false);
   });
 
   it("preserves visible multi-file workspace paths", () => {

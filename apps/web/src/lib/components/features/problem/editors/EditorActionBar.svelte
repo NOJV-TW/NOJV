@@ -56,9 +56,9 @@
 
 <div
   data-tour="problem-actions"
-  class="flex items-center justify-between border-t border-border-subtle bg-muted/40 px-4 py-1"
+  class="flex items-center justify-between gap-3 border-t border-border-subtle bg-muted/40 px-4 py-1"
 >
-  <div class="flex items-center gap-2">
+  <div class="flex shrink-0 items-center gap-2">
     {#if draftEnabled}
       {#if isDirty}
         <span class="flex items-center gap-1.5 text-caption font-medium text-warning">
@@ -73,15 +73,22 @@
       {/if}
     {/if}
   </div>
-  <div class="flex items-center gap-2">
+  <div class="flex min-w-0 items-center justify-end gap-2">
+    {#if testDisabledReason !== null}
+      <p
+        id={`${uid}-test-reason`}
+        class="min-w-0 text-right text-caption leading-snug text-muted-foreground"
+      >
+        {testDisabledReason}
+      </p>
+    {/if}
     <button
-      class="rounded-full border border-border px-3 py-1 text-caption font-medium text-foreground transition-[transform,box-shadow,background-color] duration-fast ease-out-soft hover:-translate-y-0.5 hover:bg-accent disabled:cursor-not-allowed disabled:opacity-60"
+      class="shrink-0 rounded-full border border-border px-3 py-1 text-caption font-medium text-foreground transition-[transform,box-shadow,background-color] duration-fast ease-out-soft hover:-translate-y-0.5 hover:bg-accent disabled:cursor-not-allowed disabled:opacity-60"
       disabled={isRunning || disabled || testDisabledReason !== null}
       aria-busy={isRunning || toolchainPercent !== null}
       aria-describedby={testDisabledReason !== null ? `${uid}-test-reason` : undefined}
       onclick={onRun}
-      title={testDisabledReason ??
-        (!hasSubmittableSource ? m.editor_emptySourceTooltip() : undefined)}
+      title={!hasSubmittableSource ? m.editor_emptySourceTooltip() : undefined}
       type="button"
     >
       {#if isRunning}
@@ -92,11 +99,8 @@
         {m.editor_run()}
       {/if}
     </button>
-    {#if testDisabledReason !== null}
-      <span id={`${uid}-test-reason`} class="sr-only">{testDisabledReason}</span>
-    {/if}
     <button
-      class="rounded-full bg-success px-3 py-1 text-caption font-semibold text-white transition-[transform,box-shadow,background-color] duration-fast ease-out-soft hover:-translate-y-0.5 hover:bg-success/90 disabled:cursor-not-allowed disabled:opacity-60"
+      class="shrink-0 rounded-full bg-success px-3 py-1 text-caption font-semibold text-white transition-[transform,box-shadow,background-color] duration-fast ease-out-soft hover:-translate-y-0.5 hover:bg-success/90 disabled:cursor-not-allowed disabled:opacity-60"
       disabled={isSubmitting || disabled || attemptsExhausted || cooldownRemaining > 0}
       aria-busy={isSubmitting}
       onclick={onSubmit}

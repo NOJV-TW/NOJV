@@ -126,6 +126,7 @@ it("renders the interactive transcript instead of an empty output block", async 
       {
         index: 0,
         verdict: "AC",
+        serverJudged: true,
         timeMs: 12,
         transcript: { toInteractor: "50\n25\n42\n", toContestant: "1 100\nlower\nhigher\n" },
       },
@@ -147,10 +148,17 @@ it("shows the judge's team message for the selected case", async () => {
     judgeType: "checker",
     runCases: [{ input: "1 2", expectedOutput: "3" }],
     runResult: result([
-      { index: 0, verdict: "WA", timeMs: 3, stdout: "4\n", teamMessage: "Sum is off by one" },
+      {
+        index: 0,
+        verdict: "WA",
+        serverJudged: true,
+        timeMs: 3,
+        stdout: "4\n",
+        teamMessage: "Sum is off by one",
+      },
     ]),
   });
-  expect(target.textContent).toContain(m.editor_judgeMessage());
+  expect(target.textContent).toContain(m.editor_judgeFeedback());
   expect(target.textContent).toContain("Sum is off by one");
   expect(target.textContent).not.toContain(m.editor_expectLabel());
 });
@@ -170,4 +178,50 @@ it("labels execution-only cases as executed rather than accepted", async () => {
   expect(target.textContent).not.toContain("✔");
   expect(target.textContent).toContain(m.editor_executedNote());
   expect(target.textContent).not.toContain(m.editor_judgedOnServer());
+});
+
+it("shows no server badge when every checker sample failed locally", async () => {
+  await mountPanel({
+    tab: "result",
+    judgeType: "checker",
+    runCases: [{ input: "1 2", expectedOutput: "3" }, { input: "custom" }],
+    runResult: {
+      ...result([
+        { index: 0, verdict: "RE", timeMs: 3, stdout: "", stderr: "boom" },
+        { index: 1, verdict: "AC", timeMs: 3, stdout: "out", executionOnly: true },
+      ]),
+      verdict: "runtime_error",
+    },
+  });
+  expect(target.querySelector('[role="status"] span')?.textContent?.trim()).toBe("RE");
+  expect(target.textContent).not.toContain(m.editor_judgedOnServer());
+});
+
+it("keeps local results visible with the server's notice when samples could not be judged", async () => {
+  await mountPanel({
+    tab: "result",
+    judgeType: "checker",
+    runCases: [{ input: "1 2", expectedOutput: "3" }],
+    runResult: {
+      ...result([{ index: 0, verdict: "AC", timeMs: 3, stdout: "3\n", executionOnly: true }]),
+      serverNotice: m.editor_testJudgeBusy(),
+    },
+  });
+  expect(target.textContent).toContain(m.editor_testJudgeBusy());
+  expect(target.textContent).toContain(m.editor_executed());
+  expect(target.textContent).toContain(m.editor_executedNote());
+  expect(target.textContent).toContain("3\n");
+  expect(target.textContent).not.toContain(m.editor_judgedOnServer());
+});
+
+it("explains a server-side judge error on a case", async () => {
+  await mountPanel({
+    tab: "result",
+    judgeType: "interactive",
+    customCasesAllowed: false,
+    runCases: [{ input: "42" }],
+    runResult: result([{ index: 0, verdict: "SE", serverJudged: true, timeMs: 0 }]),
+  });
+  expect(target.textContent).toContain(m.editor_judgeSystemError());
+  expect(target.textContent).toContain(m.editor_judgedOnServer());
 });

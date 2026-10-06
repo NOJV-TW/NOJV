@@ -135,6 +135,12 @@ async function postSubmission(
   return submissionDispatchResponseSchema.parse(await response.json());
 }
 
+function testJudgeErrorCode(status: number, code: unknown): string {
+  if (status === 413) return "test_request_too_large";
+  if (typeof code === "string") return code;
+  return status === 429 ? "test_judge_busy" : "test_rejected";
+}
+
 export async function requestTestJudge(
   problemId: string,
   body: TestJudgeRequest,
@@ -153,13 +159,22 @@ export async function requestTestJudge(
   }
   if (!response.ok) {
     const error = (await response.json().catch(() => null)) as Record<string, unknown> | null;
+    if (signal.aborted) return null;
     throw new SubmissionRequestError(
       typeof error?.message === "string" ? error.message : "Test judge failed.",
-      typeof error?.code === "string" ? error.code : "test_rejected",
+      testJudgeErrorCode(response.status, error?.code),
       null,
     );
   }
-  const parsed = testJudgeResponseSchema.parse(await response.json());
+  let payload: unknown;
+  try {
+    payload = await response.json();
+  } catch (err) {
+    if (signal.aborted) return null;
+    throw err;
+  }
+  if (signal.aborted) return null;
+  const parsed = testJudgeResponseSchema.parse(payload);
   if (parsed.cases.length !== body.cases.length) {
     throw new Error("The test judge returned a different number of cases.");
   }

@@ -30,7 +30,7 @@ All keyed state uses the `nojv:` prefix except rate-limiter keys (`rl:*`).
 | `nojv:sb-chart-cache:{contestId}:{live\|public}:{topN}`         | 10 s                                 | Scoreboard chart cache                                           |
 | `nojv:sb-lock:{contestId}:{live\|public}`                       | 5 s (`SET NX`, token)                | Scoreboard rebuild lease                                         |
 | `nojv:sb-throttle:{contestId}`                                  | 10 s (`SET NX`)                      | Throttle for `scoreboard:update` publishes                       |
-| `nojv:test-judge:in-flight:{userId}`                            | 35 s (`SET NX`, token)               | One in-flight test-judge request per user (see Rate limiting)    |
+| `nojv:test-judge:in-flight:{userId}`                            | 90 s (`SET NX`, token)               | One in-flight test-judge request per user (see Rate limiting)    |
 | `nojv:apitoken:stepup:{sessionId}`                              | 600 s                                | API-token step-up proof, bound to `securityGeneration`           |
 | `nojv:apitoken:page-mfa:{sessionId}`                            | 3600 s                               | API-token page MFA proof                                         |
 | `nojv:stepup:handoff:{ticket}`                                  | 60 s, `GETDEL`                       | One-shot step-up handoff ticket                                  |
@@ -128,7 +128,8 @@ for 10 s on top of the scoreboard result and takes no lease.
 - `/api/problems/{id}/test-judge` also holds `nojv:test-judge:in-flight:{userId}`
   from before the body is read until the response. A concurrent request from the
   same user gets 429 `{ code: "test_judge_busy" }`; a Redis error gets 503
-  `test_judge_unavailable`. Release is a Lua compare-and-delete on the token.
+  `test_judge_unavailable`. Release is a Lua compare-and-delete on the token;
+  the TTL only frees the lock when the web process dies mid-request.
 
 Submit cooldowns are not in Redis: `enforceSubmitCooldown`
 (`packages/application/src/shared/submit-cooldown.ts`) checks the latest

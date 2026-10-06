@@ -106,9 +106,14 @@ async function renderTestButton(options: {
   return button;
 }
 
-function describedBy(button: HTMLButtonElement): string | undefined {
+function visibleReason(button: HTMLButtonElement): string | undefined {
   const id = button.getAttribute("aria-describedby");
-  return id ? (document.getElementById(id)?.textContent ?? undefined) : undefined;
+  const caption = id ? document.getElementById(id) : null;
+  if (!caption || caption.closest(".sr-only") || caption.hidden) return undefined;
+  expect(caption.tagName).toBe("P");
+  expect(caption.className).not.toContain("sr-only");
+  expect(button.parentElement?.contains(caption)).toBe(true);
+  return caption.textContent.trim();
 }
 
 const interactiveSamples = [{ input: "", output: "", interactorInput: "1 100\n42\n" }];
@@ -120,8 +125,7 @@ describe("Test button state", () => {
       testCapability: { available: false, reason: "special_env" },
     });
     expect(button.disabled).toBe(true);
-    expect(button.title).toBe(m.editor_testUnsupportedProblemType());
-    expect(describedBy(button)).toBe(m.editor_testUnsupportedProblemType());
+    expect(visibleReason(button)).toBe(m.editor_testUnsupportedProblemType());
     expect(mocks.preload).not.toHaveBeenCalled();
   });
 
@@ -133,8 +137,7 @@ describe("Test button state", () => {
         testCapability: { available: false, reason },
       });
       expect(button.disabled).toBe(true);
-      expect(button.title).toBe(m.editor_testUnavailableForProblem());
-      expect(describedBy(button)).toBe(m.editor_testUnavailableForProblem());
+      expect(visibleReason(button)).toBe(m.editor_testUnavailableForProblem());
       expect(mocks.preload).not.toHaveBeenCalled();
     },
   );
@@ -146,8 +149,7 @@ describe("Test button state", () => {
       samples: interactiveSamples,
     });
     expect(button.disabled).toBe(true);
-    expect(button.title).toBe(m.editor_testInteractiveLanguage());
-    expect(describedBy(button)).toBe(m.editor_testInteractiveLanguage());
+    expect(visibleReason(button)).toBe(m.editor_testInteractiveLanguage());
   });
 
   it("is disabled for an interactive problem without interactor samples", async () => {
@@ -156,7 +158,7 @@ describe("Test button state", () => {
       samples: [{ input: "1", output: "1" }],
     });
     expect(button.disabled).toBe(true);
-    expect(button.title).toBe(m.editor_testNoInteractiveSamples());
+    expect(visibleReason(button)).toBe(m.editor_testNoInteractiveSamples());
   });
 
   it("is enabled for an interactive problem in C++", async () => {
@@ -174,7 +176,7 @@ describe("Test button state", () => {
   it("is enabled on a standard problem and preloads the toolchain", async () => {
     const button = await renderTestButton({});
     expect(button.disabled).toBe(false);
-    expect(button.title).toBe("");
+    expect(visibleReason(button)).toBeUndefined();
     expect(button.hasAttribute("aria-describedby")).toBe(false);
     await vi.waitFor(() =>
       expect(mocks.preload).toHaveBeenCalledWith("cpp", expect.any(Function)),
@@ -185,8 +187,7 @@ describe("Test button state", () => {
     mocks.controllerReason = m.editor_testJudgeProgramBuildFailed();
     const button = await renderTestButton({ judgeType: "checker" });
     expect(button.disabled).toBe(true);
-    expect(button.title).toBe(m.editor_testJudgeProgramBuildFailed());
-    expect(describedBy(button)).toBe(m.editor_testJudgeProgramBuildFailed());
+    expect(visibleReason(button)).toBe(m.editor_testJudgeProgramBuildFailed());
     expect(mocks.preload).not.toHaveBeenCalled();
   });
 });

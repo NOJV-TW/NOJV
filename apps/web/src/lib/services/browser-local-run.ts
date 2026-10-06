@@ -8,7 +8,6 @@ import {
   withCppPlatformHeaders,
   type CaseResult,
   type CompareConfig,
-  type JudgeType,
   type JudgeConfig,
   type Language,
   type SubmissionResult,
@@ -57,20 +56,6 @@ const toolchainPreloads = new Map<Language, ToolchainPreload>();
 
 export function supportsBrowserLocalRun(language: Language): boolean {
   return isBrowserLocalLanguage(language);
-}
-
-export function shouldUseBrowserLocalRun(args: {
-  sampleOnly: boolean;
-  specialEnv: boolean;
-  judgeType: JudgeType;
-  language: Language;
-}): boolean {
-  return (
-    args.sampleOnly &&
-    !args.specialEnv &&
-    args.judgeType === "standard" &&
-    supportsBrowserLocalRun(args.language)
-  );
 }
 
 async function getBrowserEngine(): Promise<Engine> {

@@ -36,7 +36,7 @@ import { storage } from "../shared/storage-singleton";
 import { isTestJudgeEnabled } from "../shared/test-judge-enabled";
 
 const TEST_JUDGE_TIMEOUT_MS = 30_000;
-const IN_FLIGHT_TTL_SECONDS = 35;
+const IN_FLIGHT_TTL_SECONDS = 90;
 const RELEASE_IF_HELD = `if redis.call("GET", KEYS[1]) == ARGV[1] then
   return redis.call("DEL", KEYS[1])
 end

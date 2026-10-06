@@ -28,7 +28,7 @@ import {
   preloadBrowserToolchain,
   runBrowserCases,
   runBrowserLocally,
-  shouldUseBrowserLocalRun,
+  supportsBrowserLocalRun,
   type BrowserCaseRun,
   type BrowserCompileOutcome,
 } from "$lib/services/browser-local-run";
@@ -96,6 +96,8 @@ function messageForSubmitError(code: string | null): string {
       return m.editor_testNoInteractiveSamples();
     case "test_judge_busy":
       return m.editor_testJudgeBusy();
+    case "test_request_too_large":
+      return m.editor_testTooLarge();
     case "judge_program_build_failed":
       return m.editor_testJudgeProgramBuildFailed();
     case "test_judge_unavailable":
@@ -130,6 +132,8 @@ const TEST_DISABLING_CODES = new Set([
   "judge_program_build_failed",
   "judge_program_unsupported",
 ]);
+
+const UNJUDGED_SAMPLE_CODES = new Set(["test_judge_busy", "test_judge_unavailable"]);
 
 function interactiveSampleIndices(samples: ProblemDetail["samples"]): number[] {
   return samples.flatMap((sample, index) => (sample.interactorInput?.trim() ? [index] : []));
@@ -197,23 +201,34 @@ export function createEditorRunController(args: EditorRunArgs): EditorRunControl
       }
     }
     const judgements = new Map<number, TestJudgeCaseResult>();
+    let serverNotice: string | undefined;
     if (judgedCases.size > 0) {
-      const response = await requestTestJudge(
-        args.problemId,
-        {
-          kind: "checker",
-          context: args.context(),
-          cases: [...judgedCases].map(([sampleIndex, index]) => ({
-            sampleIndex,
-            output: (runs[index]?.stdout ?? "").slice(0, MAX_CASE_STDOUT_BYTES),
-          })),
-        },
-        signal,
-      );
-      if (!response) return null;
-      for (const [position, index] of [...judgedCases.values()].entries()) {
-        const judgement = response.cases[position];
-        if (judgement) judgements.set(index, judgement);
+      runStatus = m.editor_judgingOnServer();
+      try {
+        const response = await requestTestJudge(
+          args.problemId,
+          {
+            kind: "checker",
+            context: args.context(),
+            cases: [...judgedCases].map(([sampleIndex, index]) => ({
+              sampleIndex,
+              output: (runs[index]?.stdout ?? "").slice(0, MAX_CASE_STDOUT_BYTES),
+            })),
+          },
+          signal,
+        );
+        if (!response) return null;
+        for (const [position, index] of [...judgedCases.values()].entries()) {
+          const judgement = response.cases[position];
+          if (judgement) judgements.set(index, judgement);
+        }
+      } catch (error) {
+        if (
+          !(error instanceof SubmissionRequestError) ||
+          !UNJUDGED_SAMPLE_CODES.has(error.code ?? "")
+        )
+          throw error;
+        serverNotice = messageForSubmitError(error.code);
       }
     }
     const caseResults = runs.map((run, index): TestCaseView => {
@@ -223,10 +238,15 @@ export function createEditorRunController(args: EditorRunArgs): EditorRunControl
       return {
         ...view,
         verdict: judgement.verdict,
+        serverJudged: true,
         ...(judgement.teamMessage ? { teamMessage: judgement.teamMessage } : {}),
       };
     });
-    return { ...browserLocalSubmissionResult(caseResults), caseResults };
+    return {
+      ...browserLocalSubmissionResult(caseResults),
+      caseResults,
+      ...(serverNotice ? { serverNotice } : {}),
+    };
   }
 
   async function runInteractiveTest(
@@ -241,6 +261,7 @@ export function createEditorRunController(args: EditorRunArgs): EditorRunControl
       return signal.aborted ? null : browserLocalErrorResult(error);
     }
     if (!build.ok) return build.result;
+    runStatus = m.editor_judgingOnServer();
     const response = await requestTestJudge(
       args.problemId,
       {
@@ -256,6 +277,7 @@ export function createEditorRunController(args: EditorRunArgs): EditorRunControl
     const caseResults = response.cases.map((judgement, index): TestCaseView => ({
       index,
       verdict: judgement.verdict,
+      serverJudged: true,
       timeMs: judgement.timeMs ?? 0,
       ...(judgement.contestantStderr ? { stderr: judgement.contestantStderr } : {}),
       ...(judgement.teamMessage ? { teamMessage: judgement.teamMessage } : {}),
@@ -311,14 +333,7 @@ export function createEditorRunController(args: EditorRunArgs): EditorRunControl
     if (validationError)
       throw new SubmissionRequestError("Invalid submission input.", validationError, null);
 
-    if (
-      !shouldUseBrowserLocalRun({
-        sampleOnly: true,
-        specialEnv: false,
-        judgeType: "standard",
-        language,
-      })
-    )
+    if (!supportsBrowserLocalRun(language))
       throw new SubmissionRequestError(
         "Client runtime is unavailable.",
         "client_test_language",
@@ -371,6 +386,7 @@ export function createEditorRunController(args: EditorRunArgs): EditorRunControl
   }
 
   async function run() {
+    if (isRunning) return;
     isRunning = true;
     runResult = null;
     runSource = null;
@@ -381,6 +397,7 @@ export function createEditorRunController(args: EditorRunArgs): EditorRunControl
       runResult = await runSubmission();
       runStatus = null;
     } catch (err) {
+      if (destroyed) return;
       const message =
         err instanceof SubmissionRequestError
           ? messageForSubmitError(err.code)

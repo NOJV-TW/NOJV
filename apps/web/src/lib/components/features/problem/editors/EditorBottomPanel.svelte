@@ -74,8 +74,7 @@
   );
   let selectedCaseResult = $derived(runResult?.caseResults?.[selectedResultCase]);
   let judgedOnServer = $derived(
-    (judgeType === "checker" || interactive) &&
-      !!runResult?.caseResults?.some((caseResult) => !caseResult.executionOnly),
+    !!runResult?.caseResults?.some((caseResult) => caseResult.serverJudged),
   );
 </script>
 
@@ -283,6 +282,14 @@
               {/if}
             </div>
 
+            {#if runResult.serverNotice}
+              <p
+                class="mt-2 rounded-md bg-warning/10 px-3 py-2 text-body-sm text-warning-strong"
+              >
+                {runResult.serverNotice}
+              </p>
+            {/if}
+
             {#if runResult.caseResults && runResult.caseResults.length > 0}
               <div class="mt-3 flex items-center gap-1">
                 {#each runResult.caseResults as cr, index (`rc-${index}`)}
@@ -311,10 +318,15 @@
               <div class="mt-3 space-y-3">
                 {#if selectedCaseResult?.executionOnly}
                   <p class="text-caption text-muted-foreground">{m.editor_executedNote()}</p>
-                {:else if selectedCaseResult?.teamMessage}
+                {:else if selectedCaseResult?.serverJudged && selectedCaseResult.verdict === "SE"}
+                  <p class="text-caption text-muted-foreground">
+                    {m.editor_judgeSystemError()}
+                  </p>
+                {/if}
+                {#if selectedCaseResult?.teamMessage}
                   <div>
                     <p class="text-caption font-medium text-muted-foreground">
-                      {m.editor_judgeMessage()}
+                      {m.editor_judgeFeedback()}
                     </p>
                     <p class="mt-1 whitespace-pre-wrap text-body-sm text-foreground">
                       {selectedCaseResult.teamMessage}
