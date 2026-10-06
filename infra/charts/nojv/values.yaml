@@ -356,6 +356,17 @@ worker:
       limits:
         cpu: 500m
         memory: 512Mi
+  test:
+    enabled: false
+    replicas: 1
+    slots: 2
+    resources:
+      requests:
+        cpu: 500m
+        memory: 512Mi
+      limits:
+        cpu: "2"
+        memory: 2Gi
   sandbox:
     cpuRequest: "500m"
     cpuLimit: "1"
