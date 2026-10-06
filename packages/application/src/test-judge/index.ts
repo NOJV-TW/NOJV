@@ -2,13 +2,17 @@ import { randomUUID } from "node:crypto";
 
 import {
   interactiveContestantSupported,
+  serialisedArtifactBytes,
   staticTestCapability,
   storedJudgeProgramSchema,
+  TEST_JUDGE_MAX_ARTIFACT_BYTES,
   testJudgeProgramCacheKey,
   testJudgeResponseSchema,
   testJudgeStoredRequestSchema,
   type JudgeConfig,
+  type Language,
   type ProblemSample,
+  type SerialisedBuildArtifact,
   type TestJudgeRequest,
   type TestJudgeResponse,
   type TestJudgeStoredRequest,
@@ -94,6 +98,10 @@ function interactorInputOf(sample: ProblemSample): string {
     throw new ValidationError("Sample has no interactor input.");
   }
   return sample.interactorInput;
+}
+
+function contestantArtifactKind(language: Language): SerialisedBuildArtifact["kind"] {
+  return language === "python" ? "runtime-bundle" : "wasm";
 }
 
 function responseFor(output: TestJudgeWorkflowOutput): TestJudgeResponse {
@@ -195,8 +203,17 @@ export async function runTestJudge(
     if (!interactiveContestantSupported(request.language)) {
       throw new ConflictError("judge_program_unsupported");
     }
-    if (request.artifact.language !== request.language) {
+    if (
+      request.artifact.language !== request.language ||
+      request.artifact.kind !== contestantArtifactKind(request.language)
+    ) {
       throw new ValidationError("The compiled program does not match the requested language.");
+    }
+    if (serialisedArtifactBytes(request.artifact) > TEST_JUDGE_MAX_ARTIFACT_BYTES) {
+      throw new HttpError(
+        `The compiled program exceeds the ${String(TEST_JUDGE_MAX_ARTIFACT_BYTES / 1024 / 1024)} MiB Test limit.`,
+        413,
+      );
     }
   }
 

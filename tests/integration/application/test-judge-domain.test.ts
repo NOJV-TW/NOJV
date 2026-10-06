@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   ConflictError,
   ForbiddenError,
+  HttpError,
   NotFoundError,
   ServiceUnavailableError,
   ValidationError,
@@ -11,6 +12,7 @@ import {
   testJudgeDomain,
 } from "@nojv/application";
 import {
+  TEST_JUDGE_MAX_ARTIFACT_BYTES,
   type TestJudgeProgramBuildInput,
   type TestJudgeRequest,
   type TestJudgeWorkflowInput,
@@ -66,11 +68,18 @@ const interactiveSamples = [
   { input: "1 10\ncorrect", output: "5", interactorInput: " \n" },
   { input: "1 10\ncorrect", output: "5" },
 ];
+type ContestantArtifact = Extract<TestJudgeRequest, { kind: "interactive" }>["artifact"];
+
 const wasmArtifact = { kind: "wasm" as const, bytes: { base64: "AGFzbQ==" }, language: "cpp" };
+const pythonBundle = {
+  kind: "runtime-bundle" as const,
+  files: { "main.py": "print(input())\n" },
+  language: "python",
+};
 
 function interactiveRequest(
-  language: "cpp" | "javascript",
-  artifact: typeof wasmArtifact = wasmArtifact,
+  language: "cpp" | "python" | "javascript",
+  artifact: ContestantArtifact = wasmArtifact,
   sampleIndex = 0,
 ): TestJudgeRequest {
   return {
@@ -445,6 +454,64 @@ describe("testJudgeDomain.runTestJudge", () => {
       ),
     ).rejects.toBeInstanceOf(ValidationError);
     expect(runTestJudge).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["C++ as a runtime bundle", "cpp", { ...pythonBundle, language: "cpp" }],
+    ["Python as Wasm", "python", { ...wasmArtifact, language: "python" }],
+  ] as const)("rejects %s", async (_label, language, artifact) => {
+    const student = await buildStudent();
+    const problem = await interactiveProblem();
+
+    await expect(
+      testJudgeDomain.runTestJudge(
+        student,
+        problem.id,
+        interactiveRequest(language, artifact),
+        "127.0.0.1",
+      ),
+    ).rejects.toBeInstanceOf(ValidationError);
+    expect(runTestJudge).not.toHaveBeenCalled();
+    expect(await pendingRequests()).toEqual([]);
+  });
+
+  it("judges a Python contestant compiled to a runtime bundle", async () => {
+    const student = await buildStudent();
+    const problem = await interactiveProblem();
+    runTestJudge.mockResolvedValue({ ok: true, cases: [{ verdict: "AC" }] });
+
+    await expect(
+      testJudgeDomain.runTestJudge(
+        student,
+        problem.id,
+        interactiveRequest("python", pythonBundle),
+        "127.0.0.1",
+      ),
+    ).resolves.toEqual({ cases: [{ verdict: "AC" }] });
+  });
+
+  it("refuses a contestant over the artifact limit before storing it", async () => {
+    const student = await buildStudent();
+    const problem = await interactiveProblem();
+    const oversized = {
+      ...wasmArtifact,
+      bytes: { base64: Buffer.alloc(TEST_JUDGE_MAX_ARTIFACT_BYTES + 1).toString("base64") },
+    };
+
+    const error = await rejection(
+      testJudgeDomain.runTestJudge(
+        student,
+        problem.id,
+        interactiveRequest("cpp", oversized),
+        "127.0.0.1",
+      ),
+    );
+
+    expect(error).toBeInstanceOf(HttpError);
+    expect((error as HttpError).status).toBe(413);
+    expect(error.message).toBe("The compiled program exceeds the 8 MiB Test limit.");
+    expect(runTestJudge).not.toHaveBeenCalled();
+    expect(await pendingRequests()).toEqual([]);
   });
 
   it("refuses a checker problem without a stored checker", async () => {

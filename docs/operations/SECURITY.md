@@ -69,7 +69,7 @@ SvelteKit `csrf.checkOrigin` is disabled so `/api/registry/token` can accept the
 
 - Global adapter-node `BODY_SIZE_LIMIT` is 64 MiB (`infra/docker/web.Dockerfile`), sized for the largest upload (60 MB bundle). Do not lower it without re-checking that.
 - `POST /api/submissions`: 2 MiB (`MAX_SUBMISSION_BODY_BYTES`), `Content-Length` pre-check then streamed count.
-- `POST /api/problems/[id]/test-judge`: 24 MiB (`TEST_JUDGE_REQUEST_BODY_BYTES`, room for a 16 MiB contestant artifact in base64), same pre-check and streamed count.
+- `POST /api/problems/[id]/test-judge`: 12 MiB (`TEST_JUDGE_REQUEST_BODY_BYTES`, room for an 8 MiB contestant artifact in base64), same pre-check and streamed count; the application refuses a larger decoded artifact (413) before storing the request.
 - Other JSON mutation routes: 1 MiB via `assertJsonBodyWithinLimit` + `readJsonBody` (`JSON_BODY_LIMIT_BYTES`); `readJsonBody` counts streamed bytes and returns 413 regardless of `Content-Length` (SEC-10).
 - Image, avatar and workspace-file multipart bodies count streamed bytes before FormData parsing, bounded by the file limit plus 64 KiB for form fields and multipart framing; the file limit is checked again after parsing. Checker/interactor and bundle uploads enforce their own size limits.
 - `/api/auth/*` and registry credential forms stop at 64 KiB before JSON or FormData parsing.

@@ -320,11 +320,12 @@ Checker and interactive Test run on the `test-judge` Temporal queue, served only
 
 - Rejected: Test activities on `judge` or inside the judge worker (they would compete with official judging for slots and run untrusted WASM next to the Kubernetes credentials).
 - Rejected: queueing a request until an engine frees; a student would wait on a spinner exactly when an exam is busiest.
-- Rejected: request bytes in the workflow input (DAT-16; an interactive request carries up to 16 MiB of contestant Wasm).
+- Rejected: request bytes in the workflow input (DAT-16; an interactive request carries up to 8 MiB of contestant Wasm).
 - Rejected: a database column for build status; the cached record (artifact or diagnostics) is the status, needs no migration and is keyed so that an upgrade rebuilds by itself.
 - Rejected: upstream `runTrusted`; its profiles exclude Python judge programs.
 - Rule: the cache key is the SHA-256 of `WASM_OJ_SERVER_IDENTITY` and the exact compile input (wrapper, `bits/stdc++.h` shim and source); a record is written only if absent, a failed build is cached like a success, and changing the identity, the wrapper or the shim rebuilds without author action.
 - Rule: the build dispatch runs after the save commits and never fails it; a lost dispatch costs one on-demand build.
+- Rule: an interactive artifact decodes to at most 8 MiB and the request body to 12 MiB, because web holds and parses the body in memory. Release builds of a small stdin program measured 4.8 MB for Java (`java.util.Scanner`), 2.7–2.8 MB for Go, 0.6 MB for C++ with `<bits/stdc++.h>`, 0.17 MB for Rust, 4 KB for C and a 1.6 KB Python bundle (2026-10-06, `@wasm-oj` 0.2.3 toolchains). Web refuses a larger artifact, or one whose kind is not its language's (a Python runtime bundle, Wasm otherwise), before storing the request.
 - Rule: the worker reads a judge program only through its verified pointer, refuses request keys outside `test-judge-requests/`, deletes the request after reading it and returns at most 1 MiB of JSON.
 - Rule: a case gets at most the remaining budget as its wall stop; a case cut short by the budget is SE, while an interactive contestant stopped at its full wall stop, max(3 s, 3 × the language-factored limit), is TLE, because upstream `interact` does not end a CPU-bound contestant at its logical-time budget.
 - Rule: `nojv-worker-test` mounts no service-account token, has no database credentials, never polls `judge` and stays up through the release window.

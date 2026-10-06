@@ -14,6 +14,24 @@ function encodeBytes(bytes: Uint8Array): EncodedBytes {
   return { base64: btoa(binary) };
 }
 
+function decodedLength({ base64 }: EncodedBytes): number {
+  const padding = base64.endsWith("==") ? 2 : base64.endsWith("=") ? 1 : 0;
+  return (base64.length / 4) * 3 - padding;
+}
+
+export function serialisedArtifactBytes(artifact: SerialisedBuildArtifact): number {
+  if (artifact.kind === "wasm") return decodedLength(artifact.bytes);
+  const encoder = new TextEncoder();
+  return Object.values(artifact.files).reduce(
+    (total, content) =>
+      total +
+      (typeof content === "string"
+        ? encoder.encode(content).byteLength
+        : decodedLength(content)),
+    0,
+  );
+}
+
 function decodeBytes({ base64 }: EncodedBytes): Uint8Array {
   const binary = atob(base64);
   const bytes = new Uint8Array(binary.length);

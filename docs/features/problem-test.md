@@ -22,7 +22,7 @@ Out of scope: Test for `special_env` problems, official verdicts from Test, Test
 | `POST /api/problems/[id]/test-judge` | Judge samples on the server. Body `{ kind: "checker", context, cases: [{ sampleIndex, output }] }` or `{ kind: "interactive", context, language, artifact, cases: [{ sampleIndex }] }`; returns `{ cases: [...] }` |
 | Edit page action `?/checkSamples`    | Run the checker on every saved sample with its `output` as both answer and team output; problem editors only                                                                                                       |
 
-The endpoint requires a session, at most 24 MiB of body, 1 to 5 distinct sample indices, and a `kind` equal to the problem's judge type. Error codes are listed in [Judge Pipeline](../architecture/JUDGE_PIPELINE.md#test-judge).
+The endpoint requires a session, at most 12 MiB of body, 1 to 5 distinct sample indices, a `kind` equal to the problem's judge type and, for an interactive request, an artifact built for its `language` that decodes to at most 8 MiB. Error codes are listed in [Judge Pipeline](../architecture/JUDGE_PIPELINE.md#test-judge).
 
 ## Acceptance criteria
 

@@ -6,13 +6,13 @@ import {
   interactiveCaseVerdict,
   MAX_CASE_STDERR_BYTES,
   MAX_EXECUTION_OUTPUT_BYTES,
+  serialisedArtifactBytes,
   TEST_JUDGE_MAX_ARTIFACT_BYTES,
   TEST_JUDGE_TRANSCRIPT_BYTES,
   testJudgeCaseResultSchema,
   testJudgeStoredRequestSchema,
   truncateUtf8,
   validatorTimeoutMs,
-  type SerialisedBuildArtifact,
   type TestJudgeCaseResult,
   type TestJudgeProgramBuildInput,
   type TestJudgeStoredRequest,
@@ -125,13 +125,6 @@ async function readJudgeSource(
     });
     return null;
   }
-}
-
-function decodedBytes(artifact: SerialisedBuildArtifact): number {
-  if (artifact.kind !== "wasm") return 0;
-  const { base64 } = artifact.bytes;
-  const padding = base64.endsWith("==") ? 2 : base64.endsWith("=") ? 1 : 0;
-  return (base64.length / 4) * 3 - padding;
 }
 
 function judgeProgramResources(logicalTimeLimitMs: number, wallTimeLimitMs: number) {
@@ -297,7 +290,7 @@ async function judgeRequest(
   if (request.judgeLanguage === "python") {
     return { ok: false, code: "judge_program_unsupported" };
   }
-  if (decodedBytes(request.artifact) > TEST_JUDGE_MAX_ARTIFACT_BYTES) {
+  if (serialisedArtifactBytes(request.artifact) > TEST_JUDGE_MAX_ARTIFACT_BYTES) {
     return systemErrors(request.cases.length);
   }
   const contestant = deserialiseBuildArtifact(request.artifact) as BuildArtifact;

@@ -12,6 +12,7 @@ import {
   judgeProgramCompileInput,
   pythonJudgeWrapper,
   serialiseBuildArtifact,
+  serialisedArtifactBytes,
   serialisedBuildArtifactSchema,
   testJudgeProgramCacheKey,
   type JudgeProgramSource,
@@ -146,6 +147,21 @@ describe("build artifact wire format", () => {
     expect(serialiseBuildArtifact(bundle)).toMatchObject({
       files: { "main.py": "print(1)\n", "lib.pyc": { base64: "AQID+g==" } },
     });
+  });
+
+  it.each([0, 1, 2, 3, 4, 5])("measures %i Wasm bytes from their base64 length", (length) => {
+    const artifact = serialiseBuildArtifact({ kind: "wasm", bytes: new Uint8Array(length) });
+
+    expect(serialisedArtifactBytes(artifact)).toBe(length);
+  });
+
+  it("measures a runtime bundle as its UTF-8 text and decoded binary files", () => {
+    const artifact = serialiseBuildArtifact({
+      kind: "runtime-bundle",
+      files: { "main.py": "print('é')\n", "lib.pyc": new Uint8Array(7) },
+    });
+
+    expect(serialisedArtifactBytes(artifact)).toBe(12 + 7);
   });
 
   it("round-trips bytes larger than one encoding chunk", () => {

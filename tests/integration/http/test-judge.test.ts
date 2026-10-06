@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { configureDomainOrchestration } from "@nojv/application";
 import {
+  TEST_JUDGE_MAX_ARTIFACT_BYTES,
   TEST_JUDGE_REQUEST_BODY_BYTES,
   type TestJudgeProgramBuildInput,
   type TestJudgeWorkflowInput,
@@ -155,6 +156,40 @@ describe("POST /api/problems/[id]/test-judge", () => {
     });
 
     expect(response.status).toBe(413);
+    expect(runTestJudge).not.toHaveBeenCalled();
+  });
+
+  it("rejects a contestant artifact over its limit as 413 test_rejected", async () => {
+    const student = await createTestUser();
+    const problem = await createTestProblem({
+      judgeConfig: { type: "interactive", interactorLanguage: "cpp" },
+      interactorStorage: storagePointerFor(
+        "problems/interactor-fixture/interactor.cpp",
+        Buffer.from("int main() {}\n"),
+      ),
+      samples: [{ input: "1\n", output: "1\n", interactorInput: "1\n" }],
+    });
+
+    const response = await postTestJudge(problem.id, {
+      user: student,
+      body: {
+        kind: "interactive",
+        context: { type: "practice" },
+        language: "cpp",
+        artifact: {
+          kind: "wasm",
+          language: "cpp",
+          bytes: { base64: Buffer.alloc(TEST_JUDGE_MAX_ARTIFACT_BYTES + 1).toString("base64") },
+        },
+        cases: [{ sampleIndex: 0 }],
+      },
+    });
+
+    expect(response.status).toBe(413);
+    await expect(response.json()).resolves.toEqual({
+      code: "test_rejected",
+      message: "The compiled program exceeds the 8 MiB Test limit.",
+    });
     expect(runTestJudge).not.toHaveBeenCalled();
   });
 

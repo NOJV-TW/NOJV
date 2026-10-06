@@ -529,7 +529,7 @@ selected language decide the Test button before the first click:
 ### Interactive problems
 
 1. The browser compiles the contestant and posts the serialised build artifact
-   (at most 16 MiB of Wasm) with the indices of the samples that have an
+   (at most 8 MiB decoded) with the indices of the samples that have an
    `interactorInput`. The case panel shows those inputs read-only; there are no
    custom cases. JavaScript and TypeScript cannot run interactively.
 2. The worker runs WASM-OJ `interact(contestant, interactor)` once per sample. The
@@ -546,9 +546,13 @@ selected language decide the Test button before the first click:
 Web side (`testJudgeDomain.runTestJudge`):
 
 - The route takes the per-user in-flight lock and `rl:test-judge` limit
-  ([Redis](REDIS.md#rate-limiting)), caps the body at 24 MiB, then authorises the
+  ([Redis](REDIS.md#rate-limiting)), caps the body at 12 MiB, then authorises the
   request with `assertProblemContextAllowed`, the read-only context check shared
   with code drafts (SEC-15). The request kind must match `judgeConfig.type`.
+- An interactive artifact must be built for the request's language, as Wasm for
+  C, C++, Go, Java and Rust or as a runtime bundle for Python, and decode to at
+  most 8 MiB (`TEST_JUDGE_MAX_ARTIFACT_BYTES`), measured from its base64 length
+  before anything is stored.
 - It builds the stored request from server-side sample data and the judge program's
   storage pointer, writes it to `test-judge-requests/<uuid>.json`, executes
   `testJudgeWorkflow` (`test-judge-<uuid>`, 30 s execution timeout) on `test-judge`
@@ -611,8 +615,9 @@ Errors (`{ code, message }`):
 | `judge_program_build_failed` | 409  | The judge program does not build under WASM-OJ                                                                    |
 | `judge_program_unsupported`  | 409  | Python interactor, JavaScript or TypeScript interactive contestant, or no judge program stored                    |
 | `test_rejected`              | 4xx  | Validation or authorisation failure, unknown sample, sample without an interactor input                           |
+| `test_rejected`              | 413  | A contestant artifact over 8 MiB                                                                                  |
 
-A body over 24 MiB is 413 before parsing. An exhausted `rl:test-judge` budget is a
+A body over 12 MiB is 413 before parsing. An exhausted `rl:test-judge` budget is a
 429 without a code, which the editor reports as busy; any other response without a
 known code is reported as a failed run.
 
