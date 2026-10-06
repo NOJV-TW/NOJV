@@ -19,22 +19,25 @@ const BUILD_ACTIVITY: ActivityOptions = {
   retry: { maximumAttempts: 3 },
 };
 
-function activities(options: ActivityOptions) {
+function withWorkflowPriority(options: ActivityOptions): ActivityOptions {
   const { priority } = workflowInfo();
-  return proxyActivities<typeof testJudgeActivities>({
-    ...options,
-    ...(priority ? { priority } : {}),
-  });
+  return priority ? { ...options, priority } : options;
 }
 
 export async function testJudgeWorkflow(
   input: TestJudgeWorkflowInput,
 ): Promise<TestJudgeWorkflowOutput> {
-  return activities(JUDGE_ACTIVITY).runTestJudge(input);
+  const { runTestJudge } = proxyActivities<typeof testJudgeActivities>(
+    withWorkflowPriority(JUDGE_ACTIVITY),
+  );
+  return runTestJudge(input);
 }
 
 export async function testJudgeProgramBuildWorkflow(
   input: TestJudgeProgramBuildInput,
 ): Promise<void> {
-  await activities(BUILD_ACTIVITY).buildTestJudgeProgram(input);
+  const { buildTestJudgeProgram } = proxyActivities<typeof testJudgeActivities>(
+    withWorkflowPriority(BUILD_ACTIVITY),
+  );
+  await buildTestJudgeProgram(input);
 }
