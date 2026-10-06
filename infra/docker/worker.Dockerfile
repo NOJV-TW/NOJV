@@ -56,6 +56,34 @@ RUN pnpm --filter @nojv/temporal build
 RUN pnpm --filter @nojv/worker build \
   && rm -rf node_modules/.pnpm-task-run-state-v1
 
+FROM rust:1.97.1-bookworm@sha256:14bc9c5966e7b3a385794b3d5389a8765668342025fbcc7b2e3d2866ac4bd8c3 AS wasm-oj-runtime
+
+ARG WASM_OJ_FORGE_TAG=v0.2.3
+ARG WASM_OJ_FORGE_COMMIT=28cd0aced28199a48005854fc513d5f84e1fd4f8
+
+WORKDIR /src
+
+RUN git init -q . \
+  && git remote add origin https://github.com/wasm-oj/forge.git \
+  && git fetch -q --depth 1 --filter=blob:none origin "refs/tags/${WASM_OJ_FORGE_TAG}" \
+  && test "$(git rev-parse 'FETCH_HEAD^{commit}')" = "$WASM_OJ_FORGE_COMMIT" \
+  && git sparse-checkout set --no-cone /crates/runtime-core/ /vendor/ \
+  && git checkout -q --detach "$WASM_OJ_FORGE_COMMIT"
+
+RUN cargo build --locked --manifest-path crates/runtime-core/Cargo.toml --release \
+    --bin wasm-oj-runner --bin wasm-oj-compiler \
+  && install -D -m 0755 -s -t /rootfs/opt/wasm-oj/bin \
+    crates/runtime-core/target/release/wasm-oj-runner \
+    crates/runtime-core/target/release/wasm-oj-compiler \
+  && find /rootfs -exec touch -h -d @0 {} +
+
+FROM node:24-bookworm-slim@sha256:6f7b03f7c2c8e2e784dcf9295400527b9b1270fd37b7e9a7285cf83b6951452d AS wasm-oj-toolchains
+
+WORKDIR /rootfs/opt/wasm-oj/toolchains
+COPY infra/docker/wasm-oj-toolchains/package.json infra/docker/wasm-oj-toolchains/package-lock.json ./
+RUN npm ci --ignore-scripts --no-audit --no-fund \
+  && find /rootfs -exec touch -h -d @0 {} +
+
 # 3. Production image
 FROM node:24-bookworm-slim@sha256:6f7b03f7c2c8e2e784dcf9295400527b9b1270fd37b7e9a7285cf83b6951452d
 
@@ -64,6 +92,9 @@ RUN apt-get update \
   && rm -rf /var/lib/apt/lists/* \
   && groupadd --system --gid 1001 nodejs \
   && useradd --system --uid 1001 --gid nodejs --create-home appuser
+
+COPY --link --from=wasm-oj-runtime /rootfs/ /
+COPY --link --from=wasm-oj-toolchains /rootfs/ /
 
 WORKDIR /app
 

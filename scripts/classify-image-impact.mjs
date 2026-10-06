@@ -38,6 +38,7 @@ const imageDefinitions = [
     tag: "nojv-worker",
     inputs: [
       "infra/docker/worker.Dockerfile",
+      "infra/docker/wasm-oj-toolchains/",
       "apps/worker/",
       "packages/core/",
       "packages/db/",
