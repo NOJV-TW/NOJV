@@ -1,6 +1,8 @@
 import { randomUUID } from "node:crypto";
 
 import {
+  ActivityFailure,
+  TimeoutFailure,
   WorkflowExecutionAlreadyStartedError,
   WorkflowFailedError,
   WorkflowNotFoundError,
@@ -367,6 +369,13 @@ export async function dispatchJudgeCleanup(input: {
 
 type TestJudgeWorkflow = (input: TestJudgeWorkflowInput) => Promise<TestJudgeWorkflowOutput>;
 
+function isTimeout(failure: unknown): boolean {
+  return (
+    failure instanceof TimeoutFailure ||
+    (failure instanceof ActivityFailure && failure.cause instanceof TimeoutFailure)
+  );
+}
+
 export async function runTestJudgeWorkflow(
   input: TestJudgeWorkflowInput,
   options: { timeoutMs: number },
@@ -380,7 +389,12 @@ export async function runTestJudgeWorkflow(
       workflowExecutionTimeout: options.timeoutMs,
     });
   } catch (err) {
-    if (err instanceof WorkflowFailedError) return { ok: false, code: "test_judge_busy" };
+    if (err instanceof WorkflowFailedError) {
+      return {
+        ok: false,
+        code: isTimeout(err.cause) ? "test_judge_busy" : "test_judge_unavailable",
+      };
+    }
     throw err;
   }
 }

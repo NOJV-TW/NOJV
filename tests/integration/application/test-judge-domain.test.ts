@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   ConflictError,
   ForbiddenError,
+  NotFoundError,
   ServiceUnavailableError,
   ValidationError,
   configureDomainOrchestration,
@@ -25,6 +26,7 @@ import {
 } from "@nojv/storage";
 
 import {
+  createTestContest,
   createTestCourse,
   createTestExam,
   createTestProblem,
@@ -71,15 +73,18 @@ function interactiveRequest(
   };
 }
 
-async function buildStudent() {
-  const user = await createTestUser({ platformRole: "student" });
+function actorOf(user: Awaited<ReturnType<typeof createTestUser>>) {
   return {
     userId: user.id,
     username: user.username ?? user.id,
     displayName: user.name,
     email: user.email,
-    platformRole: "student" as const,
+    platformRole: user.platformRole,
   };
+}
+
+async function buildStudent() {
+  return actorOf(await createTestUser({ platformRole: "student" }));
 }
 
 function checkerProblem() {
@@ -279,7 +284,27 @@ describe("testJudgeDomain.runTestJudge", () => {
   it("maps an orchestration failure to unavailable and deletes the request", async () => {
     const student = await buildStudent();
     const problem = await checkerProblem();
-    runTestJudge.mockRejectedValue(new Error("connection refused"));
+    const failure = new Error("connection refused");
+    runTestJudge.mockRejectedValue(failure);
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+
+    const error = await rejection(
+      testJudgeDomain.runTestJudge(student, problem.id, checkerRequest, "127.0.0.1"),
+    );
+
+    expect(error).toBeInstanceOf(ServiceUnavailableError);
+    expect(error.message).toBe("test_judge_unavailable");
+    expect(warn).toHaveBeenCalledWith("Test-judge workflow failed", {
+      requestKey: runTestJudge.mock.calls[0]?.[0].requestKey,
+      error: failure,
+    });
+    expect(await pendingRequests()).toEqual([]);
+  });
+
+  it("maps an unknown workflow code to unavailable", async () => {
+    const student = await buildStudent();
+    const problem = await checkerProblem();
+    runTestJudge.mockResolvedValue({ ok: false, code: "unheard_of" } as never);
 
     const error = await rejection(
       testJudgeDomain.runTestJudge(student, problem.id, checkerRequest, "127.0.0.1"),
@@ -366,6 +391,196 @@ describe("testJudgeDomain.runTestJudge", () => {
 
     expect(error).toBeInstanceOf(ConflictError);
     expect(error.message).toBe("judge_program_unsupported");
+  });
+});
+
+describe("problem context authorisation", () => {
+  const minutes = (count: number) => new Date(Date.now() + count * 60_000);
+
+  beforeEach(() => {
+    runTestJudge.mockResolvedValue({ ok: true, cases: [{ verdict: "AC" }] });
+  });
+
+  async function expectRefused(
+    attempt: Promise<unknown>,
+    errorType: typeof ForbiddenError | typeof NotFoundError,
+  ) {
+    await expect(attempt).rejects.toBeInstanceOf(errorType);
+    expect(runTestJudge).not.toHaveBeenCalled();
+    expect(await pendingRequests()).toEqual([]);
+  }
+
+  async function contestWithProblem(startsAt: Date, endsAt: Date) {
+    const organizer = await createTestUser({ platformRole: "teacher" });
+    const contest = await createTestContest({
+      createdByUserId: organizer.id,
+      startsAt,
+      endsAt,
+    });
+    const problem = await checkerProblem();
+    await testPrisma.contestProblem.create({
+      data: { contestId: contest.id, problemId: problem.id, ordinal: 1, points: 100 },
+    });
+    const request = { ...checkerRequest, context: { type: "contest", contestId: contest.id } };
+    return { organizer: actorOf(organizer), contest, problem, request } as const;
+  }
+
+  async function joinContest(contestId: string, userId: string) {
+    await testPrisma.participation.create({
+      data: { type: "contest", contestId, userId, status: "active" },
+    });
+  }
+
+  it("lets a contest participant Test while the contest runs", async () => {
+    const student = await buildStudent();
+    const { contest, problem, request } = await contestWithProblem(minutes(-1), minutes(60));
+    await joinContest(contest.id, student.userId);
+
+    await expect(
+      testJudgeDomain.runTestJudge(student, problem.id, request, "127.0.0.1"),
+    ).resolves.toEqual({ cases: [{ verdict: "AC" }] });
+  });
+
+  it("refuses a student who is not participating in the contest", async () => {
+    const student = await buildStudent();
+    const { problem, request } = await contestWithProblem(minutes(-1), minutes(60));
+
+    await expectRefused(
+      testJudgeDomain.runTestJudge(student, problem.id, request, "127.0.0.1"),
+      ForbiddenError,
+    );
+  });
+
+  it("refuses a participant once the contest has ended", async () => {
+    const student = await buildStudent();
+    const { contest, problem, request } = await contestWithProblem(minutes(-120), minutes(-1));
+    await joinContest(contest.id, student.userId);
+
+    await expectRefused(
+      testJudgeDomain.runTestJudge(student, problem.id, request, "127.0.0.1"),
+      ForbiddenError,
+    );
+  });
+
+  it("lets the contest organizer Test outside the contest window", async () => {
+    const { organizer, problem, request } = await contestWithProblem(
+      minutes(-120),
+      minutes(-1),
+    );
+
+    await expect(
+      testJudgeDomain.runTestJudge(organizer, problem.id, request, "127.0.0.1"),
+    ).resolves.toEqual({ cases: [{ verdict: "AC" }] });
+  });
+
+  async function assignmentWithProblem() {
+    const teacher = await createTestUser({ platformRole: "teacher" });
+    const course = await createTestCourse({ ownerId: teacher.id });
+    const assessment = await testPrisma.assessment.create({
+      data: {
+        courseId: course.id,
+        createdByUserId: teacher.id,
+        title: "HW",
+        summary: "Open",
+        status: "published",
+        opensAt: minutes(-60),
+        closesAt: minutes(60),
+      },
+    });
+    const problem = await checkerProblem();
+    await testPrisma.assessmentProblem.create({
+      data: { assessmentId: assessment.id, problemId: problem.id, ordinal: 1, points: 100 },
+    });
+    const request = {
+      ...checkerRequest,
+      context: { type: "assignment", courseId: course.id, assessmentId: assessment.id },
+    } as const;
+    return { course, problem, request };
+  }
+
+  it("lets an enrolled student Test an assignment problem", async () => {
+    const student = await buildStudent();
+    const { course, problem, request } = await assignmentWithProblem();
+    await testPrisma.courseMembership.create({
+      data: { courseId: course.id, userId: student.userId, role: "student", status: "active" },
+    });
+
+    await expect(
+      testJudgeDomain.runTestJudge(student, problem.id, request, "127.0.0.1"),
+    ).resolves.toEqual({ cases: [{ verdict: "AC" }] });
+  });
+
+  it("refuses an assignment problem to a student outside the course", async () => {
+    const student = await buildStudent();
+    const { problem, request } = await assignmentWithProblem();
+
+    await expectRefused(
+      testJudgeDomain.runTestJudge(student, problem.id, request, "127.0.0.1"),
+      ForbiddenError,
+    );
+  });
+
+  it("hides a private practice problem the student cannot view", async () => {
+    const student = await buildStudent();
+    const problem = await createTestProblem({
+      visibility: "private",
+      judgeConfig: { type: "checker", checkerLanguage: "cpp" },
+      checkerStorage: checkerPointer,
+    });
+
+    await expectRefused(
+      testJudgeDomain.runTestJudge(student, problem.id, checkerRequest, "127.0.0.1"),
+      NotFoundError,
+    );
+  });
+
+  async function virtualRun(owner: string, endsAt: Date) {
+    const { contest, problem } = await contestWithProblem(minutes(-180), minutes(-120));
+    const virtual = await testPrisma.participation.create({
+      data: {
+        type: "virtual",
+        contestId: contest.id,
+        userId: owner,
+        status: "active",
+        startedAt: new Date(endsAt.getTime() - 60 * 60_000),
+        endsAt,
+      },
+    });
+    const request = {
+      ...checkerRequest,
+      context: { type: "virtual", participationId: virtual.id },
+    } as const;
+    return { problem, request };
+  }
+
+  it("lets the owner Test during a virtual contest", async () => {
+    const student = await buildStudent();
+    const { problem, request } = await virtualRun(student.userId, minutes(60));
+
+    await expect(
+      testJudgeDomain.runTestJudge(student, problem.id, request, "127.0.0.1"),
+    ).resolves.toEqual({ cases: [{ verdict: "AC" }] });
+  });
+
+  it("refuses someone else's virtual contest", async () => {
+    const owner = await buildStudent();
+    const student = await buildStudent();
+    const { problem, request } = await virtualRun(owner.userId, minutes(60));
+
+    await expectRefused(
+      testJudgeDomain.runTestJudge(student, problem.id, request, "127.0.0.1"),
+      NotFoundError,
+    );
+  });
+
+  it("refuses a virtual contest whose timer has ended", async () => {
+    const student = await buildStudent();
+    const { problem, request } = await virtualRun(student.userId, minutes(-1));
+
+    await expectRefused(
+      testJudgeDomain.runTestJudge(student, problem.id, request, "127.0.0.1"),
+      ForbiddenError,
+    );
   });
 });
 
@@ -456,6 +671,10 @@ describe("problem detail test capability", () => {
         judgeConfig: { type: "interactive", interactorLanguage: "python" },
       }),
     ).toEqual({ available: false, reason: "judge_program_unsupported" });
+    expect(await capabilityOf({ judgeConfig: { type: "checker" } })).toEqual({
+      available: false,
+      reason: "judge_program_unsupported",
+    });
   });
 
   it("reports checker Test as unavailable while the test judge is disabled", async () => {

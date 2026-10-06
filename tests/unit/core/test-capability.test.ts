@@ -47,6 +47,20 @@ describe("staticTestCapability", () => {
     },
   );
 
+  it.each(["checker", "interactive"] as const)(
+    "reports judge_program_unsupported for a %s without a judge language",
+    (judgeType) => {
+      expect(
+        staticTestCapability({
+          isSpecialEnv: false,
+          judgeType,
+          judgeLanguage: null,
+          testJudgeEnabled: true,
+        }),
+      ).toEqual({ available: false, reason: "judge_program_unsupported" });
+    },
+  );
+
   it("reports judge_program_unsupported for a Python interactor", () => {
     expect(
       staticTestCapability({

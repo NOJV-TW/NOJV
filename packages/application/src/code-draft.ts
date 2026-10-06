@@ -9,12 +9,14 @@ import {
   examProblemRepo,
   examRepo,
   examSessionRepo,
+  participationRepo,
   problemRepo,
 } from "@nojv/db";
 import type { CodeDraftSave, CodeDraftScope, SubmissionContext } from "@nojv/core";
 
 import type { ActorContext } from "./shared/actor-context";
 import { ForbiddenError, NotFoundError } from "./shared/errors";
+import { canManageContest } from "./contest/permissions";
 import { assertProblemViewAccess } from "./problem/permissions";
 import { assertCanSubmitToVirtualContest } from "./virtual-contest/queries";
 import { checkProctoringGate } from "./proctoring/gate";
@@ -101,7 +103,13 @@ export async function assertProblemContextAllowed(
     case "contest": {
       const contest = await contestRepo.findById(context.contestId);
       if (contest?.visibility !== "published") throw new NotFoundError("Contest not found.");
-      if (now < contest.startsAt) throw new ForbiddenError("Contest has not started yet.");
+      if (!canManageContest(actor.userId, contest, actor.platformRole)) {
+        if (now < contest.startsAt) throw new ForbiddenError("Contest has not started yet.");
+        if (now >= contest.endsAt) throw new ForbiddenError("Contest has ended.");
+        if (!(await participationRepo.findContestParticipation(contest.id, actor.userId))) {
+          throw new ForbiddenError("You are not participating in this contest.");
+        }
+      }
       if (!(await contestProblemRepo.existsById(contest.id, problemId))) {
         throw new ForbiddenError("This problem is not part of the contest.");
       }

@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
+  ActivityFailure,
+  ApplicationFailure,
   TimeoutFailure,
   WorkflowExecutionAlreadyStartedError,
   WorkflowFailedError,
@@ -57,18 +59,46 @@ describe("runTestJudgeWorkflow", () => {
     expect(new Set(ids).size).toBe(2);
   });
 
-  it("reports a timed-out or failed workflow as busy", async () => {
-    execute.mockRejectedValueOnce(
-      new WorkflowFailedError(
-        "Workflow execution timed out",
-        new TimeoutFailure("Workflow execution timed out", undefined, "START_TO_CLOSE"),
-        "TIMEOUT",
-      ),
+  function activityFailure(cause: Error) {
+    return new ActivityFailure(
+      "Activity task failed",
+      "runTestJudge",
+      "1",
+      "NON_RETRYABLE_FAILURE",
+      undefined,
+      cause,
     );
+  }
+
+  it.each([
+    [
+      "the workflow timed out",
+      new TimeoutFailure("Workflow execution timed out", undefined, "START_TO_CLOSE"),
+    ],
+    [
+      "the activity timed out",
+      activityFailure(new TimeoutFailure("Activity timed out", undefined, "SCHEDULE_TO_CLOSE")),
+    ],
+  ])("reports busy when %s", async (_label, cause) => {
+    execute.mockRejectedValueOnce(new WorkflowFailedError("Workflow failed", cause, "TIMEOUT"));
 
     await expect(
       runTestJudgeWorkflow({ requestKey: "req" }, { timeoutMs: 30_000 }),
     ).resolves.toEqual({ ok: false, code: "test_judge_busy" });
+  });
+
+  it.each([
+    ["the activity failed", activityFailure(ApplicationFailure.create({ message: "boom" }))],
+    ["the workflow failed", ApplicationFailure.create({ message: "boom" })],
+    ["the failure has no cause", undefined],
+  ])("reports unavailable when %s", async (_label, cause) => {
+    execute.mockRejectedValueOnce(
+      new WorkflowFailedError("Workflow failed", cause, "NON_RETRYABLE_FAILURE"),
+    );
+
+    await expect(
+      runTestJudgeWorkflow({ requestKey: "req" }, { timeoutMs: 30_000 }),
+    ).resolves.toEqual({ ok: false, code: "test_judge_unavailable" });
   });
 
   it("lets connection errors reach the caller", async () => {

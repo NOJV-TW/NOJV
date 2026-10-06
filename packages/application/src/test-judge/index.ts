@@ -52,6 +52,8 @@ function responseFor(output: TestJudgeWorkflowOutput): TestJudgeResponse {
     case "judge_program_build_failed":
     case "judge_program_unsupported":
       throw new ConflictError(output.code);
+    default:
+      throw new ServiceUnavailableError("test_judge_unavailable");
   }
 }
 
@@ -125,6 +127,7 @@ export async function runTestJudge(
       { timeoutMs: TEST_JUDGE_TIMEOUT_MS },
     );
   } catch (error) {
+    console.warn("Test-judge workflow failed", { requestKey, error });
     throw new ServiceUnavailableError("test_judge_unavailable", { cause: error });
   } finally {
     await deleteRequest(requestKey);
