@@ -22,6 +22,7 @@ import type { TestJudgeEngine } from "./runtime";
 
 const logger = createLogger("test-judge-program");
 const MAX_DIAGNOSTIC_BYTES = 4 * 1024;
+const COMPILE_TIMEOUT_MESSAGE = /^Server compilation exceeded \d+ ms\.$/;
 
 export type JudgeProgram =
   { ok: true; artifact: BuildArtifact } | { ok: false; diagnostics: string };
@@ -67,6 +68,24 @@ function toRecord(program: JudgeProgram): StoredJudgeProgram {
     : { status: "failed", diagnostics: program.diagnostics };
 }
 
+async function compileJudgeProgram(
+  engine: Pick<TestJudgeEngine, "compile">,
+  source: JudgeProgramSource,
+): Promise<JudgeProgram> {
+  let build: BuildResult;
+  try {
+    build = await engine.compile(judgeProgramCompileInput(source, WASM_OJ_LIBCXX_PCH_HEADER));
+  } catch (error) {
+    if (error instanceof Error && COMPILE_TIMEOUT_MESSAGE.test(error.message)) {
+      return { ok: false, diagnostics: "Compilation exceeded the time limit." };
+    }
+    throw error;
+  }
+  return build.success && build.artifact
+    ? { ok: true, artifact: build.artifact }
+    : { ok: false, diagnostics: buildDiagnostics(build) };
+}
+
 export async function readCachedJudgeProgram(
   store: JudgeProgramStore,
   source: JudgeProgramSource,
@@ -90,13 +109,7 @@ export async function getJudgeProgram(
     });
   }
 
-  const build = await deps.engine.compile(
-    judgeProgramCompileInput(source, WASM_OJ_LIBCXX_PCH_HEADER),
-  );
-  const program: JudgeProgram =
-    build.success && build.artifact
-      ? { ok: true, artifact: build.artifact }
-      : { ok: false, diagnostics: buildDiagnostics(build) };
+  const program = await compileJudgeProgram(deps.engine, source);
   try {
     await deps.store.put(objectKey, JSON.stringify(toRecord(program)));
   } catch (error) {

@@ -42,6 +42,7 @@ describe("runTestJudgeWorkflow", () => {
     expect(execute).toHaveBeenCalledWith("testJudgeWorkflow", {
       taskQueue: "test-judge",
       workflowId: expect.stringMatching(/^test-judge-[0-9a-f-]{36}$/) as unknown,
+      priority: { priorityKey: 1 },
       args: [{ requestKey: "req" }],
       workflowExecutionTimeout: 30_000,
     });
@@ -111,7 +112,7 @@ describe("runTestJudgeWorkflow", () => {
 });
 
 describe("dispatchTestJudgeProgramBuild", () => {
-  it("starts the build on the test-judge queue with an id derived from its build inputs", async () => {
+  it("starts the build on the test-judge queue behind Test requests, with an id derived from its build inputs and a deadline", async () => {
     start.mockResolvedValueOnce(undefined);
 
     await dispatchTestJudgeProgramBuild(buildInput);
@@ -121,6 +122,8 @@ describe("dispatchTestJudgeProgramBuild", () => {
       workflowId: `test-judge-build-checker-cpp-${sha256}`,
       workflowIdConflictPolicy: "USE_EXISTING",
       workflowIdReusePolicy: "ALLOW_DUPLICATE",
+      priority: { priorityKey: 5 },
+      workflowExecutionTimeout: 15 * 60_000,
       args: [buildInput],
     });
   });

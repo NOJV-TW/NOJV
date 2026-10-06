@@ -369,6 +369,10 @@ export async function dispatchJudgeCleanup(input: {
 
 type TestJudgeWorkflow = (input: TestJudgeWorkflowInput) => Promise<TestJudgeWorkflowOutput>;
 
+const TEST_JUDGE_PRIORITY = { priorityKey: 1 };
+const TEST_JUDGE_BUILD_PRIORITY = { priorityKey: 5 };
+const TEST_JUDGE_BUILD_TIMEOUT_MS = 15 * 60_000;
+
 function isTimeout(failure: unknown): boolean {
   return (
     failure instanceof TimeoutFailure ||
@@ -385,6 +389,7 @@ export async function runTestJudgeWorkflow(
     return await client.workflow.execute<TestJudgeWorkflow>("testJudgeWorkflow", {
       taskQueue: TEST_JUDGE_TASK_QUEUE,
       workflowId: `test-judge-${randomUUID()}`,
+      priority: TEST_JUDGE_PRIORITY,
       args: [input],
       workflowExecutionTimeout: options.timeoutMs,
     });
@@ -409,6 +414,8 @@ export async function dispatchTestJudgeProgramBuild(
       workflowId: `test-judge-build-${input.role}-${input.language}-${input.scriptPointer.sha256}`,
       workflowIdConflictPolicy: "USE_EXISTING",
       workflowIdReusePolicy: "ALLOW_DUPLICATE",
+      priority: TEST_JUDGE_BUILD_PRIORITY,
+      workflowExecutionTimeout: TEST_JUDGE_BUILD_TIMEOUT_MS,
       args: [input],
     }),
   );

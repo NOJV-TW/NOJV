@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
@@ -198,6 +200,54 @@ describe("test-judge program cache", () => {
     if (!result.ok) {
       expect(new TextEncoder().encode(result.diagnostics).byteLength).toBe(4096);
     }
+  });
+
+  it("caches a compile that hit the engine's time limit as a failed build", async () => {
+    const { objects, store } = memoryStore();
+    const engine = {
+      compile: vi.fn(async () =>
+        Promise.reject(new Error("Server compilation exceeded 60000 ms.")),
+      ),
+    };
+
+    const first = await getJudgeProgram({ engine, store }, cppChecker);
+    const second = await getJudgeProgram({ engine, store }, cppChecker);
+
+    expect(first).toEqual({ ok: false, diagnostics: "Compilation exceeded the time limit." });
+    expect(second).toEqual(first);
+    expect(engine.compile).toHaveBeenCalledTimes(1);
+    expect(JSON.parse(objects.get(await objectKey(cppChecker))!)).toEqual({
+      status: "failed",
+      diagnostics: "Compilation exceeded the time limit.",
+    });
+  });
+
+  it("matches the compile time-limit error of the pinned @wasm-oj/server", () => {
+    const server = readFileSync(
+      new URL(
+        "../../../apps/worker/node_modules/@wasm-oj/server/dist/index.js",
+        import.meta.url,
+      ),
+      "utf8",
+    );
+
+    expect(server).toContain(
+      "if (timedOut) throw new Error(`Server compilation exceeded ${timeoutMs} ms.`);",
+    );
+  });
+
+  it("does not cache a compile cancelled at the request deadline", async () => {
+    const { objects, store } = memoryStore();
+    const engine = {
+      compile: vi.fn(async () =>
+        Promise.reject(new Error("Server compilation was cancelled.")),
+      ),
+    };
+
+    await expect(getJudgeProgram({ engine, store }, cppChecker)).rejects.toThrow(
+      "Server compilation was cancelled.",
+    );
+    expect(objects.size).toBe(0);
   });
 
   it("does not cache an engine failure", async () => {

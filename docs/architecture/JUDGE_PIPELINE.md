@@ -597,9 +597,16 @@ Judge program builds:
   `test-judge-programs/v1/<key>.json`, written only if absent. The key is the SHA-256
   of `WASM_OJ_SERVER_IDENTITY` and the exact compile input, so a WASM-OJ upgrade or a
   wrapper or shim change rebuilds without author action.
+- A compile that reaches the engine's own limit (60 s for C++, 120 s for Python) is
+  stored as a failed build with the diagnostic "Compilation exceeded the time
+  limit.", so later requests answer `judge_program_build_failed` at once; a compile
+  cancelled because a request ran out of budget is not stored.
 - Saving a checker or interactor configuration that Test supports dispatches
   `testJudgeProgramBuildWorkflow` after the commit, best effort; a miss at Test time
-  builds on demand. The edit page shows authors the cached status (ready, failed
+  builds on demand. Builds run at priority 5 and `testJudgeWorkflow` at priority 1;
+  each workflow passes its priority to its activity, so a queued Test request takes
+  the next free engine before queued builds. A build workflow has a 15-minute
+  execution timeout and its activity 5 minutes per attempt, three attempts. The edit page shows authors the cached status (ready, failed
   with diagnostics, or pending; a pending status re-checks every 3 s for a minute
   through `invalidate("problem:judge-program-status")`, skipping a check during
   navigation) and, for checker problems, a sample check that runs
