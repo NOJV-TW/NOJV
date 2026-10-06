@@ -556,6 +556,10 @@ Web side (`testJudgeDomain.runTestJudge`):
 
 Worker side (`nojv-worker-test`, `WORKER_MODE=test`, JDG-26):
 
+- At startup every engine builds and runs a Python and a C++ judge program before
+  the worker polls `test-judge`. An attempt still running after 20 s is cancelled
+  and retried; a third failure fails startup, so the pod restarts. A startup probe
+  allows the pod two minutes for this.
 - `runTestJudge` runs once (no retry, 28 s schedule-to-close). Its budget is 24 s
   from when the activity was scheduled; it leases one of `TEST_JUDGE_SLOTS` WASM-OJ
   engines, loads or builds the judge program, then judges the cases in order. A case

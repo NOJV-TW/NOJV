@@ -2,10 +2,25 @@ import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 
-import { WASM_OJ_SERVER_VERSIONS } from "@nojv/core";
+import {
+  judgeProgramCompileInput,
+  WASM_OJ_SERVER_VERSIONS,
+  type JudgeProgramSource,
+} from "@nojv/core";
+import { WASM_OJ_LIBCXX_PCH_HEADER } from "@wasm-oj/core";
 import { createServerEngine, type ServerToolchainSource } from "@wasm-oj/server";
 
+import { createLogger } from "../logger.js";
+
 export type TestJudgeEngine = Awaited<ReturnType<typeof createServerEngine>>;
+
+const logger = createLogger("test-judge-runtime");
+const WARM_UP_ATTEMPT_MS = 20_000;
+const WARM_UP_ATTEMPTS = 3;
+const WARM_UP_PROGRAMS: JudgeProgramSource[] = [
+  { role: "checker", language: "python", source: "accept()\n" },
+  { role: "checker", language: "cpp", source: "int main() { return 42; }\n" },
+];
 
 export interface EngineLease<E> {
   engine: E;
@@ -86,6 +101,58 @@ export function poolEngines<E extends { dispose(): void }>(
   };
 }
 
+async function runWarmUpPrograms(
+  engine: Pick<TestJudgeEngine, "compile" | "run">,
+): Promise<void> {
+  for (const program of WARM_UP_PROGRAMS) {
+    const build = await engine.compile(
+      judgeProgramCompileInput(program, WASM_OJ_LIBCXX_PCH_HEADER),
+    );
+    if (!build.success || !build.artifact) {
+      throw new Error(`The ${program.language} warm-up program did not build: ${build.stderr}`);
+    }
+    const run = await engine.run(build.artifact, {
+      args: ["/judge/input", "/judge/answer", "/judge/feedback"],
+      files: { "/judge/input": "", "/judge/answer": "", "/judge/feedback/.keep": "" },
+    });
+    if (run.code !== 42) {
+      throw new Error(
+        `The ${program.language} warm-up program ended with ${run.termination} ${String(run.code)}.`,
+      );
+    }
+  }
+}
+
+export async function warmEngine(
+  engine: Pick<TestJudgeEngine, "compile" | "run" | "cancel">,
+): Promise<void> {
+  for (let attempt = 1; ; attempt += 1) {
+    let timer: NodeJS.Timeout | undefined;
+    const timeout = new Promise<never>((_resolve, reject) => {
+      timer = setTimeout(
+        () => reject(new Error(`Warm-up exceeded ${String(WARM_UP_ATTEMPT_MS)} ms.`)),
+        WARM_UP_ATTEMPT_MS,
+      );
+    });
+    try {
+      await Promise.race([runWarmUpPrograms(engine), timeout]);
+      return;
+    } catch (error) {
+      engine.cancel();
+      const message = error instanceof Error ? error.message : String(error);
+      if (attempt >= WARM_UP_ATTEMPTS) {
+        throw new Error(
+          `A test-judge engine failed its warm-up ${String(WARM_UP_ATTEMPTS)} times: ${message}`,
+          { cause: error },
+        );
+      }
+      logger.warn("Retrying a test-judge engine warm-up", { attempt, error: message });
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+}
+
 export async function createEnginePool(options: {
   runtimeDir: string;
   toolchainDir: string;
@@ -102,6 +169,12 @@ export async function createEnginePool(options: {
     });
     await engine.ready();
     engines.push(engine);
+  }
+  try {
+    await Promise.all(engines.map((engine) => warmEngine(engine)));
+  } catch (error) {
+    for (const engine of engines) engine.dispose();
+    throw error;
   }
   return poolEngines(engines);
 }

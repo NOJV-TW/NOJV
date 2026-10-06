@@ -1,4 +1,4 @@
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, readdir, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 
@@ -195,12 +195,20 @@ describe.skipIf(!runtimeDir || !toolchainDir)("test-judge WASM-OJ runtime", () =
 
   beforeAll(async () => {
     cacheDir = await mkdtemp(path.join(os.tmpdir(), "nojv-wasm-oj-"));
-    pool = await createEnginePool({ runtimeDir, toolchainDir, cacheDir, slots: 1 });
+    pool = await createEnginePool({ runtimeDir, toolchainDir, cacheDir, slots: 2 });
   }, 300_000);
 
   afterAll(async () => {
     pool?.dispose();
     if (cacheDir) await rm(cacheDir, { recursive: true, force: true });
+  });
+
+  it("warms the Python runtime of every engine before handing the pool out", async () => {
+    for (const slot of ["0", "1"]) {
+      expect(await readdir(path.join(cacheDir, slot, "runtime"))).toEqual([
+        expect.stringMatching(/\.wasmojfs$/),
+      ]);
+    }
   });
 
   it("compiles and runs C++ on a pooled engine", async () => {

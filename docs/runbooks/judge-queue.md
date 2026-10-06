@@ -55,6 +55,9 @@ kubectl -n nojv logs deploy/nojv-worker-test --since=15m
   window, or when no test worker polls the queue (the task-queue description lists
   no pollers). Restart a stuck worker with
   `kubectl -n nojv rollout restart deploy/nojv-worker-test`.
+- A test worker restarting with "A test-judge engine failed its warm-up 3 times"
+  could not run its startup judge programs; "Retrying a test-judge engine warm-up"
+  alone is a recovered stall.
 - Slots are `worker.test.slots` (`TEST_JUDGE_SLOTS`, one WASM-OJ engine each, at
   most 8) under a 2-CPU limit. Raise slots and the CPU limit together, and only
   after a Test load test.

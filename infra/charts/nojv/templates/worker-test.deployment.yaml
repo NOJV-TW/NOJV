@@ -121,6 +121,14 @@ spec:
                   name: {{ include "nojv.runtimeSecretName" . }}
                   key: OTEL_EXPORTER_OTLP_HEADERS
                   optional: true
+          startupProbe:
+            httpGet:
+              path: /livez
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 24
           livenessProbe:
             httpGet:
               path: /livez
