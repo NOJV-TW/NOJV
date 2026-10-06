@@ -378,7 +378,7 @@ apply ad-hoc down migrations.
 | web      | HPA 1–3, CPU 70%, 384Mi / 1Gi memory               | HPA 2–15, CPU 70%, 384Mi / 1Gi memory                                  |
 | judge    | 1 replica, slots 2–8 by load, 1Gi / 3Gi memory     | 2 replicas × 2 slots                                                   |
 | platform | 1 replica                                          | 2 replicas                                                             |
-| test     | 1 replica, 2 slots, 100m / 2 CPU, 512Mi / 2Gi      | off (`worker.test.enabled`), so no checker or interactive Test         |
+| test     | 1 replica, 2 slots, 100m / 2 CPU, 512Mi / 3Gi      | off (`worker.test.enabled`), so no checker or interactive Test         |
 | registry | 1 replica                                          | 2 replicas                                                             |
 | sandbox  | quota 16 pods / 6 CPU / 16Gi; judge container 300m | quota 10 pods / 10 CPU / 30Gi; one on-demand gVisor node plus Spot 0–4 |
 | postgres | CNPG, 500m CPU, 2Gi memory request = limit         | Cloud SQL, outside the chart                                           |

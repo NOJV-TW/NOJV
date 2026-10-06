@@ -575,7 +575,7 @@ Worker side (`nojv-worker-test`, `WORKER_MODE=test`, JDG-26):
   | Limit        | Checker                       | Interactive contestant                                 | Interactor                  |
   | ------------ | ----------------------------- | ------------------------------------------------------ | --------------------------- |
   | Logical time | `max(30 s, limit)`            | Limit × language factor                                | `max(30 s, factored limit)` |
-  | Memory       | 512 MiB                       | Problem limit                                          | 512 MiB                     |
+  | Memory       | 512 MiB                       | Problem limit                                          | 256 MiB                     |
   | Wall stop    | `min(10 s, remaining budget)` | `min(max(3 s, 3 × factored limit), remaining budget)`  | Same as the contestant      |
   | Other        | —                             | 16 MiB output, 64 MiB and 4,096 entries of file writes | —                           |
 

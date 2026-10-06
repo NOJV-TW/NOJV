@@ -30,6 +30,10 @@ spec:
       serviceAccountName: {{ include "nojv.fullname" . }}-worker-test
       automountServiceAccountToken: false
       terminationGracePeriodSeconds: 120
+      {{- with .Values.worker.test.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       securityContext:
         runAsNonRoot: true
         runAsUser: 1001

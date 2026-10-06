@@ -60,8 +60,9 @@ kubectl -n nojv logs deploy/nojv-worker-test --since=15m
   could not run its startup judge programs; "Retrying a test-judge engine warm-up"
   alone is a recovered stall.
 - Slots are `worker.test.slots` (`TEST_JUDGE_SLOTS`, one WASM-OJ engine each, at
-  most 8) under a 2-CPU limit. Raise slots and the CPU limit together, and only
-  after a Test load test.
+  most 8) under a 2-CPU and 3 GiB limit; the memory holds two slots each running a
+  contestant of up to 1 GiB beside a 256 MiB interactor, plus Node. Raise slots
+  and both limits together, and only after a Test load test.
 - "This problem's checker or interactor can't run in Test" means its cached build
   failed; the problem's editors see the diagnostics in the edit page's judge
   section. Saving a fixed checker or interactor rebuilds it.

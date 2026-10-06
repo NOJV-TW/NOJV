@@ -47,7 +47,8 @@ const REQUEST_BUDGET_MS = 24_000;
 const CHECKER_WALL_LIMIT_MS = 10_000;
 const MIN_INTERACTIVE_WALL_LIMIT_MS = 3_000;
 const MIB = 1024 * 1024;
-const JUDGE_PROGRAM_MEMORY_BYTES = 512 * MIB;
+const CHECKER_MEMORY_BYTES = 512 * MIB;
+const INTERACTOR_MEMORY_BYTES = 256 * MIB;
 const JUDGE_PROGRAM_ARGS = ["/judge/input", "/judge/answer", "/judge/feedback"];
 const TEAM_MESSAGE_PATH = "/judge/feedback/teammessage.txt";
 const BUSY: TestJudgeWorkflowOutput = { ok: false, code: "test_judge_busy" };
@@ -127,10 +128,6 @@ async function readJudgeSource(
   }
 }
 
-function judgeProgramResources(logicalTimeLimitMs: number, wallTimeLimitMs: number) {
-  return { logicalTimeLimitMs, memoryLimitBytes: JUDGE_PROGRAM_MEMORY_BYTES, wallTimeLimitMs };
-}
-
 async function judgeCheckerCase(
   engine: JudgeEngine,
   checker: BuildArtifact,
@@ -149,7 +146,11 @@ async function judgeCheckerCase(
       "/judge/feedback/.keep": "",
     },
     outputPaths: [TEAM_MESSAGE_PATH],
-    resources: judgeProgramResources(validatorTimeoutMs(request.timeLimitMs), wallTimeLimitMs),
+    resources: {
+      logicalTimeLimitMs: validatorTimeoutMs(request.timeLimitMs),
+      memoryLimitBytes: CHECKER_MEMORY_BYTES,
+      wallTimeLimitMs,
+    },
   });
   if (run.termination === "wall-time-limit" && wallTimeLimitMs < CHECKER_WALL_LIMIT_MS) {
     return null;
@@ -188,7 +189,11 @@ async function judgeInteractiveCase(
         "/judge/answer": "",
         "/judge/feedback/.keep": "",
       },
-      resources: judgeProgramResources(validatorTimeoutMs(timeLimitMs), wallTimeLimitMs),
+      resources: {
+        logicalTimeLimitMs: validatorTimeoutMs(timeLimitMs),
+        memoryLimitBytes: INTERACTOR_MEMORY_BYTES,
+        wallTimeLimitMs,
+      },
     },
   });
   const wallStopped =

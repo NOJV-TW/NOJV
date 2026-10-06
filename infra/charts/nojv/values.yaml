@@ -360,13 +360,14 @@ worker:
     enabled: false
     replicas: 1
     slots: 2
+    nodeSelector: {}
     resources:
       requests:
         cpu: 100m
         memory: 512Mi
       limits:
         cpu: "2"
-        memory: 2Gi
+        memory: 3Gi
   sandbox:
     cpuRequest: "500m"
     cpuLimit: "1"

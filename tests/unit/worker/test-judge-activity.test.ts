@@ -424,7 +424,7 @@ describe("runTestJudge interactive requests", () => {
         files: { "/judge/input": "37\n", "/judge/answer": "", "/judge/feedback/.keep": "" },
         resources: {
           logicalTimeLimitMs: 30_000,
-          memoryLimitBytes: 512 * MIB,
+          memoryLimitBytes: 256 * MIB,
           wallTimeLimitMs: 9000,
         },
       },
