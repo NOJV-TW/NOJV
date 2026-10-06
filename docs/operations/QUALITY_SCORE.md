@@ -57,7 +57,7 @@ Work that is known, not done, and not covered by an in-flight plan. Remove an it
 ### Production evidence
 
 - Measure GKE judge concurrency against the sandbox quota ceiling (single-machine was measured on 2026-09-26; see the baseline). See OPS-11 and [Judge Queue](../runbooks/judge-queue.md).
-- Load-test checker and interactive Test before an exam uses them: about 65 students pressing Test with the virtual-student harness, watching `nojv-worker-test` CPU, `test_judge_busy` responses and web latency. Python checker cost per case (about 1.1 s on a development machine) is unmeasured on production hardware (JDG-26).
+- Load-test checker and interactive Test before an exam uses them: about 65 students pressing Test with the virtual-student harness, watching `nojv-worker-test` CPU, `test_judge_busy` responses, web latency and the judge worker's slot budget, which Test CPU on the shared node can hold back (JDG-13). Python checker cost per case (about 1.1 s on a development machine) is unmeasured on production hardware (JDG-26).
 
 ### High availability
 
