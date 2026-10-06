@@ -4,9 +4,7 @@ import {
   interactiveContestantSupported,
   staticTestCapability,
   storedJudgeProgramSchema,
-  TEST_JUDGE_REQUEST_PREFIX,
   testJudgeProgramCacheKey,
-  testJudgeProgramObjectKey,
   testJudgeResponseSchema,
   testJudgeStoredRequestSchema,
   type JudgeConfig,
@@ -25,6 +23,8 @@ import {
   getText,
   isStorageObjectNotFoundError,
   putImmutableText,
+  testJudgeProgramKey,
+  testJudgeRequestKey,
 } from "@nojv/storage";
 
 import { assertProblemContextAllowed } from "../code-draft";
@@ -153,7 +153,7 @@ function storedRequestBase(problem: ProblemRow, judgeConfig: JudgeConfig) {
 }
 
 async function judgeStoredRequest(stored: TestJudgeStoredRequest): Promise<TestJudgeResponse> {
-  const requestKey = `${TEST_JUDGE_REQUEST_PREFIX}${randomUUID()}.json`;
+  const requestKey = testJudgeRequestKey(randomUUID());
   await putImmutableText(storage(), requestKey, JSON.stringify(stored));
 
   let output: TestJudgeWorkflowOutput;
@@ -316,7 +316,7 @@ export async function getJudgeProgramStatus(
     language,
     source,
   });
-  const body = await readJudgeProgramRecord(testJudgeProgramObjectKey(cacheKey));
+  const body = await readJudgeProgramRecord(testJudgeProgramKey(cacheKey));
   if (body === undefined) return { status: "pending" };
   const record = storedJudgeProgramSchema.safeParse(parseJson(body));
   if (!record.success) return { status: "pending" };

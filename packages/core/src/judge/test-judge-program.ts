@@ -26,9 +26,6 @@ export interface JudgeProgramCompileInput {
 
 const CACHE_KEY_PCH_HEADER = "<wasm-oj-pch>";
 
-// ponytail: input-addressed test-judge programs are never collected; add a prefix sweep if the bucket grows
-export const TEST_JUDGE_PROGRAM_PREFIX = "test-judge-programs/";
-
 export function judgeProgramCompileInput(
   { role, language, source }: JudgeProgramSource,
   pchHeader: string,
@@ -55,8 +52,4 @@ export async function testJudgeProgramCacheKey(program: JudgeProgramSource): Pro
   const data = new TextEncoder().encode(payload);
   const digest = new Uint8Array(await globalThis.crypto.subtle.digest("SHA-256", data));
   return Array.from(digest, (byte) => byte.toString(16).padStart(2, "0")).join("");
-}
-
-export function testJudgeProgramObjectKey(cacheKey: string): string {
-  return `${TEST_JUDGE_PROGRAM_PREFIX}v1/${cacheKey}.json`;
 }

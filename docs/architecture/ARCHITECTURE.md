@@ -249,10 +249,10 @@ Cache and lease details: [Redis](./REDIS.md); rationale DAT-11.
 `@nojv/storage` (S3-compatible: MinIO locally, GCS/R2/S3 in production) holds
 submission sources and verdict detail, testcases, workspace files,
 checker/interactor programs, judge snapshots and stage results, and images.
-Keys come from `packages/storage/src/keys.ts`, except the test judge's transient
+Keys come from `packages/storage/src/keys.ts`, including the test judge's transient
 requests (`test-judge-requests/`) and judge-program build cache
-(`test-judge-programs/v1/`), whose keys `@nojv/core` builds next to their schemas;
-rows store verified pointers (size + SHA-256). Images are served same-origin through
+(`test-judge-programs/v1/`); rows store verified pointers (size + SHA-256).
+Images are served same-origin through
 `/api/storage/{problem-images,user-content-images,avatars}/…`. Env:
 `S3_ENDPOINT`, `S3_ACCESS_KEY`, `S3_SECRET_KEY`, `S3_BUCKET`, `S3_REGION`
 (`packages/storage/src/env.ts`); deployment values in

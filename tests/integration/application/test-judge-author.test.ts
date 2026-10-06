@@ -8,14 +8,19 @@ import {
   testJudgeDomain,
 } from "@nojv/application";
 import {
-  TEST_JUDGE_REQUEST_PREFIX,
   testJudgeProgramCacheKey,
-  testJudgeProgramObjectKey,
   type JudgeProgramSource,
   type TestJudgeWorkflowInput,
   type TestJudgeWorkflowOutput,
 } from "@nojv/core";
-import { createStorageClient, getText, listByPrefix, putImmutableText } from "@nojv/storage";
+import {
+  TEST_JUDGE_REQUEST_PREFIX,
+  createStorageClient,
+  getText,
+  listByPrefix,
+  putImmutableText,
+  testJudgeProgramKey,
+} from "@nojv/storage";
 
 import { createTestProblem, createTestUser } from "../../fixtures/factories";
 
@@ -67,7 +72,7 @@ async function checkerProblem(authorId: string, source = CHECKER_SOURCE) {
 async function seedProgramRecord(source: JudgeProgramSource, body: string) {
   await putImmutableText(
     createStorageClient(),
-    testJudgeProgramObjectKey(await testJudgeProgramCacheKey(source)),
+    testJudgeProgramKey(await testJudgeProgramCacheKey(source)),
     body,
   );
 }

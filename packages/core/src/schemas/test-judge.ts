@@ -16,8 +16,6 @@ export const TEST_JUDGE_MAX_ARTIFACT_BYTES = 16 * 1024 * 1024;
 export const TEST_JUDGE_REQUEST_BODY_BYTES = 24 * 1024 * 1024;
 export const TEST_JUDGE_TRANSCRIPT_BYTES = 64 * 1024;
 export const TEST_JUDGE_RESPONSE_BYTES = 1024 * 1024;
-// ponytail: request blobs orphaned by a web crash between write and delete are never swept; add a bucket lifecycle expiry on this prefix
-export const TEST_JUDGE_REQUEST_PREFIX = "test-judge-requests/";
 
 const caseTextSchema = z.string().max(MAX_RUN_CASE_FIELD_LEN);
 

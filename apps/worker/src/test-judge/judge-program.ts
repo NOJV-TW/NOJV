@@ -4,7 +4,6 @@ import {
   serialiseBuildArtifact,
   storedJudgeProgramSchema,
   testJudgeProgramCacheKey,
-  testJudgeProgramObjectKey,
   truncateUtf8,
   type JudgeProgramSource,
   type StoredJudgeProgram,
@@ -13,6 +12,7 @@ import {
   getText,
   isStorageObjectNotFoundError,
   putObjectIfAbsent,
+  testJudgeProgramKey,
   type createStorageClient,
 } from "@nojv/storage";
 import { WASM_OJ_LIBCXX_PCH_HEADER, type BuildArtifact, type BuildResult } from "@wasm-oj/core";
@@ -71,9 +71,7 @@ export async function readCachedJudgeProgram(
   store: JudgeProgramStore,
   source: JudgeProgramSource,
 ): Promise<JudgeProgram | null> {
-  const cached = await store.get(
-    testJudgeProgramObjectKey(await testJudgeProgramCacheKey(source)),
-  );
+  const cached = await store.get(testJudgeProgramKey(await testJudgeProgramCacheKey(source)));
   return cached === null ? null : readRecord(cached);
 }
 
@@ -82,7 +80,7 @@ export async function getJudgeProgram(
   source: JudgeProgramSource,
   { throwOnStoreError = false }: { throwOnStoreError?: boolean } = {},
 ): Promise<JudgeProgram> {
-  const objectKey = testJudgeProgramObjectKey(await testJudgeProgramCacheKey(source));
+  const objectKey = testJudgeProgramKey(await testJudgeProgramCacheKey(source));
   const cached = await deps.store.get(objectKey);
   if (cached !== null) {
     const program = readRecord(cached);

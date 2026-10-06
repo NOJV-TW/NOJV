@@ -7,7 +7,6 @@ import {
   MAX_CASE_STDERR_BYTES,
   MAX_EXECUTION_OUTPUT_BYTES,
   TEST_JUDGE_MAX_ARTIFACT_BYTES,
-  TEST_JUDGE_REQUEST_PREFIX,
   TEST_JUDGE_TRANSCRIPT_BYTES,
   testJudgeCaseResultSchema,
   testJudgeStoredRequestSchema,
@@ -26,6 +25,7 @@ import {
   getVerifiedText,
   isStorageObjectNotFoundError,
   StorageIntegrityError,
+  TEST_JUDGE_REQUEST_PREFIX,
   type createStorageClient,
 } from "@nojv/storage";
 import { Context } from "@temporalio/activity";

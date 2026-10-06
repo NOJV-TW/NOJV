@@ -28,6 +28,9 @@ export {
   checkerKey,
   interactorKey,
   submissionVerdictDetailKey,
+  TEST_JUDGE_REQUEST_PREFIX,
+  testJudgeRequestKey,
+  testJudgeProgramKey,
 } from "./keys";
 export { getText, deleteBlob, deleteBlobsByPrefix, listByPrefix } from "./blobs";
 export {

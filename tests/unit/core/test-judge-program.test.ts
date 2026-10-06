@@ -14,7 +14,6 @@ import {
   serialiseBuildArtifact,
   serialisedBuildArtifactSchema,
   testJudgeProgramCacheKey,
-  testJudgeProgramObjectKey,
   type JudgeProgramSource,
 } from "@nojv/core";
 
@@ -111,12 +110,6 @@ describe("testJudgeProgramCacheKey", () => {
     expect(await testJudgeProgramCacheKey({ ...cppChecker, role: "interactor" })).toBe(
       await testJudgeProgramCacheKey(cppChecker),
     );
-  });
-});
-
-describe("testJudgeProgramObjectKey", () => {
-  it("stores programs under the versioned test-judge prefix", () => {
-    expect(testJudgeProgramObjectKey("ab12")).toBe("test-judge-programs/v1/ab12.json");
   });
 });
 
