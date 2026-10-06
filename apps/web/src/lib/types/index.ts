@@ -1,5 +1,6 @@
 import type {
   AdvancedConfig,
+  CaseResult,
   JudgeConfig,
   JudgeType,
   Language,
@@ -10,7 +11,21 @@ import type {
   SubmissionContext,
   SubmissionResult,
   SubmissionOperationStatus,
+  TestCapability,
+  TestJudgeCaseResult,
 } from "@nojv/core";
+
+export interface TestCaseView extends CaseResult {
+  executionOnly?: true;
+  serverJudged?: true;
+  teamMessage?: string;
+  transcript?: NonNullable<TestJudgeCaseResult["transcript"]>;
+}
+
+export interface TestRunResult extends SubmissionResult {
+  caseResults?: TestCaseView[] | undefined;
+  serverNotice?: string | undefined;
+}
 
 export interface ProblemSubmissionEntry {
   id?: string;
@@ -37,6 +52,7 @@ export interface ProblemDetail extends ProblemOverview {
   authorUsername: string;
   bookmarked?: boolean;
   inputFormat: string;
+  interactionFormat: string;
   judgeConfig: JudgeConfig;
   judgeType: JudgeType;
   memoryLimitMb: number;
@@ -46,11 +62,13 @@ export interface ProblemDetail extends ProblemOverview {
     input: string;
     output: string;
     explanation?: string | undefined;
+    interactorInput?: string | undefined;
   }[];
   starterByLanguage: Record<Language, string>;
   statement: string;
   status: ProblemStatus;
   tags: string[];
+  testCapability: TestCapability;
   timeLimitMs: number;
   totalScore: number;
   visibility: ProblemVisibility;

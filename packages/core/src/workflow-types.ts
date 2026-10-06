@@ -1,3 +1,11 @@
+import type { JudgeProgramRole } from "./judge/test-judge-program";
+import type { JudgeScriptLanguage } from "./schemas/judge-config";
+import type {
+  TestJudgeCaseResult,
+  TestJudgeErrorCode,
+  TestJudgeStoredRequest,
+} from "./schemas/test-judge";
+
 export type RejudgeInput =
   | {
       mode: "batch";
@@ -61,3 +69,16 @@ export interface PlagiarismCheckInput {
 export interface RegistryGarbageCollectInput {
   triggeredByUserId: string;
 }
+
+export interface TestJudgeWorkflowInput {
+  requestKey: string;
+}
+
+export interface TestJudgeProgramBuildInput {
+  role: JudgeProgramRole;
+  language: JudgeScriptLanguage;
+  scriptPointer: TestJudgeStoredRequest["judgeScriptPointer"];
+}
+
+export type TestJudgeWorkflowOutput =
+  { ok: true; cases: TestJudgeCaseResult[] } | { ok: false; code: TestJudgeErrorCode };

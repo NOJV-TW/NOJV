@@ -1,0 +1,31 @@
+diff --git a/dist/index.js b/dist/index.js
+index 81d058dcdb2312eec3d6a22693d3c22e03ee144d..04818d4a616cf5e1de397c7c6e51a2bc7a360671 100644
+--- a/dist/index.js
++++ b/dist/index.js
+@@ -3610,7 +3610,7 @@ var ServerRunner = class {
+ 				const cleanup = (ignoreLateChildError) => {
+ 					child.off("close", onClose);
+ 					child.off("error", onChildError);
+-					child.stdin.off("error", onStdinError);
++					child.stdin.off("error", onStdinError).on("error", () => void 0);
+ 					child.stdout.off("data", onStdout);
+ 					child.stderr.off("data", onStderr);
+ 					this.activePreparationStages.delete(active);
+@@ -3749,7 +3749,7 @@ var ServerRunner = class {
+ 				clearTimeout(timer);
+ 				child.off("close", onClose);
+ 				child.off("error", onChildError);
+-				child.stdin.off("error", onStdinError);
++				child.stdin.off("error", onStdinError).on("error", () => void 0);
+ 				child.stdout.off("data", onStdout);
+ 				child.stderr.off("data", onStderr);
+ 				this.activeNativeRuns.delete(active);
+@@ -3847,7 +3847,7 @@ var ServerRunner = class {
+ 				clearTimeout(timer);
+ 				child.off("close", onClose);
+ 				child.off("error", onChildError);
+-				child.stdin.off("error", onStdinError);
++				child.stdin.off("error", onStdinError).on("error", () => void 0);
+ 				child.stdout.off("data", onStdout);
+ 				child.stderr.off("data", onStderr);
+ 				this.activeNativeRuns.delete(active);

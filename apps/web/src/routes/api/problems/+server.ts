@@ -44,6 +44,7 @@ export const POST: RequestHandler = writeApiHandler(async (event) => {
   const result = await createProblemRecord(actor, {
     difficulty: "medium",
     inputFormat: "",
+    interactionFormat: "",
     memoryLimitMb: 256,
     outputFormat: "",
     statement: "",

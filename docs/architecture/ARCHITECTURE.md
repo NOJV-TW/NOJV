@@ -10,7 +10,7 @@ flows. Judge internals live in [Judge Pipeline](./JUDGE_PIPELINE.md); schema in
 - `apps/web/` — SvelteKit BFF; `src/lib/server/domain-orchestration.ts` wires Temporal into the application port
 - `apps/worker/src/worker-app.ts` — worker boot, task-queue registration, startup singletons
 - `apps/worker/src/workflows/index.ts` — every registered workflow
-- `apps/worker/src/activities/{judge-bundle,platform-bundle}.ts` — activities per queue
+- `apps/worker/src/activities/{judge-bundle,platform-bundle,test-judge-bundle}.ts` — activities per queue
 - `apps/worker/src/activities/durable-work-registry.ts` — outbox work kinds and handlers
 - `packages/temporal/src/{dispatch,task-queues,orchestration-adapter}.ts` — start/query helpers, queue names, port adapter
 - `packages/application/src/shared/orchestration.ts` — `DomainOrchestrationAdapter` port
@@ -84,8 +84,10 @@ against route drift by `tests/unit/openapi-contract.test.ts` (ENG-05).
 ### Worker modes and task queues
 
 `WORKER_MODE` selects which Temporal workers a process runs. Helm deploys
-`nojv-worker` (`judge`) and `nojv-worker-platform` (`platform`); `all` is for
-development.
+`nojv-worker` (`judge`), `nojv-worker-platform` (`platform`) and, when
+`worker.test.enabled`, `nojv-worker-test` (`test`); `all` is for development and
+serves `test-judge` only when `WASM_OJ_RUNTIME_DIR` and `WASM_OJ_TOOLCHAIN_DIR` are
+set.
 
 | Queue           | Served in mode    | Worker shape                                                                                                   | Work                                                                              |
 | --------------- | ----------------- | -------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
@@ -93,15 +95,18 @@ development.
 | `judge-state`   | `judge`, `all`    | Activity-only, 16 fixed slots                                                                                  | Judge bookkeeping activities (state, verdict commit, scoreboard nudge)            |
 | `judge-cleanup` | `judge`, `all`    | Activity-only, 16 fixed slots                                                                                  | Deferred standard stage cleanup (`cleanupJudgeStage`)                             |
 | `platform`      | `platform`, `all` | Workflows + activities; `WORKER_CONCURRENCY` slots                                                             | Lifecycle timers, plagiarism, durable work, sweeper, score effects, notifications |
+| `test-judge`    | `test`, `all`     | Workflows + activities; `TEST_JUDGE_SLOTS` slots, one WASM-OJ engine each                                      | Server-judged browser Test and judge-program builds (JDG-26)                      |
 
 Judge and platform workers cache at most 32 workflows and run at most 8 workflow
-tasks concurrently. Queue capacity and priority: see
+tasks concurrently; the test worker caches 16 and runs 8. Queue capacity and priority: see
 [Judge Pipeline](./JUDGE_PIPELINE.md) and JDG-12/13.
 
 On `platform`/`all` startup the worker ensures the three cron singletons, then
 runs `sweepStaleSubmissions()` and `recoverSystemErrorSubmissions()` once.
 `judge` mode with `EXECUTION_BACKEND=kubernetes` refuses to start unless the
-sandbox runtime and NetworkPolicy probes pass (JDG-20).
+sandbox runtime and NetworkPolicy probes pass (JDG-20). `test` mode refuses to start
+without `WASM_OJ_RUNTIME_DIR` and `WASM_OJ_TOOLCHAIN_DIR`, and starts its engines
+before it polls; it never creates sandbox Jobs.
 
 ## Temporal orchestration
 
@@ -109,18 +114,20 @@ Rules: all async work runs in Temporal (DAT-13); workflow inputs carry IDs, not
 blobs (DAT-16); workflow code changes use `patched()` (DAT-15); cron processors
 are a cron parent awaiting a continue-as-new child (DAT-19).
 
-| Workflow                               | Queue      | Workflow ID                                     | Start / notes                                                                                                      |
-| -------------------------------------- | ---------- | ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| `durableJudgeWorkflow`                 | `judge`    | `judge-execution-{executionId}-{recoveryEpoch}` | `dispatchJudgeExecution`; `REJECT_DUPLICATE`; carries priority/fairness keys; state lives in `JudgeExecution` rows |
-| `judgeCleanupWorkflow`                 | `judge`    | `judge-cleanup-{leaseToken}`                    | `dispatchJudgeCleanup`; `ALLOW_DUPLICATE_FAILED_ONLY`                                                              |
-| `contestLifecycleWorkflow`             | `platform` | `contest-lifecycle-{contestId}`                 | `ensure/replace/cancelContestLifecycle`; publishes `contest:starting` / `contest:ending`                           |
-| `examAutoCloseWorkflow`                | `platform` | `exam-auto-close-{examId}`                      | `ensure/replace/cancelExamAutoClose`; closes active sessions at `endsAt`                                           |
-| `assignmentDueSoonWorkflow`            | `platform` | `assignment-due-soon-{assignmentId}`            | `ensure/replace/cancelAssignmentDueSoon`; lead-day reminders (DAT-18)                                              |
-| `plagiarismCheckWorkflow`              | `platform` | `plagiarism-{targetType}-{targetId}`            | `dispatchPlagiarismCheck`; `TERMINATE_EXISTING` on conflict (ASM-23)                                               |
-| `registryGarbageCollectWorkflow`       | `platform` | `registry-gc`                                   | `dispatchRegistryGarbageCollect`; singleton, reports `alreadyRunning` (OPS-10)                                     |
-| `submissionSweeperWorkflow`            | `platform` | `submission-pending-sweeper`                    | Cron `* * * * *`; ensured by the platform worker                                                                   |
-| `durableWorkProcessorWorkflow`         | `platform` | `durable-work-processor`                        | Cron `* * * * *`; runs `durableWorkWorkflow` child                                                                 |
-| `lifecycleReconcilerProcessorWorkflow` | `platform` | `lifecycle-timer-reconciler`                    | Cron `*/5 * * * *`; runs `lifecycleReconcilerWorkflow` child; re-ensures timers and missed judge dispatch          |
+| Workflow                               | Queue        | Workflow ID                                     | Start / notes                                                                                                                |
+| -------------------------------------- | ------------ | ----------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `durableJudgeWorkflow`                 | `judge`      | `judge-execution-{executionId}-{recoveryEpoch}` | `dispatchJudgeExecution`; `REJECT_DUPLICATE`; carries priority/fairness keys; state lives in `JudgeExecution` rows           |
+| `judgeCleanupWorkflow`                 | `judge`      | `judge-cleanup-{leaseToken}`                    | `dispatchJudgeCleanup`; `ALLOW_DUPLICATE_FAILED_ONLY`                                                                        |
+| `contestLifecycleWorkflow`             | `platform`   | `contest-lifecycle-{contestId}`                 | `ensure/replace/cancelContestLifecycle`; publishes `contest:starting` / `contest:ending`                                     |
+| `examAutoCloseWorkflow`                | `platform`   | `exam-auto-close-{examId}`                      | `ensure/replace/cancelExamAutoClose`; closes active sessions at `endsAt`                                                     |
+| `assignmentDueSoonWorkflow`            | `platform`   | `assignment-due-soon-{assignmentId}`            | `ensure/replace/cancelAssignmentDueSoon`; lead-day reminders (DAT-18)                                                        |
+| `plagiarismCheckWorkflow`              | `platform`   | `plagiarism-{targetType}-{targetId}`            | `dispatchPlagiarismCheck`; `TERMINATE_EXISTING` on conflict (ASM-23)                                                         |
+| `registryGarbageCollectWorkflow`       | `platform`   | `registry-gc`                                   | `dispatchRegistryGarbageCollect`; singleton, reports `alreadyRunning` (OPS-10)                                               |
+| `submissionSweeperWorkflow`            | `platform`   | `submission-pending-sweeper`                    | Cron `* * * * *`; ensured by the platform worker                                                                             |
+| `durableWorkProcessorWorkflow`         | `platform`   | `durable-work-processor`                        | Cron `* * * * *`; runs `durableWorkWorkflow` child                                                                           |
+| `lifecycleReconcilerProcessorWorkflow` | `platform`   | `lifecycle-timer-reconciler`                    | Cron `*/5 * * * *`; runs `lifecycleReconcilerWorkflow` child; re-ensures timers and missed judge dispatch                    |
+| `testJudgeWorkflow`                    | `test-judge` | `test-judge-{uuid}`                             | `runTestJudgeWorkflow`; web executes it and awaits the result under a 30 s execution timeout; a timeout is `test_judge_busy` |
+| `testJudgeProgramBuildWorkflow`        | `test-judge` | `test-judge-build-{role}-{language}-{sha256}`   | `dispatchTestJudgeProgramBuild` after a judge-config save, best effort; `USE_EXISTING`, `ALLOW_DUPLICATE`                    |
 
 Lifecycle timers (`contest`, `exam`, `assignment`) are reconciled, not blindly
 restarted: each start carries `scheduleRevision` and `timerFingerprint` in the
@@ -184,6 +191,36 @@ sequenceDiagram
   only wakes it, so a Redis outage delays but never loses results.
 - Infrastructure faults never become student verdicts (JDG-09, JDG-11).
 
+### Test judging
+
+Checker and interactive Test (JDG-15, JDG-26): the browser compiles and runs the
+contestant, and the server runs only the judge program, on samples.
+
+```mermaid
+sequenceDiagram
+    participant Browser
+    participant Web
+    participant Redis
+    participant Postgres
+    participant Storage
+    participant Temporal
+    participant TestWorker as worker-test
+
+    Browser->>Web: POST /api/problems/{id}/test-judge (sample indices + stdout or contestant Wasm)
+    Web->>Redis: rl:test-judge, SET NX in-flight lock
+    Web->>Postgres: authorise context; read samples, judgeConfig, judge pointer
+    Web->>Storage: put test-judge-requests/{uuid}.json
+    Web->>Temporal: execute testJudgeWorkflow (30 s timeout)
+    Temporal->>TestWorker: runTestJudge(requestKey)
+    TestWorker->>Storage: read and delete request; read judge source; read or write test-judge-programs/v1/{key}.json
+    TestWorker-->>Temporal: per-case verdicts (at most 1 MiB)
+    Temporal-->>Web: result
+    Web->>Storage: delete request
+    Web-->>Browser: { cases } or { code }
+```
+
+Details, limits and error codes: [Judge Pipeline](./JUDGE_PIPELINE.md#browser-test).
+
 ### Exam session
 
 - `startExam` action → `examDomain.session.startSessionWithGate`: enrollment and
@@ -212,8 +249,10 @@ Cache and lease details: [Redis](./REDIS.md); rationale DAT-11.
 `@nojv/storage` (S3-compatible: MinIO locally, GCS/R2/S3 in production) holds
 submission sources and verdict detail, testcases, workspace files,
 checker/interactor programs, judge snapshots and stage results, and images.
-Keys come only from `packages/storage/src/keys.ts`; rows store verified
-pointers (size + SHA-256). Images are served same-origin through
+Keys come from `packages/storage/src/keys.ts`, including the test judge's transient
+requests (`test-judge-requests/`) and judge-program build cache
+(`test-judge-programs/v1/`); rows store verified pointers (size + SHA-256).
+Images are served same-origin through
 `/api/storage/{problem-images,user-content-images,avatars}/…`. Env:
 `S3_ENDPOINT`, `S3_ACCESS_KEY`, `S3_SECRET_KEY`, `S3_BUCKET`, `S3_REGION`
 (`packages/storage/src/env.ts`); deployment values in

@@ -8,12 +8,14 @@ import {
   dispatchJudgeCleanup,
   dispatchPlagiarismCheck,
   dispatchRegistryGarbageCollect,
+  dispatchTestJudgeProgramBuild,
   ensureAssignmentDueSoon,
   ensureContestLifecycle,
   ensureExamAutoClose,
   replaceAssignmentDueSoon,
   replaceContestLifecycle,
   replaceExamAutoClose,
+  runTestJudgeWorkflow,
   terminateSubmissionJudge,
 } from "./dispatch";
 
@@ -27,6 +29,7 @@ export function buildDomainOrchestrationAdapter() {
     dispatchJudgeCleanup,
     dispatchPlagiarismCheck,
     dispatchRegistryGarbageCollect,
+    dispatchTestJudgeProgramBuild,
     ensureAssignmentDueSoon,
     ensureContestLifecycle,
     ensureExamAutoClose,
@@ -37,6 +40,7 @@ export function buildDomainOrchestrationAdapter() {
     replaceAssignmentDueSoon,
     replaceContestLifecycle,
     replaceExamAutoClose,
+    runTestJudge: runTestJudgeWorkflow,
     terminateSubmissionJudge,
   };
 }

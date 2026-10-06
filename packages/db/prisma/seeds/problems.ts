@@ -39,6 +39,7 @@ type SeedStatement = {
   body: string;
   inputFormat?: string;
   outputFormat?: string;
+  interactionFormat?: string;
 };
 
 type SeedTestcase = {
@@ -73,6 +74,7 @@ type SeedProblemSample = {
   readonly input: string;
   readonly output: string;
   readonly explanation?: string;
+  readonly interactorInput?: string;
 };
 
 function toSamplesJson(
@@ -83,6 +85,7 @@ function toSamplesJson(
     input: sample.input,
     output: sample.output,
     ...(sample.explanation ? { explanation: sample.explanation } : {}),
+    ...(sample.interactorInput ? { interactorInput: sample.interactorInput } : {}),
   }));
 }
 
@@ -553,13 +556,13 @@ wrong(f"expected {expected}, got {actual}")
         checkerScript: String.raw`lines = judge_input.strip().split("\n")
 n, target = map(int, lines[0].split())
 arr = list(map(int, lines[1].split()))
-exists = judge_answer.strip()
+no_pair = judge_answer.strip() in ("NO", "-1")
 
 toks = team_output.split()
 if not toks:
     wrong("no output")
 if toks[0] == "-1":
-    if exists == "NO":
+    if no_pair:
         accept("correctly reported no pair")
     wrong("reported no pair but one exists")
 if len(toks) < 2:
@@ -639,20 +642,24 @@ wrong(f"failed to guess {secret} within 20 attempts")
       timeLimitMs: 2000,
       visibility: "public" as const,
       statement: {
-        body: "這是一道互動題。系統會選定一個秘密數字，你需要透過互動來猜出它。\\n\\n系統首先會輸出範圍 `lo hi`，你每次猜一個數字，系統會回應 `higher`（太小）、`lower`（太大）或 `correct`（猜對）。你最多有 20 次猜測機會。",
+        body: "這是一道互動題。系統會選定一個秘密數字，你需要透過互動來猜出它。\n\n系統首先會輸出範圍 `lo hi`，你每次猜一個數字，系統會回應 `higher`（太小）、`lower`（太大）或 `correct`（猜對）。你最多有 20 次猜測機會。",
         inputFormat: String.raw`第一行包含兩個整數 $lo$ 和 $hi$（$1 \le lo \le hi \le 10^6$），表示數字的範圍。`,
         outputFormat: "每次輸出一個整數作為你的猜測。",
+        interactionFormat:
+          "Interactor 輸入是一個整數：秘密數字 $s$（$1 \\le s \\le 10^6$）。\n\n互動器先輸出 `1 1000000`，之後每讀到一行猜測 $g$ 就回應一行：$g < s$ 回 `higher`、$g > s$ 回 `lower`、$g = s$ 回 `correct` 並判 Accepted。20 次猜測內沒有猜中判 Wrong Answer。",
       },
       samples: [
         {
-          input: "1 100\nlower\nhigher\nhigher\nlower\ncorrect",
+          input: "1 1000000\nlower\nhigher\nhigher\nlower\ncorrect",
           output: "50\n25\n37\n43\n42",
           explanation:
-            "秘密數字是 $42$。「輸入」是系統依序送出的行：第一行是範圍，之後是每次猜測的回應；「輸出」是你依序送出的猜測。$50$ 太大、$25$ 太小、$37$ 太小、$43$ 太大，最後猜 $42$ 正確。",
+            "範圍是 $[1, 10^6]$，秘密數字是 $42$。「輸入」是系統依序送出的行：第一行是範圍，之後是每次猜測的回應；「輸出」是你依序送出的猜測。$50$ 太大、$25$ 太小、$37$ 太小、$43$ 太大，最後猜 $42$ 正確。",
+          interactorInput: "42",
         },
         {
           input: "1 1000000\ncorrect",
           output: "500000",
+          interactorInput: "500000",
         },
       ],
       testcases: {
@@ -1005,6 +1012,8 @@ wrong(f"failed to find {secret} within the turn budget")
         body: "這是一題「多檔 × 互動」示範題。可執行的進入點是 `main.py`：它先讀互動器輸出的第一行 `lo hi`，`import` 唯讀的 `proto.py`（提供 `read_range()` / `send_guess(g)` / `read_verdict()` 三個協定函式），再用二分搜尋找出秘密數字。\n\n互動器每回合回應 `higher`（太小）、`lower`（太大）或 `correct`（猜中）。你只需在 `main.py` 裡完成二分搜尋邏輯。",
         inputFormat: "互動器第一行輸出 `lo hi`（$1 \\le lo \\le hi \\le 10^6$）。",
         outputFormat: "每回合輸出一個整數猜測並立即 flush。",
+        interactionFormat:
+          "Interactor 輸入是一個整數：秘密數字 $s$（$1 \\le s \\le 10^6$）。\n\n互動器先輸出 `1 1000000`，之後每讀到一行猜測 $g$ 就回應一行：$g < s$ 回 `higher`、$g > s$ 回 `lower`、$g = s$ 回 `correct` 並判 Accepted。40 次猜測內沒有猜中判 Wrong Answer。",
       },
       samples: [
         {
@@ -1012,6 +1021,7 @@ wrong(f"failed to find {secret} within the turn budget")
           output: "500000\n250000\n375000",
           explanation:
             "秘密數字是 $375000$。每次猜目前範圍的中點：$500000$ 太大，範圍縮成 $[1, 499999]$；$250000$ 太小，範圍縮成 $[250001, 499999]$；中點 $375000$ 猜中。",
+          interactorInput: "375000",
         },
       ],
       workspaceFiles: [
@@ -1133,17 +1143,21 @@ wrong(f"failed to find {secret} in {max_turns} turns")
         body: "這是一道高難互動題。你要找出區間內秘密數字，但 oracle 並非完全誠實。\n\n互動器第一行輸出：`lo hi maxTurns liePeriod`。\n你每回合輸出一個猜測整數，互動器回應：\n- `higher`：你的猜測太小\n- `lower`：你的猜測太大\n- `correct`：猜中\n\n陷阱：每逢第 `liePeriod` 回合（例如 5,10,15...），若尚未猜中，回應會故意反轉。",
         inputFormat: "互動器先輸出四個整數 `lo hi maxTurns liePeriod`。",
         outputFormat: "每回合輸出一個整數猜測，並立即 flush。",
+        interactionFormat:
+          "Interactor 輸入是一個整數：秘密數字 $s$（$1 \\le s \\le 10^6$）。\n\n互動器先輸出 `1 1000000 35 5`。第 $t$ 回合讀到猜測 $g$ 時：$g = s$ 回 `correct` 並判 Accepted；否則 $g < s$ 回 `higher`、$g > s$ 回 `lower`，但 $t$ 是 $5$ 的倍數時這個回應會反轉。$35$ 回合內沒有猜中判 Wrong Answer。",
       },
       samples: [
         {
           input: "1 1000000 35 5\ncorrect",
           output: "500000",
+          interactorInput: "500000",
         },
         {
-          input: "1 100 35 5\nhigher\nlower\nhigher\nlower\nlower\ncorrect",
-          output: "50\n75\n62\n70\n66\n68",
+          input: "1 1000000 35 5\nhigher\nlower\nhigher\nlower\nlower\ncorrect",
+          output: "500000\n750000\n625000\n687500\n656250\n671875",
           explanation:
-            "範圍 $[1, 100]$、最多 $35$ 回合，每 $5$ 回合說一次謊。秘密數字是 $68$：第 $5$ 回合猜 $66$ 時真正的回應是 `higher`，但這回合被反轉成 `lower`；第 $6$ 回合猜 $68$ 正確。",
+            "範圍 $[1, 10^6]$、最多 $35$ 回合，每 $5$ 回合說一次謊。秘密數字是 $671875$，每回合猜目前範圍的中點：第 $5$ 回合猜 $656250$ 時真正的回應是 `higher`，但這回合被反轉成 `lower`；知道這回合說謊，範圍仍縮成 $[656251, 687499]$，第 $6$ 回合猜中點 $671875$ 正確。",
+          interactorInput: "671875",
         },
       ],
       testcases: {
@@ -2556,7 +2570,7 @@ wrong(f"failed to find {secret} in {max_turns} turns")
         type: "checker",
         checkerLanguage: "python",
         checkerScript:
-          'tokens = team_output.split()\nanswer = judge_answer.strip()\nif tokens == ["-1"]:\n    if answer == "IMPOSSIBLE":\n        accept()\n    wrong("a valid order exists but you printed -1")\nif answer == "IMPOSSIBLE":\n    wrong("no valid order exists, expected -1")\ndata = judge_input.split()\nn = int(data[0])\nm = int(data[1])\nif len(tokens) != n:\n    wrong(f"expected {n} numbers, got {len(tokens)}")\ntry:\n    order = [int(t) for t in tokens]\nexcept ValueError:\n    wrong("output contains a non-integer token")\nseen = [False] * (n + 1)\nfor x in order:\n    if x < 1 or x > n or seen[x]:\n        wrong("output is not a permutation of 1..N")\n    seen[x] = True\npos = [0] * (n + 1)\nfor i, x in enumerate(order):\n    pos[x] = i\nidx = 2\nfor _ in range(m):\n    a = int(data[idx])\n    b = int(data[idx + 1])\n    idx += 2\n    if pos[a] >= pos[b]:\n        wrong(f"constraint violated: course {a} must come before course {b}")\naccept()\n',
+          'tokens = team_output.split()\nimpossible = judge_answer.strip() in ("IMPOSSIBLE", "-1")\nif tokens == ["-1"]:\n    if impossible:\n        accept()\n    wrong("a valid order exists but you printed -1")\nif impossible:\n    wrong("no valid order exists, expected -1")\ndata = judge_input.split()\nn = int(data[0])\nm = int(data[1])\nif len(tokens) != n:\n    wrong(f"expected {n} numbers, got {len(tokens)}")\ntry:\n    order = [int(t) for t in tokens]\nexcept ValueError:\n    wrong("output contains a non-integer token")\nseen = [False] * (n + 1)\nfor x in order:\n    if x < 1 or x > n or seen[x]:\n        wrong("output is not a permutation of 1..N")\n    seen[x] = True\npos = [0] * (n + 1)\nfor i, x in enumerate(order):\n    pos[x] = i\nidx = 2\nfor _ in range(m):\n    a = int(data[idx])\n    b = int(data[idx + 1])\n    idx += 2\n    if pos[a] >= pos[b]:\n        wrong(f"constraint violated: course {a} must come before course {b}")\naccept()\n',
       },
       statement: {
         body: "某系開設 $N$ 門課程，編號 $1$ 到 $N$，並有 $M$ 條先修限制。每條限制以 `a b` 表示：課程 $a$ 必須排在課程 $b$ 之前修。\n\n請排出一個能依序修完全部 $N$ 門課的順序。若有多種合法順序，輸出**任意一種**即可；若不存在合法順序（限制形成循環），輸出 `-1`。\n\n注意：同一條限制可能重複出現，也可能出現 $a = b$ 的限制（課程必須排在自己之前，此時必定無解）。本題由自訂 checker 評分：任何滿足所有限制的排列都會被接受。",
@@ -2641,7 +2655,7 @@ wrong(f"failed to find {secret} in {max_turns} turns")
         type: "checker",
         checkerLanguage: "python",
         checkerScript:
-          'tokens = team_output.split()\nanswer = judge_answer.strip()\nif tokens == ["-1"]:\n    if answer == "-1":\n        accept()\n    wrong("a route exists but you printed -1")\nif answer == "-1":\n    wrong("no route exists, expected -1")\ndist = int(answer)\nif not tokens:\n    wrong("empty output")\ntry:\n    k = int(tokens[0])\nexcept ValueError:\n    wrong("first token is not an integer")\nif k < 1 or len(tokens) != k + 1:\n    wrong(f"expected k followed by exactly k nodes")\ntry:\n    path = [int(t) for t in tokens[1:]]\nexcept ValueError:\n    wrong("path contains a non-integer token")\ndata = judge_input.split()\nn = int(data[0])\nm = int(data[1])\nedges = set()\nidx = 2\nfor _ in range(m):\n    u = int(data[idx])\n    v = int(data[idx + 1])\n    idx += 2\n    edges.add((u, v))\n    edges.add((v, u))\nif path[0] != 1:\n    wrong("route must start at intersection 1")\nif path[-1] != n:\n    wrong(f"route must end at intersection {n}")\nfor i in range(k - 1):\n    if (path[i], path[i + 1]) not in edges:\n        wrong(f"no road between {path[i]} and {path[i + 1]}")\nif k - 1 != dist:\n    wrong(f"route uses {k - 1} roads but the shortest needs {dist}")\naccept()\n',
+          'tokens = team_output.split()\nanswer = judge_answer.strip()\nif tokens == ["-1"]:\n    if answer == "-1":\n        accept()\n    wrong("a route exists but you printed -1")\nif answer == "-1":\n    wrong("no route exists, expected -1")\nanswer_tokens = answer.split()\ndist = int(answer_tokens[0]) - 1 if len(answer_tokens) > 1 else int(answer)\nif not tokens:\n    wrong("empty output")\ntry:\n    k = int(tokens[0])\nexcept ValueError:\n    wrong("first token is not an integer")\nif k < 1 or len(tokens) != k + 1:\n    wrong(f"expected k followed by exactly k nodes")\ntry:\n    path = [int(t) for t in tokens[1:]]\nexcept ValueError:\n    wrong("path contains a non-integer token")\ndata = judge_input.split()\nn = int(data[0])\nm = int(data[1])\nedges = set()\nidx = 2\nfor _ in range(m):\n    u = int(data[idx])\n    v = int(data[idx + 1])\n    idx += 2\n    edges.add((u, v))\n    edges.add((v, u))\nif path[0] != 1:\n    wrong("route must start at intersection 1")\nif path[-1] != n:\n    wrong(f"route must end at intersection {n}")\nfor i in range(k - 1):\n    if (path[i], path[i + 1]) not in edges:\n        wrong(f"no road between {path[i]} and {path[i + 1]}")\nif k - 1 != dist:\n    wrong(f"route uses {k - 1} roads but the shortest needs {dist}")\naccept()\n',
       },
       statement: {
         body: "圓環市有 $N$ 個路口，編號 $1$ 到 $N$，以及 $M$ 條雙向道路。每條道路連接兩個不同的路口，且任兩個路口之間至多只有一條道路（簡單圖）。\n\n你要規劃一條從路口 $1$ 走到路口 $N$ 的路線，使途中經過的道路數量最少。若有多條最短路線，輸出**任意一條**即可（本題由自訂 checker 評分）；若無法從路口 $1$ 到達路口 $N$，輸出 `-1`。",
@@ -4457,6 +4471,8 @@ wrong(f"failed to find {secret} in {max_turns} turns")
           "互動開始時，評測系統輸出一行兩個整數 $N$ 與 `maxQ`（$1 \\le N \\le 10^5$，`maxQ` 固定為 $40$）。之後每次你送出 `? i`，評測系統回覆一行一個整數 $a_i$（$|a_i| \\le 10^9$，所有元素兩兩相異）。",
         outputFormat:
           "查詢時輸出一行 `? i`；確定答案後輸出一行 `! i` 並結束程式。查詢總次數不得超過 $40$ 次，每次輸出後都要 flush。",
+        interactionFormat:
+          "Interactor 輸入第一行是 $N$，第二行是 $N$ 個兩兩相異的整數 $a_1, \\ldots, a_N$。\n\n互動器先輸出 `N 40`。讀到 `? i` 時回覆一行 $a_i$；讀到 `! i` 時，位置 $i$ 是 peak 判 Accepted，否則判 Wrong Answer。查詢超過 $40$ 次、索引越界或指令格式不符都判 Wrong Answer。",
       },
       samples: [
         {
@@ -4464,6 +4480,7 @@ wrong(f"failed to find {secret} in {max_turns} turns")
           output: "? 3\n? 4\n? 5\n! 4\n",
           explanation:
             "陣列長度 $N = 5$。依序查到 $a_3 = 2$、$a_4 = 5$、$a_5 = 4$；$a_4$ 比兩側都大，所以回答 `! 4`。",
+          interactorInput: "5\n1 3 2 5 4\n",
         },
       ],
       testcases: {
@@ -5087,12 +5104,14 @@ export async function seedProblems(
             bodyMarkdown: stmt.body,
             inputFormat: stmt.inputFormat ?? "",
             outputFormat: stmt.outputFormat ?? "",
+            interactionFormat: stmt.interactionFormat ?? "",
             problemId: problem.id,
           },
           update: {
             bodyMarkdown: stmt.body,
             inputFormat: stmt.inputFormat ?? "",
             outputFormat: stmt.outputFormat ?? "",
+            interactionFormat: stmt.interactionFormat ?? "",
           },
           where: { problemId: problem.id },
         });

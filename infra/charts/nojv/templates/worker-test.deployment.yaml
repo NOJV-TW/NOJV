@@ -1,0 +1,164 @@
+{{- if .Values.worker.test.enabled }}
+{{/*
+TEST Deployment — runs TEST_JUDGE_TASK_QUEUE only (checker and interactive
+Test in WASM-OJ). It never creates sandbox Jobs or calls the Kubernetes API, but
+the worker env schema validates the kubernetes config at boot, so the K8s/sandbox
+vars below are required to avoid a crashloop. It has no database access, and the
+release hooks drain and restore only web, judge and platform, so the release
+window does not scale it to zero.
+*/}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "nojv.fullname" . }}-worker-test
+  namespace: {{ include "nojv.namespace" . }}
+  labels:
+    {{- include "nojv.labels" . | nindent 4 }}
+    app.kubernetes.io/component: worker-test
+spec:
+  replicas: {{ .Values.worker.test.replicas }}
+  revisionHistoryLimit: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: nojv-worker-test
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: nojv-worker-test
+        nojv-role: worker
+    spec:
+      serviceAccountName: {{ include "nojv.fullname" . }}-worker-test
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 120
+      {{- with .Values.worker.test.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+        runAsGroup: 1001
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: worker
+          image: {{ include "nojv.image" (dict "root" . "component" "worker") }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+            - name: wasm-oj-cache
+              mountPath: /var/cache/wasm-oj
+          env:
+            - name: NODE_ENV
+              value: production
+            - name: PORT
+              value: "8080"
+            - name: WORKER_MODE
+              value: test
+            - name: WASM_OJ_RUNTIME_DIR
+              value: /opt/wasm-oj/bin
+            - name: WASM_OJ_TOOLCHAIN_DIR
+              value: /opt/wasm-oj/toolchains
+            - name: WASM_OJ_CACHE_DIR
+              value: /var/cache/wasm-oj
+            - name: TEST_JUDGE_SLOTS
+              value: {{ .Values.worker.test.slots | quote }}
+            - name: WORKER_CONCURRENCY
+              value: {{ .Values.worker.test.slots | quote }}
+            - name: EXECUTION_BACKEND
+              value: kubernetes
+            - name: K8S_NAMESPACE
+              value: {{ include "nojv.sandboxNamespace" . }}
+            - name: SANDBOX_IMAGE
+              value: {{ include "nojv.image" (dict "root" . "component" "sandbox") }}
+            - name: K8S_CPU_REQUEST
+              value: {{ .Values.worker.sandbox.cpuRequest | quote }}
+            - name: K8S_CPU_LIMIT
+              value: {{ .Values.worker.sandbox.cpuLimit | quote }}
+            - name: K8S_MEMORY_REQUEST
+              value: {{ .Values.worker.sandbox.memoryRequest | quote }}
+            - name: K8S_MEMORY_LIMIT
+              value: {{ .Values.worker.sandbox.memoryLimit | quote }}
+            - name: K8S_RUNTIME_CLASS_NAME
+              value: {{ required "worker.sandbox.runtimeClassName is required" .Values.worker.sandbox.runtimeClassName | quote }}
+            - name: REDIS_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "nojv.runtimeSecretName" . }}
+                  key: REDIS_URL
+            - name: TEMPORAL_ADDRESS
+              value: {{ .Values.temporal.address | quote }}
+            - name: TEMPORAL_NAMESPACE
+              value: {{ .Values.temporal.namespace | quote }}
+            - name: S3_ENDPOINT
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "nojv.runtimeSecretName" . }}
+                  key: S3_ENDPOINT
+            {{- include "nojv.s3RegionEnv" . | nindent 12 }}
+            - name: S3_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "nojv.runtimeSecretName" . }}
+                  key: S3_ACCESS_KEY
+            - name: S3_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "nojv.runtimeSecretName" . }}
+                  key: S3_SECRET_KEY
+            - name: S3_BUCKET
+              value: {{ .Values.storage.bucket | quote }}
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "nojv.runtimeSecretName" . }}
+                  key: OTEL_EXPORTER_OTLP_ENDPOINT
+                  optional: true
+            - name: OTEL_EXPORTER_OTLP_HEADERS
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "nojv.runtimeSecretName" . }}
+                  key: OTEL_EXPORTER_OTLP_HEADERS
+                  optional: true
+          startupProbe:
+            httpGet:
+              path: /livez
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 24
+          livenessProbe:
+            httpGet:
+              path: /livez
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 20
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          ports:
+            - containerPort: 8080
+              name: health
+          resources:
+            {{- toYaml .Values.worker.test.resources | nindent 12 }}
+      volumes:
+        - name: tmp
+          emptyDir:
+            sizeLimit: 512Mi
+        - name: wasm-oj-cache
+          emptyDir:
+            sizeLimit: 2Gi
+{{- end }}

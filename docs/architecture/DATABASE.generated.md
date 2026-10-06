@@ -992,6 +992,7 @@ Indexes & constraints: `@@unique([userId, problemId])`, `@@index([userId, create
 | `bodyMarkdown` | `String` | `@db.Text` |
 | `inputFormat` | `String` | `@default("") @db.Text` |
 | `outputFormat` | `String` | `@default("") @db.Text` |
+| `interactionFormat` | `String` | `@default("") @db.Text` |
 | `createdAt` | `DateTime` | `@default(now())` |
 | `updatedAt` | `DateTime` | `@updatedAt` |
 | `problem` | `Problem` | `@relation(fields: [problemId], references: [id], onDelete: Cascade)` |

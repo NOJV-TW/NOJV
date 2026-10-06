@@ -30,7 +30,7 @@ NOJV is a single-institution online judge for university programming courses: pr
 
 ### Submissions
 
-- Monaco workspace (desktop only), optional in-browser test runs (JDG-15), official judging in Docker or Kubernetes sandboxes ([Judge Pipeline](../architecture/JUDGE_PIPELINE.md)).
+- Monaco workspace (desktop only), optional in-browser test runs whose checker and interactive samples are judged on the server without exposing the judge program ([spec](../features/problem-test.md), JDG-15), official judging in Docker or Kubernetes sandboxes ([Judge Pipeline](../architecture/JUDGE_PIPELINE.md)).
 - Live status over SSE with polling fallback (PRB-21); history and ownership-gated source view.
 - `system_error` never costs an attempt (PRB-16); rejudges are audited (PRB-18).
 - Resubmitting the same problem waits a cooldown: the activity setting or the platform minimum, whichever is longer, in every context (PRB-22).

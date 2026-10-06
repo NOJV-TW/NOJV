@@ -9,9 +9,13 @@ const baseEnvSchema = z.object({
   SANDBOX_IMAGE: z.string().trim().min(1),
   WORKER_CONCURRENCY: z.coerce.number().int().min(1).max(64),
   WORKER_MIN_CONCURRENCY: z.coerce.number().int().min(1).max(64).optional(),
-  WORKER_MODE: z.enum(["all", "judge", "platform"]).default("all"),
+  WORKER_MODE: z.enum(["all", "judge", "platform", "test"]).default("all"),
   SANDBOX_MEMORY_HEADROOM_MB: z.coerce.number().int().min(0).max(1024).default(64),
   SANDBOX_MAX_MEMORY_MB: z.coerce.number().int().min(128).max(8192).default(1536),
+  WASM_OJ_RUNTIME_DIR: z.string().default(""),
+  WASM_OJ_TOOLCHAIN_DIR: z.string().default(""),
+  WASM_OJ_CACHE_DIR: z.string().default("/tmp/wasm-oj"),
+  TEST_JUDGE_SLOTS: z.coerce.number().int().min(1).max(8).default(2),
 });
 
 const dockerEnvSchema = baseEnvSchema.extend({

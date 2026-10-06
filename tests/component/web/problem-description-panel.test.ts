@@ -5,6 +5,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import EmptyComponent from "../../fixtures/web/empty-component.svelte";
 import ProblemDescriptionPanel from "$lib/components/features/problem/left-panel/ProblemDescriptionPanel.svelte";
+import { m } from "$lib/paraglide/messages.js";
 
 vi.mock("@lucide/svelte", () => ({ MemoryStick: EmptyComponent, Timer: EmptyComponent }));
 vi.mock("$lib/components/features/problem/left-panel/SpecialLabels.svelte", () => ({
@@ -100,6 +101,61 @@ describe("ProblemDescriptionPanel", () => {
     expect(target.textContent).toContain("Add them:");
     expect(target.querySelectorAll(".katex-html")).toHaveLength(1);
     expect(target.textContent.match(/Explanation/g)).toHaveLength(1);
+
+    await unmount(component);
+    target.remove();
+  });
+
+  function mountWithInteraction(judgeType: "interactive" | "standard") {
+    const target = document.createElement("div");
+    document.body.append(target);
+    const component = mount(ProblemDescriptionPanel, {
+      target,
+      props: {
+        problem: {
+          displayId: 2,
+          title: "Guess",
+          difficulty: "easy",
+          tags: [],
+          type: "full_source",
+          judgeType,
+          timeLimitMs: 1000,
+          memoryLimitMb: 256,
+          statement: "",
+          inputFormat: "",
+          outputFormat: "",
+          interactionFormat: "The interactor reads the hidden number $x$.",
+          samples: [
+            { input: "1 1000000", output: "? 500000", interactorInput: "424242" },
+            { input: "1 1000000", output: "? 1" },
+          ],
+        } as never,
+        testcaseSets: [],
+      },
+    });
+    return { target, component };
+  }
+
+  it("shows interaction notes and each sample's interactor input on an interactive problem", async () => {
+    const { target, component } = mountWithInteraction("interactive");
+
+    expect(target.textContent).toContain(`${m.problemDetail_interactionFormat()}:`);
+    expect(target.textContent).toContain("The interactor reads the hidden number");
+    expect(target.querySelectorAll(".katex-html")).toHaveLength(1);
+    expect(target.textContent.split(m.problemDetail_interactorInput())).toHaveLength(2);
+    expect(target.textContent).toContain("424242");
+
+    await unmount(component);
+    target.remove();
+  });
+
+  it("shows no interaction content on a standard problem", async () => {
+    const { target, component } = mountWithInteraction("standard");
+
+    expect(target.textContent).not.toContain(m.problemDetail_interactionFormat());
+    expect(target.textContent).not.toContain("The interactor reads the hidden number");
+    expect(target.textContent).not.toContain(m.problemDetail_interactorInput());
+    expect(target.textContent).not.toContain("424242");
 
     await unmount(component);
     target.remove();

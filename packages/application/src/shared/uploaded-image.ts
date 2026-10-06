@@ -187,6 +187,7 @@ export async function ensureProblemImageInventory(problemId: string): Promise<vo
     problem.statement?.bodyMarkdown ?? "",
     problem.statement?.inputFormat ?? "",
     problem.statement?.outputFormat ?? "",
+    problem.statement?.interactionFormat ?? "",
     ...problem.testcaseSets.map(({ description }) => description),
     ...problem.workspaceFiles.map(({ description }) => description),
   ];
@@ -292,6 +293,7 @@ export async function ensureProblemImageDependents(problemId: string): Promise<v
                       { bodyMarkdown: { contains: url } },
                       { inputFormat: { contains: url } },
                       { outputFormat: { contains: url } },
+                      { interactionFormat: { contains: url } },
                     ],
                   },
                 },

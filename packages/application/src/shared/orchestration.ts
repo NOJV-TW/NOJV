@@ -5,6 +5,9 @@ import type {
   ExamAutoCloseInput,
   PlagiarismCheckInput,
   RegistryGarbageCollectInput,
+  TestJudgeProgramBuildInput,
+  TestJudgeWorkflowInput,
+  TestJudgeWorkflowOutput,
 } from "@nojv/core";
 
 import { ConfigurationError } from "./errors";
@@ -39,6 +42,7 @@ export interface DomainOrchestrationAdapter {
     workflowId: string;
     priority: JudgePriority;
   }): Promise<void>;
+  dispatchTestJudgeProgramBuild(input: TestJudgeProgramBuildInput): Promise<void>;
   ensureAssignmentDueSoon(input: AssignmentDueSoonInput): Promise<void>;
   ensureContestLifecycle(input: ContestLifecycleInput): Promise<void>;
   ensureExamAutoClose(input: ExamAutoCloseInput): Promise<void>;
@@ -46,6 +50,10 @@ export interface DomainOrchestrationAdapter {
   replaceAssignmentDueSoon(input: AssignmentDueSoonInput): Promise<void>;
   replaceContestLifecycle(input: ContestLifecycleInput): Promise<void>;
   replaceExamAutoClose(input: ExamAutoCloseInput): Promise<void>;
+  runTestJudge(
+    input: TestJudgeWorkflowInput,
+    options: { timeoutMs: number },
+  ): Promise<TestJudgeWorkflowOutput>;
   terminateSubmissionJudge(
     submissionId: string,
     reason: string,

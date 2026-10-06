@@ -50,6 +50,7 @@ through the chart (OPS-12).
 | `ADVANCED_IMAGE_ALLOWED_REGISTRIES`                                                | major public registries                              | Registry hosts accepted for digest-pinned special_env image refs (`web.advancedImageAllowedRegistries`)                     |
 | `SUBMIT_COOLDOWN_MIN_SEC`                                                          | `0`; chart `30` (`web.submitCooldownMinSec`)         | Range 0–600. Seconds between two submissions to the same problem in the same context, and the minimum exam/contest cooldown |
 | `DB_POOL_MAX`                                                                      | `10` (`web.dbPoolMax`)                               | Prisma pool size per web pod                                                                                                |
+| `TEST_JUDGE_ENABLED`                                                               | `false`; chart follows `worker.test.enabled`         | `true` enables checker and interactive Test through the test worker; standard Test never needs it                           |
 | `REGISTRY_PUBLIC_HOST`, `REGISTRY_INTERNAL_URL`, `REGISTRY_TOKEN_ISSUER`           | chart-derived when `registry.enabled`                | Self-hosted registry token service                                                                                          |
 | `REGISTRY_TOKEN_PRIVATE_KEY`, `REGISTRY_TOKEN_CERT`, `REGISTRY_PULL_PASSWORD_HASH` | empty                                                | Runtime Secret; see [Self-hosted registry](#self-hosted-registry)                                                           |
 
@@ -88,26 +89,30 @@ reached over a private network.
 
 `parseWorkerEnv` validates at boot and throws on a missing required key. The
 schema is a union on `EXECUTION_BACKEND`, so each backend requires only the keys
-it uses. `tests/unit/infra/env-manifest-parity.test.ts` checks the rendered
-chart against it.
+it uses. The test worker never creates sandbox Jobs, but the chart still gives it
+the Kubernetes sandbox keys so the schema accepts it.
+`tests/unit/infra/env-manifest-parity.test.ts` checks the rendered chart against it.
 
-| Variable                                                                                              | Required / default               | Purpose                                                                                                                    |
-| ----------------------------------------------------------------------------------------------------- | -------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| `EXECUTION_BACKEND`                                                                                   | required: `docker`, `kubernetes` | Sandbox backend                                                                                                            |
-| `PORT`                                                                                                | required                         | Health server (`/healthz`, `/readyz`)                                                                                      |
-| `REDIS_URL`                                                                                           | required                         | Redis connection                                                                                                           |
-| `SANDBOX_IMAGE`                                                                                       | required                         | Standard sandbox image                                                                                                     |
-| `WORKER_CONCURRENCY`                                                                                  | required, 1–64                   | Activity slots per task queue                                                                                              |
-| `WORKER_MIN_CONCURRENCY`                                                                              | unset                            | Judge only: slots float between this and `WORKER_CONCURRENCY` by node load (see [Judge Queue](../runbooks/judge-queue.md)) |
-| `WORKER_MODE`                                                                                         | `all`                            | `all`, `judge` (queues `judge`, `judge-state`, `judge-cleanup`), `platform` (queue `platform`)                             |
-| `SANDBOX_MEMORY_HEADROOM_MB`, `SANDBOX_MAX_MEMORY_MB`                                                 | `64`, `1536`                     | Sandbox memory ceiling above the problem limit                                                                             |
-| `SANDBOX_CPU_LIMIT`, `SANDBOX_MEMORY_MB`, `SANDBOX_PIDS_LIMIT`                                        | required (Docker)                | Per-sandbox limits                                                                                                         |
-| `K8S_NAMESPACE`, `K8S_CPU_REQUEST`, `K8S_CPU_LIMIT`, `K8S_MEMORY_REQUEST`, `K8S_MEMORY_LIMIT`         | required (Kubernetes)            | Sandbox namespace and container resources (`worker.sandbox.*`)                                                             |
-| `K8S_RUN_PARALLELISM`                                                                                 | `1`, range 1–8                   | Testcases one stage Pod runs at once; its run container requests half and is limited to this many CPUs                     |
-| `K8S_RUNTIME_CLASS_NAME`                                                                              | required, must be `gvisor`       | RuntimeClass for every sandbox Pod                                                                                         |
-| `K8S_IMAGE_PULL_SECRET`                                                                               | unset                            | dockerconfigjson Secret in the sandbox namespace (`worker.sandbox.imagePullSecret`)                                        |
-| `REGISTRY_GC_IMAGE`, `REGISTRY_GC_NAMESPACE`, `REGISTRY_GC_CONFIG_CONFIGMAP`, `REGISTRY_GC_S3_SECRET` | defaults match the chart         | Registry garbage-collection Job                                                                                            |
-| `SUBMISSION_PENDING_TIMEOUT_MINUTES`                                                                  | `10`, range 10–1440              | Platform worker: stale-submission cutoff; a running judge workflow is exempt                                               |
+| Variable                                                                                              | Required / default                                         | Purpose                                                                                                                                                                                                    |
+| ----------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `EXECUTION_BACKEND`                                                                                   | required: `docker`, `kubernetes`                           | Sandbox backend                                                                                                                                                                                            |
+| `PORT`                                                                                                | required                                                   | Health server (`/healthz`, `/readyz`)                                                                                                                                                                      |
+| `REDIS_URL`                                                                                           | required                                                   | Redis connection                                                                                                                                                                                           |
+| `SANDBOX_IMAGE`                                                                                       | required                                                   | Standard sandbox image                                                                                                                                                                                     |
+| `WORKER_CONCURRENCY`                                                                                  | required, 1–64                                             | Activity slots per task queue                                                                                                                                                                              |
+| `WORKER_MIN_CONCURRENCY`                                                                              | unset                                                      | Judge only: slots float between this and `WORKER_CONCURRENCY` by node load (see [Judge Queue](../runbooks/judge-queue.md))                                                                                 |
+| `WORKER_MODE`                                                                                         | `all`                                                      | `all`, `judge` (queues `judge`, `judge-state`, `judge-cleanup`), `platform` (queue `platform`), `test` (queue `test-judge`)                                                                                |
+| `SANDBOX_MEMORY_HEADROOM_MB`, `SANDBOX_MAX_MEMORY_MB`                                                 | `64`, `1536`                                               | Sandbox memory ceiling above the problem limit                                                                                                                                                             |
+| `SANDBOX_CPU_LIMIT`, `SANDBOX_MEMORY_MB`, `SANDBOX_PIDS_LIMIT`                                        | required (Docker)                                          | Per-sandbox limits                                                                                                                                                                                         |
+| `K8S_NAMESPACE`, `K8S_CPU_REQUEST`, `K8S_CPU_LIMIT`, `K8S_MEMORY_REQUEST`, `K8S_MEMORY_LIMIT`         | required (Kubernetes)                                      | Sandbox namespace and container resources (`worker.sandbox.*`)                                                                                                                                             |
+| `K8S_RUN_PARALLELISM`                                                                                 | `1`, range 1–8                                             | Testcases one stage Pod runs at once; its run container requests half and is limited to this many CPUs                                                                                                     |
+| `K8S_RUNTIME_CLASS_NAME`                                                                              | required, must be `gvisor`                                 | RuntimeClass for every sandbox Pod                                                                                                                                                                         |
+| `K8S_IMAGE_PULL_SECRET`                                                                               | unset                                                      | dockerconfigjson Secret in the sandbox namespace (`worker.sandbox.imagePullSecret`)                                                                                                                        |
+| `REGISTRY_GC_IMAGE`, `REGISTRY_GC_NAMESPACE`, `REGISTRY_GC_CONFIG_CONFIGMAP`, `REGISTRY_GC_S3_SECRET` | defaults match the chart                                   | Registry garbage-collection Job                                                                                                                                                                            |
+| `SUBMISSION_PENDING_TIMEOUT_MINUTES`                                                                  | `10`, range 10–1440                                        | Platform worker: stale-submission cutoff; a running judge workflow is exempt                                                                                                                               |
+| `WASM_OJ_RUNTIME_DIR`, `WASM_OJ_TOOLCHAIN_DIR`                                                        | empty; chart `/opt/wasm-oj/bin`, `/opt/wasm-oj/toolchains` | Test worker: directory with `wasm-oj-compiler` and `wasm-oj-runner`; directory whose `node_modules` holds the server toolchains. Required in `test` mode; `all` serves `test-judge` only when both are set |
+| `WASM_OJ_CACHE_DIR`                                                                                   | `/tmp/wasm-oj`; chart `/var/cache/wasm-oj` (2Gi emptyDir)  | Test worker engine cache, one subdirectory per slot                                                                                                                                                        |
+| `TEST_JUDGE_SLOTS`                                                                                    | `2`, range 1–8 (`worker.test.slots`)                       | Test worker engines and `test-judge` activity slots                                                                                                                                                        |
 
 ### Object storage
 
@@ -267,9 +272,12 @@ unsupported.
 
 ### Verify
 
-1. `kubectl rollout status deploy/nojv-web deploy/nojv-worker deploy/nojv-worker-platform -n nojv`
+1. `kubectl rollout status deploy/nojv-web deploy/nojv-worker deploy/nojv-worker-platform -n nojv`,
+   plus `deploy/nojv-worker-test` where `worker.test.enabled`.
 2. Web `/api/livez` and `/api/readyz`; worker `/readyz`.
-3. Watch logs for at least 15 minutes.
+3. Where the test worker runs, press Test on a C++ checker problem: its samples show
+   "Judged on the server" verdicts.
+4. Watch logs for at least 15 minutes.
 
 Secrets are rotated out-of-band in the runtime Secret, then the affected
 Deployments are restarted.
@@ -303,7 +311,8 @@ Production never runs these by hand. The migrator Job
 
 `migrator.releaseWindow` (default `true`) is a render-time flag because Helm
 cannot see what the hook will find. When true on an upgrade, web, judge and
-platform render with `replicas: 0`, the HPA targets the maintenance Deployment,
+platform render with `replicas: 0` (the test worker has no database access and
+keeps its replicas), the HPA targets the maintenance Deployment,
 and the post-upgrade Job (`templates/web-maintenance.yaml`, also post-rollback)
 starts and verifies the new workloads, then restores the HPA. The release
 workflow sets it to `false` only when `packages/db/prisma/migrations` is
@@ -369,6 +378,7 @@ apply ad-hoc down migrations.
 | web      | HPA 1–3, CPU 70%, 384Mi / 1Gi memory               | HPA 2–15, CPU 70%, 384Mi / 1Gi memory                                  |
 | judge    | 1 replica, slots 2–8 by load, 1Gi / 3Gi memory     | 2 replicas × 2 slots                                                   |
 | platform | 1 replica                                          | 2 replicas                                                             |
+| test     | 1 replica, 2 slots, 100m / 2 CPU, 512Mi / 3Gi      | off (`worker.test.enabled`), so no checker or interactive Test         |
 | registry | 1 replica                                          | 2 replicas                                                             |
 | sandbox  | quota 16 pods / 6 CPU / 16Gi; judge container 300m | quota 10 pods / 10 CPU / 30Gi; one on-demand gVisor node plus Spot 0–4 |
 | postgres | CNPG, 500m CPU, 2Gi memory request = limit         | Cloud SQL, outside the chart                                           |
@@ -382,9 +392,11 @@ capacity.
 Single-machine Postgres has a memory limit equal to its request and no CPU
 limit, so its usage never exceeds its request and kubelet node-pressure
 eviction takes every pod above its request first. Its requests count against
-the 10 vCPU / 24 GiB node with the other platform pods, about 3.2 CPU of
-requests in total; sandbox Jobs schedule into the remaining 6.8 CPU, which holds
-the quota's twelve half-CPU stage Pods: eight running and four terminating.
+the 10 vCPU / 24 GiB node with the other platform pods, about 3.3 CPU of
+requests in total; sandbox Jobs schedule into the remaining 6.7 CPU, which holds
+the quota's twelve half-CPU stage Pods: eight running and four terminating. The
+test worker requests 100m with a 2-CPU limit, so it uses idle node CPU without
+taking request budget from stage Pods.
 The quota caps admission but does not reserve node capacity: a stage Pod that does
 not fit stays Pending (`Unschedulable`), which lowers the load-aware slot budget,
 and after 30 s the worker retries it as `SandboxBackpressureError`. The VM uses the
@@ -393,14 +405,15 @@ time.
 
 ### Disruption and Shutdown
 
-| Setting                  | Web                                    | Judge / platform worker                       |
-| ------------------------ | -------------------------------------- | --------------------------------------------- |
-| PodDisruptionBudget      | `maxUnavailable: 1` when `pdb.enabled` | `maxUnavailable: 1` when `pdb.enabled`        |
-| Spread                   | zone + node, `ScheduleAnyway`          | zone + node, `ScheduleAnyway`                 |
-| `terminationGracePeriod` | 60 s                                   | 120 s                                         |
-| Shutdown after SIGTERM   | 10 s `preStop`, then adapter-node 30 s | Temporal `shutdownGraceTime` 30 s, 40 s total |
-| Load-balancer drain      | GKE `BackendConfig` 30 s               | —                                             |
-| Probe timeout            | readiness 3 s, liveness 5 s            | 5 s (above the 3 s in-process check budget)   |
+| Setting                  | Web                                    | Judge / platform / test worker                  |
+| ------------------------ | -------------------------------------- | ----------------------------------------------- |
+| PodDisruptionBudget      | `maxUnavailable: 1` when `pdb.enabled` | `maxUnavailable: 1` when `pdb.enabled`          |
+| Spread                   | zone + node, `ScheduleAnyway`          | zone + node, `ScheduleAnyway` (judge, platform) |
+| Release window           | drained to the maintenance page        | judge and platform drained; test keeps running  |
+| `terminationGracePeriod` | 60 s                                   | 120 s                                           |
+| Shutdown after SIGTERM   | 10 s `preStop`, then adapter-node 30 s | Temporal `shutdownGraceTime` 30 s, 40 s total   |
+| Load-balancer drain      | GKE `BackendConfig` 30 s               | —                                               |
+| Probe timeout            | readiness 3 s, liveness 5 s            | 5 s (above the 3 s in-process check budget)     |
 
 The registry gets the same budget and spread as the workers; its replicas share
 the object-storage blob backend and `REGISTRY_HTTP_SECRET`, so a push can
@@ -491,6 +504,36 @@ installed at runtime. A package the server never imports (fonts, Monaco, ECharts
 Svelte UI libraries) belongs in `devDependencies`. The WASM-OJ toolchain and
 browser runtime assets are served from `build/client`, so the runtime stage deletes
 their copies under `node_modules`; the server imports only the descriptor modules.
+
+#### Worker WASM-OJ runtime
+
+The worker image carries the test judge's runtime in two stages copied before any
+app layer (OPS-21):
+
+- `wasm-oj-runtime` builds `wasm-oj-compiler` and `wasm-oj-runner` from
+  `wasm-oj/forge` `crates/runtime-core` at `WASM_OJ_FORGE_TAG` (`v0.2.3`), checks
+  that the tag resolves to `WASM_OJ_FORGE_COMMIT`, and installs them stripped in
+  `/opt/wasm-oj/bin`.
+- `wasm-oj-toolchains` runs `npm ci` on `infra/docker/wasm-oj-toolchains/`
+  (`@wasm-oj/toolchain-clang` and `@wasm-oj/toolchain-python`) into
+  `/opt/wasm-oj/toolchains`.
+
+Both reset file timestamps, so the layers are byte-identical across releases and
+only a forge upgrade re-pulls them (about 82 MB compressed). Renovate does not
+update `@wasm-oj/*` or the `rust` builder image. To upgrade WASM-OJ:
+
+1. Bump `WASM_OJ_FORGE_TAG` and `WASM_OJ_FORGE_COMMIT` in `infra/docker/worker.Dockerfile`.
+2. Bump the toolchain versions in `infra/docker/wasm-oj-toolchains/package.json`
+   and regenerate its `package-lock.json` (`npm install --package-lock-only`).
+3. Bump the `@wasm-oj/*` pins in `apps/web/package.json` and `apps/worker/package.json`
+   and their `minimumReleaseAgeExclude` entries in `pnpm-workspace.yaml`, drop or
+   rebase `patches/@wasm-oj__server@*.patch` and its `patchedDependencies` entry, then
+   `pnpm install`.
+4. Update `WASM_OJ_SERVER_VERSIONS` in `packages/core/src/judge/test-judge-program.ts`;
+   the new server identity rebuilds every cached judge program on first use.
+5. Run `pnpm exec vitest run --project unit tests/unit/infra/wasm-oj-pins.test.ts`,
+   build the worker image, and run the gated runtime test
+   ([Testing Strategy](../runbooks/testing.md#service-prerequisites)).
 
 #### Standard judge toolchain
 

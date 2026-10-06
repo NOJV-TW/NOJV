@@ -7,6 +7,7 @@ import {
 import {
   LANGUAGE_TEMPLATES,
   problemSampleSchema,
+  staticTestCapability,
   type AdvancedConfig,
   type JudgeConfig,
   type JudgeType,
@@ -15,11 +16,17 @@ import {
   type ProblemStatus,
   type ProblemType,
   type ProblemVisibility,
+  type TestCapability,
 } from "@nojv/core";
 import { NotFoundError } from "../shared/errors";
+import { isTestJudgeEnabled } from "../shared/test-judge-enabled";
 import { readCachedWorkspaceFileBlob } from "./blobs";
 import { computeProblemTotalScore } from "./total-score";
-import { parsePersistedAdvancedConfig, parsePersistedJudgeConfig } from "./judge-config";
+import {
+  judgeScriptLanguageOf,
+  parsePersistedAdvancedConfig,
+  parsePersistedJudgeConfig,
+} from "./judge-config";
 
 export interface ProblemDetail {
   acceptanceRate: number;
@@ -28,6 +35,7 @@ export interface ProblemDetail {
   displayId: number | null;
   id: string;
   inputFormat: string;
+  interactionFormat: string;
   judgeConfig: JudgeConfig;
   judgeType: JudgeType;
   memoryLimitMb: number;
@@ -38,6 +46,7 @@ export interface ProblemDetail {
   statement: string;
   status: ProblemStatus;
   tags: string[];
+  testCapability: TestCapability;
   timeLimitMs: number;
   title: string;
   totalScore: number;
@@ -128,6 +137,7 @@ async function mapPersistedProblemDetail(
     displayId: problem.displayId,
     id: problem.id,
     inputFormat: statement?.inputFormat ?? "",
+    interactionFormat: statement?.interactionFormat ?? "",
     judgeConfig,
     judgeType: judgeConfig.type,
     memoryLimitMb: problem.memoryLimitMb,
@@ -138,6 +148,12 @@ async function mapPersistedProblemDetail(
     statement: statement?.bodyMarkdown ?? "",
     status: problem.status,
     tags,
+    testCapability: staticTestCapability({
+      isSpecialEnv: type === "special_env",
+      judgeType: judgeConfig.type,
+      judgeLanguage: judgeScriptLanguageOf(judgeConfig),
+      testJudgeEnabled: isTestJudgeEnabled(),
+    }),
     timeLimitMs: problem.timeLimitMs,
     title: problem.title,
     totalSubmissions: attempters,

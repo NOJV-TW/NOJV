@@ -121,6 +121,7 @@ export async function forkProblemInTransaction(
         bodyMarkdown: source.statement.bodyMarkdown,
         inputFormat: source.statement.inputFormat,
         outputFormat: source.statement.outputFormat,
+        interactionFormat: source.statement.interactionFormat,
         problemId: fork.id,
       },
     });

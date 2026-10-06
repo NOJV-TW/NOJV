@@ -1,0 +1,8 @@
+{
+  "name": "nojv-wasm-oj-toolchains",
+  "private": true,
+  "dependencies": {
+    "@wasm-oj/toolchain-clang": "0.2.0",
+    "@wasm-oj/toolchain-python": "0.2.0"
+  }
+}
