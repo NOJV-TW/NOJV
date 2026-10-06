@@ -69,7 +69,7 @@ const updateWorkspaceSchema = z.object({
 });
 
 export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent) => {
-  event.depends("submission:data");
+  event.depends("submission:data", "problem:judge-program-status");
   const { params, locals } = event;
   if (!locals.user) {
     redirect(302, `/problems/${params.problemId}`);

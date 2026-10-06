@@ -7,21 +7,29 @@ import type { testJudgeDomain } from "@nojv/application";
 import { m } from "$lib/paraglide/messages.js";
 
 const mocks = vi.hoisted(() => ({
+  invalidate: vi.fn(),
   invalidateAll: vi.fn(),
   submitFormAction: vi.fn(),
+  navigating: { to: null as object | null },
 }));
 
-vi.mock("$app/navigation", () => ({ invalidateAll: mocks.invalidateAll }));
+vi.mock("$app/navigation", () => ({
+  invalidate: mocks.invalidate,
+  invalidateAll: mocks.invalidateAll,
+}));
+vi.mock("$app/state", () => ({ navigating: mocks.navigating }));
 vi.mock("$lib/utils/actions", () => ({ submitFormAction: mocks.submitFormAction }));
 
 const { default: JudgeProgramTestStatus } =
   await import("$lib/components/features/problem/tabs/judge/JudgeProgramTestStatus.svelte");
+const { default: StatusHost } = await import("./fixtures/judge-program-status-host.svelte");
 
 let target: HTMLDivElement;
 let component: ReturnType<typeof mount> | undefined;
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mocks.navigating.to = null;
   target = document.createElement("div");
   document.body.append(target);
 });
@@ -30,6 +38,7 @@ afterEach(async () => {
   if (component) await unmount(component);
   component = undefined;
   target.remove();
+  vi.useRealTimers();
 });
 
 function render(
@@ -174,5 +183,58 @@ describe("JudgeProgramTestStatus", () => {
 
     expect(target.querySelector('[role="alert"]')?.textContent).toBe(expected());
     expect(target.querySelectorAll("li")).toHaveLength(0);
+  });
+
+  describe("while the judge program is being prepared", () => {
+    function renderHost() {
+      const host = mount(StatusHost, { target, props: { initial: { status: "pending" } } });
+      component = host;
+      flushSync();
+      return host as typeof host & {
+        setStatus(next: testJudgeDomain.JudgeProgramStatus): void;
+      };
+    }
+
+    it("re-checks the status every 3 s and shows it once it is ready", async () => {
+      vi.useFakeTimers();
+      const host = renderHost();
+      mocks.invalidate.mockImplementationOnce(async () => {
+        host.setStatus({ status: "ok" });
+      });
+
+      await vi.advanceTimersByTimeAsync(2999);
+      expect(mocks.invalidate).not.toHaveBeenCalled();
+      await vi.advanceTimersByTimeAsync(1);
+      flushSync();
+
+      expect(mocks.invalidate).toHaveBeenCalledWith("problem:judge-program-status");
+      expect(statusText()).toBe(m.admin_judgeProgramTestReady());
+      await vi.advanceTimersByTimeAsync(30_000);
+      expect(mocks.invalidate).toHaveBeenCalledOnce();
+    });
+
+    it("stops re-checking after a minute", async () => {
+      vi.useFakeTimers();
+      renderHost();
+      mocks.invalidate.mockResolvedValue(undefined);
+
+      await vi.advanceTimersByTimeAsync(120_000);
+
+      expect(mocks.invalidate).toHaveBeenCalledTimes(20);
+      expect(statusText()).toBe(m.admin_judgeProgramTestPending());
+    });
+
+    it("skips a re-check while a navigation is in flight", async () => {
+      vi.useFakeTimers();
+      renderHost();
+      mocks.navigating.to = {};
+
+      await vi.advanceTimersByTimeAsync(9000);
+      expect(mocks.invalidate).not.toHaveBeenCalled();
+
+      mocks.navigating.to = null;
+      await vi.advanceTimersByTimeAsync(3000);
+      expect(mocks.invalidate).toHaveBeenCalledOnce();
+    });
   });
 });

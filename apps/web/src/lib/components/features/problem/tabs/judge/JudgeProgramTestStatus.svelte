@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { testJudgeDomain } from "@nojv/application";
-  import { invalidateAll } from "$app/navigation";
+  import { invalidate, invalidateAll } from "$app/navigation";
+  import { navigating } from "$app/state";
   import { m } from "$lib/paraglide/messages.js";
   import { Button } from "$lib/components/primitives/ui/button";
   import VerdictBadge from "$lib/components/primitives/ui/VerdictBadge.svelte";
@@ -14,6 +15,31 @@
   }
 
   let { status, testJudgeDisabled, checksSamples, hasUnsavedChanges }: Props = $props();
+
+  const STATUS_POLL_MS = 3000;
+  const STATUS_POLL_LIMIT_MS = 60_000;
+  let pending = $derived(status.status === "pending");
+
+  $effect(() => {
+    if (!pending) return;
+    const stopAt = Date.now() + STATUS_POLL_LIMIT_MS;
+    let stopped = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const poll = async () => {
+      try {
+        if (!navigating.to) await invalidate("problem:judge-program-status");
+      } finally {
+        if (!stopped && Date.now() < stopAt) {
+          timer = setTimeout(() => void poll(), STATUS_POLL_MS);
+        }
+      }
+    };
+    timer = setTimeout(() => void poll(), STATUS_POLL_MS);
+    return () => {
+      stopped = true;
+      clearTimeout(timer);
+    };
+  });
 
   let checking = $state(false);
   let results = $state<testJudgeDomain.CheckerSampleResult[] | null>(null);
