@@ -23,7 +23,7 @@ jobs:
       NOJV_DESTRUCTIVE_TEST_DATABASE: nojv_test
     services:
       postgres:
-        image: postgres:18@sha256:5a5a84b19854a9ffaa54082c166ff4ec27473a361e496e5ea167f298f2da9722
+        image: postgres:18@sha256:fc973eb97c9fd04bfa1840e0f510719a584ccb3be8debfe6a4144637a9dfe8cf
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
@@ -114,7 +114,7 @@ jobs:
       K8S_TEST_NAMESPACE: nojv-sandbox-test-gh-${{ github.run_id }}-${{ github.run_attempt }}
     services:
       postgres:
-        image: postgres:18@sha256:5a5a84b19854a9ffaa54082c166ff4ec27473a361e496e5ea167f298f2da9722
+        image: postgres:18@sha256:fc973eb97c9fd04bfa1840e0f510719a584ccb3be8debfe6a4144637a9dfe8cf
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
