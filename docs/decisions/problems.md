@@ -29,7 +29,7 @@ Eight scattered judge columns became one Zod-validated `Problem.judgeConfig` (ty
 
 ### PRB-03 Samples are presentation data, not testcases
 
-**Decided:** 2026-04, revised 2026-10 · **Source:** [2026-04-09-problem-ui-redesign](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-04-09-problem-ui-redesign.md), [#629](https://github.com/NOJV-TW/NOJV/pull/629), `feat/checker-interactive-test`
+**Decided:** 2026-04, revised 2026-10 · **Source:** [2026-04-09-problem-ui-redesign](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-04-09-problem-ui-redesign.md), [#629](https://github.com/NOJV-TW/NOJV/pull/629), [#641](https://github.com/NOJV-TW/NOJV/pull/641)
 
 Sample input/output pairs live in `Problem.samples` (JSON); every `TestcaseSet` is a judged subtask with weight ≥ 0. Samples are problem presentation, not grading data. A teacher may add a 0-point set (for example the sample cases) so every submission is judged on it without it adding points; a failing 0-point set still shows in the verdict. Publishing requires the subtask weights to total more than 0, and a problem that is published or used in an activity cannot have its set weights or sets changed so that the total drops to 0; an unused draft may pass through 0 while its subtasks are being built.
 
@@ -244,7 +244,7 @@ Tracking belongs to the authenticated session (SSE wakeups, 5 s visible polling 
 
 ### PRB-22 Every non-sample submission waits a per-problem cooldown with a platform minimum
 
-**Decided:** 2026-10 · **Source:** [PR #634](https://github.com/NOJV-TW/NOJV/pull/634)
+**Decided:** 2026-10 · **Source:** [PR #634](https://github.com/NOJV-TW/NOJV/pull/634), [#641](https://github.com/NOJV-TW/NOJV/pull/641)
 
 In every context (practice, assignment, exam, contest, virtual) a user's non-sample submission to a problem must come at least `max(activity submitCooldownSec, SUBMIT_COOLDOWN_MIN_SEC)` seconds after their previous one to the same problem in the same context; assignments, practice and virtual contests use the platform minimum alone. One env value is both the platform cooldown and the minimum for exam and contest settings, so teachers and students learn one rule: "wait N seconds before resubmitting this problem". Test never creates a submission and is exempt; server-judged Test has its own per-user limit (JDG-15). The Data Structures exams of 2026-10 had 29–58% of submissions within 60 s of the same student's previous one on the same problem.
 

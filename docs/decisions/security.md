@@ -157,7 +157,7 @@ Run output is copied host-side by `safeCopyTree` (lstat first, drop symlinks and
 
 ### SEC-15 Server-judged Test runs only problem samples, from server-side data
 
-**Decided:** 2026-10 · **Source:** `feat/checker-interactive-test`
+**Decided:** 2026-10 · **Source:** [#641](https://github.com/NOJV-TW/NOJV/pull/641)
 
 A test-judge request names samples by index, each at most once; the server reads every sample's input, answer (`output`) and interactor input from `Problem.samples` and never takes them from the request. A checker request adds the contestant's stdout for each sample, an interactive request the browser-compiled contestant. The checker and interactor are private and the same programs judge official submissions. If students could post their own input/answer pairs or interactor inputs and read back verdicts and `teammessage`, the judge program would be an oracle: they could map the checker's acceptance rule or the interactor's behaviour and exploit it in official judging.
 

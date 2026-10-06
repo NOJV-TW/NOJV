@@ -199,7 +199,7 @@ Web exposes a public exact-path `/api/release` returning only `{ version, source
 
 ### OPS-18 Renovate is the only dependency update bot
 
-**Decided:** 2026-09 · **Source:** [#533](https://github.com/NOJV-TW/NOJV/pull/533)
+**Decided:** 2026-09, revised 2026-10 · **Source:** [#533](https://github.com/NOJV-TW/NOJV/pull/533), [#641](https://github.com/NOJV-TW/NOJV/pull/641)
 
 Renovate (`.github/renovate.json`) updates npm packages and pnpm catalog/overrides, GitHub Actions, Dockerfile and Compose images, the digest-pinned images in the chart values, the CloudNativePG operator manifest and the Temporal Helm chart pinned in the runbooks. Dependabot covered only the first four, so the CNPG operator reached its end of support unnoticed.
 
@@ -237,7 +237,7 @@ Production pulls images over a ~0.5 MB/s uplink, and the web image was 1.1 GB co
 
 ### OPS-21 The worker image carries the WASM-OJ runtime as stable layers; upgrades are manual
 
-**Decided:** 2026-10 · **Source:** `feat/checker-interactive-test`
+**Decided:** 2026-10 · **Source:** [#641](https://github.com/NOJV-TW/NOJV/pull/641)
 
 The test judge (JDG-26) runs from the worker image. Two layers that come before every app layer hold the WASM-OJ native runtime (`wasm-oj-compiler` and `wasm-oj-runner`, built from the forge source at a pinned tag whose commit the build verifies) and the server toolchains (`npm ci` from `infra/docker/wasm-oj-toolchains/` and its lockfile, outside the app's `node_modules`). Both normalise file timestamps, so they stay byte-identical across releases and only a forge upgrade replaces them. Production pulls images over a ~0.5 MB/s uplink (OPS-20) and the two layers are about 82 MB compressed; re-pulling them with every release would add minutes to each rollout.
 
