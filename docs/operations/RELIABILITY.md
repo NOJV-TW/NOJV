@@ -83,6 +83,8 @@ PostgreSQL is the only durable store for application data. Everything else is de
 | Redis          | Pub/sub, rate limits, short-lived security proofs and read-through caches only (DAT-10, DAT-11); see [Redis](../architecture/REDIS.md)                |
 | SSE events     | Ephemeral nudges; clients reconnect and read current state                                                                                            |
 
+Test-judge request objects are transient and the judge-program build cache is rebuilt on a miss, so neither needs restoring.
+
 Backups, retention and restore order are in [Backup & Restore](../runbooks/backup-restore.md); production refuses to render without off-host destinations (OPS-06).
 
 ## Service expectations
@@ -101,12 +103,12 @@ Backups, retention and restore order are in [Backup & Restore](../runbooks/backu
 
 ### Redis unavailable
 
-- **Impact**: no SSE events. `apiRateLimiter` falls back to a per-process memory limiter; every other limiter (write, draft, form, auth, sign-in, exam sign-in, registry token) fails closed with 503 (DAT-12). Redis-held security proofs (step-up, admin MFA/mode, 2FA setup) are unavailable, so privileged actions require fresh verification. Caches fall through to PostgreSQL. Submission cooldown uses PostgreSQL. Dispatched judging continues.
+- **Impact**: no SSE events. `apiRateLimiter` falls back to a per-process memory limiter; every other limiter (write, draft, test judge, form, auth, sign-in, exam sign-in, registry token) fails closed with 503 (DAT-12), and the test-judge in-flight lock answers 503 `test_judge_unavailable`. Redis-held security proofs (step-up, admin MFA/mode, 2FA setup) are unavailable, so privileged actions require fresh verification. Caches fall through to PostgreSQL. Submission cooldown uses PostgreSQL. Dispatched judging continues.
 - **Recovery**: restore connectivity; clients reconnect and read current state. Nothing needs rebuilding.
 
 ### Temporal unavailable
 
-- **Impact**: no new workflows; in-flight workflows pause.
+- **Impact**: no new workflows; in-flight workflows pause. Checker and interactive Test fail with 503; nothing is left to recover.
 - **Invariant**: acceptance commits source, immutable snapshot and dispatch intent before returning. Temporal start is a best-effort wakeup; failure leaves the outbox pending for the minute durable-work processor and never produces SE.
 - **Topology**: self-hosted (OPS-09). Single-machine runs the official chart with one pod per role on the CNPG database, so node loss pauses workflows until pods reschedule. HA options: `infra/gcp/gke/temporal/HA-PRODUCTION.md`.
 - **Recovery**: workflows resume from history; no data loss.
@@ -116,6 +118,12 @@ Backups, retention and restore order are in [Backup & Restore](../runbooks/backu
 - **Impact**: no judging or lifecycle transitions; accepted work stays durable in PostgreSQL and Temporal.
 - **Topology**: GKE runs two platform workers. Their startup work is safe to run concurrently: `ensure*` starts singletons by fixed workflow ID and keeps a running one, the stale-submission sweep kills only through a conditional status update, and execution recovery enqueues dispatch with `skipDuplicates` and bumps the recovery epoch under row locks after re-checking the owner. The SQL-backed gauges are reported by each replica and alerts read them with `max()`. Single-machine runs one of each worker.
 - **Recovery**: Deployments restart failed processes; accepted workflows resume and the outbox dispatches after Temporal is reachable. Node and container-runtime recovery is an operator action. With `pdb.enabled` (GKE), one voluntary eviction at a time.
+
+### Test worker unavailable
+
+- **Impact**: checker and interactive Test only. With no test worker polling, each request waits out its 30 s workflow timeout and answers `test_judge_busy`; standard Test, Submit and official judging are unaffected because Test never uses `judge` (JDG-26).
+- **Bounds**: every request ends within 30 s and leaves no state except its request object, which web and the worker both delete. A judge-program build dispatch lost after a judge-config save costs one on-demand build at the next Test.
+- **Recovery**: `kubectl -n nojv rollout restart deploy/nojv-worker-test`; see [Judge Queue](../runbooks/judge-queue.md#test-judge).
 
 ### Sandbox failure
 

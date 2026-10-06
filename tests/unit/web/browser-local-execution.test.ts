@@ -1,5 +1,5 @@
 import { expect, it, vi } from "vitest";
-import { runBrowserLocally } from "$lib/services/browser-local-run";
+import { runBrowserCases, runBrowserLocally } from "$lib/services/browser-local-run";
 
 const engine = vi.hoisted(() => ({
   compile: vi.fn<(...args: unknown[]) => Promise<unknown>>().mockResolvedValue({
@@ -221,4 +221,171 @@ it("leaves the clock, instruction budget and host safety deadline to Forge defau
   expect(config).not.toHaveProperty("determinism");
   expect(config.resources).not.toHaveProperty("instructionBudget");
   expect(config.resources).not.toHaveProperty("wallTimeLimitMs");
+});
+
+it("keeps the standard Test result for every termination kind", async () => {
+  const fixtures = [
+    { termination: "exited", code: 0, stdout: "1  2\n", stderr: "", memoryBytes: 2048 },
+    { termination: "exited", code: 0, stdout: "wrong", stderr: "", memoryBytes: 4096 },
+    { termination: "exited", code: 0, stdout: "free", stderr: "", memoryBytes: undefined },
+    { termination: "exited", code: 1, stdout: "partial", stderr: "", memoryBytes: 1024 },
+    {
+      termination: "trap",
+      code: 1,
+      stdout: "",
+      stderr: "",
+      trapMessage: "unreachable executed",
+      memoryBytes: 1024,
+    },
+    { termination: "logical-time-limit", code: 0, stdout: "", stderr: "", memoryBytes: 1024 },
+    {
+      termination: "memory-limit",
+      code: 0,
+      stdout: "",
+      stderr: "\u001b[31mout of memory\u001b[0m",
+      memoryBytes: 8_000_000,
+    },
+  ];
+  for (const [index, fixture] of fixtures.entries()) {
+    engine.run.mockResolvedValueOnce({
+      termination: fixture.termination,
+      code: fixture.code,
+      stdout: fixture.stdout,
+      stderr: fixture.stderr,
+      ...(fixture.trapMessage ? { trapMessage: fixture.trapMessage } : {}),
+      durationMs: 1,
+      metrics: { logicalTimeNs: (index + 1) * 1_500_000, memoryBytes: fixture.memoryBytes },
+    });
+  }
+  const result = await runBrowserLocally({
+    request: {
+      context: { type: "practice" },
+      language: "c",
+      problemId: "fixtures",
+      sourceCode: "source",
+    },
+    cases: [
+      { input: "a", expectedOutput: "1 2" },
+      { input: "b", expectedOutput: "right" },
+      { input: "c" },
+      { input: "d", expectedOutput: "partial" },
+      { input: "e" },
+      { input: "f", expectedOutput: "" },
+      { input: "g" },
+    ],
+    judgeConfig: { type: "standard", compare: { caseSensitive: true, floatTolerance: null } },
+    problemId: "fixtures",
+    timeLimitMs: 1000,
+    memoryLimitMb: 64,
+    signal: new AbortController().signal,
+  });
+  expect(result).toMatchInlineSnapshot(`
+    {
+      "accepted": false,
+      "caseResults": [
+        {
+          "index": 0,
+          "memoryKb": 2,
+          "stdout": "1  2
+    ",
+          "timeMs": 2,
+          "verdict": "AC",
+        },
+        {
+          "index": 1,
+          "memoryKb": 4,
+          "stdout": "wrong",
+          "timeMs": 3,
+          "verdict": "WA",
+        },
+        {
+          "index": 2,
+          "stdout": "free",
+          "timeMs": 5,
+          "verdict": "AC",
+        },
+        {
+          "index": 3,
+          "memoryKb": 1,
+          "stderr": "Process exited with code 1.",
+          "stdout": "partial",
+          "timeMs": 6,
+          "verdict": "RE",
+        },
+        {
+          "index": 4,
+          "memoryKb": 1,
+          "stderr": "unreachable executed",
+          "stdout": "",
+          "timeMs": 8,
+          "verdict": "RE",
+        },
+        {
+          "index": 5,
+          "memoryKb": 1,
+          "stderr": "Time limit exceeded.",
+          "stdout": "",
+          "timeMs": 9,
+          "verdict": "TLE",
+        },
+        {
+          "index": 6,
+          "memoryKb": 7813,
+          "stderr": "out of memory",
+          "stdout": "",
+          "timeMs": 11,
+          "verdict": "MLE",
+        },
+      ],
+      "feedback": "One or more test cases failed.",
+      "memoryKb": 7813,
+      "runtimeMs": 11,
+      "score": 0,
+      "verdict": "wrong_answer",
+    }
+  `);
+});
+
+it("returns each raw run with its exit status and unjudged stdout", async () => {
+  engine.run.mockResolvedValueOnce({
+    termination: "exited",
+    code: 0,
+    stdout: "any valid answer",
+    stderr: "",
+    durationMs: 1,
+    metrics: { logicalTimeNs: 2_000_000, memoryBytes: 2048 },
+  });
+  engine.run.mockResolvedValueOnce({
+    termination: "exited",
+    code: 3,
+    stdout: "",
+    stderr: "",
+    durationMs: 1,
+    metrics: { logicalTimeNs: 1, memoryBytes: 1024 },
+  });
+  const runs = await runBrowserCases(
+    { kind: "wasm", bytes: new Uint8Array([0, 97, 115, 109]) } as never,
+    [{ input: "1" }, { input: "2" }],
+    { language: "cpp", timeLimitMs: 1000, memoryLimitMb: 64, env: {} },
+    new AbortController().signal,
+  );
+  expect(runs).toEqual([
+    {
+      verdict: "AC",
+      stdout: "any valid answer",
+      timeMs: 2,
+      memoryKb: 2,
+      exitCode: 0,
+      termination: "exited",
+    },
+    {
+      verdict: "RE",
+      stdout: "",
+      stderr: "Process exited with code 3.",
+      timeMs: 1,
+      memoryKb: 1,
+      exitCode: 3,
+      termination: "exited",
+    },
+  ]);
 });

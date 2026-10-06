@@ -53,6 +53,7 @@ describe("image impact classification", () => {
     ["packages/core/src/index.ts", ["web", "worker", "sandbox"]],
     ["infra/docker/web.Dockerfile", ["web"]],
     ["infra/docker/worker.Dockerfile", ["worker"]],
+    ["infra/docker/wasm-oj-toolchains/package-lock.json", ["worker"]],
     ["infra/docker/migrator.Dockerfile", ["migrator"]],
     ["infra/docker/sandbox-runner.Dockerfile", ["sandbox"]],
     ["packages/core/README.md", []],

@@ -7,9 +7,14 @@ import type { ProblemDetail } from "$lib/types";
 const mocks = vi.hoisted(() => ({
   save: vi.fn(),
   submit: vi.fn(),
-  run: { isSubmitting: false, panelRunCases: [], markDestroyed: vi.fn() },
+  run: {
+    isSubmitting: false,
+    panelRunCases: [],
+    testDisabledReason: null,
+    markDestroyed: vi.fn(),
+  },
 }));
-vi.mock("$lib/services/browser-local-run", () => ({ shouldUseBrowserLocalRun: () => false }));
+vi.mock("$lib/services/browser-local-run", () => ({ supportsBrowserLocalRun: () => false }));
 vi.mock("$lib/components/features/problem/editors/use-draft.svelte", () => ({
   createDraftController: () => ({
     save: mocks.save,
@@ -70,6 +75,7 @@ async function render(type: ProblemDetail["type"] = "full_source", code = "int m
         judgeConfig: {},
         timeLimitMs: 1000,
         memoryLimitMb: 256,
+        testCapability: { available: true },
       } as unknown as ProblemDetail,
       context: { type: "practice" },
       draftContext: { userId: "user_1", cipherKey: "", kind: "practice" },

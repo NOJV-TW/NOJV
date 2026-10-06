@@ -36,6 +36,7 @@ it.each(["submission", "problem"] as const)(
           title: "Admin private draft",
           statement: "Print 3.",
           inputFormat: "",
+          interactionFormat: "",
           outputFormat: "3",
           difficulty: "easy",
           memoryLimitMb: 256,

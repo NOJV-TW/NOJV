@@ -31,6 +31,7 @@ function unavailableOrchestration() {
     ),
     dispatchJudgeExecution: vi.fn().mockResolvedValue(undefined),
     dispatchJudgeCleanup: vi.fn().mockResolvedValue(undefined),
+    dispatchTestJudgeProgramBuild: unavailable,
     ensureAssignmentDueSoon: unavailable,
     ensureContestLifecycle: unavailable,
     ensureExamAutoClose: unavailable,
@@ -38,6 +39,7 @@ function unavailableOrchestration() {
     replaceAssignmentDueSoon: unavailable,
     replaceContestLifecycle: unavailable,
     replaceExamAutoClose: unavailable,
+    runTestJudge: unavailable,
     terminateSubmissionJudge: unavailable,
   });
   return unavailable;

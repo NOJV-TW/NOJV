@@ -14,6 +14,7 @@ import { advancedConfigSchema } from "./advanced-mode";
 import { judgeConfigSchema } from "./judge-config";
 import { safeRelativePath } from "./path";
 import { requiredPathsSchema } from "./required-paths";
+import { MAX_RUN_CASE_FIELD_LEN } from "./submission";
 
 const WORKSPACE_FILE_MAX_CHARS = 16 * 1024 * 1024;
 export const MAX_TESTCASE_FILE_BYTES = 10 * 1024 * 1024;
@@ -38,11 +39,14 @@ export const problemSampleSchema = z.object({
   input: z.string().max(200_000),
   output: z.string().max(200_000),
   explanation: z.string().max(5_000).optional(),
+  interactorInput: z.string().max(MAX_RUN_CASE_FIELD_LEN).optional(),
 });
 
 export type ProblemSample = z.infer<typeof problemSampleSchema>;
 
-const problemSamplesSchema = z.array(problemSampleSchema).max(5);
+export const MAX_PROBLEM_SAMPLES = 5;
+
+const problemSamplesSchema = z.array(problemSampleSchema).max(MAX_PROBLEM_SAMPLES);
 
 export const workspaceFileVisibilitySchema = z.enum(["editable", "readonly", "hidden"]);
 
@@ -83,6 +87,7 @@ export function entryFileNameFor(language: Language): string {
 const problemCreateObjectSchema = z.object({
   difficulty: problemDifficultySchema,
   inputFormat: z.string().trim().max(4_000, "validation_tooLong"),
+  interactionFormat: z.string().trim().max(8_000, "validation_tooLong"),
   memoryLimitMb: z.coerce.number({ error: "validation_required" }).int().min(16).max(1024),
   outputFormat: z
     .string()
@@ -163,6 +168,7 @@ export const problemBasicInfoSchema = problemCreateObjectSchema
     statement: z.string().trim().max(12_000, "validation_tooLong"),
     inputFormat: z.string().trim().max(4_000, "validation_tooLong"),
     outputFormat: z.string().trim().max(4_000, "validation_tooLong"),
+    interactionFormat: z.string().trim().max(8_000, "validation_tooLong"),
     timeLimitMs: problemCreateObjectSchema.shape.timeLimitMs.optional(),
     memoryLimitMb: problemCreateObjectSchema.shape.memoryLimitMb.optional(),
     visibility: problemVisibilitySchema.optional(),

@@ -323,6 +323,17 @@ describe("getJudgeContext", () => {
     expect(ctx.samples).toEqual([{ input: "1 2", output: "3" }]);
   });
 
+  it("leaves sample interactor inputs out of the judge context", async () => {
+    const row = mkSubmissionRow(
+      {},
+      { samples: [{ input: "1 100\ncorrect", output: "42", interactorInput: "42\n" }] },
+    );
+    findByIdWithJudgeContext.mockResolvedValue(row);
+
+    const ctx = await getJudgeContext("sub_1");
+    expect(ctx.samples).toEqual([{ input: "1 100\ncorrect", output: "42" }]);
+  });
+
   it("returns an empty samples array when the column is not an array", async () => {
     const row = mkSubmissionRow({}, { samples: null });
     findByIdWithJudgeContext.mockResolvedValue(row);

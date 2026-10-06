@@ -25,7 +25,7 @@ Durable decisions for NOJV, grouped by area. Each entry records what was decided
 - JDG-12 Judge queue is Temporal priority and fairness, not a coordinator
 - JDG-13 Load-aware judge slots follow node load from /proc
 - JDG-14 One canonical toolchain manifest with exact pins
-- JDG-15 Browser Test runs locally in WASM-OJ; official verdicts stay on the server
+- JDG-15 Test runs the contestant in the browser; judge programs run only on the server
 - JDG-16 Advanced Mode is a platform-orchestrated run/grade split
 - JDG-17 Advanced network is none or service; answer-bearing containers have no egress
 - JDG-18 sandbox-runner depends only on core
@@ -36,6 +36,7 @@ Durable decisions for NOJV, grouped by area. Each entry records what was decided
 - JDG-23 Testcase payloads are a content-addressed ConfigMap cache
 - JDG-24 The judge worker sweeps orphaned payloads and guards its own memory
 - JDG-25 Stage results are read at container exit; cleanup starts at the terminal Pod
+- JDG-26 Test judging runs on its own queue and worker, and web awaits it within a fixed budget
 
 ## [Problems and submissions](problems.md)
 
@@ -107,6 +108,7 @@ Durable decisions for NOJV, grouped by area. Each entry records what was decided
 - SEC-12 Graded testcase data never reaches non-staff
 - SEC-13 Rejudge control accepts only rejudge workflows owned by the caller or an admin
 - SEC-14 Advanced-mode `/output` capture never dereferences student paths
+- SEC-15 Server-judged Test runs only problem samples, from server-side data
 
 ## [Web application](web.md)
 
@@ -188,6 +190,7 @@ Durable decisions for NOJV, grouped by area. Each entry records what was decided
 - OPS-18 Renovate is the only dependency update bot
 - OPS-19 Single-machine Temporal is one pod per role, reproduced from the repo
 - OPS-20 The web image ships production dependencies only
+- OPS-21 The worker image carries the WASM-OJ runtime as stable layers; upgrades are manual
 
 ## [Engineering practice](engineering.md)
 

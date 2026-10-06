@@ -38,6 +38,7 @@ import {
   type ProblemActorContext,
 } from "../permissions";
 import { forkProblemInTransaction } from "../fork";
+import { parsePersistedJudgeConfig } from "../judge-config";
 import { assertProblemPublishable } from "./publishing";
 import { problemStoragePointers } from "./storage-pointers";
 
@@ -45,6 +46,7 @@ export interface CreateProblemDefinitionInput {
   authorId: string;
   difficulty?: ProblemDifficulty | undefined;
   inputFormat?: string | undefined;
+  interactionFormat?: string | undefined;
   judgeConfig?: unknown;
   memoryLimitMb?: number | undefined;
   outputFormat?: string | undefined;
@@ -91,6 +93,7 @@ export async function createProblemDefinition(
     await problemStatementRepo.withTx(tx).create({
       bodyMarkdown: input.statement,
       inputFormat: input.inputFormat ?? "",
+      interactionFormat: input.interactionFormat ?? "",
       outputFormat: input.outputFormat ?? "",
       problemId: problem.id,
     });
@@ -237,6 +240,7 @@ export async function createProblemRecord(actor: ProblemActorContext, payload: P
       authorId: author.id,
       difficulty: payload.difficulty,
       inputFormat: payload.inputFormat,
+      interactionFormat: payload.interactionFormat,
       judgeConfig: payload.judgeConfig,
       memoryLimitMb: payload.memoryLimitMb,
       outputFormat: payload.outputFormat,
@@ -287,6 +291,19 @@ function assertSpecialEnvImageConsistency(
   }
   if (mergedType !== "special_env" && hasConfig) {
     throw new ValidationError("advancedConfig is only allowed on special_env problems.");
+  }
+}
+
+function assertInteractiveSamplesHaveInput(
+  payload: ProblemUpdate,
+  problem: { id: string; judgeConfig: unknown },
+): void {
+  if (payload.samples === undefined) return;
+  const judgeConfig =
+    payload.judgeConfig ?? parsePersistedJudgeConfig(problem.judgeConfig, problem.id);
+  if (judgeConfig.type !== "interactive") return;
+  if (payload.samples.some((sample) => !sample.interactorInput?.trim())) {
+    throw new ValidationError("Every interactive sample needs an interactor input.");
   }
 }
 
@@ -393,6 +410,7 @@ export async function updateProblemRecord(
     }
 
     assertSpecialEnvImageConsistency(payload, problem);
+    assertInteractiveSamplesHaveInput(payload, problem);
 
     const target = publishesFork
       ? await forkProblemInTransaction(tx, problem.id, {
@@ -427,7 +445,8 @@ export async function updateProblemRecord(
     if (
       payload.statement !== undefined ||
       payload.inputFormat !== undefined ||
-      payload.outputFormat !== undefined
+      payload.outputFormat !== undefined ||
+      payload.interactionFormat !== undefined
     ) {
       await problemStatementRepo.withTx(tx).upsert(
         target.id,
@@ -435,12 +454,16 @@ export async function updateProblemRecord(
           bodyMarkdown: payload.statement ?? "",
           inputFormat: payload.inputFormat ?? "",
           outputFormat: payload.outputFormat ?? "",
+          interactionFormat: payload.interactionFormat ?? "",
           problemId: target.id,
         },
         {
           ...(payload.statement !== undefined ? { bodyMarkdown: payload.statement } : {}),
           ...(payload.inputFormat !== undefined ? { inputFormat: payload.inputFormat } : {}),
           ...(payload.outputFormat !== undefined ? { outputFormat: payload.outputFormat } : {}),
+          ...(payload.interactionFormat !== undefined
+            ? { interactionFormat: payload.interactionFormat }
+            : {}),
         },
       );
     }

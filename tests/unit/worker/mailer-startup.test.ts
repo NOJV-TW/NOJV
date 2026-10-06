@@ -16,8 +16,11 @@ describe("worker mailer startup validation", () => {
     expect(validateMailerConfig).toHaveBeenCalledOnce();
   });
 
-  it("keeps judge-only workers independent from mailer config", () => {
-    validateWorkerMailerStartup("judge");
-    expect(validateMailerConfig).not.toHaveBeenCalled();
-  });
+  it.each(["judge", "test"] as const)(
+    "keeps %s-only workers independent from mailer config",
+    (mode) => {
+      validateWorkerMailerStartup(mode);
+      expect(validateMailerConfig).not.toHaveBeenCalled();
+    },
+  );
 });

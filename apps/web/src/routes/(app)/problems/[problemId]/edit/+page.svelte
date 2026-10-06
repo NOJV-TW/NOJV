@@ -30,6 +30,15 @@
   let { data } = $props();
 
   let isAdvanced = $derived(data.problem.type === "special_env");
+  let isInteractive = $derived(data.problem.judgeType === "interactive");
+  let statementSections = $derived([
+    { label: m.admin_statement(), content: data.problem.statement },
+    { label: m.admin_inputFormat(), content: data.problem.inputFormat },
+    { label: m.admin_outputFormat(), content: data.problem.outputFormat },
+    ...(isInteractive
+      ? [{ label: m.admin_interactionFormat(), content: data.problem.interactionFormat }]
+      : []),
+  ]);
 
   const inlineLimitMib = MAX_INLINE_TESTCASE_EDIT_BYTES / (1024 * 1024);
 
@@ -246,6 +255,7 @@
         canManageVisibility={data.permissions.isOwner ||
           (data.permissions.isAdmin && data.problem.visibility === "public")}
         isOwner={data.permissions?.isOwner === true}
+        judgeType={data.problem.judgeType}
         ondirtychange={(d) => (isDirty = d)}
       />
     {/key}
@@ -259,7 +269,7 @@
           </div>
         {/each}
       </dl>
-      {#each [{ label: m.admin_statement(), content: data.problem.statement }, { label: m.admin_inputFormat(), content: data.problem.inputFormat }, { label: m.admin_outputFormat(), content: data.problem.outputFormat }] as { label, content } (label)}
+      {#each statementSections as { label, content } (label)}
         <section class="space-y-2" aria-label={label}>
           <div class="flex items-center justify-between">
             <h3 class="text-body-sm font-semibold">{label}</h3>
@@ -273,8 +283,16 @@
           <h3 class="text-body-sm font-semibold">
             {m.admin_sampleNumber({ number: index + 1 })}
           </h3>
-          {@render readOnlyCode(m.admin_sampleInput(), sample.input)}
-          {@render readOnlyCode(m.admin_sampleOutput(), sample.output)}
+          {#if isInteractive}
+            {#if sample.interactorInput}
+              {@render readOnlyCode(m.admin_sampleInteractorInput(), sample.interactorInput)}
+            {/if}
+            {@render readOnlyCode(m.admin_sampleTranscriptInteractor(), sample.input)}
+            {@render readOnlyCode(m.admin_sampleTranscriptProgram(), sample.output)}
+          {:else}
+            {@render readOnlyCode(m.admin_sampleInput(), sample.input)}
+            {@render readOnlyCode(m.admin_sampleOutput(), sample.output)}
+          {/if}
           {#if sample.explanation}
             <section class="space-y-2" aria-label={m.problemDetail_sampleExplanation()}>
               <h3 class="text-body-sm font-semibold">{m.problemDetail_sampleExplanation()}</h3>
@@ -594,6 +612,7 @@
               bind:this={judgeTab}
               problem={data.problem}
               validatorScripts={data.validatorScripts}
+              judgeProgramStatus={data.judgeProgramStatus}
               ondirtychange={(d) => (isDirty = d)}
             />
           {:else}
