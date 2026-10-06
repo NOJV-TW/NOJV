@@ -52,7 +52,8 @@ kubectl -n nojv logs deploy/nojv-worker-test --since=15m
 ```
 
 - Students see "Test is busy" when every engine was taken for the whole 30 s
-  window, or when no test worker polls the queue (the task-queue description lists
+  window, when a request's 24 s ran out before every sample was judged, or when no
+  test worker polls the queue (the task-queue description lists
   no pollers). Restart a stuck worker with
   `kubectl -n nojv rollout restart deploy/nojv-worker-test`.
 - A test worker restarting with "A test-judge engine failed its warm-up 3 times"

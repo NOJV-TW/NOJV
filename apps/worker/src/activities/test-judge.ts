@@ -50,6 +50,7 @@ const MIB = 1024 * 1024;
 const JUDGE_PROGRAM_MEMORY_BYTES = 512 * MIB;
 const JUDGE_PROGRAM_ARGS = ["/judge/input", "/judge/answer", "/judge/feedback"];
 const TEAM_MESSAGE_PATH = "/judge/feedback/teammessage.txt";
+const BUSY: TestJudgeWorkflowOutput = { ok: false, code: "test_judge_busy" };
 
 type ScriptPointer = TestJudgeStoredRequest["judgeScriptPointer"];
 type JudgeEngine = Pick<TestJudgeEngine, "compile" | "run" | "interact" | "cancel">;
@@ -143,7 +144,8 @@ async function judgeCheckerCase(
   request: CheckerRequest,
   testCase: CheckerRequest["cases"][number],
   remainingMs: number,
-): Promise<TestJudgeCaseResult> {
+): Promise<TestJudgeCaseResult | null> {
+  const wallTimeLimitMs = Math.min(CHECKER_WALL_LIMIT_MS, remainingMs);
   const run = await engine.run(checker, {
     args: JUDGE_PROGRAM_ARGS,
     stdin: testCase.output,
@@ -154,11 +156,11 @@ async function judgeCheckerCase(
       "/judge/feedback/.keep": "",
     },
     outputPaths: [TEAM_MESSAGE_PATH],
-    resources: judgeProgramResources(
-      validatorTimeoutMs(request.timeLimitMs),
-      Math.min(CHECKER_WALL_LIMIT_MS, remainingMs),
-    ),
+    resources: judgeProgramResources(validatorTimeoutMs(request.timeLimitMs), wallTimeLimitMs),
   });
+  if (run.termination === "wall-time-limit" && wallTimeLimitMs < CHECKER_WALL_LIMIT_MS) {
+    return null;
+  }
   const teamMessage = run.files[TEAM_MESSAGE_PATH];
   return checkerCaseVerdict(run, teamMessage && new TextDecoder().decode(teamMessage));
 }
@@ -170,7 +172,7 @@ async function judgeInteractiveCase(
   request: InteractiveRequest,
   testCase: InteractiveRequest["cases"][number],
   remainingMs: number,
-): Promise<TestJudgeCaseResult> {
+): Promise<TestJudgeCaseResult | null> {
   const timeLimitMs = effectiveTimeLimitMs(request.timeLimitMs, request.contestantLanguage);
   const fullWallMs = Math.max(MIN_INTERACTIVE_WALL_LIMIT_MS, 3 * timeLimitMs);
   const wallTimeLimitMs = Math.min(fullWallMs, remainingMs);
@@ -196,10 +198,12 @@ async function judgeInteractiveCase(
       resources: judgeProgramResources(validatorTimeoutMs(timeLimitMs), wallTimeLimitMs),
     },
   });
+  const wallStopped =
+    run.contestant.termination === "wall-time-limit" ||
+    run.interactor.termination === "wall-time-limit";
+  if (wallStopped && wallTimeLimitMs < fullWallMs) return null;
   let { verdict } = interactiveCaseVerdict(run);
-  if (run.contestant.termination === "wall-time-limit") {
-    verdict = wallTimeLimitMs < fullWallMs ? "SE" : "TLE";
-  }
+  if (run.contestant.termination === "wall-time-limit") verdict = "TLE";
   const contestantStderr = truncateUtf8(run.contestant.stderr, MAX_CASE_STDERR_BYTES);
   return {
     verdict,
@@ -216,18 +220,19 @@ async function judgeCases<C>(
   cases: readonly C[],
   deadline: number,
   stop: AbortSignal,
-  judge: (testCase: C, remainingMs: number) => Promise<TestJudgeCaseResult>,
-): Promise<TestJudgeCaseResult[]> {
+  judge: (testCase: C, remainingMs: number) => Promise<TestJudgeCaseResult | null>,
+): Promise<TestJudgeCaseResult[] | null> {
   const results: TestJudgeCaseResult[] = [];
   for (const [index, testCase] of cases.entries()) {
     const remainingMs = deadline - Date.now();
-    if (stop.aborted || remainingMs <= 0) {
-      results.push({ verdict: "SE" });
-      continue;
-    }
+    if (remainingMs <= 0) return null;
     try {
-      results.push(testJudgeCaseResultSchema.parse(await judge(testCase, remainingMs)));
+      stop.throwIfAborted();
+      const result = await judge(testCase, remainingMs);
+      if (result === null) return null;
+      results.push(testJudgeCaseResultSchema.parse(result));
     } catch (error) {
+      if (stop.aborted) return null;
       logger.error("Test-judge case failed", { index, error: errorMessage(error) });
       results.push({ verdict: "SE" });
     }
@@ -243,7 +248,7 @@ async function judgeWithProgram(
   { pool, storage, programs }: TestJudgeDeps,
   request: TestJudgeStoredRequest,
   stop: AbortSignal,
-  judge: (engine: JudgeEngine, program: BuildArtifact) => Promise<TestJudgeCaseResult[]>,
+  judge: (engine: JudgeEngine, program: BuildArtifact) => Promise<TestJudgeCaseResult[] | null>,
 ): Promise<TestJudgeWorkflowOutput> {
   const source = await readJudgeSource(storage, request.judgeScriptPointer);
   if (source === null) return { ok: false, code: "test_judge_unavailable" };
@@ -265,10 +270,11 @@ async function judgeWithProgram(
       );
     } catch (error) {
       if (!stop.aborted) throw error;
-      return systemErrors(request.cases.length);
+      return BUSY;
     }
     if (!program.ok) return { ok: false, code: "judge_program_build_failed" };
-    return boundedTestJudgeOutput(await judge(lease.engine, program.artifact));
+    const cases = await judge(lease.engine, program.artifact);
+    return cases ? boundedTestJudgeOutput(cases) : BUSY;
   } finally {
     stop.removeEventListener("abort", cancel);
     lease.release();

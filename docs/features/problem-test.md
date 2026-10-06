@@ -36,7 +36,7 @@ The endpoint requires a session, at most 24 MiB of body, 1 to 5 distinct sample 
   - Interactive problem with no sample that has an interactor input: "This problem has no sample with an interactor input…"
 - The server answers a request only for a context the user may use: practice view access, assignment membership, an active exam session and the exam gate for that exam, contest participation while the contest runs (managers and admins exempt), or a running virtual contest. Otherwise the request is rejected and nothing is judged.
 - If the checker or interactor cannot be built for Test, the request fails with "This problem's checker or interactor can't run in Test. Submit still judges your code normally." and Test stays disabled for the rest of the editor session.
-- A second Test from the same user while one is in flight gets "Test is busy right now. Try again in a moment." A 31st request within a minute gets the same message.
+- A second Test from the same user while one is in flight gets "Test is busy right now. Try again in a moment." A 31st request within a minute gets the same message, and so does a request the server could not finish judging within its time budget; no sample is reported as a judge failure for running out of time.
 - Results are previews: a server-judged AC does not imply an AC on Submit.
 
 ### Standard problems

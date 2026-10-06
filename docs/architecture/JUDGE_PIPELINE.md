@@ -562,8 +562,10 @@ Worker side (`nojv-worker-test`, `WORKER_MODE=test`, JDG-26):
   allows the pod two minutes for this.
 - `runTestJudge` runs once (no retry, 28 s schedule-to-close). Its budget is 24 s
   from when the activity was scheduled; it leases one of `TEST_JUDGE_SLOTS` WASM-OJ
-  engines, loads or builds the judge program, then judges the cases in order. A case
-  reached after the budget is spent is SE.
+  engines, loads or builds the judge program, then judges the cases in order. When
+  the budget runs out or the activity is cancelled before every case is judged,
+  including a case cut short by a wall stop the budget shortened, the whole request
+  answers `test_judge_busy`; an engine error on a case stays SE for that case.
 - Per-case limits:
 
   | Limit        | Checker                       | Interactive contestant                                 | Interactor                  |
@@ -575,7 +577,8 @@ Worker side (`nojv-worker-test`, `WORKER_MODE=test`, JDG-26):
 
 - A checker that does not exit normally is SE. A contestant stopped at its full wall
   stop is TLE (upstream `interact` does not end a CPU-bound contestant at its
-  logical-time budget); one stopped earlier by the request budget is SE.
+  logical-time budget); one stopped earlier by the request budget makes the request
+  busy.
 - The response is at most 1 MiB of JSON; when the texts exceed it each is cut to a
   fair share. It never contains `judgemessage`, interactor stderr, build diagnostics
   or the judge program.
@@ -601,7 +604,7 @@ Errors (`{ code, message }`):
 | Code                         | HTTP | Cause                                                                                                             |
 | ---------------------------- | ---- | ----------------------------------------------------------------------------------------------------------------- |
 | `test_judge_busy`            | 429  | The user already has a request in flight                                                                          |
-| `test_judge_busy`            | 503  | The workflow or its activity timed out, usually because every engine was busy or no test worker polls             |
+| `test_judge_busy`            | 503  | The workflow or its activity timed out, or the 24 s budget ran out before every case was judged                   |
 | `test_judge_unavailable`     | 503  | `TEST_JUDGE_ENABLED` off, Redis, storage or Temporal failure, unreadable request, missing or corrupt judge source |
 | `judge_program_build_failed` | 409  | The judge program does not build under WASM-OJ                                                                    |
 | `judge_program_unsupported`  | 409  | Python interactor, JavaScript or TypeScript interactive contestant, or no judge program stored                    |

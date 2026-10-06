@@ -139,6 +139,8 @@ function interactResult(overrides: {
   } as unknown as InteractResult;
 }
 
+const BUSY = { ok: false, code: "test_judge_busy" };
+
 const wallStopped = {
   contestant: { code: 137, termination: "wall-time-limit" as const },
   interactor: { code: 137, termination: "wall-time-limit" as const },
@@ -271,7 +273,7 @@ describe("runTestJudge checker requests", () => {
     });
   });
 
-  it("marks the cases left after the 24 s budget as SE and caps wall time to the rest", async () => {
+  it("reports busy when the 24 s budget runs out before every case and caps wall time to the rest", async () => {
     vi.useFakeTimers({ toFake: ["Date"] });
     const { engine } = setup(checkerRequest(["5\n", "5\n", "5\n"]));
     const elapsed = [16_000, 8_000];
@@ -282,13 +284,25 @@ describe("runTestJudge checker requests", () => {
 
     const output = await judge();
 
-    expect(output).toEqual({
-      ok: true,
-      cases: [{ verdict: "AC" }, { verdict: "AC" }, { verdict: "SE" }],
-    });
+    expect(output).toEqual(BUSY);
     expect(
       engine.run.mock.calls.map(([, options]) => options?.resources?.wallTimeLimitMs),
     ).toEqual([10_000, 8_000]);
+  });
+
+  it("reports busy when a checker is stopped at a wall stop the budget shortened", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    const { engine } = setup(checkerRequest(["5\n"]));
+    engine.run.mockResolvedValue({ ...runResult(137), termination: "wall-time-limit" });
+
+    await expect(judge(REQUEST_KEY, activity(Date.now() - 20_000))).resolves.toEqual(BUSY);
+  });
+
+  it("reports SE when a checker is stopped at its full wall stop", async () => {
+    const { engine } = setup(checkerRequest(["5\n"]));
+    engine.run.mockResolvedValue({ ...runResult(137), termination: "wall-time-limit" });
+
+    await expect(judge()).resolves.toEqual({ ok: true, cases: [{ verdict: "SE" }] });
   });
 
   it("anchors the budget to when the activity was scheduled", async () => {
@@ -300,19 +314,19 @@ describe("runTestJudge checker requests", () => {
     expect(engine.run.mock.calls[0]?.[1]?.resources?.wallTimeLimitMs).toBe(4_000);
   });
 
-  it("cancels the engine at the deadline and marks the remaining cases SE", async () => {
+  it("cancels the engine at the deadline and reports busy", async () => {
     const { engine, release } = setup(checkerRequest(["5\n", "5\n"]));
     engine.run.mockImplementationOnce(pendingUntilCancelled(engine));
 
     const output = await judge(REQUEST_KEY, activity(Date.now() - 23_950));
 
-    expect(output).toEqual({ ok: true, cases: [{ verdict: "SE" }, { verdict: "SE" }] });
+    expect(output).toEqual(BUSY);
     expect(engine.cancel).toHaveBeenCalledOnce();
     expect(engine.run).toHaveBeenCalledOnce();
     expect(release).toHaveBeenCalledOnce();
   });
 
-  it("cancels the engine when the activity is cancelled", async () => {
+  it("cancels the engine and reports busy when the activity is cancelled", async () => {
     const { engine } = setup(checkerRequest(["5\n", "5\n"]));
     const environment = activity();
     engine.run.mockImplementationOnce(() => {
@@ -323,20 +337,17 @@ describe("runTestJudge checker requests", () => {
 
     const output = await judge(REQUEST_KEY, environment);
 
-    expect(output).toEqual({ ok: true, cases: [{ verdict: "SE" }, { verdict: "SE" }] });
+    expect(output).toEqual(BUSY);
     expect(engine.cancel).toHaveBeenCalledOnce();
     expect(engine.run).toHaveBeenCalledOnce();
   });
 
-  it("skips the build and every case once the activity is already cancelled", async () => {
+  it("reports busy without building once the activity is already cancelled", async () => {
     const { engine, release } = setup(checkerRequest(["5\n", "5\n"]));
     const environment = activity();
     environment.cancel();
 
-    await expect(judge(REQUEST_KEY, environment)).resolves.toEqual({
-      ok: true,
-      cases: [{ verdict: "SE" }, { verdict: "SE" }],
-    });
+    await expect(judge(REQUEST_KEY, environment)).resolves.toEqual(BUSY);
     expect(engine.compile).not.toHaveBeenCalled();
     expect(release).toHaveBeenCalledOnce();
   });
@@ -350,10 +361,7 @@ describe("runTestJudge checker requests", () => {
       return pending;
     });
 
-    await expect(judge(REQUEST_KEY, environment)).resolves.toEqual({
-      ok: true,
-      cases: [{ verdict: "SE" }],
-    });
+    await expect(judge(REQUEST_KEY, environment)).resolves.toEqual(BUSY);
     expect(programStore.put).not.toHaveBeenCalled();
   });
 
@@ -483,7 +491,7 @@ describe("runTestJudge interactive requests", () => {
     expect(output.ok && output.cases[0]?.verdict).toBe("TLE");
   });
 
-  it("reports SE when a wall stop cut short by the request budget ends the case", async () => {
+  it("reports busy when a wall stop cut short by the request budget ends the case", async () => {
     vi.useFakeTimers({ toFake: ["Date"] });
     const { engine } = setup(interactiveRequest());
     engine.interact.mockResolvedValue(interactResult(wallStopped));
@@ -493,7 +501,7 @@ describe("runTestJudge interactive requests", () => {
     expect(engine.interact.mock.calls[0]?.[2]?.contestant?.resources?.wallTimeLimitMs).toBe(
       4000,
     );
-    expect(output.ok && output.cases[0]?.verdict).toBe("SE");
+    expect(output).toEqual(BUSY);
   });
 
   it("truncates the transcript to the transcript cap", async () => {
