@@ -6,6 +6,7 @@ import {
   TEST_JUDGE_REQUEST_PREFIX,
   testJudgeResponseSchema,
   testJudgeStoredRequestSchema,
+  type ProblemSample,
   type TestJudgeRequest,
   type TestJudgeResponse,
   type TestJudgeWorkflowOutput,
@@ -19,6 +20,7 @@ import {
 } from "@nojv/storage";
 
 import { assertProblemContextAllowed } from "../code-draft";
+import { buildProblemSamples } from "../problem/details";
 import { judgeScriptLanguageOf, parsePersistedJudgeConfig } from "../problem/judge-config";
 import type { ActorContext } from "../shared/actor-context";
 import {
@@ -41,6 +43,19 @@ async function deleteRequest(requestKey: string): Promise<void> {
       console.warn("Could not delete a test-judge request", { requestKey, error });
     }
   }
+}
+
+function sampleAt(samples: ProblemSample[], index: number): ProblemSample {
+  const sample = samples[index];
+  if (!sample) throw new ValidationError("The requested sample does not exist.");
+  return sample;
+}
+
+function interactorInputOf(sample: ProblemSample): string {
+  if (!sample.interactorInput?.trim()) {
+    throw new ValidationError("Sample has no interactor input.");
+  }
+  return sample.interactorInput;
 }
 
 function responseFor(output: TestJudgeWorkflowOutput): TestJudgeResponse {
@@ -99,6 +114,7 @@ export async function runTestJudge(
     throw new ConflictError("judge_program_unsupported");
   }
 
+  const samples = buildProblemSamples(problem);
   const shared = {
     judgeLanguage,
     judgeScriptPointer: assertStorageObjectPointer(scriptPointer),
@@ -108,13 +124,22 @@ export async function runTestJudge(
   };
   const stored = testJudgeStoredRequestSchema.parse(
     request.kind === "checker"
-      ? { kind: "checker", ...shared, cases: request.cases }
+      ? {
+          kind: "checker",
+          ...shared,
+          cases: request.cases.map(({ sampleIndex, output }) => {
+            const sample = sampleAt(samples, sampleIndex);
+            return { input: sample.input, expectedOutput: sample.output, output };
+          }),
+        }
       : {
           kind: "interactive",
           ...shared,
           contestantLanguage: request.language,
           artifact: request.artifact,
-          cases: request.cases,
+          cases: request.cases.map(({ sampleIndex }) => ({
+            interactorInput: interactorInputOf(sampleAt(samples, sampleIndex)),
+          })),
         },
   );
   const requestKey = `${TEST_JUDGE_REQUEST_PREFIX}${randomUUID()}.json`;

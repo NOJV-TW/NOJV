@@ -52,24 +52,33 @@ const interactorPointer = storagePointerFor(
   "problems/interactor-fixture/interactor.cpp",
   Buffer.from("int main() {}\n"),
 );
-const checkerCases = [{ input: "1 2\n", expectedOutput: "3\n", output: "3\n" }];
+const checkerSamples = [
+  { input: "1 2\n", output: "3\n" },
+  { input: "5 6\n", output: "11\n" },
+];
 const checkerRequest = {
   kind: "checker",
   context: { type: "practice" },
-  cases: checkerCases,
+  cases: [{ sampleIndex: 1, output: "11\n" }],
 } satisfies TestJudgeRequest;
+const interactiveSamples = [
+  { input: "1 100\nlower\ncorrect", output: "50\n42", interactorInput: "42\n" },
+  { input: "1 10\ncorrect", output: "5", interactorInput: " \n" },
+  { input: "1 10\ncorrect", output: "5" },
+];
 const wasmArtifact = { kind: "wasm" as const, bytes: { base64: "AGFzbQ==" }, language: "cpp" };
 
 function interactiveRequest(
   language: "cpp" | "javascript",
   artifact: typeof wasmArtifact = wasmArtifact,
+  sampleIndex = 0,
 ): TestJudgeRequest {
   return {
     kind: "interactive",
     context: { type: "practice" },
     language,
     artifact,
-    cases: [{ interactorInput: "42\n" }],
+    cases: [{ sampleIndex }],
   };
 }
 
@@ -95,6 +104,7 @@ function checkerProblem() {
       runtime: { env: { MODE: "strict" } },
     },
     checkerStorage: checkerPointer,
+    samples: checkerSamples,
     timeLimitMs: 2000,
     memoryLimitMb: 128,
   });
@@ -104,6 +114,7 @@ function interactiveProblem(interactorLanguage: "cpp" | "python" = "cpp") {
   return createTestProblem({
     judgeConfig: { type: "interactive", interactorLanguage },
     interactorStorage: interactorPointer,
+    samples: interactiveSamples,
   });
 }
 
@@ -170,11 +181,68 @@ describe("testJudgeDomain.runTestJudge", () => {
         timeLimitMs: 2000,
         memoryLimitMb: 128,
         runtimeEnv: { MODE: "strict" },
-        cases: checkerCases,
+        cases: [{ input: "5 6\n", expectedOutput: "11\n", output: "11\n" }],
       },
     ]);
     expect(await pendingRequests()).toEqual([]);
   });
+
+  it("judges the stored sample even when the client sends its own case data", async () => {
+    const student = await buildStudent();
+    const problem = await checkerProblem();
+    const seen: unknown[] = [];
+    runTestJudge.mockImplementation(async ({ requestKey }) => {
+      seen.push(await storedRequest(requestKey));
+      return { ok: true, cases: [{ verdict: "WA" }] };
+    });
+    const tampered = {
+      ...checkerRequest,
+      cases: [{ sampleIndex: 0, output: "0\n", input: "0 0\n", expectedOutput: "0\n" }],
+    } as TestJudgeRequest;
+
+    await testJudgeDomain.runTestJudge(student, problem.id, tampered, "127.0.0.1");
+
+    expect(seen).toMatchObject([
+      { cases: [{ input: "1 2\n", expectedOutput: "3\n", output: "0\n" }] },
+    ]);
+  });
+
+  it("rejects a sample index the problem does not have", async () => {
+    const student = await buildStudent();
+    const problem = await checkerProblem();
+
+    await expect(
+      testJudgeDomain.runTestJudge(
+        student,
+        problem.id,
+        { ...checkerRequest, cases: [{ sampleIndex: 2, output: "" }] },
+        "127.0.0.1",
+      ),
+    ).rejects.toBeInstanceOf(ValidationError);
+    expect(runTestJudge).not.toHaveBeenCalled();
+    expect(await pendingRequests()).toEqual([]);
+  });
+
+  it.each([1, 2])(
+    "rejects interactive sample %i because it has no interactor input",
+    async (sampleIndex) => {
+      const student = await buildStudent();
+      const problem = await interactiveProblem();
+
+      const error = await rejection(
+        testJudgeDomain.runTestJudge(
+          student,
+          problem.id,
+          interactiveRequest("cpp", wasmArtifact, sampleIndex),
+          "127.0.0.1",
+        ),
+      );
+
+      expect(error).toBeInstanceOf(ValidationError);
+      expect(error.message).toBe("Sample has no interactor input.");
+      expect(runTestJudge).not.toHaveBeenCalled();
+    },
+  );
 
   it("stores the interactive request with the contestant language and artifact", async () => {
     const student = await buildStudent();

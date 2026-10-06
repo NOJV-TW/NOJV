@@ -39,6 +39,7 @@ The owner chose **"contestant runs in the browser, judge program runs on the ser
 - **Separate public Test judge programs.** These double the authoring work, and problems without one stay untestable.
 - **Compile the judge program to WASM and ship the binary.** This raises the bar but is not a boundary: strings survive, the module can be probed as a black-box oracle, and Python judge programs would still ship as source or `.pyc`.
 - **Full server-side Test through the Kubernetes pipeline.** Each click would cost a stage Job (about 7 s of slot time). The 2026-10-05 exam stress test showed judging is already CPU-bound at about 20 submissions per minute.
+- **Judge client-supplied custom cases with the private checker or interactor.** This turns the judge program into an oracle: a student could post arbitrary input/answer pairs or interactor inputs and read back verdicts and `teammessage` to map the checker's acceptance rule or the interactor's behaviour, then exploit it in official judging. Mitigation: Test judges samples only, by sample index, and the server reads the input, answer and interactor input from `Problem.samples` itself, never from the request. Custom cases are execution-only on checker problems and unavailable on interactive problems.
 
 ## Design
 
@@ -47,22 +48,24 @@ The owner chose **"contestant runs in the browser, judge program runs on the ser
 **Checker problems**
 
 1. The browser compiles and runs the contestant program exactly as standard Test does today. TLE, MLE and RE are decided client-side.
-2. For each case that exited normally, it posts the contestant stdout to `POST /api/problems/{id}/test-judge`, together with the sample index or the custom `input` + `expectedOutput`.
-3. The server runs the checker under the DOMjudge protocol (JDG-03): contestant output on stdin, args `input answer feedback_dir`, exit 42 is AC and 43 is WA. It returns the verdict and `teammessage.txt`.
+2. For each sample that exited normally, it posts the contestant stdout with the sample index to `POST /api/problems/{id}/test-judge`. The server reads that sample's `input` and `output` (the answer) from `Problem.samples`; the request never carries them.
+3. Custom cases are execution-only: the browser shows their run status and output and never sends them to the checker.
+4. The server runs the checker under the DOMjudge protocol (JDG-03): contestant output on stdin, args `input answer feedback_dir`, exit 42 is AC and 43 is WA. It returns the verdict and `teammessage.txt`.
 
 **Interactive problems**
 
 1. The browser compiles the contestant to a WASM artifact.
-2. It posts the artifact plus each case's interactor input (a sample's `interactorInput`, or the custom case `input`).
-3. The server runs `interactTrusted(contestant, interactor)` from `@wasm-oj/server`.
-4. Verdicts merge as on the server (`apps/worker/src/sandbox/shared/check-interactive.ts`): an interactor failure is SE; otherwise contestant TLE/MLE/RE wins; otherwise the interactor's AC/WA stands.
-5. The transcript (`contestantToInteractor` / `interactorToContestant`) is returned for display.
+2. It posts the artifact plus the indices of the samples to run. The server reads each sample's `interactorInput` from `Problem.samples`; a sample without one is rejected, so the client skips it.
+3. Custom cases are unavailable on interactive problems.
+4. The server runs `interactTrusted(contestant, interactor)` from `@wasm-oj/server`.
+5. Verdicts merge as on the server (`apps/worker/src/sandbox/shared/check-interactive.ts`): an interactor failure is SE; otherwise contestant TLE/MLE/RE wins; otherwise the interactor's AC/WA stands.
+6. The transcript (`contestantToInteractor` / `interactorToContestant`) is returned for display.
 
 Splitting an interactive run across the network (contestant in the browser, interactor on the server) is rejected: every turn would be a round trip and the server would hold state.
 
 ### 2. Server execution
 
-- **Request.** The request carries `context` and is authorised by the read-only draft-scope check in `code-draft.ts` (`assertDraftScopeAllowed`, exported): page lock, exam session + proctoring gate, assignment and contest membership, practice view access. It is looser than Submit (no assignment close, contest end or language check), which is acceptable because Test never creates a submission. At most 15 cases per request (5 samples + 10 custom).
+- **Request.** The request carries `context` and is authorised by `assertProblemContextAllowed` in `code-draft.ts`, the read-only check shared with drafts: page lock, exam session + proctoring gate, assignment membership, contest window and participation (managers exempt), the virtual-contest timer, practice view access. It is looser than Submit (no assignment close or language check), which is acceptable because Test never creates a submission. Cases are sample indices, each at most once, so a request holds at most 5.
 - **Artifact size.** The interactive artifact is capped at 16 MiB. A C++ contestant compiles to about 0.6 MB of Wasm. Runtime-bundle languages (Python) already reference their runtime by digest (`runtimePackage`), so the upload is only the script and manifest; the server resolves the runtime from its own pinned toolchain.
 - **Queue and worker.** Web executes a workflow on a new Temporal task queue `test-judge` and awaits its result with a 30 s deadline (a Python checker costs about 1.1 s per case). This is the first workflow whose result web awaits.
   - A new `WORKER_MODE=test` Deployment (same worker image) polls it with a small fixed slot count (2–4), its own CPU limit and no access to the `judge` queue. Official judging never competes with Test. `ServerRunner` accepts one operation at a time, so the worker keeps one engine per slot.
@@ -94,14 +97,14 @@ Splitting an interactive run across the network (contestant in the browser, inte
 - **`problemSampleSchema`** gains an optional `interactorInput` (≤ 200 000 chars), like #638's `explanation`. It lives in `Problem.samples` JSON, so no migration is needed.
   - It is **required when samples are saved on an interactive problem**. Switching an existing problem to interactive does not block; samples without it are excluded from Test and the editor warns.
   - The problem page shows it in the sample block, next to the existing transcript-style `input`/`output`.
-- **`ProblemStatement.interactionFormat`** (Markdown, default `""`, migration required) is shown and edited only for interactive problems. It describes the interactor input format and the interactor's behaviour, and is also shown beside the custom-case input in the Test panel.
+- **`ProblemStatement.interactionFormat`** (Markdown, default `""`, migration required) is shown and edited only for interactive problems. It describes the interactor input format and the interactor's behaviour.
   - `forkProblemInTransaction` and the statement editor carry it. Problem bundles carry neither samples nor statements, so they are unchanged.
 - **Checker sample self-check.** On save the server runs the checker on each sample with `answer = output` and `contestant output = output`, and expects AC.
   - A failure warns the author: "this sample output cannot serve as the checker answer". That sample is excluded from Test.
   - Test uses `sample.output` as the answer file. No new field.
-- **Custom cases** keep `runCaseSchema`.
-  - Checker problems: with `expectedOutput` the checker runs with it as the answer; without it the case is execution-only (JDG-15 rule).
-  - Interactive problems: `input` is the interactor input. The panel relabels it, hides "expected output" and shows `interactionFormat`.
+- **Custom cases** keep `runCaseSchema` and never reach the judge program (see the oracle entry under rejected alternatives).
+  - Checker problems: custom cases are execution-only (JDG-15 rule), with or without `expectedOutput`.
+  - Interactive problems: custom cases are unavailable; Test runs the samples that have an `interactorInput`.
 - **Seed data.**
   - Fill `interactorInput` and `interactionFormat` for the 4 interactive seed problems.
   - `problem_any-two-sum`: its hidden answers are `YES`/`NO` while its sample outputs are a pair or `-1`. Make the checker accept both answer forms instead of changing hidden data.
@@ -151,8 +154,8 @@ Develop in the owner's fork (`~/code/forge`), contribute upstream, then bump NOJ
 ## Testing
 
 - **Unit:** verdict mapping (42/43/other → AC/WA/SE; interactive merge), capability computation, sample schema (`interactorInput` required for interactive), checker sample self-check, rate limiter.
-- **Integration:** a real `@wasm-oj/server` running C++ and Python checkers and interactors; access control for practice, assignment and exam (proctoring gate); 15-case and artifact-size limits; busy response when slots are exhausted.
-- **Component:** Test button states and texts; the interactive panel (relabelled input, hidden expected output, `interactionFormat`, transcript).
+- **Integration:** a real `@wasm-oj/server` running C++ and Python checkers and interactors; access control for practice, assignment, contest, virtual contest and exam (proctoring gate); stored requests built from server-side sample data whatever the client sends; sample-index and artifact-size limits; busy response when slots are exhausted.
+- **Component:** Test button states and texts; custom cases execution-only on checker problems and hidden on interactive problems; the interactive transcript.
 - **E2E:** Test on the checker and interactive seed problems.
 
 ## Docs and decisions to update in the shipping PR
@@ -170,4 +173,4 @@ Develop in the owner's fork (`~/code/forge`), contribute upstream, then bump NOJ
 - **In-process WASM sandbox.** Interactive Test runs untrusted contestant WASM inside the `test` worker. It relies on upstream admission, instruction budgets and memory limits. Isolate it in its own Deployment (above) and include it in the threat model.
 - **Interactive time limits.** Upstream `interact` (0.2.3) does not stop a CPU-bound contestant on its logical-time or instruction budget the way `run` does; only the shared wall stop ends it. Test therefore gives each interactive case a wall stop of max(3 s, 3 × the language-factored limit) and reports a full-length wall stop as TLE. To be raised upstream.
 - **Fidelity.** Test results stay previews (JDG-15). Logical time, WASI and clang flags differ from native judging, so a Test AC does not imply a Submit AC.
-- **Python checker latency.** About 1.1 s per case on the spike machine; 15 cases approach the 30 s deadline. Measure on production hardware and lower the per-request case cap for Python judge programs if needed.
+- **Python checker latency.** About 1.1 s per case on the spike machine, so 5 samples take about 6 s of the 30 s deadline. Measure on production hardware.

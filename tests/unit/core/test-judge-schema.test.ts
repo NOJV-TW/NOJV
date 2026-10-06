@@ -9,7 +9,7 @@ import {
   testJudgeStoredRequestSchema,
 } from "@nojv/core";
 
-const checkerCase = { input: "1 2\n", expectedOutput: "3\n", output: "3\n" };
+const checkerCase = { sampleIndex: 0, output: "3\n" };
 
 const checkerRequest = {
   kind: "checker",
@@ -22,7 +22,7 @@ const interactiveRequest = {
   context: { type: "practice" },
   language: "cpp",
   artifact: { kind: "wasm", language: "cpp", bytes: { base64: "AGFzbQ==" } },
-  cases: [{ interactorInput: "42\n" }],
+  cases: [{ sampleIndex: 0 }],
 };
 
 describe("testJudgeRequestSchema", () => {
@@ -60,14 +60,31 @@ describe("testJudgeRequestSchema", () => {
     expect(testJudgeRequestSchema.safeParse(request).success).toBe(false);
   });
 
-  it("accepts exactly 15 cases and rejects 16", () => {
-    const withCases = (length: number) => ({
+  it("accepts every sample index once and rejects a sixth sample", () => {
+    const withIndices = (indices: number[]) => ({
       ...checkerRequest,
-      cases: Array.from({ length }, () => checkerCase),
+      cases: indices.map((sampleIndex) => ({ sampleIndex, output: "" })),
     });
-    expect(TEST_JUDGE_MAX_CASES).toBe(15);
-    expect(testJudgeRequestSchema.safeParse(withCases(15)).success).toBe(true);
-    expect(testJudgeRequestSchema.safeParse(withCases(16)).success).toBe(false);
+    expect(TEST_JUDGE_MAX_CASES).toBe(5);
+    expect(testJudgeRequestSchema.safeParse(withIndices([0, 1, 2, 3, 4])).success).toBe(true);
+    expect(testJudgeRequestSchema.safeParse(withIndices([5])).success).toBe(false);
+    expect(testJudgeRequestSchema.safeParse(withIndices([-1])).success).toBe(false);
+    expect(testJudgeRequestSchema.safeParse(withIndices([0.5])).success).toBe(false);
+  });
+
+  it("rejects a sample requested twice", () => {
+    expect(
+      testJudgeRequestSchema.safeParse({
+        ...checkerRequest,
+        cases: [checkerCase, { ...checkerCase, output: "4\n" }],
+      }).success,
+    ).toBe(false);
+    expect(
+      testJudgeRequestSchema.safeParse({
+        ...interactiveRequest,
+        cases: [{ sampleIndex: 1 }, { sampleIndex: 1 }],
+      }).success,
+    ).toBe(false);
   });
 
   it("rejects an empty case list", () => {
@@ -93,9 +110,13 @@ describe("testJudgeRequestSchema", () => {
     expect(testJudgeRequestSchema.safeParse(request).success).toBe(false);
   });
 
-  it("rejects a checker case without expectedOutput", () => {
-    const request = { ...checkerRequest, cases: [{ input: "1 2\n", output: "3\n" }] };
-    expect(testJudgeRequestSchema.safeParse(request).success).toBe(false);
+  it.each([
+    { kind: "checker", cases: [{ ...checkerCase, input: "1 2\n", expectedOutput: "3\n" }] },
+    { kind: "checker", cases: [{ output: "3\n" }] },
+    { kind: "interactive", cases: [{ sampleIndex: 0, interactorInput: "42\n" }] },
+  ])("rejects client-supplied case data: %o", (override) => {
+    const base = override.kind === "checker" ? checkerRequest : interactiveRequest;
+    expect(testJudgeRequestSchema.safeParse({ ...base, ...override }).success).toBe(false);
   });
 });
 
@@ -115,6 +136,8 @@ describe("testJudgeResponseSchema", () => {
 });
 
 describe("testJudgeStoredRequestSchema", () => {
+  const storedCheckerCase = { input: "1 2\n", expectedOutput: "3\n", output: "3\n" };
+  const storedInteractiveCases = [{ interactorInput: "42\n" }];
   const storedBase = {
     judgeLanguage: "cpp",
     judgeScriptPointer: { key: "checkers/a.cpp", sha256: "a".repeat(64), size: 120 },
@@ -127,11 +150,11 @@ describe("testJudgeStoredRequestSchema", () => {
     kind: "interactive",
     contestantLanguage: "cpp",
     artifact: interactiveRequest.artifact,
-    cases: interactiveRequest.cases,
+    cases: storedInteractiveCases,
   };
 
   it("accepts a stored checker request", () => {
-    const stored = { ...storedBase, kind: "checker", cases: [checkerCase] };
+    const stored = { ...storedBase, kind: "checker", cases: [storedCheckerCase] };
     expect(testJudgeStoredRequestSchema.safeParse(stored).success).toBe(true);
   });
 
@@ -145,7 +168,7 @@ describe("testJudgeStoredRequestSchema", () => {
   });
 
   it("rejects a stored checker request carrying interactive cases", () => {
-    const stored = { ...storedBase, kind: "checker", cases: interactiveRequest.cases };
+    const stored = { ...storedBase, kind: "checker", cases: storedInteractiveCases };
     expect(testJudgeStoredRequestSchema.safeParse(stored).success).toBe(false);
   });
 });

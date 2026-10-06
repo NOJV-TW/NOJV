@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   serialiseBuildArtifact,
   TEST_JUDGE_MAX_ARTIFACT_BYTES,
+  TEST_JUDGE_MAX_CASES,
   TEST_JUDGE_RESPONSE_BYTES,
   TEST_JUDGE_TRANSCRIPT_BYTES,
   type TestJudgeStoredRequest,
@@ -425,7 +426,9 @@ describe("runTestJudge interactive requests", () => {
   it("keeps the whole response within the Temporal payload budget", async () => {
     const { engine } = setup(
       interactiveRequest({
-        cases: Array.from({ length: 15 }, () => ({ interactorInput: "37\n" })),
+        cases: Array.from({ length: TEST_JUDGE_MAX_CASES }, () => ({
+          interactorInput: "37\n",
+        })),
       }),
     );
     const control = "\u0001".repeat(200_000);
@@ -443,7 +446,7 @@ describe("runTestJudge interactive requests", () => {
       TEST_JUDGE_RESPONSE_BYTES,
     );
     expect(output.ok && output.cases.map(({ verdict }) => verdict)).toEqual(
-      Array.from({ length: 15 }, () => "AC"),
+      Array.from({ length: TEST_JUDGE_MAX_CASES }, () => "AC"),
     );
   });
 

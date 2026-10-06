@@ -2,6 +2,7 @@ import { z } from "zod";
 
 import { languageSchema } from "../types";
 import { judgeScriptLanguageSchema } from "./judge-config";
+import { MAX_PROBLEM_SAMPLES } from "./problem";
 import {
   MAX_CASE_STDERR_BYTES,
   MAX_CASE_STDOUT_BYTES,
@@ -10,7 +11,7 @@ import {
   submissionContextSchema,
 } from "./submission";
 
-export const TEST_JUDGE_MAX_CASES = 15;
+export const TEST_JUDGE_MAX_CASES = MAX_PROBLEM_SAMPLES;
 export const TEST_JUDGE_MAX_ARTIFACT_BYTES = 16 * 1024 * 1024;
 export const TEST_JUDGE_REQUEST_BODY_BYTES = 24 * 1024 * 1024;
 export const TEST_JUDGE_TRANSCRIPT_BYTES = 64 * 1024;
@@ -38,6 +39,31 @@ const interactiveCasesSchema = z
   .min(1)
   .max(TEST_JUDGE_MAX_CASES);
 
+const sampleIndexSchema = z
+  .number()
+  .int()
+  .min(0)
+  .max(MAX_PROBLEM_SAMPLES - 1);
+
+function distinctSamples(cases: { sampleIndex: number }[]): boolean {
+  return new Set(cases.map(({ sampleIndex }) => sampleIndex)).size === cases.length;
+}
+
+const checkerSampleRequestsSchema = z
+  .array(
+    z
+      .object({ sampleIndex: sampleIndexSchema, output: z.string().max(MAX_CASE_STDOUT_BYTES) })
+      .strict(),
+  )
+  .min(1)
+  .max(TEST_JUDGE_MAX_CASES)
+  .refine(distinctSamples, "Each sample may be requested once.");
+const interactiveSampleRequestsSchema = z
+  .array(z.object({ sampleIndex: sampleIndexSchema }).strict())
+  .min(1)
+  .max(TEST_JUDGE_MAX_CASES)
+  .refine(distinctSamples, "Each sample may be requested once.");
+
 const encodedBytesSchema = z.object({ base64: z.base64() }).strict();
 
 export const serialisedBuildArtifactSchema = z.discriminatedUnion("kind", [
@@ -58,7 +84,7 @@ export const testJudgeRequestSchema = z.discriminatedUnion("kind", [
     .object({
       kind: z.literal("checker"),
       context: submissionContextSchema,
-      cases: checkerCasesSchema,
+      cases: checkerSampleRequestsSchema,
     })
     .strict(),
   z
@@ -67,7 +93,7 @@ export const testJudgeRequestSchema = z.discriminatedUnion("kind", [
       context: submissionContextSchema,
       language: languageSchema,
       artifact: serialisedBuildArtifactSchema,
-      cases: interactiveCasesSchema,
+      cases: interactiveSampleRequestsSchema,
     })
     .strict(),
 ]);
