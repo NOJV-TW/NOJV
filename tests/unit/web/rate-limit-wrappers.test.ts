@@ -1,23 +1,28 @@
 import type { RequestEvent } from "@sveltejs/kit";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { apiConsume, writeConsume, registryConsume, formConsume } = vi.hoisted(() => ({
-  apiConsume: vi.fn(),
-  writeConsume: vi.fn(),
-  registryConsume: vi.fn(),
-  formConsume: vi.fn(),
-}));
+const { apiConsume, writeConsume, registryConsume, testJudgeConsume, formConsume } = vi.hoisted(
+  () => ({
+    apiConsume: vi.fn(),
+    writeConsume: vi.fn(),
+    registryConsume: vi.fn(),
+    testJudgeConsume: vi.fn(),
+    formConsume: vi.fn(),
+  }),
+);
 
 vi.mock("$lib/server/shared/rate-limiter", () => ({
   apiRateLimiter: { consume: apiConsume },
   writeApiRateLimiter: { consume: writeConsume },
   registryTokenRateLimiter: { consume: registryConsume },
+  testJudgeApiRateLimiter: { consume: testJudgeConsume },
   consumeFormRateLimitInternal: formConsume,
 }));
 
 import {
   apiHandler,
   registryTokenApiHandler,
+  testJudgeApiHandler,
   writeApiHandler,
 } from "$lib/server/shared/api-handler";
 import { withRateLimit, withRateLimitActions } from "$lib/server/shared/action-handlers";
@@ -35,6 +40,7 @@ beforeEach(() => {
   apiConsume.mockReset().mockResolvedValue("allowed");
   writeConsume.mockReset().mockResolvedValue("allowed");
   registryConsume.mockReset().mockResolvedValue("allowed");
+  testJudgeConsume.mockReset().mockResolvedValue("allowed");
   formConsume.mockReset().mockResolvedValue(null);
 });
 
@@ -75,6 +81,19 @@ describe("API rate-limit wrappers", () => {
     const limiterError = new Error("limiter bug");
     registryConsume.mockRejectedValue(limiterError);
     await expect(registryTokenApiHandler(vi.fn())(makeEvent())).rejects.toBe(limiterError);
+  });
+
+  it.each([
+    ["limited", 429],
+    ["unavailable", 503],
+  ] as const)("uses the dedicated test-judge limiter (%s)", async (result, status) => {
+    testJudgeConsume.mockResolvedValue(result);
+    const handler = vi.fn().mockResolvedValue(new Response(null, { status: 204 }));
+    const response = await testJudgeApiHandler(handler)(makeEvent());
+    expect(response.status).toBe(status);
+    expect(testJudgeConsume).toHaveBeenCalledOnce();
+    expect(writeConsume).not.toHaveBeenCalled();
+    expect(handler).not.toHaveBeenCalled();
   });
 });
 

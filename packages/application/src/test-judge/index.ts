@@ -12,6 +12,7 @@ import {
   type TestJudgeWorkflowOutput,
 } from "@nojv/core";
 import { problemRepo } from "@nojv/db";
+import { getRedis, keys } from "@nojv/redis";
 import {
   assertStorageObjectPointer,
   deleteBlob,
@@ -25,6 +26,7 @@ import { judgeScriptLanguageOf, parsePersistedJudgeConfig } from "../problem/jud
 import type { ActorContext } from "../shared/actor-context";
 import {
   ConflictError,
+  HttpError,
   NotFoundError,
   ServiceUnavailableError,
   ValidationError,
@@ -34,6 +36,32 @@ import { storage } from "../shared/storage-singleton";
 import { isTestJudgeEnabled } from "../shared/test-judge-enabled";
 
 const TEST_JUDGE_TIMEOUT_MS = 30_000;
+const IN_FLIGHT_TTL_SECONDS = 35;
+const RELEASE_IF_HELD = `if redis.call("GET", KEYS[1]) == ARGV[1] then
+  return redis.call("DEL", KEYS[1])
+end
+return 0`;
+
+export async function withUserTestJudgeLock<T>(
+  userId: string,
+  run: () => Promise<T>,
+): Promise<T> {
+  const redis = getRedis();
+  const key = keys.testJudgeInFlight(userId);
+  const token = randomUUID();
+  let acquired: boolean;
+  try {
+    acquired = (await redis.set(key, token, "EX", IN_FLIGHT_TTL_SECONDS, "NX")) === "OK";
+  } catch (error) {
+    throw new ServiceUnavailableError("test_judge_unavailable", { cause: error });
+  }
+  if (!acquired) throw new HttpError("test_judge_busy", 429);
+  try {
+    return await run();
+  } finally {
+    await redis.eval(RELEASE_IF_HELD, 1, key, token).catch(() => undefined);
+  }
+}
 
 async function deleteRequest(requestKey: string): Promise<void> {
   try {
