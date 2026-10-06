@@ -3,10 +3,13 @@ import {
   submissionDraftSchema,
   submissionDispatchResponseSchema,
   submissionOperationSchema,
+  testJudgeResponseSchema,
   type Language,
   type SubmissionContext,
   type SubmissionResult,
   type SubmissionRunCase,
+  type TestJudgeRequest,
+  type TestJudgeResponse,
 } from "@nojv/core";
 
 import { fetchWithCsrf } from "$lib/services/http";
@@ -130,6 +133,37 @@ async function postSubmission(
   }
 
   return submissionDispatchResponseSchema.parse(await response.json());
+}
+
+export async function requestTestJudge(
+  problemId: string,
+  body: TestJudgeRequest,
+  signal: AbortSignal,
+): Promise<TestJudgeResponse | null> {
+  let response: Response;
+  try {
+    response = await fetchWithCsrf(`/api/problems/${problemId}/test-judge`, {
+      body: JSON.stringify(body),
+      method: "POST",
+      signal,
+    });
+  } catch (err) {
+    if (signal.aborted) return null;
+    throw err;
+  }
+  if (!response.ok) {
+    const error = (await response.json().catch(() => null)) as Record<string, unknown> | null;
+    throw new SubmissionRequestError(
+      typeof error?.message === "string" ? error.message : "Test judge failed.",
+      typeof error?.code === "string" ? error.code : "test_rejected",
+      null,
+    );
+  }
+  const parsed = testJudgeResponseSchema.parse(await response.json());
+  if (parsed.cases.length !== body.cases.length) {
+    throw new Error("The test judge returned a different number of cases.");
+  }
+  return parsed;
 }
 
 export async function executeSubmission(

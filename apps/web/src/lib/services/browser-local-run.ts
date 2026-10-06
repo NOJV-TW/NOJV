@@ -263,6 +263,8 @@ function submissionVerdict(caseResults: CaseResult[]): SubmissionResult["verdict
       return "memory_limit_exceeded";
     case "RE":
       return "runtime_error";
+    case "SE":
+      return "system_error";
     default:
       return "accepted";
   }

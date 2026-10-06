@@ -1,5 +1,6 @@
 import type {
   AdvancedConfig,
+  CaseResult,
   JudgeConfig,
   JudgeType,
   Language,
@@ -11,7 +12,18 @@ import type {
   SubmissionResult,
   SubmissionOperationStatus,
   TestCapability,
+  TestJudgeCaseResult,
 } from "@nojv/core";
+
+export interface TestCaseView extends CaseResult {
+  executionOnly?: true;
+  teamMessage?: string;
+  transcript?: NonNullable<TestJudgeCaseResult["transcript"]>;
+}
+
+export interface TestRunResult extends SubmissionResult {
+  caseResults?: TestCaseView[] | undefined;
+}
 
 export interface ProblemSubmissionEntry {
   id?: string;
