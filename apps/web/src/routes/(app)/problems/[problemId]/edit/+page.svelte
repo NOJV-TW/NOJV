@@ -612,6 +612,7 @@
               bind:this={judgeTab}
               problem={data.problem}
               validatorScripts={data.validatorScripts}
+              judgeProgramStatus={data.judgeProgramStatus}
               ondirtychange={(d) => (isDirty = d)}
             />
           {:else}

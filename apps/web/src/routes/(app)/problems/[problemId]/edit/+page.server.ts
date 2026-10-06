@@ -29,8 +29,9 @@ import {
   createAdvancedImageConfigInputSchema,
 } from "$lib/server/advanced-image-config";
 import { getWebEnv } from "$lib/server/env";
+import { createLogger } from "$lib/server/logger";
 import type { FormMessage } from "$lib/types/form-message";
-import { problemDomain, registryDomain } from "@nojv/application";
+import { problemDomain, registryDomain, testJudgeDomain } from "@nojv/application";
 
 const {
   getProblemEditPageView,
@@ -46,6 +47,20 @@ const {
   deleteProblemRecord,
   convertProblemToAdvancedMode,
 } = problemDomain;
+const logger = createLogger("problem-edit");
+
+async function loadJudgeProgramStatus(
+  actor: CompletedActorContext,
+  problemId: string,
+): Promise<testJudgeDomain.JudgeProgramStatus> {
+  try {
+    return await testJudgeDomain.getJudgeProgramStatus(actor, problemId);
+  } catch (err) {
+    logger.warn("Could not load the test-judge program status", { problemId, err });
+    return { status: "pending" };
+  }
+}
+
 const updateWorkspaceSchema = z.object({
   runtime: runtimeSchema.optional(),
   allowedLanguages: z.array(languageSchema).optional(),
@@ -80,9 +95,15 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
     zod4(problemBasicInfoSchema),
   );
 
+  const judgeProgramStatus =
+    view.permissions.canEdit && problem.judgeType !== "standard"
+      ? await loadJudgeProgramStatus(actor, problem.id)
+      : null;
+
   return {
     ...view,
     form,
+    judgeProgramStatus,
     advancedAllowedRegistries: allowedImageRegistries(),
     registryHost: getWebEnv().REGISTRY_PUBLIC_HOST,
   };
@@ -181,6 +202,11 @@ export const actions: Actions = {
 
   updateJudgeConfig: saveJudgeConfig,
   updateScoring: saveJudgeConfig,
+
+  checkSamples: problemEditAction(async ({ actor, problemId }) => {
+    const results = await testJudgeDomain.checkSamplesWithChecker(actor, problemId);
+    return { success: true, results };
+  }),
 
   updateWorkspace: problemEditAction(async ({ actor, problemId, event }) => {
     const formData = await event.request.formData();
