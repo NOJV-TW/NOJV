@@ -10,26 +10,27 @@ fixed **Standard Mode** (`standard` / `checker` / `interactive`, JDG-01) or
 
 ## Key code
 
-| Area                                              | Path                                                                                                              |
-| ------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| Durable workflow, cleanup workflow                | `apps/worker/src/workflows/durable-judge.ts`                                                                      |
-| Stage / journal activities                        | `apps/worker/src/activities/judge-execution.ts`                                                                   |
-| Pinned request, workspace merge, time factor      | `apps/worker/src/activities/judge-request.ts`, `judge.ts` (`mergeSandboxSources`)                                 |
-| Worker bootstrap, slots, queues                   | `apps/worker/src/worker-app.ts`, `apps/worker/src/judge-slot-supplier.ts`, `apps/worker/src/env.ts`               |
-| Docker backend                                    | `apps/worker/src/sandbox/docker/` (`args.ts` is the hardened-args builder, JDG-19)                                |
-| Kubernetes backend                                | `apps/worker/src/sandbox/kubernetes/` (standard, interactive, advanced executors; manifests; watch; cleanup)      |
-| Shared plan, payloads, log parsing, result merge  | `apps/worker/src/sandbox/shared/`                                                                                 |
-| In-container runner and phases                    | `apps/sandbox-runner/src/` (`index.ts`, `judges/`, `payload-materializer.ts`)                                     |
-| Execution helper                                  | `apps/sandbox-runner/native/nojv-exec.c`                                                                          |
-| DOMjudge Python wrappers                          | `apps/sandbox-runner/assets/wrappers/`                                                                            |
-| Execution creation, state, stages, rejudge        | `packages/application/src/submission/judge-execution.ts`, `rejudge-control.ts`                                    |
-| Dispatch gate, reconciliation                     | `packages/application/src/submission/judge-recovery.ts`, `sweep.ts`                                               |
-| Scoring, adjustments                              | `packages/application/src/submission/scoring.ts`, `adjustments.ts`                                                |
-| Priority key, stage size, states, limits          | `packages/core/src/judge-execution.ts`, `packages/core/src/sandbox.ts`                                            |
-| Comparator, time factor, toolchain manifest       | `packages/core/src/judge/compare.ts`, `judge/time-factor.ts`, `judge-environment.json`                            |
-| Schemas (`judgeConfig`, advanced, output, adjust) | `packages/core/src/schemas/judge-config.ts`, `advanced-mode.ts`, `sandbox-output.ts`, `assessment-adjustments.ts` |
-| Dispatch API, task queues                         | `packages/temporal/src/dispatch.ts`, `task-queues.ts`                                                             |
-| Browser Test                                      | `apps/web/src/lib/services/browser-local-run.ts`                                                                  |
+| Area                                              | Path                                                                                                                                                                                                      |
+| ------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Durable workflow, cleanup workflow                | `apps/worker/src/workflows/durable-judge.ts`                                                                                                                                                              |
+| Stage / journal activities                        | `apps/worker/src/activities/judge-execution.ts`                                                                                                                                                           |
+| Pinned request, workspace merge, time factor      | `apps/worker/src/activities/judge-request.ts`, `judge.ts` (`mergeSandboxSources`)                                                                                                                         |
+| Worker bootstrap, slots, queues                   | `apps/worker/src/worker-app.ts`, `apps/worker/src/judge-slot-supplier.ts`, `apps/worker/src/env.ts`                                                                                                       |
+| Docker backend                                    | `apps/worker/src/sandbox/docker/` (`args.ts` is the hardened-args builder, JDG-19)                                                                                                                        |
+| Kubernetes backend                                | `apps/worker/src/sandbox/kubernetes/` (standard, interactive, advanced executors; manifests; watch; cleanup)                                                                                              |
+| Shared plan, payloads, log parsing, result merge  | `apps/worker/src/sandbox/shared/`                                                                                                                                                                         |
+| In-container runner and phases                    | `apps/sandbox-runner/src/` (`index.ts`, `judges/`, `payload-materializer.ts`)                                                                                                                             |
+| Execution helper                                  | `apps/sandbox-runner/native/nojv-exec.c`                                                                                                                                                                  |
+| DOMjudge Python wrappers                          | `apps/sandbox-runner/assets/wrappers/`; test-judge copy `packages/core/src/judge/python-judge-wrappers.ts`                                                                                                |
+| Execution creation, state, stages, rejudge        | `packages/application/src/submission/judge-execution.ts`, `rejudge-control.ts`                                                                                                                            |
+| Dispatch gate, reconciliation                     | `packages/application/src/submission/judge-recovery.ts`, `sweep.ts`                                                                                                                                       |
+| Scoring, adjustments                              | `packages/application/src/submission/scoring.ts`, `adjustments.ts`                                                                                                                                        |
+| Priority key, stage size, states, limits          | `packages/core/src/judge-execution.ts`, `packages/core/src/sandbox.ts`                                                                                                                                    |
+| Comparator, time factor, toolchain manifest       | `packages/core/src/judge/compare.ts`, `judge/time-factor.ts`, `judge-environment.json`                                                                                                                    |
+| Schemas (`judgeConfig`, advanced, output, adjust) | `packages/core/src/schemas/judge-config.ts`, `advanced-mode.ts`, `sandbox-output.ts`, `assessment-adjustments.ts`                                                                                         |
+| Dispatch API, task queues                         | `packages/temporal/src/dispatch.ts`, `task-queues.ts`                                                                                                                                                     |
+| Browser Test                                      | `apps/web/src/lib/services/browser-local-run.ts`, `apps/web/src/lib/components/features/problem/editors/use-editor-run.svelte.ts`                                                                         |
+| Test judge (server)                               | `packages/application/src/test-judge/index.ts`, `apps/worker/src/activities/test-judge.ts`, `apps/worker/src/test-judge/`, `packages/core/src/schemas/test-judge.ts`, `packages/core/src/judge/test-*.ts` |
 
 ## Durable execution and recovery
 
@@ -199,8 +200,8 @@ Ordering is Temporal task-queue priority and fairness, not an in-house scheduler
   slot is one sandbox Job. Bookkeeping runs on `judge-state` and deferred stage
   cleanup on `judge-cleanup` (activity-only workers in the same process, 16 fixed
   slots each) so verdicts never queue behind Jobs or teardown.
-- `judge`, `judge-state`, `judge-cleanup` and `platform` must each use one task-queue partition, and
-  fairness needs `matching.enableFairness` (see runbook).
+- `judge`, `judge-state`, `judge-cleanup`, `platform` and `test-judge` must each use one
+  task-queue partition, and fairness needs `matching.enableFairness` (see runbook).
 - Judge and platform workers cache at most 32 workflows and run at most 8 workflow
   tasks concurrently.
 
@@ -468,10 +469,12 @@ Anything token comparison cannot express needs a checker; no compare modes.
 
 ## Browser Test
 
-Standard Mode **Test** runs sample and custom cases in the browser via pinned
-`@wasm-oj/browser` (JDG-15). It never creates a submission or touches Temporal;
-**Submit** always uses the server pipeline, including checker, interactive and
-Advanced.
+**Test** never creates a submission; **Submit** always uses the server pipeline
+above (JDG-15). The browser compiles and runs the contestant program through
+pinned `@wasm-oj/browser`. Standard problems are judged in the browser; checker and
+interactive problems are judged by the [test judge](#test-judge), which runs the
+problem's checker or interactor on the server against its samples. `special_env`
+problems have no Test. Acceptance behaviour: [Problem Test](../features/problem-test.md).
 
 - Uses the problem limits and `judgeConfig.runtime.env` with the
   language time factor; the problem time limit sets Forge's logical-time budget.
@@ -481,8 +484,6 @@ Advanced.
   locally, hidden file contents never reach the browser.
 - Custom cases without an expected answer report execution success only.
 - Shares the 16 MiB combined output limit.
-- Private checkers/interactors and custom images need browser-compatible public
-  assets; until those exist the controller reports the missing capability.
 - Results are previews: WASI toolchains, logical time, linear memory and filesystem
   caps differ from native judging; passing samples implies nothing about hidden tests.
 - Opening the editor or switching language preloads that language's pinned toolchain
@@ -495,6 +496,139 @@ Advanced.
   standard headers.
 - Engine failures stay SE; build-boundary timeouts, toolchain download failures and
   missing cross-origin isolation add a localized hint above the engine message.
+
+### Availability
+
+The problem page's `ProblemDetail.testCapability` (`staticTestCapability`) and the
+selected language decide the Test button before the first click:
+
+| Case                                                                           | Test                                           |
+| ------------------------------------------------------------------------------ | ---------------------------------------------- |
+| `standard`                                                                     | Available                                      |
+| `special_env`                                                                  | Disabled ("doesn't support Test")              |
+| Checker or interactive while web has `TEST_JUDGE_ENABLED` off                  | Disabled ("isn't available")                   |
+| Python interactor                                                              | Disabled until WASM-OJ runs Python interactors |
+| Interactive with a JavaScript or TypeScript contestant                         | Disabled for that language                     |
+| Interactive with no sample that has an `interactorInput`                       | Disabled                                       |
+| A Test response of `judge_program_build_failed` or `judge_program_unsupported` | Disabled for the rest of the editor session    |
+
+### Checker problems
+
+1. The browser runs every case as for a standard problem; TLE, MLE and RE are
+   decided there.
+2. Each case whose input is exactly a sample's input and that exited normally posts
+   `{ sampleIndex, output }` (stdout cut to 1,000,000 characters) in one request to
+   `POST /api/problems/{id}/test-judge`. The server reads that sample's `input` and
+   `output` (the answer file) from `Problem.samples` (SEC-15).
+3. The checker runs under the DOMjudge protocol (JDG-03) and returns AC, WA or SE
+   plus `teammessage` (up to 10,000 characters).
+4. Every other case, custom or edited, is execution-only. When the request returns
+   `test_judge_busy` or `test_judge_unavailable`, the samples are shown
+   execution-only with a notice.
+
+### Interactive problems
+
+1. The browser compiles the contestant and posts the serialised build artifact
+   (at most 8 MiB decoded) with the indices of the samples that have an
+   `interactorInput`. The case panel shows those inputs read-only; there are no
+   custom cases. JavaScript and TypeScript cannot run interactively.
+2. The worker runs WASM-OJ `interact(contestant, interactor)` once per sample. The
+   interactor gets the server's copy of the sample's `interactorInput` as its input
+   file and an empty answer file.
+3. Verdicts merge as in official judging: an interactor failure is SE, otherwise a
+   contestant TLE, MLE or RE wins, otherwise the interactor's AC or WA stands.
+4. Each case returns the verdict, contestant stderr (100,000 bytes), the
+   transcript in both directions (64 KiB each) and logical time; the interactor's
+   `teammessage` is not returned.
+
+### Test judge
+
+Web side (`testJudgeDomain.runTestJudge`):
+
+- The route takes the per-user in-flight lock and `rl:test-judge` limit
+  ([Redis](REDIS.md#rate-limiting)), caps the body at 12 MiB, then authorises the
+  request with `assertProblemContextAllowed`, the read-only context check shared
+  with code drafts (SEC-15). The request kind must match `judgeConfig.type`.
+- An interactive artifact must be built for the request's language, as Wasm for
+  C, C++, Go, Java and Rust or as a runtime bundle for Python, and decode to at
+  most 8 MiB (`TEST_JUDGE_MAX_ARTIFACT_BYTES`), measured from its base64 length
+  before anything is stored.
+- It builds the stored request from server-side sample data and the judge program's
+  storage pointer, writes it to `test-judge-requests/<uuid>.json`, executes
+  `testJudgeWorkflow` (`test-judge-<uuid>`, 30 s execution timeout) on `test-judge`
+  and deletes the request afterwards.
+
+Worker side (`nojv-worker-test`, `WORKER_MODE=test`, JDG-26):
+
+- At startup every engine builds and runs a Python and a C++ judge program before
+  the worker polls `test-judge`. An attempt still running after 20 s is cancelled
+  and retried; a third failure fails startup, so the pod restarts. A startup probe
+  allows the pod two minutes for this.
+- `runTestJudge` runs once (no retry, 28 s schedule-to-close). Its budget is 24 s
+  from when the activity was scheduled; it leases one of `TEST_JUDGE_SLOTS` WASM-OJ
+  engines, loads or builds the judge program, then judges the cases in order. When
+  the budget runs out or the activity is cancelled before every case is judged,
+  including a case cut short by a wall stop the budget shortened, the whole request
+  answers `test_judge_busy`; an engine error on a case stays SE for that case.
+- Per-case limits:
+
+  | Limit        | Checker                       | Interactive contestant                                 | Interactor                  |
+  | ------------ | ----------------------------- | ------------------------------------------------------ | --------------------------- |
+  | Logical time | `max(30 s, limit)`            | Limit × language factor                                | `max(30 s, factored limit)` |
+  | Memory       | 512 MiB                       | Problem limit                                          | 256 MiB                     |
+  | Wall stop    | `min(10 s, remaining budget)` | `min(max(3 s, 3 × factored limit), remaining budget)`  | Same as the contestant      |
+  | Other        | —                             | 16 MiB output, 64 MiB and 4,096 entries of file writes | —                           |
+
+- A checker that does not exit normally is SE. A contestant stopped at its full wall
+  stop is TLE (upstream `interact` does not end a CPU-bound contestant at its
+  logical-time budget); one stopped earlier by the request budget makes the request
+  busy.
+- The response is at most 1 MiB of JSON; when the texts exceed it each is cut to a
+  fair share. It never contains `judgemessage`, interactor stderr, build diagnostics
+  or the judge program.
+
+Judge program builds:
+
+- `getJudgeProgram` compiles with `@wasm-oj/server`. Python gets the DOMjudge
+  wrapper (`python-judge-wrappers.ts`, byte-identical to the sandbox runner's);
+  C++ gets the platform `bits/stdc++.h` shim and, only when the source includes
+  `<bits/stdc++.h>`, the libc++ PCH header, as in the browser.
+- The result, an artifact or at most 4 KiB of diagnostics, is stored at
+  `test-judge-programs/v1/<key>.json`, written only if absent. The key is the SHA-256
+  of `WASM_OJ_SERVER_IDENTITY` and the exact compile input, so a WASM-OJ upgrade or a
+  wrapper or shim change rebuilds without author action.
+- A compile that reaches the engine's own limit (60 s for C++, 120 s for Python) is
+  stored as a failed build with the diagnostic "Compilation exceeded the time
+  limit.", so later requests answer `judge_program_build_failed` at once; a compile
+  cancelled because a request ran out of budget is not stored.
+- Saving a checker or interactor configuration that Test supports dispatches
+  `testJudgeProgramBuildWorkflow` after the commit, best effort; a miss at Test time
+  builds on demand. Builds run at priority 5 and `testJudgeWorkflow` at priority 1;
+  each workflow passes its priority to its activity, so a queued Test request takes
+  the next free engine before queued builds. A build workflow has a 15-minute
+  execution timeout and its activity 5 minutes per attempt, three attempts.
+- The edit page shows authors the cached status (ready, failed with diagnostics,
+  pending, or unavailable when the status cannot be read; only a pending status
+  re-checks, every 3 s for a minute through
+  `invalidate("problem:judge-program-status")`, skipping a check during
+  navigation) and, for checker problems, a sample check that runs the checker with
+  each sample's `output` as both the answer and the team output.
+
+Errors (`{ code, message }`):
+
+| Code                         | HTTP | Cause                                                                                                             |
+| ---------------------------- | ---- | ----------------------------------------------------------------------------------------------------------------- |
+| `test_judge_busy`            | 429  | The user already has a request in flight                                                                          |
+| `test_judge_busy`            | 503  | The workflow or its activity timed out, or the 24 s budget ran out before every case was judged                   |
+| `test_judge_unavailable`     | 503  | `TEST_JUDGE_ENABLED` off, Redis, storage or Temporal failure, unreadable request, missing or corrupt judge source |
+| `judge_program_build_failed` | 409  | The judge program does not build under WASM-OJ                                                                    |
+| `judge_program_unsupported`  | 409  | Python interactor, JavaScript or TypeScript interactive contestant, or no judge program stored                    |
+| `test_rejected`              | 4xx  | Validation or authorisation failure, unknown sample, sample without an interactor input                           |
+| `test_rejected`              | 413  | A contestant artifact over 8 MiB                                                                                  |
+
+A body over 12 MiB is 413 before parsing. An exhausted `rl:test-judge` budget is a
+429 without a code, which the editor reports as busy; any other response without a
+known code is reported as a failed run.
 
 ## Advanced Mode pipeline
 

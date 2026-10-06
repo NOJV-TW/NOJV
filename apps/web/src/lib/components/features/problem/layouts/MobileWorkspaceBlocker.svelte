@@ -13,6 +13,7 @@
 
   let { problem }: Props = $props();
   let hydrated = $state(false);
+  let interactive = $derived(problem.judgeType === "interactive");
 
   onMount(() => {
     hydrated = true;
@@ -90,6 +91,15 @@
             </div>
           {/if}
 
+          {#if interactive && problem.interactionFormat}
+            <div class="mt-5">
+              <p class="text-body-sm font-semibold">{m.problemDetail_interactionFormat()}:</p>
+              <div class="mt-1 text-body-sm leading-7 text-foreground">
+                <MarkdownRenderer content={problem.interactionFormat} />
+              </div>
+            </div>
+          {/if}
+
           {#each problem.samples as sample, index (`sample-${index}`)}
             <div class="mt-6 {index > 0 ? 'border-t border-border-subtle pt-6' : ''}">
               <p class="text-body font-semibold">
@@ -97,6 +107,15 @@
                 {index + 1}
               </p>
               <div class="mt-3 space-y-3 text-body-sm">
+                {#if interactive && sample.interactorInput}
+                  <div>
+                    <p class="text-caption font-medium text-muted-foreground">
+                      {m.problemDetail_interactorInput()}
+                    </p>
+                    <pre
+                      class="mt-1 overflow-x-auto whitespace-pre-wrap rounded-md bg-muted px-3 py-2 font-mono text-caption leading-6 text-foreground">{sample.interactorInput}</pre>
+                  </div>
+                {/if}
                 <div>
                   <p class="text-caption font-medium text-muted-foreground">
                     {m.problemDetail_input()}

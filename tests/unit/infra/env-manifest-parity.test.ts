@@ -141,6 +141,17 @@ function containerEnvNames(yamlText: string): Set<string> {
   return names;
 }
 
+function renderedEnv(yamlText: string): Record<string, string> {
+  const env: Record<string, string> = {};
+  for (const name of containerEnvNames(yamlText)) {
+    env[name] = name === "REDIS_URL" ? "redis://redis:6379" : "from-secret";
+  }
+  for (const [, name, value] of yamlText.matchAll(/- name: (\S+)\n\s+value: (.+)/g)) {
+    env[name] = value.replace(/^"(.*)"$/u, "$1");
+  }
+  return env;
+}
+
 const describeHelm = describe.skipIf(!helmAvailable());
 
 describe("env schema baseline (no helm required)", () => {
@@ -378,6 +389,46 @@ describeHelm("worker Kubernetes privilege boundaries", () => {
     const disabled = renderChart("values.yaml");
     expect(disabled).not.toContain("nojv-backup-cronjob-reader");
     expect(disabled).not.toContain("BACKUP_CRONJOB_NAMESPACE");
+  });
+});
+
+describeHelm("test worker ↔ worker env schema", () => {
+  it("single-machine runs the test worker in test mode on the bundled WASM-OJ runtime", () => {
+    const worker = isolateDoc(
+      renderChart("values-single-machine.yaml"),
+      "Deployment",
+      "nojv-worker-test",
+    );
+    const env = renderedEnv(worker);
+
+    expect(workerEnvSchema.parse(env)).toMatchObject({
+      WORKER_MODE: "test",
+      WASM_OJ_RUNTIME_DIR: "/opt/wasm-oj/bin",
+      WASM_OJ_TOOLCHAIN_DIR: "/opt/wasm-oj/toolchains",
+      WASM_OJ_CACHE_DIR: "/var/cache/wasm-oj",
+      TEST_JUDGE_SLOTS: 2,
+    });
+    expect(storageEnvSchema.safeParse(env).success).toBe(true);
+    expect(worker).toMatch(/mountPath: \/var\/cache\/wasm-oj/u);
+    expect(worker).toMatch(/requests:\n\s+cpu: 100m\n\s+memory: 512Mi/u);
+    expect(worker).toMatch(/limits:\n\s+cpu: "2"\n\s+memory: 3Gi/u);
+    expect(worker).toContain("serviceAccountName: nojv-worker-test");
+    expect(worker).toContain("automountServiceAccountToken: false");
+    for (const key of ["DATABASE_URL", "BETTER_AUTH_SECRET", "SMTP_HOST", "SMTP_PASS"]) {
+      expect(env, `test worker must not receive ${key}`).not.toHaveProperty(key);
+    }
+  });
+
+  it.each([
+    ["values-single-machine.yaml", "true"],
+    ["values-gke.yaml", "false"],
+  ])("%s tells web whether the test judge runs (%s)", (valuesFile, enabled) => {
+    const web = isolateDoc(renderChart(valuesFile), "Deployment", "nojv-web");
+    expect(web).toContain(`name: TEST_JUDGE_ENABLED\n              value: "${enabled}"`);
+  });
+
+  it("renders no test worker while it is disabled", () => {
+    expect(renderChart()).not.toContain("nojv-worker-test");
   });
 });
 

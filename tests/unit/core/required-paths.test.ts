@@ -121,6 +121,7 @@ describe("problemCreateSchema integration with advancedRequiredPaths", () => {
   const baseProblemInput = {
     difficulty: "easy",
     inputFormat: "n",
+    interactionFormat: "",
     memoryLimitMb: 256,
     outputFormat: "n",
     statement: "Compute n.",
@@ -179,6 +180,7 @@ describe("problemCreateSchema integration with advancedConfig", () => {
   const baseProblemInput = {
     difficulty: "easy",
     inputFormat: "n",
+    interactionFormat: "",
     memoryLimitMb: 256,
     outputFormat: "n",
     statement: "Compute n.",

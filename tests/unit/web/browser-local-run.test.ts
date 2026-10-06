@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { CPP_STANDARD_HEADER_INCLUDES } from "@nojv/core";
 import { WASM_OJ_LIBCXX_PCH_HEADER } from "../../../apps/web/node_modules/@wasm-oj/browser";
 import { m } from "$lib/paraglide/messages.js";
 
@@ -6,10 +7,8 @@ import {
   browserLocalFiles,
   browserLocalErrorResult,
   browserLocalTerminationFeedback,
-  browserLocalTerminationVerdict,
   mapBrowserLocalRunResult,
   runBrowserLocally,
-  shouldUseBrowserLocalRun,
   supportsBrowserLocalRun,
 } from "$lib/services/browser-local-run";
 
@@ -56,54 +55,11 @@ describe("browser local run result mapping", () => {
     "accepts %s for browser local runs",
     (language) => {
       expect(supportsBrowserLocalRun(language)).toBe(true);
-      expect(
-        shouldUseBrowserLocalRun({
-          sampleOnly: true,
-          specialEnv: false,
-          judgeType: "standard",
-          language,
-        }),
-      ).toBe(true);
     },
   );
 
   it("uses the browser for Java sample runs", () => {
     expect(supportsBrowserLocalRun("java")).toBe(true);
-    expect(
-      shouldUseBrowserLocalRun({
-        sampleOnly: true,
-        specialEnv: false,
-        judgeType: "standard",
-        language: "java",
-      }),
-    ).toBe(true);
-  });
-
-  it("uses the browser only for standard sample runs", () => {
-    expect(
-      shouldUseBrowserLocalRun({
-        sampleOnly: true,
-        specialEnv: false,
-        judgeType: "standard",
-        language: "python",
-      }),
-    ).toBe(true);
-    expect(
-      shouldUseBrowserLocalRun({
-        sampleOnly: false,
-        specialEnv: false,
-        judgeType: "standard",
-        language: "python",
-      }),
-    ).toBe(false);
-    expect(
-      shouldUseBrowserLocalRun({
-        sampleOnly: true,
-        specialEnv: false,
-        judgeType: "checker",
-        language: "python",
-      }),
-    ).toBe(false);
   });
 
   it("preserves visible multi-file workspace paths", () => {
@@ -193,12 +149,7 @@ describe("browser local run result mapping", () => {
     });
   });
 
-  it("maps resource termination to NOJV verdicts", () => {
-    expect(browserLocalTerminationVerdict("logical-time-limit", 0)).toBe("TLE");
-    expect(browserLocalTerminationVerdict("wall-time-limit", 0)).toBe("TLE");
-    expect(browserLocalTerminationVerdict("memory-limit", 0)).toBe("MLE");
-    expect(browserLocalTerminationVerdict("trap", 0)).toBe("RE");
-    expect(browserLocalTerminationVerdict("output-limit", 0)).toBe("RE");
+  it("maps resource termination to feedback", () => {
     expect(browserLocalTerminationFeedback("output-limit", 0)).toBe("Output limit exceeded.");
     expect(browserLocalTerminationFeedback("filesystem-limit", 0)).toBe(
       "Filesystem limit exceeded.",
@@ -332,6 +283,12 @@ describe("browser local C++ precompiled header", () => {
       expect(files(sourceCode)["wasm-oj.pch.hpp"]).toBeUndefined();
     },
   );
+
+  it("ships the platform bits/stdc++.h as the PCH header plus the remaining standard headers", () => {
+    expect(files("#include <bits/stdc++.h>\nint main() {}")["src/bits/stdc++.h"]).toBe(
+      `${WASM_OJ_LIBCXX_PCH_HEADER}\n${CPP_STANDARD_HEADER_INCLUDES}`,
+    );
+  });
 
   it("keeps a user-provided bits/stdc++.h without the platform PCH", () => {
     const result = files("#include <bits/stdc++.h>\nint main() {}", [

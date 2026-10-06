@@ -39,6 +39,7 @@ function advancedConfig(): AdvancedConfig {
 const basePayload: Omit<ProblemCreate, "type" | "advancedConfig"> = {
   difficulty: "medium",
   inputFormat: "",
+  interactionFormat: "",
   memoryLimitMb: 256,
   outputFormat: "",
   statement: "",

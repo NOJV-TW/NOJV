@@ -4,9 +4,10 @@ import {
   entryFileNameFor,
   effectiveTimeLimitMs,
   isBrowserLocalLanguage,
+  wasmOjTerminationVerdict,
+  withCppPlatformHeaders,
   type CaseResult,
   type CompareConfig,
-  type JudgeType,
   type JudgeConfig,
   type Language,
   type SubmissionResult,
@@ -17,6 +18,7 @@ import {
   createBrowserEngine,
   prefetchBrowserToolchain,
   type BrowserToolchainPrefetchProgress,
+  type BuildArtifact,
   type BuildResult,
   type Engine,
   type RunResult,
@@ -31,45 +33,6 @@ import { m } from "$lib/paraglide/messages.js";
 import { formatJudgeOutput } from "$lib/utils/judge-output";
 import type { SubmissionRequest } from "./submission-service";
 
-const CPP_STANDARD_HEADER = `${WASM_OJ_LIBCXX_PCH_HEADER}
-#include <any>
-#include <atomic>
-#include <bit>
-#include <cfenv>
-#include <cinttypes>
-#include <clocale>
-#include <codecvt>
-#include <complex>
-#include <cstdarg>
-#include <ctime>
-#include <cuchar>
-#include <cwchar>
-#include <cwctype>
-#include <filesystem>
-#include <format>
-#include <forward_list>
-#include <fstream>
-#include <initializer_list>
-#include <istream>
-#include <list>
-#include <locale>
-#include <memory_resource>
-#include <new>
-#include <numbers>
-#include <ostream>
-#include <ratio>
-#include <regex>
-#include <scoped_allocator>
-#include <source_location>
-#include <stdexcept>
-#include <streambuf>
-#include <system_error>
-#include <typeindex>
-#include <typeinfo>
-#include <valarray>
-#include <version>
-`;
-
 const BROWSER_TOOLCHAIN_BASE_URL = "/wasm-oj/toolchains/";
 const BROWSER_TOOLCHAINS = [
   clangSource(BROWSER_TOOLCHAIN_BASE_URL),
@@ -79,8 +42,6 @@ const BROWSER_TOOLCHAINS = [
   pythonSource(BROWSER_TOOLCHAIN_BASE_URL),
   rustSource(BROWSER_TOOLCHAIN_BASE_URL),
 ];
-const LIBCXX_PCH_HEADER_PATH = "wasm-oj.pch.hpp";
-const BITS_STDCPP_INCLUDE = /^\s*#\s*include\s*<bits\/stdc\+\+\.h>/m;
 const TOOLCHAIN_PRELOAD_RETRY_DELAYS_MS = [2_000, 5_000];
 let browserEnginePromise: Promise<Engine> | undefined;
 
@@ -95,20 +56,6 @@ const toolchainPreloads = new Map<Language, ToolchainPreload>();
 
 export function supportsBrowserLocalRun(language: Language): boolean {
   return isBrowserLocalLanguage(language);
-}
-
-export function shouldUseBrowserLocalRun(args: {
-  sampleOnly: boolean;
-  specialEnv: boolean;
-  judgeType: JudgeType;
-  language: Language;
-}): boolean {
-  return (
-    args.sampleOnly &&
-    !args.specialEnv &&
-    args.judgeType === "standard" &&
-    supportsBrowserLocalRun(args.language)
-  );
 }
 
 async function getBrowserEngine(): Promise<Engine> {
@@ -195,30 +142,9 @@ export function browserLocalFiles(request: SubmissionRequest): {
       ? Object.fromEntries(request.sourceFiles.map((file) => [file.path, file.content]))
       : { [entry]: request.sourceCode };
   if (request.language === "cpp") {
-    const usesPlatformBitsStdcpp =
-      files["bits/stdc++.h"] === undefined &&
-      files["src/bits/stdc++.h"] === undefined &&
-      Object.values(files).some((content) => BITS_STDCPP_INCLUDE.test(content));
-    files["src/bits/stdc++.h"] ??= files["bits/stdc++.h"] ?? CPP_STANDARD_HEADER;
-    if (usesPlatformBitsStdcpp) files[LIBCXX_PCH_HEADER_PATH] ??= WASM_OJ_LIBCXX_PCH_HEADER;
+    return { entry, files: withCppPlatformHeaders(files, WASM_OJ_LIBCXX_PCH_HEADER) };
   }
   return { entry, files };
-}
-
-export function browserLocalTerminationVerdict(
-  termination: RunResult["termination"],
-  exitCode: number,
-): CaseResult["verdict"] {
-  if (
-    termination === "instruction-limit" ||
-    termination === "logical-time-limit" ||
-    termination === "wall-time-limit"
-  ) {
-    return "TLE";
-  }
-  if (termination === "memory-limit") return "MLE";
-  if (termination === "exited" && exitCode === 0) return "AC";
-  return "RE";
 }
 
 export function browserLocalTerminationFeedback(
@@ -244,31 +170,71 @@ export function browserLocalTerminationFeedback(
   }
 }
 
+export interface BrowserCaseRun {
+  verdict: ReturnType<typeof wasmOjTerminationVerdict>;
+  stdout: string;
+  stderr?: string;
+  timeMs: number;
+  memoryKb?: number;
+  exitCode: number;
+  termination: RunResult["termination"];
+}
+
+export interface BrowserRunLimits {
+  language: Language;
+  timeLimitMs: number;
+  memoryLimitMb: number;
+  env: Record<string, string>;
+}
+
+export type BrowserCompileOutcome =
+  { ok: true; artifact: BuildArtifact } | { ok: false; result: SubmissionResult };
+
+function browserCaseRun(run: RunResult): BrowserCaseRun {
+  const diagnostic =
+    run.stderr.length > 0
+      ? run.stderr
+      : browserLocalTerminationFeedback(run.termination, run.code, run.trapMessage);
+  return {
+    verdict: wasmOjTerminationVerdict(run.termination, run.code),
+    stdout: run.stdout,
+    ...(diagnostic ? { stderr: formatJudgeOutput(diagnostic).slice(0, 100_000) } : {}),
+    timeMs: Math.max(0, Math.ceil((run.metrics.logicalTimeNs ?? 0) / 1_000_000)),
+    ...(run.metrics.memoryBytes != null
+      ? { memoryKb: Math.max(0, Math.ceil(run.metrics.memoryBytes / 1024)) }
+      : {}),
+    exitCode: run.code,
+    termination: run.termination,
+  };
+}
+
+export function browserCaseResult(
+  run: BrowserCaseRun,
+  expectedOutput: string | undefined,
+  compare: CompareConfig | null | undefined,
+  index: number,
+): CaseResult {
+  let verdict: CaseResult["verdict"] = run.verdict;
+  if (verdict === "AC" && expectedOutput !== undefined) {
+    verdict = compareStandard(run.stdout, expectedOutput, compare ?? {}) ? "AC" : "WA";
+  }
+  return {
+    index,
+    verdict,
+    timeMs: run.timeMs,
+    ...(run.memoryKb !== undefined ? { memoryKb: run.memoryKb } : {}),
+    stdout: run.stdout.slice(0, 1_000_000),
+    ...(run.stderr ? { stderr: run.stderr } : {}),
+  };
+}
+
 export function mapBrowserLocalRunResult(
   run: RunResult,
   expectedOutput: string | undefined,
   compare: CompareConfig | null | undefined,
   index: number,
 ): CaseResult {
-  let verdict = browserLocalTerminationVerdict(run.termination, run.code);
-  if (verdict === "AC" && expectedOutput !== undefined) {
-    verdict = compareStandard(run.stdout, expectedOutput, compare ?? {}) ? "AC" : "WA";
-  }
-  const diagnostic =
-    run.stderr.length > 0
-      ? run.stderr
-      : browserLocalTerminationFeedback(run.termination, run.code, run.trapMessage);
-  const timeMs = Math.max(0, Math.ceil((run.metrics.logicalTimeNs ?? 0) / 1_000_000));
-  return {
-    index,
-    verdict,
-    timeMs,
-    ...(run.metrics.memoryBytes != null
-      ? { memoryKb: Math.max(0, Math.ceil(run.metrics.memoryBytes / 1024)) }
-      : {}),
-    stdout: run.stdout.slice(0, 1_000_000),
-    ...(diagnostic ? { stderr: formatJudgeOutput(diagnostic).slice(0, 100_000) } : {}),
-  };
+  return browserCaseResult(browserCaseRun(run), expectedOutput, compare, index);
 }
 
 function submissionVerdict(caseResults: CaseResult[]): SubmissionResult["verdict"] {
@@ -282,6 +248,8 @@ function submissionVerdict(caseResults: CaseResult[]): SubmissionResult["verdict
       return "memory_limit_exceeded";
     case "RE":
       return "runtime_error";
+    case "SE":
+      return "system_error";
     default:
       return "accepted";
   }
@@ -325,6 +293,97 @@ export function browserLocalErrorResult(error: unknown): SubmissionResult {
   };
 }
 
+export function browserLocalSubmissionResult(caseResults: CaseResult[]): SubmissionResult {
+  const runtimeMs = caseResults.reduce((max, result) => Math.max(max, result.timeMs), 0);
+  const accepted = caseResults.every((result) => result.verdict === "AC");
+  return {
+    accepted,
+    caseResults,
+    feedback: accepted ? "Local browser run completed." : "One or more test cases failed.",
+    runtimeMs,
+    memoryKb: caseResults.reduce((max, result) => Math.max(max, result.memoryKb ?? 0), 0),
+    score: accepted ? 100 : 0,
+    verdict: submissionVerdict(caseResults),
+  };
+}
+
+export async function compileBrowserLocally(
+  request: SubmissionRequest,
+  problemId: string,
+  signal: AbortSignal,
+): Promise<BrowserCompileOutcome> {
+  const browserEngine = await getBrowserEngine();
+  const cancel = () => browserEngine.cancel();
+  signal.addEventListener("abort", cancel, { once: true });
+  try {
+    signal.throwIfAborted();
+    const { entry, files } = browserLocalFiles(request);
+    const build = await browserEngine.compile(
+      {
+        language: request.language,
+        target: "wasip1",
+        optimization: "release",
+        entry,
+        files,
+        name: `NOJV local ${problemId}`,
+        projectId: `nojv-local-browser-v1-${problemId}-${request.language}`,
+      },
+      { cache: true },
+    );
+    signal.throwIfAborted();
+    if (!build.success || !build.artifact) {
+      return {
+        ok: false,
+        result: {
+          accepted: false,
+          caseResults: [],
+          feedback: compileFeedback(build),
+          runtimeMs: 0,
+          score: 0,
+          verdict: "compile_error",
+        },
+      };
+    }
+    return { ok: true, artifact: build.artifact };
+  } finally {
+    signal.removeEventListener("abort", cancel);
+  }
+}
+
+export async function runBrowserCases(
+  artifact: BuildArtifact,
+  cases: readonly { input: string }[],
+  limits: BrowserRunLimits,
+  signal: AbortSignal,
+): Promise<BrowserCaseRun[]> {
+  const browserEngine = await getBrowserEngine();
+  const cancel = () => browserEngine.cancel();
+  signal.addEventListener("abort", cancel, { once: true });
+  try {
+    signal.throwIfAborted();
+    const logicalTimeLimitMs = effectiveTimeLimitMs(limits.timeLimitMs, limits.language);
+    const runs: BrowserCaseRun[] = [];
+    for (const testCase of cases) {
+      const run = await browserEngine.run(artifact, {
+        stdin: testCase.input,
+        env: limits.env,
+        resources: {
+          logicalTimeLimitMs,
+          memoryLimitBytes: limits.memoryLimitMb * 1024 * 1024,
+          outputLimitBytes: MAX_EXECUTION_OUTPUT_BYTES,
+          filesystemWriteLimitBytes: 64 * 1024 * 1024,
+          filesystemEntryLimit: 4096,
+        },
+      });
+      signal.throwIfAborted();
+      runs.push(browserCaseRun(run));
+    }
+    return runs;
+  } finally {
+    signal.removeEventListener("abort", cancel);
+  }
+}
+
 export async function runBrowserLocally(args: {
   request: SubmissionRequest;
   cases: SubmissionRunCase[];
@@ -334,78 +393,36 @@ export async function runBrowserLocally(args: {
   memoryLimitMb: number;
   signal: AbortSignal;
 }): Promise<SubmissionResult | null> {
-  let browserEngine: Engine;
-  const cancel = () => browserEngine.cancel();
-
   try {
     args.signal.throwIfAborted();
     if (args.cases.length === 0) {
       return browserLocalErrorResult(new Error("No testcases were provided."));
     }
-    browserEngine = await getBrowserEngine();
-    args.signal.addEventListener("abort", cancel, { once: true });
-    args.signal.throwIfAborted();
-    const { entry, files } = browserLocalFiles(args.request);
-    const build = await browserEngine.compile(
+    const build = await compileBrowserLocally(args.request, args.problemId, args.signal);
+    if (!build.ok) return build.result;
+    const runs = await runBrowserCases(
+      build.artifact,
+      args.cases,
       {
         language: args.request.language,
-        target: "wasip1",
-        optimization: "release",
-        entry,
-        files,
-        name: `NOJV local ${args.problemId}`,
-        projectId: `nojv-local-browser-v1-${args.problemId}-${args.request.language}`,
+        timeLimitMs: args.timeLimitMs,
+        memoryLimitMb: args.memoryLimitMb,
+        env: args.judgeConfig.runtime?.env ?? {},
       },
-      { cache: true },
+      args.signal,
     );
-    args.signal.throwIfAborted();
-    if (!build.success || !build.artifact) {
-      return {
-        accepted: false,
-        caseResults: [],
-        feedback: compileFeedback(build),
-        runtimeMs: 0,
-        score: 0,
-        verdict: "compile_error",
-      };
-    }
-
-    const env = args.judgeConfig.runtime?.env ?? {};
-    const effectiveTimeLimit = effectiveTimeLimitMs(args.timeLimitMs, args.request.language);
-    const caseResults: CaseResult[] = [];
-    for (const [index, testCase] of args.cases.entries()) {
-      const run = await browserEngine.run(build.artifact, {
-        stdin: testCase.input,
-        env,
-        resources: {
-          logicalTimeLimitMs: effectiveTimeLimit,
-          memoryLimitBytes: args.memoryLimitMb * 1024 * 1024,
-          outputLimitBytes: MAX_EXECUTION_OUTPUT_BYTES,
-          filesystemWriteLimitBytes: 64 * 1024 * 1024,
-          filesystemEntryLimit: 4096,
-        },
-      });
-      args.signal.throwIfAborted();
-      caseResults.push(
-        mapBrowserLocalRunResult(run, testCase.expectedOutput, args.judgeConfig.compare, index),
-      );
-    }
-
-    const runtimeMs = caseResults.reduce((max, result) => Math.max(max, result.timeMs), 0);
-    const accepted = caseResults.every((result) => result.verdict === "AC");
-    return {
-      accepted,
-      caseResults,
-      feedback: accepted ? "Local browser run completed." : "One or more test cases failed.",
-      runtimeMs,
-      memoryKb: caseResults.reduce((max, result) => Math.max(max, result.memoryKb ?? 0), 0),
-      score: accepted ? 100 : 0,
-      verdict: submissionVerdict(caseResults),
-    };
+    return browserLocalSubmissionResult(
+      runs.map((run, index) =>
+        browserCaseResult(
+          run,
+          args.cases[index]?.expectedOutput,
+          args.judgeConfig.compare,
+          index,
+        ),
+      ),
+    );
   } catch (error) {
     if (args.signal.aborted) return null;
     return browserLocalErrorResult(error);
-  } finally {
-    args.signal.removeEventListener("abort", cancel);
   }
 }

@@ -154,3 +154,15 @@ Run output is copied host-side by `safeCopyTree` (lstat first, drop symlinks and
 - Rejected: in-container `tar --dereference` (puts the security step in a TA image); pod-log/ConfigMap transfer (1 MB limit).
 - Rule: Docker and Kubernetes gates stay behavior-identical (parity test); watchdogs count every filesystem entry as well as regular-file bytes.
 - Code: `apps/worker/src/sandbox/docker/advanced-mode-executor.ts`, `apps/worker/src/sandbox/kubernetes/advanced-executor.ts`
+
+### SEC-15 Server-judged Test runs only problem samples, from server-side data
+
+**Decided:** 2026-10 · **Source:** [#641](https://github.com/NOJV-TW/NOJV/pull/641)
+
+A test-judge request names samples by index, each at most once; the server reads every sample's input, answer (`output`) and interactor input from `Problem.samples` and never takes them from the request. A checker request adds the contestant's stdout for each sample, an interactive request the browser-compiled contestant. The checker and interactor are private and the same programs judge official submissions. If students could post their own input/answer pairs or interactor inputs and read back verdicts and `teammessage`, the judge program would be an oracle: they could map the checker's acceptance rule or the interactor's behaviour and exploit it in official judging.
+
+- Rejected: judging client-supplied custom cases with the private checker or interactor; trusting sample data sent by the client.
+- Rule: custom cases are execution-only on checker problems and unavailable on interactive problems; a sample without an interactor input cannot be judged.
+- Rule: requests use the read-only problem-context check shared with code drafts (`assertProblemContextAllowed`): the active-exam context lock and proctoring gate, assignment membership, contest participation inside the contest window (managers exempt), the virtual-contest timer and practice view access. It is looser than Submit (no close or language check) because Test creates no submission.
+- Rule: the response never carries `judgemessage`, interactor stderr, build diagnostics or data from non-sample testcases (SEC-12); judge-program diagnostics are shown only to the problem's editors.
+- Code: `packages/application/src/test-judge/index.ts`, `packages/application/src/code-draft.ts`, `packages/core/src/schemas/test-judge.ts`, `apps/web/src/routes/api/problems/[id]/test-judge/+server.ts`

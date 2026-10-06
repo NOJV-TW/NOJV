@@ -48,6 +48,7 @@ export * as registryDomain from "./registry";
 export * as scoreOverrideDomain from "./score-override";
 export * as scoring from "./scoring";
 export * as submissionDomain from "./submission";
+export * as testJudgeDomain from "./test-judge";
 export * as userDomain from "./user";
 export * as virtualContestDomain from "./virtual-contest";
 export { aggregateByTag } from "./user/queries";

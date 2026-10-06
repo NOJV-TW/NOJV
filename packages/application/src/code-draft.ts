@@ -9,12 +9,14 @@ import {
   examProblemRepo,
   examRepo,
   examSessionRepo,
+  participationRepo,
   problemRepo,
 } from "@nojv/db";
 import type { CodeDraftSave, CodeDraftScope, SubmissionContext } from "@nojv/core";
 
 import type { ActorContext } from "./shared/actor-context";
 import { ForbiddenError, NotFoundError } from "./shared/errors";
+import { canManageContest } from "./contest/permissions";
 import { assertProblemViewAccess } from "./problem/permissions";
 import { assertCanSubmitToVirtualContest } from "./virtual-contest/queries";
 import { checkProctoringGate } from "./proctoring/gate";
@@ -34,7 +36,7 @@ export function codeDraftContextKey(context: SubmissionContext): string {
   }
 }
 
-async function assertDraftScopeAllowed(
+export async function assertProblemContextAllowed(
   actor: ActorContext,
   scope: CodeDraftScope,
   now: Date,
@@ -47,7 +49,7 @@ async function assertDraftScopeAllowed(
     actor.platformRole !== "admin" &&
     (context.type !== "exam" || context.examId !== activeExamSession.examId)
   ) {
-    throw new ForbiddenError("You are in an active exam — drafts must use that exam context.");
+    throw new ForbiddenError("You are in an active exam — use that exam context.");
   }
 
   switch (context.type) {
@@ -62,7 +64,7 @@ async function assertDraftScopeAllowed(
         ip: clientIp,
         now,
       });
-      if (!gate.ok) throw new ForbiddenError(`Draft access blocked: exam ${gate.reason}.`);
+      if (!gate.ok) throw new ForbiddenError(`Access blocked: exam ${gate.reason}.`);
       const exam = await examRepo.findById(context.examId);
       if (exam?.status !== "published") throw new NotFoundError("Exam not found.");
       if (now >= exam.endsAt) throw new ForbiddenError("Exam has ended.");
@@ -101,7 +103,13 @@ async function assertDraftScopeAllowed(
     case "contest": {
       const contest = await contestRepo.findById(context.contestId);
       if (contest?.visibility !== "published") throw new NotFoundError("Contest not found.");
-      if (now < contest.startsAt) throw new ForbiddenError("Contest has not started yet.");
+      if (!canManageContest(actor.userId, contest, actor.platformRole)) {
+        if (now < contest.startsAt) throw new ForbiddenError("Contest has not started yet.");
+        if (now >= contest.endsAt) throw new ForbiddenError("Contest has ended.");
+        if (!(await participationRepo.findContestParticipation(contest.id, actor.userId))) {
+          throw new ForbiddenError("You are not participating in this contest.");
+        }
+      }
       if (!(await contestProblemRepo.existsById(contest.id, problemId))) {
         throw new ForbiddenError("This problem is not part of the contest.");
       }
@@ -129,7 +137,7 @@ export async function listCodeDrafts(
   scope: CodeDraftScope,
   clientIp: string,
 ) {
-  await assertDraftScopeAllowed(actor, scope, new Date(), clientIp);
+  await assertProblemContextAllowed(actor, scope, new Date(), clientIp);
   const rows = await codeDraftRepo.listForProblem({
     userId: actor.userId,
     contextKey: codeDraftContextKey(scope.context),
@@ -143,7 +151,7 @@ export async function saveCodeDraft(
   draft: CodeDraftSave,
   clientIp: string,
 ) {
-  await assertDraftScopeAllowed(actor, draft, new Date(), clientIp);
+  await assertProblemContextAllowed(actor, draft, new Date(), clientIp);
   const saved = await codeDraftRepo.save(
     {
       userId: actor.userId,

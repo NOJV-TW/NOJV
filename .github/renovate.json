@@ -96,6 +96,12 @@
       "enabled": false
     },
     {
+      "description": "WASM-OJ packages are pinned to the forge release in the worker image and checked by the pin test; they move by hand with a forge upgrade",
+      "matchManagers": ["npm"],
+      "matchPackageNames": ["/^@wasm-oj\\//"],
+      "enabled": false
+    },
+    {
       "matchManagers": ["github-actions"],
       "schedule": ["* 9-11 1-7 * 1"],
       "groupName": "github-actions-all",
@@ -114,6 +120,12 @@
       "description": "Node base images follow the engines range and move by hand",
       "matchDatasources": ["docker"],
       "matchPackageNames": ["node"],
+      "enabled": false
+    },
+    {
+      "description": "The rust image only builds the pinned WASM-OJ runtime; each bump replaces an 82 MB worker layer, so it moves by hand with a forge upgrade",
+      "matchDatasources": ["docker"],
+      "matchPackageNames": ["rust"],
       "enabled": false
     },
     {

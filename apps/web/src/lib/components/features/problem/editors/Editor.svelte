@@ -1,7 +1,12 @@
 <script lang="ts">
   import { onDestroy, untrack } from "svelte";
   import { m } from "$lib/paraglide/messages.js";
-  import type { Language, SubmissionContext, SubmissionResult } from "@nojv/core";
+  import {
+    interactiveContestantSupported,
+    type Language,
+    type SubmissionContext,
+    type SubmissionResult,
+  } from "@nojv/core";
   import type { ProblemDetail } from "$lib/types";
   import EditorCore from "./EditorCore.svelte";
   import EditorBottomPanel from "./EditorBottomPanel.svelte";
@@ -30,7 +35,7 @@
     browserToolchainPercent,
     preloadBrowserToolchain,
     prewarmBrowserLocalEngine,
-    shouldUseBrowserLocalRun,
+    supportsBrowserLocalRun,
   } from "$lib/services/browser-local-run";
 
   interface Props {
@@ -84,14 +89,7 @@
 
   $effect(() => {
     const selected = language;
-    if (
-      !shouldUseBrowserLocalRun({
-        sampleOnly: true,
-        specialEnv: isSpecialEnv,
-        judgeType: initialProblem.judgeType,
-        language: selected,
-      })
-    ) {
+    if (testDisabledReason !== null || !supportsBrowserLocalRun(selected)) {
       toolchainPercent = null;
       return;
     }
@@ -224,6 +222,21 @@
 
   $effect(() => () => runController.markDestroyed());
 
+  let testDisabledReason = $derived.by(() => {
+    const capability = problem.testCapability;
+    if (!capability.available) {
+      return capability.reason === "special_env"
+        ? m.editor_testUnsupportedProblemType()
+        : m.editor_testUnavailableForProblem();
+    }
+    if (problem.judgeType === "interactive") {
+      if (!interactiveContestantSupported(language)) return m.editor_testInteractiveLanguage();
+      if (!problem.samples.some((sample) => sample.interactorInput?.trim()))
+        return m.editor_testNoInteractiveSamples();
+    }
+    return runController.testDisabledReason;
+  });
+
   function handleShortcut(event: KeyboardEvent) {
     if (!(event.ctrlKey || event.metaKey) || event.shiftKey || event.altKey) return;
     if (event.key.toLowerCase() === "s" && !isWorkspaceMode) {
@@ -309,6 +322,7 @@
     isDirty={draftController.isDirty}
     lastSavedAt={draftController.currentLastSavedAt}
     cooldownUntil={runController.cooldownUntil}
+    {testDisabledReason}
     onRun={() => void runController.run()}
     onSubmit={() => {
       isFullscreen = false;
@@ -326,7 +340,10 @@
     <EditorBottomPanel
       bind:runCases={runController.panelRunCases}
       isReadOnly={isSpecialEnv}
+      customCasesAllowed={runController.customCasesAllowed}
       judgeType={problem.judgeType}
+      interactionFormat={problem.interactionFormat}
+      {testDisabledReason}
       tab={runController.bottomTab}
       runResult={runController.runResult}
       runSource={runController.runSource}

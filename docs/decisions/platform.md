@@ -199,13 +199,14 @@ Web exposes a public exact-path `/api/release` returning only `{ version, source
 
 ### OPS-18 Renovate is the only dependency update bot
 
-**Decided:** 2026-09 · **Source:** [#533](https://github.com/NOJV-TW/NOJV/pull/533)
+**Decided:** 2026-09, revised 2026-10 · **Source:** [#533](https://github.com/NOJV-TW/NOJV/pull/533), [#641](https://github.com/NOJV-TW/NOJV/pull/641)
 
 Renovate (`.github/renovate.json`) updates npm packages and pnpm catalog/overrides, GitHub Actions, Dockerfile and Compose images, the digest-pinned images in the chart values, the CloudNativePG operator manifest and the Temporal Helm chart pinned in the runbooks. Dependabot covered only the first four, so the CNPG operator reached its end of support unnoticed.
 
 - Rejected: running Dependabot and Renovate side by side (two bots opening overlapping PRs); a custom version-watch workflow.
 - Rule: every version installed outside `package.json` or a Dockerfile is written where a Renovate custom manager reads it (`--version` on Helm installs, a versioned manifest URL, `image: repo:tag@sha256:…` in values); a unit test fails when a manager stops matching.
 - Rule: majors, and CNPG or Temporal minors, open only after approval on the dependency dashboard.
+- Rule: `@wasm-oj/*` packages and the `rust` image that builds the WASM-OJ runtime are excluded; they move by hand with a forge upgrade (OPS-21).
 - Code: `.github/renovate.json`, `tests/unit/infra/renovate-coverage.test.ts`
 
 ### OPS-19 Single-machine Temporal is one pod per role, managed by Flux
@@ -233,3 +234,14 @@ Production pulls images over a ~0.5 MB/s uplink, and the web image was 1.1 GB co
 - Rule: the runtime stage copies `node_modules` only from the `prod-deps` stage.
 - Rule: a package the server needs at runtime must not arrive only through `optionalDependencies`; the `prod-deps` install skips them.
 - Code: `infra/docker/web.Dockerfile`, `apps/web/package.json`
+
+### OPS-21 The worker image carries the WASM-OJ runtime as stable layers; upgrades are manual
+
+**Decided:** 2026-10 · **Source:** [#641](https://github.com/NOJV-TW/NOJV/pull/641)
+
+The test judge (JDG-26) runs from the worker image. Two layers that come before every app layer hold the WASM-OJ native runtime (`wasm-oj-compiler` and `wasm-oj-runner`, built from the forge source at a pinned tag whose commit the build verifies) and the server toolchains (`npm ci` from `infra/docker/wasm-oj-toolchains/` and its lockfile, outside the app's `node_modules`). Both normalise file timestamps, so they stay byte-identical across releases and only a forge upgrade replaces them. Production pulls images over a ~0.5 MB/s uplink (OPS-20) and the two layers are about 82 MB compressed; re-pulling them with every release would add minutes to each rollout.
+
+- Rejected: a separate test-worker image (another image to build, attest, pre-pull and pin on `deploy`); installing the server toolchains in the app's `node_modules` (every release would re-pull them); Renovate bumps (OPS-18), since one upgrade must move the forge tag and commit, the toolchain lockfile, the web and worker `@wasm-oj/*` pins and the server identity together, and each bump replaces the layer.
+- Rule: a forge upgrade bumps `WASM_OJ_FORGE_TAG` and `WASM_OJ_FORGE_COMMIT`, the toolchain lockfile, the `@wasm-oj/*` pins in `apps/web` and `apps/worker` (with their `minimumReleaseAgeExclude` entries) and `WASM_OJ_SERVER_VERSIONS` in one change; `tests/unit/infra/wasm-oj-pins.test.ts` fails when they disagree.
+- Rule: nothing that changes per release goes into the two WASM-OJ stages.
+- Code: `infra/docker/worker.Dockerfile`, `infra/docker/wasm-oj-toolchains/`, `packages/core/src/judge/test-judge-program.ts`, `.github/renovate.json`, `tests/unit/infra/wasm-oj-pins.test.ts`

@@ -11,10 +11,15 @@ const mocks = vi.hoisted(() => ({
   preload:
     vi.fn<(language: string, onProgress: (progress: Progress) => void) => Promise<void>>(),
   prewarm: vi.fn(),
-  run: { isSubmitting: false, panelRunCases: [], markDestroyed: vi.fn() },
+  run: {
+    isSubmitting: false,
+    panelRunCases: [],
+    testDisabledReason: null,
+    markDestroyed: vi.fn(),
+  },
 }));
 vi.mock("$lib/services/browser-local-run", () => ({
-  shouldUseBrowserLocalRun: () => true,
+  supportsBrowserLocalRun: () => true,
   prewarmBrowserLocalEngine: mocks.prewarm,
   preloadBrowserToolchain: mocks.preload,
   browserToolchainPercent: ({ loadedBytes, totalBytes }: Progress) =>
@@ -86,6 +91,7 @@ it("preloads the editor language's toolchain and shows its progress on Test", as
         judgeConfig: {},
         timeLimitMs: 1000,
         memoryLimitMb: 256,
+        testCapability: { available: true },
       } as unknown as ProblemDetail,
       context: { type: "practice" },
       draftContext: { userId: "user_1", cipherKey: "", kind: "practice" },
