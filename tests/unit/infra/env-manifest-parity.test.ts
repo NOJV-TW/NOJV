@@ -410,6 +410,7 @@ describeHelm("test worker ↔ worker env schema", () => {
     });
     expect(storageEnvSchema.safeParse(env).success).toBe(true);
     expect(worker).toMatch(/mountPath: \/var\/cache\/wasm-oj/u);
+    expect(worker).toMatch(/requests:\n\s+cpu: 100m\n\s+memory: 512Mi/u);
     expect(worker).toContain("serviceAccountName: nojv-worker-test");
     expect(worker).toContain("automountServiceAccountToken: false");
     for (const key of ["DATABASE_URL", "BETTER_AUTH_SECRET", "SMTP_HOST", "SMTP_PASS"]) {

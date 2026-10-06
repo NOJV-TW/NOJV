@@ -96,6 +96,12 @@
       "enabled": false
     },
     {
+      "description": "WASM-OJ packages are pinned to the forge release in the worker image and checked by the pin test; they move by hand with a forge upgrade",
+      "matchManagers": ["npm"],
+      "matchPackageNames": ["/^@wasm-oj\\//"],
+      "enabled": false
+    },
+    {
       "matchManagers": ["github-actions"],
       "schedule": ["* 9-11 1-7 * 1"],
       "groupName": "github-actions-all",
