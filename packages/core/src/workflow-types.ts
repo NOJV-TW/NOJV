@@ -81,5 +81,4 @@ export interface TestJudgeProgramBuildInput {
 }
 
 export type TestJudgeWorkflowOutput =
-  | { ok: true; cases: TestJudgeCaseResult[] }
-  | { ok: false; code: TestJudgeErrorCode; detail?: string };
+  { ok: true; cases: TestJudgeCaseResult[] } | { ok: false; code: TestJudgeErrorCode };

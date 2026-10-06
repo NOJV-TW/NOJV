@@ -1,4 +1,4 @@
-export const WASM_OJ_PCH_PATH = "wasm-oj.pch.hpp";
+const WASM_OJ_PCH_PATH = "wasm-oj.pch.hpp";
 
 const BITS_STDCPP_INCLUDE = /^\s*#\s*include\s*<bits\/stdc\+\+\.h>/m;
 

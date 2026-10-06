@@ -18,7 +18,7 @@ export interface JudgeProgramSource {
   source: string;
 }
 
-export interface JudgeProgramCompileInput {
+interface JudgeProgramCompileInput {
   language: JudgeScriptLanguage;
   entry: string;
   files: Record<string, string>;

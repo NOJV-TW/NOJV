@@ -19,7 +19,7 @@ export const TEST_JUDGE_RESPONSE_BYTES = 1024 * 1024;
 
 const caseTextSchema = z.string().max(MAX_RUN_CASE_FIELD_LEN);
 
-export const testJudgeCheckerCaseSchema = z
+const testJudgeCheckerCaseSchema = z
   .object({
     input: caseTextSchema,
     expectedOutput: caseTextSchema,
@@ -27,9 +27,7 @@ export const testJudgeCheckerCaseSchema = z
   })
   .strict();
 
-export const testJudgeInteractiveCaseSchema = z
-  .object({ interactorInput: caseTextSchema })
-  .strict();
+const testJudgeInteractiveCaseSchema = z.object({ interactorInput: caseTextSchema }).strict();
 
 const checkerCasesSchema = z.array(testJudgeCheckerCaseSchema).min(1).max(TEST_JUDGE_MAX_CASES);
 const interactiveCasesSchema = z
