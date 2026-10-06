@@ -35,10 +35,32 @@ in the Temporal Helm values (`infra/gcp/gke/temporal/`), then let the config rel
 - `matching.enableFairness: true` — without it dispatch inside one priority is FIFO;
   the per-student dispatch gate still limits a student to one dispatched execution
   per queue class.
-- One read and one write partition for `judge`, `judge-state`, `judge-cleanup` and
-  `platform`. With
+- One read and one write partition for `judge`, `judge-state`, `judge-cleanup`,
+  `platform` and `test-judge`. With
   the default four, few pollers leave tasks in unpolled partitions for up to a long
   poll.
+
+## Test judge
+
+Checker and interactive Test run on `test-judge`, served only by `nojv-worker-test`
+(JDG-26); it never shares slots with official judging.
+
+```bash
+temporal task-queue describe -t test-judge
+kubectl -n nojv get deploy nojv-worker-test
+kubectl -n nojv logs deploy/nojv-worker-test --since=15m
+```
+
+- Students see "Test is busy" when every engine was taken for the whole 30 s
+  window, or when no test worker polls the queue (the task-queue description lists
+  no pollers). Restart a stuck worker with
+  `kubectl -n nojv rollout restart deploy/nojv-worker-test`.
+- Slots are `worker.test.slots` (`TEST_JUDGE_SLOTS`, one WASM-OJ engine each, at
+  most 8) under a 2-CPU limit. Raise slots and the CPU limit together, and only
+  after a Test load test.
+- "This problem's checker or interactor can't run in Test" means its cached build
+  failed; the problem's editors see the diagnostics in the edit page's judge
+  section. Saving a fixed checker or interactor rebuilds it.
 
 ## Capacity
 
@@ -53,7 +75,7 @@ in the Temporal Helm values (`infra/gcp/gke/temporal/`), then let the config rel
   container past the sandbox memory ceiling. Node allocatable CPU minus platform pod
   requests also bounds how many Jobs schedule; the chart cannot check it. Read
   `kubectl describe node` (Allocated resources) before raising slots: single-machine
-  platform pods request about 3.2 CPU, so 10 vCPU leaves room for thirteen half-CPU
+  platform pods request about 3.3 CPU, so 10 vCPU leaves room for thirteen half-CPU
   stage Pods. A stage Pod that does not fit reports `Unschedulable`, which caps the
   load-aware budget; one still unscheduled after 30 s fails with
   `SandboxBackpressureError … Insufficient cpu`.

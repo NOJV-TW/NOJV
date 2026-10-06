@@ -56,6 +56,7 @@ A `Notification` row is a persistent review-later event behind the navbar bell; 
 - Rejected: server-side encryption at rest (access control is the boundary); staff visibility of drafts; TTL expiry. Earlier: localStorage-only drafts saved on Ctrl+S with no server sync (v1, 2026-05), then local autosave (2026-06) — replaced by server `CodeDraft` rows.
 - Rule: draft keys always include the context so drafts never leak across contexts.
 - Rule: owner-only access; exam drafts need an active exam session on a published, not-ended exam containing the problem, and an active exam session sees only that exam's drafts.
+- Rule: contest drafts need the contest to be running and the user to participate; contest managers are exempt. Server-judged Test shares this check (SEC-15).
 - Rule: drafts use their own rate limiter, never the submission budget; no pushes after a failed initial load; last write wins.
 - Rule: when local storage is full, evict the oldest drafts; no scheduled expiry.
 - Code: `packages/application/src/code-draft.ts`, `packages/db/prisma/schema/submission.prisma`, `apps/web/src/routes/api/drafts/+server.ts`, `apps/web/src/lib/services/draft-sync.ts`, `apps/web/src/lib/stores/code-draft.ts`

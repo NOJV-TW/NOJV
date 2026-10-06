@@ -57,6 +57,7 @@ Work that is known, not done, and not covered by an in-flight plan. Remove an it
 ### Production evidence
 
 - Measure GKE judge concurrency against the sandbox quota ceiling (single-machine was measured on 2026-09-26; see the baseline). See OPS-11 and [Judge Queue](../runbooks/judge-queue.md).
+- Load-test checker and interactive Test before an exam uses them: about 65 students pressing Test with the virtual-student harness, watching `nojv-worker-test` CPU, `test_judge_busy` responses and web latency. Python checker cost per case (about 1.1 s on a development machine) is unmeasured on production hardware (JDG-26).
 
 ### High availability
 
@@ -66,7 +67,11 @@ Work that is known, not done, and not covered by an in-flight plan. Remove an it
 
 - SonarQube reports 83 functions over the cognitive complexity limit (rule S3776, threshold 15). The worst are the better-auth `hooks.before` middleware in `apps/web/src/lib/auth.server.ts` (77), `scripts/judge-benchmark.ts` (72), `scripts/check-supply-chain-policy.mjs` (63) and `durableJudgeWorkflow` (61; any split must keep replay determinism).
 - The admin audit log's actor, action and target columns have no filters; adding them needs server-side filtering in `adminAuditLogRepo.listPaged` (UI-12).
-- Browser Test (WASM-OJ) deferred scope: official Submit from the browser, checker/interactive/Advanced problems, and limit calibration stay server-only until decided otherwise (JDG-15).
+- Browser Test (WASM-OJ) deferred scope: official Submit from the browser, Advanced problems and limit calibration stay server-only until decided otherwise (JDG-15).
+- Python interactors cannot run in Test until a `wasm-oj/forge` release accepts runtime-bundle interactors; then bump the pins (OPS-21) and drop the Python-interactor check in `packages/core/src/judge/test-capability.ts` and `apps/worker/src/activities/test-judge.ts`. JavaScript and TypeScript contestants on interactive problems wait for streaming QuickJS stdin upstream.
+- Upstream `interact` does not end a CPU-bound contestant at its logical-time or instruction budget as `run` does; the test judge reports a full wall stop as TLE (JDG-26). Raise it upstream, then drop the wall-stop mapping.
+- Test-judge request objects orphaned by a web crash between write and delete (`test-judge-requests/`) and the judge-program build cache (`test-judge-programs/`) are never swept; add a bucket lifecycle expiry or a prefix sweep.
+- Every official checker or interactive stage recompiles its judge program. Precompiling native judge programs once per source, language and sandbox image is open; measure the C++ per-stage compile cost first (on 2026-10-04 every production judge program was Python, which needs no compile).
 
 ## Evidence rules
 

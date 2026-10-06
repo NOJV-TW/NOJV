@@ -16,7 +16,8 @@ Security controls as implemented: what must hold and where it is enforced. Attac
 - `apps/web/src/lib/utils/markdown.ts` — DOMPurify sanitizer and remote-image rewrite
 - `apps/web/svelte.config.js` — CSP
 - `apps/worker/src/sandbox/docker/args.ts`, `apps/worker/src/sandbox/kubernetes/pod-spec.ts` — sandbox hardening
-- `infra/charts/nojv/templates/{namespaces,sandbox-policy,worker-rbac,web.ingress,cloudflared.deployment}.yaml` — cluster-level controls
+- `infra/charts/nojv/templates/{namespaces,sandbox-policy,worker-rbac,worker-test.deployment,web.ingress,cloudflared.deployment}.yaml` — cluster-level controls
+- `packages/application/src/test-judge/index.ts`, `apps/worker/src/activities/test-judge.ts` — test-judge authorisation, sample-only requests and response bounds
 
 ## Sensitive Data
 
@@ -30,6 +31,7 @@ Security controls as implemented: what must hold and where it is enforced. Attac
 | TOTP enrollment material | Redis, pending until confirmed                          | Encrypted; committed atomically with backup codes on confirmation                                                                 |
 | Submission source        | Object storage `submissions/<id>/sources/<path>`        | Read only via domain helpers and the worker                                                                                       |
 | Graded testcases         | `TestcaseSet` / `Testcase` + object storage             | Never reach non-staff (SEC-12); only `Problem.samples` is rendered                                                                |
+| Checkers and interactors | Object storage; WASM builds in `test-judge-programs/`   | Read by problem editors and workers only; Test runs them on the server and returns verdicts and `teammessage` (JDG-05, SEC-15)    |
 | Hidden workspace files   | `ProblemWorkspaceFile` (`visibility = hidden`)          | Presentation only for packaged helpers/drivers or opaque APIs; compile/run can read them. Never store secrets or answers (PRB-01) |
 | Advanced grade images    | Registry `t/<username>/…`                               | Hold answers; namespace-scoped registry tokens ([Sandbox](#sandbox-isolation))                                                    |
 | Code drafts              | `CodeDraft` rows; unsynced edits in `localStorage`      | Owner-only; local edits sealed ([Integrity](#exam-and-contest-integrity))                                                         |
@@ -67,6 +69,7 @@ SvelteKit `csrf.checkOrigin` is disabled so `/api/registry/token` can accept the
 
 - Global adapter-node `BODY_SIZE_LIMIT` is 64 MiB (`infra/docker/web.Dockerfile`), sized for the largest upload (60 MB bundle). Do not lower it without re-checking that.
 - `POST /api/submissions`: 2 MiB (`MAX_SUBMISSION_BODY_BYTES`), `Content-Length` pre-check then streamed count.
+- `POST /api/problems/[id]/test-judge`: 24 MiB (`TEST_JUDGE_REQUEST_BODY_BYTES`, room for a 16 MiB contestant artifact in base64), same pre-check and streamed count.
 - Other JSON mutation routes: 1 MiB via `assertJsonBodyWithinLimit` + `readJsonBody` (`JSON_BODY_LIMIT_BYTES`); `readJsonBody` counts streamed bytes and returns 413 regardless of `Content-Length` (SEC-10).
 - Image, avatar and workspace-file multipart bodies count streamed bytes before FormData parsing, bounded by the file limit plus 64 KiB for form fields and multipart framing; the file limit is checked again after parsing. Checker/interactor and bundle uploads enforce their own size limits.
 - `/api/auth/*` and registry credential forms stop at 64 KiB before JSON or FormData parsing.
@@ -80,6 +83,7 @@ SvelteKit `csrf.checkOrigin` is disabled so `/api/registry/token` can accept the
 | `apiRateLimiter`              | 300 / min  | `apiHandler` routes; per-replica memory fallback when Redis is down         |
 | `writeApiRateLimiter`         | 10 / min   | `writeApiHandler` routes (submissions, uploads, plagiarism runs, …)         |
 | `draftApiRateLimiter`         | 60 / min   | `/api/drafts`                                                               |
+| `testJudgeApiRateLimiter`     | 30 / min   | `/api/problems/[id]/test-judge`, plus one request in flight per user ²      |
 | form actions                  | 20 / min   | `withRateLimit` form actions                                                |
 | `apiTokenAuthRateLimiter`     | 300 / min  | Whitelisted bearer requests, by IP before token database lookup             |
 | `authRateLimiter`             | 60 / min   | Every `/api/auth/*` request, including OAuth and exam sign-in               |
@@ -91,6 +95,7 @@ SvelteKit `csrf.checkOrigin` is disabled so `/api/registry/token` can accept the
 | `remoteAssetFetchRateLimiter` | 120 / min  | Authenticated remote-image relay, keyed by user                             |
 
 ¹ Students sharing a classroom IP do not consume each other's quota; invalid usernames share one bucket per IP.
+² A second concurrent request gets 429 `test_judge_busy`; the lock is `nojv:test-judge:in-flight:{userId}` ([Redis](../architecture/REDIS.md#rate-limiting)).
 
 - Quotas count every attempt, including successful sign-ins.
 - In production, every limiter except `apiRateLimiter` fails closed (429 limited, 503 unavailable) on operational Redis errors; programming errors propagate (DAT-12).
@@ -145,6 +150,7 @@ Behavior specs: [Exams](../features/exams.md), [Proctoring](../features/proctori
 
 - Exam IP whitelist, IP binding and page lock are server-side (ASM-19, ASM-20). During an active exam session `hooks.server.ts` runs the proctoring gate on exam paths and, with page lock enabled, on every page and `/api` request, and exam submissions and draft reads/writes recheck every denial reason independently of page lock; a failed active-exam lookup fails closed with 503. Exam entry begins at `startsAt` with no early-entry grace and runs the gate before creating a session, the first IP pin is a conditional write so concurrent first requests cannot both bind, violations recorded by a denied entry or submission are committed before the denial, and every binding reset writes an `ip_reset` session event. Page lock also denies `/api/contests/*`, `/api/posts/*`, `/api/comments/*` and `/api/problems/[id]/posts`. Contests have no IP or page gating.
 - Context-bound submissions and drafts must target a problem in that context (ASM-21).
+- Server-judged Test (`/api/problems/[id]/test-judge`) passes the same context check as drafts (`assertProblemContextAllowed`), including the exam gate and, for contests, participation inside the window, and it judges only problem samples by index with server-side data (SEC-15). Page lock does not block it.
 - The submission cooldown, `max(activity submitCooldownSec, SUBMIT_COOLDOWN_MIN_SEC)` in every context (PRB-22), is checked in PostgreSQL under a `pg_advisory_xact_lock` keyed by context, user and problem (`packages/application/src/shared/submit-cooldown.ts`); sample runs and reference solutions are exempt.
 - Code drafts: `CodeDraft` rows are owner-only via `/api/drafts`. Exam drafts can be written only during an active session on a running exam for a problem in it; during a session only that exam's drafts are reachable. Unacknowledged local edits are stored under `nojv:draft:v2:<userId>:…`, AES-GCM sealed with `HMAC-SHA256(BETTER_AUTH_SECRET, "code-draft:<userId>")` delivered only to that user's `(app)` layout, with the storage key as additional authenticated data. Legacy plaintext `nojv:draft:v1:` drafts are re-sealed for the first opener, except exam drafts, which are deleted on the first draft load in that browser and never adopted.
 
@@ -173,6 +179,12 @@ Kubernetes requirements (JDG-20):
 - The sandbox namespace enforces Pod Security `restricted` (enforce/audit/warn). Pods mount no service-account token.
 - The worker refuses to start unless the `gvisor` RuntimeClass, a hardened smoke Pod and a NetworkPolicy enforcement probe succeed. A CNI that enforces NetworkPolicy is a hard dependency.
 - Split identities: the judge worker's `sandbox-job-manager` role has only create/get/list/watch/delete on sandbox resources, plus `patch` on ConfigMaps for the testcase cache's annotations (JDG-23); the platform worker has only the registry-GC role (token unmounted when the registry is disabled). Never add update, Secret or cross-namespace access, or `patch` on any other resource.
+
+Test judge (JDG-15, JDG-26, SEC-15):
+
+- Interactive Test runs the student's browser-compiled Wasm, and both Test kinds run checkers and interactors, inside `nojv-worker-test` under the pinned WASM-OJ runtime (`wasm-oj-runner`). The boundary is WASM-OJ's WebAssembly sandbox: upstream static admission, logical-time and instruction budgets, memory limits and a per-case wall stop ([limits](../architecture/JUDGE_PIPELINE.md#test-judge)).
+- The pod runs as uid 1001 with a read-only root filesystem, `drop: ALL`, no privilege escalation and `RuntimeDefault` seccomp, mounts no service-account token and gets no database credentials. It holds Redis, object-storage and Temporal access ([Threat Model](THREAT_MODEL.md#open-gaps)). It never polls `judge` or creates sandbox Jobs; with `networkPolicy.enabled` the `worker-egress` policy applies to it as to the other workers.
+- Judge programs, `judgemessage`, interactor stderr and build diagnostics never leave the server for students; build diagnostics reach only the problem's editors.
 
 Advanced Mode (JDG-16, JDG-17, SEC-14, PRB-12):
 

@@ -14,7 +14,7 @@ Workflow、queue 與 workflow ID 一覽見 [Architecture](../../docs/architectur
 ## 主要入口
 
 - `src/index.ts` — 對外 API
-- `src/task-queues.ts` — `JUDGE_TASK_QUEUE`、`JUDGE_STATE_TASK_QUEUE`、`PLATFORM_TASK_QUEUE`
+- `src/task-queues.ts` — `JUDGE_TASK_QUEUE`、`JUDGE_STATE_TASK_QUEUE`、`JUDGE_CLEANUP_TASK_QUEUE`、`PLATFORM_TASK_QUEUE`、`TEST_JUDGE_TASK_QUEUE`
 - `src/dispatch.ts` — `dispatchJudgeExecution`、`dispatchJudgeCleanup`、`ensure/replace/cancel{ContestLifecycle,ExamAutoClose,AssignmentDueSoon}`、`dispatchPlagiarismCheck`、`dispatchRegistryGarbageCollect`、等待結果的 `runTestJudgeWorkflow` 與 `dispatchTestJudgeProgramBuild`、cron singleton `ensure*`、judge workflow 的 `describeSubmissionJudge` / `terminateSubmissionJudge`
 - `src/lifecycle-reconciliation.ts` — 以 `scheduleRevision` / `timerFingerprint` 決定 keep / terminate / start
 - `src/orchestration-adapter.ts` — `DomainOrchestrationAdapter` 實作（含 `probeTemporal`）
