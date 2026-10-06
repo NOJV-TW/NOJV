@@ -144,6 +144,32 @@ it("runs standard Test with public helpers entirely in the browser even when hid
   expect(run.runSource).toBe("local");
 });
 
+it("marks standard cases without an expected output as execution-only", async () => {
+  mocks.run.mockResolvedValue({
+    accepted: true,
+    caseResults: [
+      { index: 0, verdict: "AC", timeMs: 1, stdout: "42" },
+      { index: 1, verdict: "AC", timeMs: 1, stdout: "7" },
+      { index: 2, verdict: "RE", timeMs: 1, stdout: "" },
+    ],
+    feedback: "",
+    runtimeMs: 1,
+    score: 100,
+    verdict: "runtime_error",
+  });
+  const run = controller("standard");
+  run.panelRunCases = [
+    { input: "", expectedOutput: "42" },
+    { input: "custom" },
+    { input: "x" },
+  ];
+  await run.run();
+  const cases = run.runResult?.caseResults ?? [];
+  expect(cases[0]).not.toHaveProperty("executionOnly");
+  expect(cases[1]).toMatchObject({ verdict: "AC", executionOnly: true });
+  expect(cases[2]).not.toHaveProperty("executionOnly");
+});
+
 it("asks for a testcase before starting the browser when the problem has no samples", async () => {
   const run = controller("standard");
   run.panelRunCases = [];

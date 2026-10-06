@@ -349,7 +349,7 @@ export function createEditorRunController(args: EditorRunArgs): EditorRunControl
     } else if (interactive) {
       result = await runInteractiveTest(browserRequest, sampleIndices, signal);
     } else {
-      result = await runBrowserLocally({
+      const local = await runBrowserLocally({
         request: browserRequest,
         cases: runCases,
         judgeConfig: args.judgeConfig(),
@@ -358,6 +358,14 @@ export function createEditorRunController(args: EditorRunArgs): EditorRunControl
         memoryLimitMb: args.memoryLimitMb,
         signal,
       });
+      result = local && {
+        ...local,
+        caseResults: local.caseResults?.map((view, index): TestCaseView =>
+          view.verdict === "AC" && runCases[index]?.expectedOutput === undefined
+            ? { ...view, executionOnly: true }
+            : view,
+        ),
+      };
     }
     return destroyed ? null : result;
   }

@@ -12,6 +12,7 @@
     isDirty?: boolean;
     lastSavedAt?: number | null;
     cooldownUntil?: number | null;
+    testDisabledReason?: string | null | undefined;
     onRun: () => void;
     onSubmit: () => void;
   }
@@ -27,9 +28,12 @@
     isDirty = false,
     lastSavedAt = null,
     cooldownUntil = null,
+    testDisabledReason = null,
     onRun,
     onSubmit,
   }: Props = $props();
+
+  const uid = $props.id();
 
   let disabled = $derived(availableLanguageCount === 0 || !hasSubmittableSource);
 
@@ -72,10 +76,12 @@
   <div class="flex items-center gap-2">
     <button
       class="rounded-full border border-border px-3 py-1 text-caption font-medium text-foreground transition-[transform,box-shadow,background-color] duration-fast ease-out-soft hover:-translate-y-0.5 hover:bg-accent disabled:cursor-not-allowed disabled:opacity-60"
-      disabled={isRunning || disabled}
+      disabled={isRunning || disabled || testDisabledReason !== null}
       aria-busy={isRunning || toolchainPercent !== null}
+      aria-describedby={testDisabledReason !== null ? `${uid}-test-reason` : undefined}
       onclick={onRun}
-      title={!hasSubmittableSource ? m.editor_emptySourceTooltip() : undefined}
+      title={testDisabledReason ??
+        (!hasSubmittableSource ? m.editor_emptySourceTooltip() : undefined)}
       type="button"
     >
       {#if isRunning}
@@ -86,6 +92,9 @@
         {m.editor_run()}
       {/if}
     </button>
+    {#if testDisabledReason !== null}
+      <span id={`${uid}-test-reason`} class="sr-only">{testDisabledReason}</span>
+    {/if}
     <button
       class="rounded-full bg-success px-3 py-1 text-caption font-semibold text-white transition-[transform,box-shadow,background-color] duration-fast ease-out-soft hover:-translate-y-0.5 hover:bg-success/90 disabled:cursor-not-allowed disabled:opacity-60"
       disabled={isSubmitting || disabled || attemptsExhausted || cooldownRemaining > 0}

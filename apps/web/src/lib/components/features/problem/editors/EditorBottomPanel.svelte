@@ -1,23 +1,23 @@
 <script lang="ts">
   import Plus from "@lucide/svelte/icons/plus";
   import X from "@lucide/svelte/icons/x";
-  import {
-    MAX_RUN_CASES,
-    type JudgeType,
-    type SubmissionResult,
-    type SubmissionRunCase,
-  } from "@nojv/core";
+  import { MAX_RUN_CASES, type JudgeType, type SubmissionRunCase } from "@nojv/core";
   import { m } from "$lib/paraglide/messages.js";
+  import type { TestRunResult } from "$lib/types";
   import { formatVerdictLabel, verdictTone } from "$lib/utils/verdict-style";
   import { formatJudgeOutput } from "$lib/utils/judge-output";
   import { Badge } from "$lib/components/primitives/ui/badge";
+  import MarkdownRenderer from "$lib/components/primitives/layout/MarkdownRenderer.svelte";
 
   interface Props {
     runCases: SubmissionRunCase[];
     isReadOnly?: boolean;
+    customCasesAllowed?: boolean | undefined;
     judgeType?: JudgeType;
+    interactionFormat?: string | undefined;
+    testDisabledReason?: string | null | undefined;
     tab: "testcase" | "result";
-    runResult: SubmissionResult | null;
+    runResult: TestRunResult | null;
     runSource?: "local" | null;
     runStatus: string | null;
     runError: string | null;
@@ -27,7 +27,10 @@
   let {
     runCases = $bindable(),
     isReadOnly = false,
+    customCasesAllowed = true,
     judgeType,
+    interactionFormat = "",
+    testDisabledReason = null,
     tab,
     runResult,
     runSource = null,
@@ -61,7 +64,19 @@
     selectedResultCase = 0;
   });
 
-  let runVerdictLabel = $derived(runResult ? formatVerdictLabel(runResult.verdict) : undefined);
+  let interactive = $derived(judgeType === "interactive");
+  let caseInputLabel = $derived(
+    interactive ? m.problemDetail_interactorInput() : m.editor_input(),
+  );
+  let executedOnly = $derived(
+    !!runResult?.caseResults?.length &&
+      runResult.caseResults.every((caseResult) => caseResult.executionOnly),
+  );
+  let selectedCaseResult = $derived(runResult?.caseResults?.[selectedResultCase]);
+  let judgedOnServer = $derived(
+    (judgeType === "checker" || interactive) &&
+      !!runResult?.caseResults?.some((caseResult) => !caseResult.executionOnly),
+  );
 </script>
 
 <div class="flex h-full flex-col">
@@ -115,102 +130,131 @@
         </p>
       {:else}
         <div>
-          <div class="flex items-center gap-1" data-tour="problem-samples">
-            {#each runCases as _, index (`tab-${index}`)}
-              <div
-                class="group inline-flex items-center gap-1 rounded-full border border-border-subtle px-1 py-0.5 transition-[background-color,border-color] duration-fast ease-out-soft {selectedCase ===
-                index
-                  ? 'border-primary/35 bg-muted text-foreground'
-                  : 'text-muted-foreground'}"
-              >
-                <button
-                  class="inline-flex min-h-7 items-center justify-center rounded-full px-3 py-1 text-caption font-medium transition-[color] duration-fast ease-out-soft hover:text-foreground"
-                  onclick={() => (selectedCase = index)}
-                  type="button"
-                >
-                  {m.editor_case({ index: index + 1 })}
-                </button>
-                {#if runCases.length > 1}
-                  <button
-                    class="inline-flex size-6 shrink-0 items-center justify-center rounded-full border border-border-subtle bg-transparent text-muted-foreground transition-[color,border-color] duration-fast ease-out-soft hover:border-destructive/40 hover:bg-transparent hover:text-destructive"
-                    type="button"
-                    aria-label={m.editor_removeCase({ index: index + 1 })}
-                    title={m.editor_removeCase({ index: index + 1 })}
-                    onclick={() => {
-                      runCases = runCases.filter((_, i) => i !== index);
-                      selectedCase = Math.min(selectedCase, runCases.length - 1);
-                    }}
-                  >
-                    <X aria-hidden="true" class="size-3.5" />
-                  </button>
-                {/if}
+          {#if interactive && interactionFormat}
+            <div class="mb-3">
+              <p class="text-caption font-medium text-muted-foreground">
+                {m.problemDetail_interactionFormat()}
+              </p>
+              <div class="mt-1 text-body-sm leading-relaxed text-foreground">
+                <MarkdownRenderer content={interactionFormat} />
               </div>
-            {/each}
-            <button
-              class="inline-flex size-7 items-center justify-center rounded bg-transparent text-muted-foreground transition-[color] duration-fast ease-out-soft hover:bg-transparent hover:text-foreground"
-              aria-label={m.editor_testcase()}
-              title={m.editor_testcase()}
-              disabled={runCases.length >= MAX_RUN_CASES}
-              onclick={() => {
-                runCases = [...runCases, { input: "" }];
-                selectedCase = runCases.length - 1;
-              }}
-              type="button"
-            >
-              <Plus aria-hidden="true" class="size-4" />
-            </button>
-          </div>
-
-          <div class="mt-3">
-            <p class="text-caption text-muted-foreground">{m.editor_input()}</p>
-            <textarea
-              class="mt-1 w-full rounded-md bg-muted px-3 py-2 font-mono text-body-sm text-foreground outline-none transition-[box-shadow] duration-fast ease-out-soft focus:ring-1 focus:ring-border"
-              oninput={(e) => {
-                const val = (e.target as HTMLTextAreaElement).value;
-                runCases = runCases.map((tc, i) =>
-                  i === selectedCase ? { ...tc, input: val } : tc,
-                );
-              }}
-              rows={3}
-              value={runCases[selectedCase]?.input ?? ""}></textarea>
-          </div>
-
-          {#if judgeType === "interactive"}
-            <p class="mt-3 text-caption text-muted-foreground">
-              {m.editor_expectInteractiveNote()}
+            </div>
+          {/if}
+          {#if interactive && runCases.length === 0}
+            <p class="py-2 text-body-sm text-muted-foreground">
+              {m.editor_testNoInteractiveSamples()}
             </p>
           {:else}
+            <div class="flex items-center gap-1" data-tour="problem-samples">
+              {#each runCases as _, index (`tab-${index}`)}
+                <div
+                  class="group inline-flex items-center gap-1 rounded-full border border-border-subtle px-1 py-0.5 transition-[background-color,border-color] duration-fast ease-out-soft {selectedCase ===
+                  index
+                    ? 'border-primary/35 bg-muted text-foreground'
+                    : 'text-muted-foreground'}"
+                >
+                  <button
+                    class="inline-flex min-h-7 items-center justify-center rounded-full px-3 py-1 text-caption font-medium transition-[color] duration-fast ease-out-soft hover:text-foreground"
+                    onclick={() => (selectedCase = index)}
+                    type="button"
+                  >
+                    {m.editor_case({ index: index + 1 })}
+                  </button>
+                  {#if customCasesAllowed && runCases.length > 1}
+                    <button
+                      class="inline-flex size-6 shrink-0 items-center justify-center rounded-full border border-border-subtle bg-transparent text-muted-foreground transition-[color,border-color] duration-fast ease-out-soft hover:border-destructive/40 hover:bg-transparent hover:text-destructive"
+                      type="button"
+                      aria-label={m.editor_removeCase({ index: index + 1 })}
+                      title={m.editor_removeCase({ index: index + 1 })}
+                      onclick={() => {
+                        runCases = runCases.filter((_, i) => i !== index);
+                        selectedCase = Math.min(selectedCase, runCases.length - 1);
+                      }}
+                    >
+                      <X aria-hidden="true" class="size-3.5" />
+                    </button>
+                  {/if}
+                </div>
+              {/each}
+              {#if customCasesAllowed}
+                <button
+                  class="inline-flex size-7 items-center justify-center rounded bg-transparent text-muted-foreground transition-[color] duration-fast ease-out-soft hover:bg-transparent hover:text-foreground"
+                  aria-label={m.editor_testcase()}
+                  title={m.editor_testcase()}
+                  disabled={runCases.length >= MAX_RUN_CASES}
+                  onclick={() => {
+                    runCases = [...runCases, { input: "" }];
+                    selectedCase = runCases.length - 1;
+                  }}
+                  type="button"
+                >
+                  <Plus aria-hidden="true" class="size-4" />
+                </button>
+              {/if}
+            </div>
+
             <div class="mt-3">
-              <label class="flex items-center gap-2 text-caption text-muted-foreground">
-                <input
-                  type="checkbox"
-                  checked={runCases[selectedCase]?.expectedOutput !== undefined}
-                  onchange={(event) => {
-                    const checked = event.currentTarget.checked;
+              <p class="text-caption text-muted-foreground">{caseInputLabel}</p>
+              {#if customCasesAllowed}
+                <textarea
+                  class="mt-1 w-full rounded-md bg-muted px-3 py-2 font-mono text-body-sm text-foreground outline-none transition-[box-shadow] duration-fast ease-out-soft focus:ring-1 focus:ring-border"
+                  oninput={(e) => {
+                    const val = (e.target as HTMLTextAreaElement).value;
                     runCases = runCases.map((tc, i) =>
-                      i !== selectedCase
-                        ? tc
-                        : checked
-                          ? { ...tc, expectedOutput: "" }
-                          : { input: tc.input },
+                      i === selectedCase ? { ...tc, input: val } : tc,
                     );
                   }}
-                />
-                {m.editor_compareOutput()}
-              </label>
-              <textarea
-                aria-label={m.editor_expectLabel()}
-                disabled={runCases[selectedCase]?.expectedOutput === undefined}
-                class="mt-1 w-full rounded-md bg-muted px-3 py-2 font-mono text-body-sm text-foreground outline-none transition-[box-shadow] duration-fast ease-out-soft focus:ring-1 focus:ring-border"
-                oninput={(e) => {
-                  const val = (e.target as HTMLTextAreaElement).value;
-                  runCases = runCases.map((tc, i) =>
-                    i === selectedCase ? { ...tc, expectedOutput: val } : tc,
-                  );
-                }}
-                rows={2}
-                value={runCases[selectedCase]?.expectedOutput ?? ""}></textarea>
+                  rows={3}
+                  value={runCases[selectedCase]?.input ?? ""}></textarea>
+              {:else}
+                <pre
+                  class="mt-1 overflow-x-auto rounded-md bg-muted px-3 py-2 font-mono text-body-sm text-foreground">{runCases[
+                    selectedCase
+                  ]?.input ?? ""}</pre>
+              {/if}
             </div>
+
+            {#if interactive}
+              <p class="mt-3 text-caption text-muted-foreground">
+                {m.editor_interactiveTestNote()}
+              </p>
+            {:else if judgeType === "checker"}
+              <p class="mt-3 text-caption text-muted-foreground">
+                {m.editor_checkerCasesNote()}
+              </p>
+            {:else}
+              <div class="mt-3">
+                <label class="flex items-center gap-2 text-caption text-muted-foreground">
+                  <input
+                    type="checkbox"
+                    checked={runCases[selectedCase]?.expectedOutput !== undefined}
+                    onchange={(event) => {
+                      const checked = event.currentTarget.checked;
+                      runCases = runCases.map((tc, i) =>
+                        i !== selectedCase
+                          ? tc
+                          : checked
+                            ? { ...tc, expectedOutput: "" }
+                            : { input: tc.input },
+                      );
+                    }}
+                  />
+                  {m.editor_compareOutput()}
+                </label>
+                <textarea
+                  aria-label={m.editor_expectLabel()}
+                  disabled={runCases[selectedCase]?.expectedOutput === undefined}
+                  class="mt-1 w-full rounded-md bg-muted px-3 py-2 font-mono text-body-sm text-foreground outline-none transition-[box-shadow] duration-fast ease-out-soft focus:ring-1 focus:ring-border"
+                  oninput={(e) => {
+                    const val = (e.target as HTMLTextAreaElement).value;
+                    runCases = runCases.map((tc, i) =>
+                      i === selectedCase ? { ...tc, expectedOutput: val } : tc,
+                    );
+                  }}
+                  rows={2}
+                  value={runCases[selectedCase]?.expectedOutput ?? ""}></textarea>
+              </div>
+            {/if}
           {/if}
         </div>
       {/if}
@@ -220,13 +264,16 @@
           <div>
             <div class="flex items-baseline gap-3">
               <span
-                class="inline-block text-body-lg font-semibold motion-safe:animate-[verdict-pop_320ms_var(--ease-spring)_both] {verdictTone(
-                  runResult.verdict,
-                )}"
+                class="inline-block text-body-lg font-semibold motion-safe:animate-[verdict-pop_320ms_var(--ease-spring)_both] {executedOnly
+                  ? 'text-foreground'
+                  : verdictTone(runResult.verdict)}"
               >
-                {runVerdictLabel}
+                {executedOnly ? m.editor_executed() : formatVerdictLabel(runResult.verdict)}
               </span>
               <Badge variant="muted" size="xs">{m.editor_samplesOnly()}</Badge>
+              {#if judgedOnServer}
+                <Badge variant="muted" size="xs">{m.editor_judgedOnServer()}</Badge>
+              {/if}
               {#if runResult.runtimeMs > 0}
                 <span class="text-caption text-muted-foreground tabular-nums">
                   {runSource === "local"
@@ -247,19 +294,37 @@
                     onclick={() => (selectedResultCase = index)}
                     type="button"
                   >
-                    <span class={cr.verdict === "AC" ? "text-success" : "text-destructive"}>
-                      {cr.verdict === "AC" ? "\u2714" : "\u2718"}
-                    </span>
+                    {#if cr.executionOnly}
+                      <span class="text-muted-foreground" title={m.editor_executed()}>
+                        {"\u25CB"}
+                      </span>
+                    {:else}
+                      <span class={cr.verdict === "AC" ? "text-success" : "text-destructive"}>
+                        {cr.verdict === "AC" ? "\u2714" : "\u2718"}
+                      </span>
+                    {/if}
                     {m.editor_case({ index: index + 1 })}
                   </button>
                 {/each}
               </div>
 
               <div class="mt-3 space-y-3">
+                {#if selectedCaseResult?.executionOnly}
+                  <p class="text-caption text-muted-foreground">{m.editor_executedNote()}</p>
+                {:else if selectedCaseResult?.teamMessage}
+                  <div>
+                    <p class="text-caption font-medium text-muted-foreground">
+                      {m.editor_judgeMessage()}
+                    </p>
+                    <p class="mt-1 whitespace-pre-wrap text-body-sm text-foreground">
+                      {selectedCaseResult.teamMessage}
+                    </p>
+                  </div>
+                {/if}
                 {#if runCases[selectedResultCase]}
                   <div>
                     <p class="text-caption font-medium text-muted-foreground">
-                      {m.editor_input()}
+                      {caseInputLabel}
                     </p>
                     <pre
                       class="mt-1 overflow-x-auto rounded-md bg-muted px-3 py-2 font-mono text-body-sm text-foreground">{runCases[
@@ -270,14 +335,41 @@
 
                 {#if runResult.caseResults[selectedResultCase]}
                   {@const caseData = runResult.caseResults[selectedResultCase]!}
-                  <div>
-                    <p class="text-caption font-medium text-muted-foreground">
-                      {m.editor_outputLabel()}
-                    </p>
-                    <pre
-                      class="mt-1 overflow-x-auto rounded-md bg-muted px-3 py-2 font-mono text-body-sm text-foreground">{caseData.stdout ||
-                        m.common_emptyOutput()}</pre>
-                  </div>
+                  {#if !interactive}
+                    <div>
+                      <p class="text-caption font-medium text-muted-foreground">
+                        {m.editor_outputLabel()}
+                      </p>
+                      <pre
+                        class="mt-1 overflow-x-auto rounded-md bg-muted px-3 py-2 font-mono text-body-sm text-foreground">{caseData.stdout ||
+                          m.common_emptyOutput()}</pre>
+                    </div>
+                  {/if}
+                  {#if caseData.transcript}
+                    <div class="@container">
+                      <p class="text-caption font-medium text-muted-foreground">
+                        {m.editor_transcript()}
+                      </p>
+                      <div class="mt-1 grid gap-2 @md:grid-cols-2">
+                        <div class="min-w-0">
+                          <p class="text-micro text-muted-foreground">
+                            {m.editor_transcriptFromInteractor()}
+                          </p>
+                          <pre
+                            class="mt-1 overflow-x-auto rounded-md bg-muted px-3 py-2 font-mono text-body-sm text-foreground">{caseData
+                              .transcript.toContestant || m.common_emptyOutput()}</pre>
+                        </div>
+                        <div class="min-w-0">
+                          <p class="text-micro text-muted-foreground">
+                            {m.editor_transcriptFromProgram()}
+                          </p>
+                          <pre
+                            class="mt-1 overflow-x-auto rounded-md bg-muted px-3 py-2 font-mono text-body-sm text-foreground">{caseData
+                              .transcript.toInteractor || m.common_emptyOutput()}</pre>
+                        </div>
+                      </div>
+                    </div>
+                  {/if}
                   {#if caseData.stderr}
                     <div>
                       <p class="text-caption font-medium text-destructive">
@@ -291,7 +383,7 @@
                   {/if}
                 {/if}
 
-                {#if runCases[selectedResultCase]?.expectedOutput !== undefined}
+                {#if judgeType !== "checker" && runCases[selectedResultCase]?.expectedOutput !== undefined}
                   <div>
                     <p class="text-caption font-medium text-muted-foreground">
                       {m.editor_expectLabel()}
@@ -328,7 +420,9 @@
             {runError}
           </div>
         {:else}
-          <p class="py-4 text-body-sm text-muted-foreground">{m.editor_runFirst()}</p>
+          <p class="py-4 text-body-sm text-muted-foreground">
+            {testDisabledReason ?? m.editor_runFirst()}
+          </p>
         {/if}
       </div>
     {/if}
