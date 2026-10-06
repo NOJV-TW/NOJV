@@ -106,6 +106,7 @@ overrides:
 
 patchedDependencies:
   '@dodona/dolos-parsers@1.4.1': cc07f2e561cacd740bb9ba0178ee89c99979b628d3d16087efb1d983b018ebfe
+  '@wasm-oj/server@0.2.3': 7281da74060b59bece930aae08edce0256dfc913f828aabc0fada85917d4b1dc
   marked-katex-extension@5.1.12: b9fbcdff61ead4dbbf9ba1e3a4baee13f5756ef2a26f63addc290cb0571052a3
   tree-sitter@0.25.0: 581e1c376edeabe3d25b64ea7bac59e14cc731627b17b97acccf0cce1dd051cb
 
@@ -471,7 +472,7 @@ importers:
         version: 0.2.3
       '@wasm-oj/server':
         specifier: 0.2.3
-        version: 0.2.3
+        version: 0.2.3(patch_hash=7281da74060b59bece930aae08edce0256dfc913f828aabc0fada85917d4b1dc)
       ioredis:
         specifier: 'catalog:'
         version: 6.0.0
@@ -9873,7 +9874,7 @@ snapshots:
       '@wasm-oj/contracts': 0.2.3
       fflate: 0.8.3
 
-  '@wasm-oj/server@0.2.3':
+  '@wasm-oj/server@0.2.3(patch_hash=7281da74060b59bece930aae08edce0256dfc913f828aabc0fada85917d4b1dc)':
     dependencies:
       '@wasm-oj/contracts': 0.2.3
       '@wasm-oj/core': 0.2.3

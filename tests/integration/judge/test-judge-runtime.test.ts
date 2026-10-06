@@ -259,6 +259,34 @@ describe.skipIf(!runtimeDir || !toolchainDir)("test-judge WASM-OJ runtime", () =
     300_000,
   );
 
+  it("survives cancelling a run while its request is still being written", async () => {
+    const { engine, release } = await pool.acquire();
+    const uncaught: unknown[] = [];
+    const onUncaught = (error: unknown) => uncaught.push(error);
+    process.on("uncaughtException", onUncaught);
+    try {
+      const built = await getJudgeProgram(
+        { engine, store: memoryStore() },
+        { role: "checker", language: "python", source: PYTHON_SUM_CHECKER },
+      );
+      expect(built.ok).toBe(true);
+      if (!built.ok) return;
+      expect(await runChecker(engine, built.artifact, "5\n")).toMatchObject({ code: 42 });
+
+      for (const delayMs of [0, 1, 5, 20]) {
+        const run = runChecker(engine, built.artifact, "5\n");
+        setTimeout(() => engine.cancel(), delayMs);
+        await run.catch(() => undefined);
+        await new Promise((resolve) => setTimeout(resolve, 200));
+      }
+
+      expect(uncaught).toEqual([]);
+    } finally {
+      process.off("uncaughtException", onUncaught);
+      release();
+    }
+  }, 300_000);
+
   it("builds a C++ checker that does not include bits/stdc++.h without the libc++ PCH", async () => {
     const { engine, release } = await pool.acquire();
     try {

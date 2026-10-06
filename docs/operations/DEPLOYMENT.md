@@ -526,7 +526,8 @@ update `@wasm-oj/*` or the `rust` builder image. To upgrade WASM-OJ:
 2. Bump the toolchain versions in `infra/docker/wasm-oj-toolchains/package.json`
    and regenerate its `package-lock.json` (`npm install --package-lock-only`).
 3. Bump the `@wasm-oj/*` pins in `apps/web/package.json` and `apps/worker/package.json`
-   and their `minimumReleaseAgeExclude` entries in `pnpm-workspace.yaml`, then
+   and their `minimumReleaseAgeExclude` entries in `pnpm-workspace.yaml`, drop or
+   rebase `patches/@wasm-oj__server@*.patch` and its `patchedDependencies` entry, then
    `pnpm install`.
 4. Update `WASM_OJ_SERVER_VERSIONS` in `packages/core/src/judge/test-judge-program.ts`;
    the new server identity rebuilds every cached judge program on first use.

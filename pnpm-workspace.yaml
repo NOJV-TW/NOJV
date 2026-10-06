@@ -69,6 +69,7 @@ patchedDependencies:
   tree-sitter@0.25.0: patches/tree-sitter@0.25.0.patch
   "@dodona/dolos-parsers@1.4.1": patches/@dodona__dolos-parsers@1.4.1.patch
   marked-katex-extension@5.1.12: patches/marked-katex-extension@5.1.12.patch
+  "@wasm-oj/server@0.2.3": patches/@wasm-oj__server@0.2.3.patch
 
 catalog:
   # Cross-package shared core deps — must stay version-consistent.
