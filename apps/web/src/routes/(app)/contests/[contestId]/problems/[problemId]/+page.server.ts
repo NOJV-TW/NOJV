@@ -29,7 +29,7 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
   const problemsList = contestData.problems ?? [];
   const isContestProblem = problemsList.some((p) => p.id === problemId);
 
-  if (!isContestProblem && !contestData.isManager) {
+  if (!isContestProblem) {
     error(404, m.contestDetail_problemNotFound());
   }
 
