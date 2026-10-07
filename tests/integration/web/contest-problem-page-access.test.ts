@@ -10,48 +10,77 @@ import {
 
 type TestUser = Awaited<ReturnType<typeof createTestUser>>;
 
-function loadAs(user: TestUser, contestId: string, problemId: string) {
-  const url = new URL(`/contests/${contestId}/problems/${problemId}`, "http://localhost");
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+function loadFor(user: TestUser, contestId: string, problemId: string) {
   return load({
-    url,
-    request: new Request(url),
     params: { contestId, problemId },
-    depends: () => {},
-    getClientAddress: () => "127.0.0.1",
     locals: {
       sessionUser: user,
       adminAccessActive: false,
       apiTokenActor: null,
       examGate: null,
     },
+    depends: () => undefined,
   } as unknown as Parameters<typeof load>[0]);
 }
 
-async function organizerFixture() {
-  const organizer = await createTestUser({ platformRole: "teacher" });
-  const contest = await createTestContest({ createdByUserId: organizer.id });
-  const contestProblem = await createTestProblem({ authorId: organizer.id });
-  await testPrisma.contestProblem.create({
-    data: { contestId: contest.id, problemId: contestProblem.id, ordinal: 1, points: 100 },
+async function fixture(startsAt: Date) {
+  const owner = await createTestUser({ platformRole: "teacher" });
+  const student = await createTestUser();
+  const contest = await createTestContest({
+    createdByUserId: owner.id,
+    startsAt,
+    endsAt: new Date(startsAt.getTime() + DAY_MS),
   });
-  return { organizer, contest, contestProblem };
+  const inContest = await createTestProblem({ authorId: owner.id });
+  const outside = await createTestProblem({
+    authorId: (await createTestUser({ platformRole: "teacher" })).id,
+    visibility: "private",
+  });
+  await testPrisma.contestProblem.create({
+    data: { contestId: contest.id, problemId: inContest.id, ordinal: 1, points: 100 },
+  });
+  await testPrisma.participation.create({
+    data: { type: "contest", contestId: contest.id, userId: student.id, status: "registered" },
+  });
+  return { contest, inContest, outside, owner, student };
 }
 
 describe("contest problem page access (real DB)", () => {
-  it("returns 404 to the organizer for another teacher's private problem outside the contest", async () => {
-    const { organizer, contest } = await organizerFixture();
-    const foreign = await createTestProblem({ visibility: "private" });
+  it("redirects a non-manager to the contest for every problem id before start", async () => {
+    const { contest, inContest, outside, student } = await fixture(
+      new Date(Date.now() + DAY_MS),
+    );
 
-    await expect(loadAs(organizer, contest.id, foreign.id)).rejects.toMatchObject({
-      status: 404,
-    });
+    for (const problemId of [inContest.id, outside.id, "missing-problem"]) {
+      await expect(loadFor(student, contest.id, problemId)).rejects.toMatchObject({
+        status: 303,
+        location: `/contests/${contest.id}`,
+      });
+    }
   });
 
-  it("still serves the organizer a problem that is in the contest", async () => {
-    const { organizer, contest, contestProblem } = await organizerFixture();
+  it("404s a problem outside the contest for managers and participants", async () => {
+    const { contest, inContest, outside, owner, student } = await fixture(
+      new Date(Date.now() - DAY_MS / 2),
+    );
 
-    await expect(loadAs(organizer, contest.id, contestProblem.id)).resolves.toMatchObject({
-      problem: { id: contestProblem.id },
+    await expect(loadFor(owner, contest.id, inContest.id)).resolves.toMatchObject({
+      problem: { id: inContest.id },
+    });
+    for (const user of [owner, student]) {
+      await expect(loadFor(user, contest.id, outside.id)).rejects.toMatchObject({
+        status: 404,
+      });
+    }
+  });
+
+  it("404s a problem outside the contest for a manager before start", async () => {
+    const { contest, outside, owner } = await fixture(new Date(Date.now() + DAY_MS));
+
+    await expect(loadFor(owner, contest.id, outside.id)).rejects.toMatchObject({
+      status: 404,
     });
   });
 });

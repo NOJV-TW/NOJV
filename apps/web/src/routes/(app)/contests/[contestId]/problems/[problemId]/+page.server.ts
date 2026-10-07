@@ -16,31 +16,29 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
   const { contestId, problemId } = event.params;
   const now = new Date();
 
-  const [contestData, problem, submissions, testcaseSets] = await Promise.all([
-    getContestWorkspaceData(contestId, actor.userId, {
-      now,
-      platformRole: actor.platformRole,
-    }),
+  const contestData = await getContestWorkspaceData(contestId, actor.userId, {
+    now,
+    platformRole: actor.platformRole,
+  });
+
+  if (contestData.problemsHidden) {
+    redirect(303, `/contests/${contestId}`);
+  }
+
+  const problemsList = contestData.problems ?? [];
+  if (!problemsList.some((p) => p.id === problemId)) {
+    error(404, m.contestDetail_problemNotFound());
+  }
+
+  if (!contestData.isManager && now > new Date(contestData.endsAt)) {
+    redirect(302, `/problems/${problemId}`);
+  }
+
+  const [problem, submissions, testcaseSets] = await Promise.all([
     getProblemPageData(problemId),
     listProblemSubmissions(actor.userId, problemId, { contestId }),
     getProblemTestcaseSetSummaries(problemId),
   ]);
-
-  const problemsList = contestData.problems ?? [];
-  const isContestProblem = problemsList.some((p) => p.id === problemId);
-
-  if (!isContestProblem) {
-    error(404, m.contestDetail_problemNotFound());
-  }
-
-  if (!contestData.isManager) {
-    if (now < new Date(contestData.startsAt)) {
-      redirect(303, `/contests/${contestId}`);
-    }
-    if (now > new Date(contestData.endsAt)) {
-      redirect(302, `/problems/${problemId}`);
-    }
-  }
 
   if (!contestData.isManager && !contestData.participation) {
     redirect(303, `/contests/${contestId}`);
