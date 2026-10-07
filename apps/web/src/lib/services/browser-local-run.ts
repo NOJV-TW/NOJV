@@ -1,10 +1,13 @@
 import {
   MAX_EXECUTION_OUTPUT_BYTES,
+  checkerCaseVerdict,
   compareStandard,
   entryFileNameFor,
   effectiveTimeLimitMs,
+  executionWallTimeLimitMs,
   isBrowserLocalLanguage,
   judgeProgramCompileInput,
+  validatorTimeoutMs,
   wasmOjTerminationVerdict,
   withCppPlatformHeaders,
   type CaseResult,
@@ -45,6 +48,8 @@ const BROWSER_TOOLCHAINS = [
   rustSource(BROWSER_TOOLCHAIN_BASE_URL),
 ];
 const PRELOAD_RETRY_DELAYS_MS = [2_000, 5_000];
+const CHECKER_MEMORY_LIMIT_BYTES = 512 * 1024 * 1024;
+const CHECKER_TEAM_MESSAGE_PATH = "/judge/feedback/teammessage.txt";
 let browserEnginePromise: Promise<Engine> | undefined;
 
 interface ToolchainPreload {
@@ -170,7 +175,7 @@ export function browserLocalTerminationFeedback(
   }
 }
 
-export interface BrowserCaseRun {
+interface BrowserCaseRun {
   verdict: ReturnType<typeof wasmOjTerminationVerdict>;
   stdout: string;
   stderr?: string;
@@ -180,14 +185,14 @@ export interface BrowserCaseRun {
   termination: RunResult["termination"];
 }
 
-export interface BrowserRunLimits {
+interface BrowserRunLimits {
   language: Language;
   timeLimitMs: number;
   memoryLimitMb: number;
   env: Record<string, string>;
 }
 
-export type BrowserCompileOutcome =
+type BrowserCompileOutcome =
   { ok: true; artifact: BuildArtifact } | { ok: false; result: SubmissionResult };
 
 function browserCaseRun(run: RunResult): BrowserCaseRun {
@@ -399,6 +404,48 @@ export async function runBrowserCases(
       runs.push(browserCaseRun(run));
     }
     return runs;
+  } finally {
+    signal.removeEventListener("abort", cancel);
+  }
+}
+
+export async function runBrowserChecker(
+  artifact: BuildArtifact,
+  {
+    input,
+    answer,
+    output,
+    timeLimitMs,
+  }: { input: string; answer: string; output: string; timeLimitMs: number },
+  signal: AbortSignal,
+): Promise<ReturnType<typeof checkerCaseVerdict>> {
+  const browserEngine = await getBrowserEngine();
+  const cancel = () => browserEngine.cancel();
+  signal.addEventListener("abort", cancel, { once: true });
+  try {
+    signal.throwIfAborted();
+    const timeoutMs = validatorTimeoutMs(timeLimitMs);
+    const run = await browserEngine.run(artifact, {
+      args: ["/judge/input", "/judge/answer", "/judge/feedback"],
+      stdin: output,
+      files: {
+        "/judge/input": input,
+        "/judge/answer": answer,
+        "/judge/feedback/.keep": "",
+      },
+      outputPaths: [CHECKER_TEAM_MESSAGE_PATH],
+      resources: {
+        logicalTimeLimitMs: timeoutMs,
+        memoryLimitBytes: CHECKER_MEMORY_LIMIT_BYTES,
+        wallTimeLimitMs: executionWallTimeLimitMs(timeoutMs),
+      },
+    });
+    signal.throwIfAborted();
+    const teamMessage = run.files[CHECKER_TEAM_MESSAGE_PATH];
+    return checkerCaseVerdict(
+      run,
+      teamMessage === undefined ? undefined : new TextDecoder().decode(teamMessage),
+    );
   } finally {
     signal.removeEventListener("abort", cancel);
   }

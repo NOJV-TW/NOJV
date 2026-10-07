@@ -1,5 +1,9 @@
 import { expect, it, vi } from "vitest";
-import { runBrowserCases, runBrowserLocally } from "$lib/services/browser-local-run";
+import {
+  runBrowserCases,
+  runBrowserChecker,
+  runBrowserLocally,
+} from "$lib/services/browser-local-run";
 
 const engine = vi.hoisted(() => ({
   compile: vi.fn<(...args: unknown[]) => Promise<unknown>>().mockResolvedValue({
@@ -388,4 +392,78 @@ it("returns each raw run with its exit status and unjudged stdout", async () => 
       termination: "exited",
     },
   ]);
+});
+
+function checkerRun(code: number, termination = "exited", teamMessage?: string) {
+  return {
+    termination,
+    code,
+    stdout: "",
+    stderr: "",
+    files:
+      teamMessage === undefined
+        ? {}
+        : { "/judge/feedback/teammessage.txt": new TextEncoder().encode(teamMessage) },
+    durationMs: 1,
+    metrics: { logicalTimeNs: 1, memoryBytes: 1024 },
+  };
+}
+
+it("runs a checker on the student's output with the sample as its input and answer", async () => {
+  const checker = { id: "checker" } as never;
+  engine.run.mockResolvedValueOnce(checkerRun(42, "exited", "Valid pair"));
+
+  const judgement = await runBrowserChecker(
+    checker,
+    { input: "4 9\n2 7 11 15\n", answer: "0 1\n", output: "1 0\n", timeLimitMs: 1000 },
+    new AbortController().signal,
+  );
+
+  expect(judgement).toEqual({ verdict: "AC", teamMessage: "Valid pair" });
+  expect(engine.run).toHaveBeenLastCalledWith(checker, {
+    args: ["/judge/input", "/judge/answer", "/judge/feedback"],
+    stdin: "1 0\n",
+    files: {
+      "/judge/input": "4 9\n2 7 11 15\n",
+      "/judge/answer": "0 1\n",
+      "/judge/feedback/.keep": "",
+    },
+    outputPaths: ["/judge/feedback/teammessage.txt"],
+    resources: {
+      logicalTimeLimitMs: 30_000,
+      memoryLimitBytes: 512 * 1024 * 1024,
+      wallTimeLimitMs: 60_000,
+    },
+  });
+});
+
+it("gives a checker the official validator time when the problem's limit is longer", async () => {
+  engine.run.mockResolvedValueOnce(checkerRun(43));
+
+  await expect(
+    runBrowserChecker(
+      { id: "checker" } as never,
+      { input: "", answer: "", output: "", timeLimitMs: 45_000 },
+      new AbortController().signal,
+    ),
+  ).resolves.toEqual({ verdict: "WA" });
+  expect(engine.run.mock.calls.at(-1)?.[1]).toMatchObject({
+    resources: { logicalTimeLimitMs: 45_000, wallTimeLimitMs: 90_000 },
+  });
+});
+
+it.each([
+  ["exits with another code", checkerRun(0, "exited", "ignored")],
+  ["runs out of time", checkerRun(0, "wall-time-limit")],
+  ["traps", checkerRun(0, "trap")],
+])("maps a checker that %s to a judge system error", async (_label, run) => {
+  engine.run.mockResolvedValueOnce(run);
+
+  await expect(
+    runBrowserChecker(
+      { id: "checker" } as never,
+      { input: "", answer: "", output: "", timeLimitMs: 1000 },
+      new AbortController().signal,
+    ),
+  ).resolves.toEqual({ verdict: "SE" });
 });

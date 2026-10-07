@@ -36,6 +36,7 @@ function editor() {
       workspaceDrafts: () => ({}),
       workspaceFiles: () => [],
       context: () => ({ type: "exam", examId: "exam_1" }),
+      judgeProgram: vi.fn(),
       onSubmissionDispatched: dispatched,
       onSubmissionComplete: complete,
     }),

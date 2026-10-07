@@ -236,6 +236,7 @@
     workspaceDrafts: () => workspaceFiles.drafts,
     workspaceFiles: () => workspaceFilesForLanguage,
     context: () => context,
+    judgeProgram: prepareProblemJudgeProgram,
     onSubmissionDispatched: (id, lang) => onSubmissionDispatched?.(id, lang),
     onSubmissionComplete: (id, result, lang, src) =>
       onSubmissionComplete?.(id, result, lang, src),

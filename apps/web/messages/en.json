@@ -1148,7 +1148,6 @@
   "editor_checkerCasesNote": "This problem's checker judges the samples only. Cases you add or change just run without a verdict, so check their output yourself.",
   "editor_executed": "Executed",
   "editor_executedNote": "This case ran without being judged. Check its output yourself.",
-  "editor_judgedOnServer": "Judged on the server",
   "editor_judgeFeedback": "Feedback",
   "editor_transcript": "Transcript",
   "editor_transcriptFromInteractor": "From the interactor",

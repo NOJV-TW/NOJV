@@ -75,9 +75,6 @@
       runResult.caseResults.every((caseResult) => caseResult.executionOnly),
   );
   let selectedCaseResult = $derived(runResult?.caseResults?.[selectedResultCase]);
-  let judgedOnServer = $derived(
-    !!runResult?.caseResults?.some((caseResult) => caseResult.serverJudged),
-  );
 </script>
 
 <div class="flex h-full flex-col">
@@ -272,9 +269,6 @@
                 {executedOnly ? m.editor_executed() : formatVerdictLabel(runResult.verdict)}
               </span>
               <Badge variant="muted" size="xs">{m.editor_samplesOnly()}</Badge>
-              {#if judgedOnServer}
-                <Badge variant="muted" size="xs">{m.editor_judgedOnServer()}</Badge>
-              {/if}
               {#if runResult.runtimeMs > 0}
                 <span class="text-caption text-muted-foreground tabular-nums">
                   {runSource === "local"
@@ -283,14 +277,6 @@
                 </span>
               {/if}
             </div>
-
-            {#if runResult.serverNotice}
-              <p
-                class="mt-2 rounded-md bg-warning/10 px-3 py-2 text-body-sm text-warning-strong"
-              >
-                {runResult.serverNotice}
-              </p>
-            {/if}
 
             {#if runResult.caseResults && runResult.caseResults.length > 0}
               <div class="mt-3 flex items-center gap-1">
@@ -320,7 +306,7 @@
               <div class="mt-3 space-y-3">
                 {#if selectedCaseResult?.executionOnly}
                   <p class="text-caption text-muted-foreground">{m.editor_executedNote()}</p>
-                {:else if selectedCaseResult?.serverJudged && selectedCaseResult.verdict === "SE"}
+                {:else if selectedCaseResult?.judged && selectedCaseResult.verdict === "SE"}
                   <p class="text-caption text-muted-foreground">
                     {m.editor_judgeSystemError()}
                   </p>

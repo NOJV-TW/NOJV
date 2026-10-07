@@ -33,6 +33,7 @@
     workspaceDrafts: () => ({}),
     workspaceFiles: () => [],
     context: () => context,
+    judgeProgram: () => Promise.resolve({ ok: false, reason: "load_failed" } as const),
     onSubmissionDispatched: (id, language) => onSubmissionDispatched(id, language),
     onSubmissionComplete: (id, result, language, source) =>
       onSubmissionComplete(id, result, language, source),

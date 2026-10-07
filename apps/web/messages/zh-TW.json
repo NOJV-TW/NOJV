@@ -1148,7 +1148,6 @@
   "editor_checkerCasesNote": "本題的 checker 只評測範例測資。你新增或修改的測資只會執行、不會判定對錯，請自行檢查輸出。",
   "editor_executed": "已執行",
   "editor_executedNote": "這組測資只有執行、沒有評測，請自行檢查輸出。",
-  "editor_judgedOnServer": "由伺服器評測",
   "editor_judgeFeedback": "評測回饋",
   "editor_transcript": "互動紀錄",
   "editor_transcriptFromInteractor": "Interactor 送出",

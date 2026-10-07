@@ -6,19 +6,28 @@ import type {
   SubmissionResult,
   SubmissionRunCase,
 } from "@nojv/core";
+import type { BuildArtifact } from "@wasm-oj/browser";
 import { m } from "$lib/paraglide/messages.js";
 import {
   submissionRequestValidationError,
   SubmissionRequestError,
+  type SubmissionRequest,
 } from "$lib/services/submission-service";
 import { submitProblem } from "$lib/services/problem-submission";
 import { toasts } from "$lib/stores/toast";
 import {
+  browserCaseResult,
+  browserLocalErrorResult,
+  browserLocalSubmissionResult,
   browserToolchainPercent,
+  compileBrowserLocally,
   preloadBrowserToolchain,
+  runBrowserCases,
+  runBrowserChecker,
   runBrowserLocally,
   supportsBrowserLocalRun,
 } from "$lib/services/browser-local-run";
+import type { PreparedJudgeProgram } from "$lib/services/judge-program";
 import type { ProblemDetail, TestCaseView, TestRunResult } from "$lib/types";
 import {
   buildSubmissionRequest,
@@ -42,6 +51,7 @@ interface EditorRunArgs {
   workspaceDrafts: () => Record<string, string>;
   workspaceFiles: () => WorkspaceFile[];
   context: () => SubmissionContext;
+  judgeProgram: () => Promise<PreparedJudgeProgram>;
   onSubmissionDispatched?: ((submissionId: string, language: string) => void) | undefined;
   onSubmissionComplete?:
     | ((
@@ -133,6 +143,57 @@ export function createEditorRunController(args: EditorRunArgs): EditorRunControl
   let destroyed = false;
   let abortController: AbortController | null = null;
 
+  async function runCheckerTest(
+    request: SubmissionRequest,
+    runCases: SubmissionRunCase[],
+    checker: BuildArtifact,
+    signal: AbortSignal,
+  ): Promise<TestRunResult | null> {
+    try {
+      const build = await compileBrowserLocally(request, args.problemId, signal);
+      if (!build.ok) return build.result;
+      const runs = await runBrowserCases(
+        build.artifact,
+        runCases,
+        {
+          language: request.language,
+          timeLimitMs: args.timeLimitMs,
+          memoryLimitMb: args.memoryLimitMb,
+          env: args.judgeConfig().runtime?.env ?? {},
+        },
+        signal,
+      );
+      const caseResults: TestCaseView[] = [];
+      for (const [index, run] of runs.entries()) {
+        const view = browserCaseResult(run, undefined, undefined, index);
+        const sample =
+          run.verdict === "AC"
+            ? args.initialSamples.find(
+                (candidate) => candidate.input === runCases[index]?.input,
+              )
+            : undefined;
+        if (!sample) {
+          caseResults.push(view.verdict === "AC" ? { ...view, executionOnly: true } : view);
+          continue;
+        }
+        const judgement = await runBrowserChecker(
+          checker,
+          {
+            input: sample.input,
+            answer: sample.output,
+            output: run.stdout,
+            timeLimitMs: args.timeLimitMs,
+          },
+          signal,
+        );
+        caseResults.push({ ...view, ...judgement, judged: true });
+      }
+      return { ...browserLocalSubmissionResult(caseResults), caseResults };
+    } catch (error) {
+      return signal.aborted ? null : browserLocalErrorResult(error);
+    }
+  }
+
   async function runSubmission(): Promise<TestRunResult | null> {
     if (args.isSpecialEnv())
       throw new SubmissionRequestError(
@@ -140,7 +201,7 @@ export function createEditorRunController(args: EditorRunArgs): EditorRunControl
         "client_test_custom_image",
         null,
       );
-    if (args.judgeType() !== "standard")
+    if (args.judgeType() === "interactive")
       throw new SubmissionRequestError(
         "Test can't run this problem's judge program in the browser yet.",
         "client_test_judge_program",
@@ -194,9 +255,18 @@ export function createEditorRunController(args: EditorRunArgs): EditorRunControl
       );
     }
     if (signal.aborted) return null;
+    const browserRequest = projectBrowserSubmission(request, args.workspaceFiles());
+    if (args.judgeType() === "checker") {
+      runStatus = m.editor_checkerPreparing();
+      const checker = await args.judgeProgram();
+      if (!checker.ok) return null;
+      runStatus = m.editor_running();
+      const judged = await runCheckerTest(browserRequest, runCases, checker.artifact, signal);
+      return destroyed ? null : judged;
+    }
     runStatus = m.editor_running();
     const local = await runBrowserLocally({
-      request: projectBrowserSubmission(request, args.workspaceFiles()),
+      request: browserRequest,
       cases: runCases,
       judgeConfig: args.judgeConfig(),
       problemId: args.problemId,

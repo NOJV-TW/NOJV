@@ -15,14 +15,13 @@ import type {
 
 export interface TestCaseView extends CaseResult {
   executionOnly?: true;
-  serverJudged?: true;
+  judged?: true;
   teamMessage?: string;
   transcript?: { toInteractor: string; toContestant: string };
 }
 
 export interface TestRunResult extends SubmissionResult {
   caseResults?: TestCaseView[] | undefined;
-  serverNotice?: string | undefined;
 }
 
 export interface ProblemSubmissionEntry {
