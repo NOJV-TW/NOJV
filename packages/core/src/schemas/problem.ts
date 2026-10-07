@@ -48,7 +48,7 @@ export const MAX_PROBLEM_SAMPLES = 5;
 
 const problemSamplesSchema = z.array(problemSampleSchema).max(MAX_PROBLEM_SAMPLES);
 
-export const workspaceFileVisibilitySchema = z.enum(["editable", "readonly", "hidden"]);
+export const workspaceFileVisibilitySchema = z.enum(["editable", "readonly"]);
 
 export type WorkspaceFileVisibility = z.infer<typeof workspaceFileVisibilitySchema>;
 

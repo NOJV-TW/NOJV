@@ -182,7 +182,7 @@ describe("DB-backed read model", () => {
     expect(detail?.workspaceFiles).toEqual([]);
   });
 
-  it("exposes hidden workspace files as metadata-only (blank content) and uses editable ones for starter code", async () => {
+  it("returns workspace file contents and uses editable ones for starter code", async () => {
     const storage = (await import("@nojv/storage")) as unknown as {
       __blobStore: Map<string, string>;
     };
@@ -193,10 +193,6 @@ describe("DB-backed read model", () => {
     storage.__blobStore.set(
       "problems/prob_blanks/workspace/file_helpers",
       "#pragma once\nint solve();\n",
-    );
-    storage.__blobStore.set(
-      "problems/prob_blanks/workspace/file_grader",
-      "// server-only test harness\n",
     );
 
     findDetailById.mockResolvedValue({
@@ -247,18 +243,6 @@ describe("DB-backed read model", () => {
           visibility: "readonly",
           orderIndex: 1,
         },
-        {
-          language: "cpp",
-          path: "grader.cpp",
-          contentStorage: {
-            key: "problems/prob_blanks/workspace/file_grader",
-            sha256: "c".repeat(64),
-            size: 28,
-          },
-          description: "Hidden server-side grader.",
-          visibility: "hidden",
-          orderIndex: 2,
-        },
       ],
     });
     countSubmissions.mockResolvedValue(0);
@@ -266,15 +250,8 @@ describe("DB-backed read model", () => {
     const detail = await getProblemPageData("prob_blanks");
 
     expect(detail).not.toBeNull();
-    expect(detail?.workspaceFiles).toHaveLength(3);
-    expect(detail?.workspaceFiles.map((f) => f.path)).toEqual([
-      "solution.cpp",
-      "helpers.h",
-      "grader.cpp",
-    ]);
-    const hidden = detail?.workspaceFiles.find((f) => f.visibility === "hidden");
-    expect(hidden?.content).toBe("");
-    expect(hidden?.description).toBe("Hidden server-side grader.");
+    expect(detail?.workspaceFiles.map((f) => f.path)).toEqual(["solution.cpp", "helpers.h"]);
+    expect(detail?.workspaceFiles[1]?.content).toBe("#pragma once\nint solve();\n");
     expect(detail?.workspaceFiles[0]?.content).toBe("int solve() { return 42; }\n");
     expect(detail?.workspaceFiles[0]?.description).toBe("Your solution goes here.");
     expect(detail?.workspaceFiles[1]?.description).toBe("");

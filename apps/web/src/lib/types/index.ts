@@ -74,7 +74,7 @@ export interface ProblemDetail extends ProblemOverview {
     language: string;
     path: string;
     content: string;
-    visibility: "editable" | "readonly" | "hidden";
+    visibility: "editable" | "readonly";
     description: string;
   }[];
 }

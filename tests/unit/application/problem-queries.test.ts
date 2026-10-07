@@ -65,7 +65,6 @@ describe("buildStarterByLanguage — multi_file", () => {
   it("falls back to LANGUAGE_TEMPLATES when no editable entry exists for the language", () => {
     const files = [
       { language: "python", path: "helper.py", visibility: "readonly", content: "helper" },
-      { language: "python", path: "secret.py", visibility: "hidden", content: "" },
     ];
 
     const result = buildStarterByLanguage("multi_file", files);

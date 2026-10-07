@@ -48,7 +48,7 @@ export interface ProblemDetail {
     language: string;
     path: string;
     content: string;
-    visibility: "editable" | "readonly" | "hidden";
+    visibility: "editable" | "readonly";
     description: string;
   }[];
   advancedConfig: AdvancedConfig | null;
@@ -100,18 +100,13 @@ async function mapPersistedProblemDetail(
 
   const rawFiles = problem.workspaceFiles;
   const visibleWorkspaceFiles = await Promise.all(
-    rawFiles.map(async (f) => {
-      const visibility = f.visibility;
-      const content =
-        visibility === "hidden" ? "" : await readCachedWorkspaceFileBlob(f.contentStorage);
-      return {
-        language: f.language,
-        path: f.path,
-        content,
-        visibility,
-        description: f.description,
-      };
-    }),
+    rawFiles.map(async (f) => ({
+      language: f.language,
+      path: f.path,
+      content: await readCachedWorkspaceFileBlob(f.contentStorage),
+      visibility: f.visibility,
+      description: f.description,
+    })),
   );
 
   const type = problem.type;

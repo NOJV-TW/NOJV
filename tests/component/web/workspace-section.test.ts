@@ -21,7 +21,7 @@ type Snapshot = {
     path: string;
     content: string;
     description: string;
-    visibility: "editable" | "readonly" | "hidden";
+    visibility: "editable" | "readonly";
     orderIndex: number;
   }[];
 };

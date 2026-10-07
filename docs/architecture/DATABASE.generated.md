@@ -915,7 +915,7 @@ Indexes & constraints: `@@index([contextType, contextId, triggeredAt(sort: Desc)
 
 #### `WorkspaceFileVisibility`
 
-`editable` · `readonly` · `hidden`
+`editable` · `readonly`
 
 ### Models
 

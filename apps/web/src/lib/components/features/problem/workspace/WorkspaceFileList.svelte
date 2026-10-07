@@ -13,9 +13,7 @@
   let { files, selectedIndex, onselect, onadd }: Props = $props();
 
   function iconFor(visibility: WorkspaceFile["visibility"]): string {
-    if (visibility === "editable") return "✎";
-    if (visibility === "readonly") return "🔒";
-    return "👁";
+    return visibility === "editable" ? "✎" : "🔒";
   }
 </script>
 

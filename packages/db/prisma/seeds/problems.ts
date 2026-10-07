@@ -65,7 +65,7 @@ type SeedWorkspaceFile = {
   language: "python" | "c" | "cpp" | "go" | "java" | "javascript" | "rust" | "typescript";
   path: string;
   content: string;
-  visibility: "editable" | "readonly" | "hidden";
+  visibility: "editable" | "readonly";
   description?: string;
   orderIndex?: number;
 };

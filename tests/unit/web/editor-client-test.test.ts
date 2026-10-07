@@ -83,13 +83,6 @@ function controller(
         visibility: "readonly",
         description: "",
       },
-      {
-        language: "cpp",
-        path: "private.h",
-        content: "",
-        visibility: "hidden",
-        description: "",
-      },
     ],
     context: () => ({ type: "practice" }),
     judgeProgram: options.judgeProgram ?? (() => Promise.resolve(checkerReady)),
@@ -110,7 +103,7 @@ it("custom container Test reports its browser requirement without contacting ser
   expect(run.runError).toBe(m.editor_clientTestCustomImage());
 });
 
-it("runs standard Test with public helpers entirely in the browser even when hidden files exist", async () => {
+it("runs standard Test with readonly helpers entirely in the browser", async () => {
   mocks.run.mockResolvedValue(null);
   const run = controller("standard");
   await run.run();

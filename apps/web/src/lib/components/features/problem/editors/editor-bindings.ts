@@ -244,12 +244,10 @@ export function projectBrowserSubmission(
   request: SubmissionRequest,
   workspaceFiles: WorkspaceFile[],
 ): SubmissionRequest {
-  const publicFiles = workspaceFiles.filter(
-    (file) => file.language === request.language && file.visibility !== "hidden",
-  );
-  if (publicFiles.length === 0) return request;
+  const languageFiles = workspaceFiles.filter((file) => file.language === request.language);
+  if (languageFiles.length === 0) return request;
   const sources = request.sourceFiles?.length
     ? request.sourceFiles
     : [{ path: entryFileNameFor(request.language), content: request.sourceCode }];
-  return { ...request, sourceFiles: mergeWorkspaceSources(sources, publicFiles) };
+  return { ...request, sourceFiles: mergeWorkspaceSources(sources, languageFiles) };
 }

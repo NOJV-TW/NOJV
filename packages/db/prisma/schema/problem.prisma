@@ -23,7 +23,6 @@ enum ProblemDifficulty {
 enum WorkspaceFileVisibility {
   editable
   readonly
-  hidden
 }
 
 model Problem {
