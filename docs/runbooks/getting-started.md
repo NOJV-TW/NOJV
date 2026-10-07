@@ -81,7 +81,7 @@ Rebuild after changing `apps/sandbox-runner` or `infra/docker/sandbox-runner.Doc
 pnpm dev
 ```
 
-Starts web at <http://localhost:5173> and the worker with `WORKER_MODE=all` (judge, judge-state, judge-cleanup and platform queues, plus test-judge once the [local test judge](#run-the-test-judge-locally) is set up).
+Starts web at <http://localhost:5173> and the worker with `WORKER_MODE=all` (judge, judge-state, judge-cleanup and platform queues).
 
 ## 7. Verify
 
@@ -106,29 +106,6 @@ Outside production, `getClientIp` reads the `x-dev-ip` header first, then the so
 ```bash
 curl -H "x-dev-ip: 10.1.2.3" http://localhost:5173/exams/<examId>
 ```
-
-### Run the test judge locally
-
-Checker and interactive Test need the WASM-OJ runtime that the worker image bundles. Standard Test and Submit work without it. Build the native runtime from the forge tag the worker image pins (`WASM_OJ_FORGE_TAG` in `infra/docker/worker.Dockerfile`; needs a Rust toolchain) and install the server toolchains from the image's lockfile:
-
-```bash
-git clone --depth 1 --branch v0.2.3 https://github.com/wasm-oj/forge ~/src/wasm-oj-forge
-cargo build --locked --release --manifest-path ~/src/wasm-oj-forge/crates/runtime-core/Cargo.toml \
-  --bin wasm-oj-runner --bin wasm-oj-compiler
-mkdir -p ~/.cache/nojv-wasm-oj-toolchains
-cp infra/docker/wasm-oj-toolchains/package*.json ~/.cache/nojv-wasm-oj-toolchains/
-npm ci --ignore-scripts --prefix ~/.cache/nojv-wasm-oj-toolchains
-```
-
-Then add to `.env` (absolute paths) and restart `pnpm dev`:
-
-```bash
-WASM_OJ_RUNTIME_DIR=/home/you/src/wasm-oj-forge/crates/runtime-core/target/release
-WASM_OJ_TOOLCHAIN_DIR=/home/you/.cache/nojv-wasm-oj-toolchains
-TEST_JUDGE_ENABLED=true
-```
-
-The `WORKER_MODE=all` worker then also serves `test-judge`. Seeded checker problems such as `problem_any-two-sum` show "Judged on the server" on their samples. The same two directories enable the gated runtime test ([Testing Strategy](testing.md#service-prerequisites)).
 
 ## Troubleshooting
 

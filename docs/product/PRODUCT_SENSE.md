@@ -21,7 +21,7 @@ NOJV is a single-institution online judge for university programming courses: pr
 
 ### Problems
 
-- Three types: `full_source`, `multi_file` (workspace files with editable/readonly/hidden visibility) and `special_env` (Advanced Mode, teacher-built images; creation needs an admin-granted permission) (PRB-01, PRB-12, JDG-16).
+- Three types: `full_source`, `multi_file` (workspace files with editable/readonly visibility) and `special_env` (Advanced Mode, teacher-built images; creation needs an admin-granted permission) (PRB-01, PRB-12, JDG-16).
 - Judge modes: standard token compare, checker, interactor; subtasks score all-or-nothing (JDG-01 to JDG-04). Samples are presentation data, not testcases (PRB-03).
 - One Markdown + KaTeX statement per problem; images uploaded by drag-and-drop or paste to object storage (PRB-05).
 - Library with URL filters (difficulty, tags, solved / attempted / untried / bookmarked) and full-text search (PRB-14).
@@ -30,7 +30,7 @@ NOJV is a single-institution online judge for university programming courses: pr
 
 ### Submissions
 
-- Monaco workspace (desktop only), optional in-browser test runs whose checker and interactive samples are judged on the server without exposing the judge program ([spec](../features/problem-test.md), JDG-15), official judging in Docker or Kubernetes sandboxes ([Judge Pipeline](../architecture/JUDGE_PIPELINE.md)).
+- Monaco workspace (desktop only), optional in-browser test runs that also run the problem's checker or interactor in the browser, so students can read judge programs ([spec](../features/problem-test.md), JDG-15), official judging in Docker or Kubernetes sandboxes ([Judge Pipeline](../architecture/JUDGE_PIPELINE.md)).
 - Live status over SSE with polling fallback (PRB-21); history and ownership-gated source view.
 - `system_error` never costs an attempt (PRB-16); rejudges are audited (PRB-18).
 - Resubmitting the same problem waits a cooldown: the activity setting or the platform minimum, whichever is longer, in every context (PRB-22).

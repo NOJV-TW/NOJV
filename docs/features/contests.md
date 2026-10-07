@@ -64,7 +64,8 @@ Out of scope: proctoring, course membership gating, score overrides and feedback
 
 - `ensureContestParticipation` rejects before `startsAt` (`"Contest has not started yet."`) and at or after `endsAt` (`"Contest has ended."`). A non-manager without a participation row gets `"You must join the contest before submitting."`; managers and admins are exempt and auto-joined.
 - On submit the participation is upserted to `active` with a composite-key upsert, so concurrent first submits converge on one row.
-- Contest code drafts and server-judged Test need a participation row and a running contest; managers and admins are exempt (WEB-05, SEC-15).
+- Contest code drafts need a participation row and a running contest; managers and admins are exempt (WEB-05).
+- Test loads a contest problem's checker or interactor for participants while the published contest runs and for managers while it is published; outside that the problem's practice view rules decide (JDG-15).
 - The contest problem route redirects non-managers without participation, and non-managers before start, to `/contests/[id]`; after `endsAt` it redirects to `/problems/[problemId]`.
 - A non-sample submission must come at least `max(submitCooldownSec, SUBMIT_COOLDOWN_MIN_SEC)` seconds after the user's previous contest submission to the same problem; otherwise `403 submit_cooldown` with `retryAfterSec` (PRB-22). Rejected requests leave no submission and no penalty.
 

@@ -21,7 +21,7 @@ stay in the container log pipeline.
 - Both apps start an OpenTelemetry NodeSDK when `OTEL_EXPORTER_OTLP_ENDPOINT` is a valid URL, exporting to `<endpoint>/v1/metrics` every 30s. Unset, empty or invalid means no-op (production logs a warning).
 - `OTEL_EXPORTER_OTLP_HEADERS` is optional comma-separated `key=value`; Grafana Cloud needs `Authorization=Basic <base64(instanceId:token)>`.
 - Auto-instrumentation covers `http`, `pg`, `ioredis` and `undici`; `fs` and `dns` are disabled.
-- Service names: `OTEL_SERVICE_NAME_WEB` (default `nojv-web`), `OTEL_SERVICE_NAME_WORKER` (default `nojv-worker-judge`, `nojv-worker-platform` or `nojv-worker-test` from `WORKER_MODE`, `nojv-worker` for `all`). The collector's Prometheus exporter turns `service.name` into `job`, and Prometheus stores it as `exported_job`; filter or group app series by `exported_job`, never sum them across services.
+- Service names: `OTEL_SERVICE_NAME_WEB` (default `nojv-web`), `OTEL_SERVICE_NAME_WORKER` (default `nojv-worker-judge` or `nojv-worker-platform` from `WORKER_MODE`, `nojv-worker` for `all`). The collector's Prometheus exporter turns `service.name` into `job`, and Prometheus stores it as `exported_job`; filter or group app series by `exported_job`, never sum them across services.
 - The worker awaits `shutdownOtel()` during graceful shutdown; web has no explicit flush and can lose the last interval.
 
 ## Metrics
