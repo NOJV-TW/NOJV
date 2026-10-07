@@ -13,14 +13,14 @@ import { getClientIp } from "$lib/server/shared/client-ip";
 import {
   assertJsonBodyWithinLimit,
   draftApiHandler,
-  parseContextParam,
+  parseJsonContextParam,
   readJsonBody,
 } from "$lib/server/shared/api-handler";
 
 export const GET: RequestHandler = draftApiHandler(async (event) => {
   const actor = requireApiAuth(event);
   const scope = codeDraftScopeSchema.parse({
-    context: parseContextParam(event.url.searchParams.get("context")),
+    context: parseJsonContextParam(event.url.searchParams.get("context")),
     problemId: event.url.searchParams.get("problemId"),
   });
   return json({

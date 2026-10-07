@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { examDomain, ForbiddenError, NotFoundError, problemDomain } from "@nojv/application";
 import {
@@ -94,16 +94,70 @@ async function examWithProblem(
   return { course, exam };
 }
 
-async function contestWithProblem(problemId: string, startsAt: Date, endsAt: Date) {
+async function contestWithProblem(
+  problemId: string,
+  startsAt: Date,
+  endsAt: Date,
+  visibility: "published" | "draft" = "published",
+) {
   const organizer = await createTestUser({ platformRole: "teacher" });
-  const contest = await createTestContest({ createdByUserId: organizer.id, startsAt, endsAt });
+  const contest = await createTestContest({
+    createdByUserId: organizer.id,
+    startsAt,
+    endsAt,
+    visibility,
+  });
   await testPrisma.contestProblem.create({
     data: { contestId: contest.id, problemId, ordinal: 1, points: 100 },
   });
-  return contest;
+  return { contest, organizer: actorOf(organizer) };
+}
+
+async function joinContest(contestId: string, userId: string) {
+  await testPrisma.participation.create({
+    data: { type: "contest", contestId, userId, status: "active" },
+  });
+}
+
+async function assignmentWithProblem(
+  problemId: string,
+  options: {
+    opensAt?: Date;
+    closesAt?: Date;
+    status?: "published" | "draft";
+    archived?: boolean;
+  } = {},
+) {
+  const teacher = await createTestUser({ platformRole: "teacher" });
+  const course = await createTestCourse({
+    ownerId: teacher.id,
+    archived: options.archived ?? false,
+  });
+  const assessment = await testPrisma.assessment.create({
+    data: {
+      courseId: course.id,
+      createdByUserId: teacher.id,
+      title: "HW",
+      summary: "Open",
+      status: options.status ?? "published",
+      opensAt: options.opensAt ?? minutes(-60),
+      closesAt: options.closesAt ?? minutes(60),
+    },
+  });
+  await testPrisma.assessmentProblem.create({
+    data: { assessmentId: assessment.id, problemId, ordinal: 1, points: 100 },
+  });
+  return {
+    course,
+    context: { type: "assignment" as const, courseId: course.id, assessmentId: assessment.id },
+  };
 }
 
 describe("problemDomain.getJudgeProgramSource", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it("returns a practice checker's role, language, source and digest", async () => {
     const student = await buildStudent();
     const problem = await checkerProblem();
@@ -172,28 +226,8 @@ describe("problemDomain.getJudgeProgramSource", () => {
     const student = await buildStudent();
     const outsider = await buildStudent();
     const problem = await checkerProblem("private");
-    const teacher = await createTestUser({ platformRole: "teacher" });
-    const course = await createTestCourse({ ownerId: teacher.id });
-    const assessment = await testPrisma.assessment.create({
-      data: {
-        courseId: course.id,
-        createdByUserId: teacher.id,
-        title: "HW",
-        summary: "Open",
-        status: "published",
-        opensAt: minutes(-60),
-        closesAt: minutes(60),
-      },
-    });
-    await testPrisma.assessmentProblem.create({
-      data: { assessmentId: assessment.id, problemId: problem.id, ordinal: 1, points: 100 },
-    });
+    const { course, context } = await assignmentWithProblem(problem.id);
     await enrol(course.id, student.userId);
-    const context = {
-      type: "assignment" as const,
-      courseId: course.id,
-      assessmentId: assessment.id,
-    };
 
     await expect(source(student, problem.id, context)).resolves.toEqual(checkerView);
     await expect(source(outsider, problem.id, context)).rejects.toBeInstanceOf(NotFoundError);
@@ -264,18 +298,9 @@ describe("problemDomain.getJudgeProgramSource", () => {
     const outsider = await buildStudent();
     const running = await checkerProblem("private");
     const ended = await checkerProblem("private");
-    const live = await contestWithProblem(running.id, minutes(-1), minutes(60));
-    const past = await contestWithProblem(ended.id, minutes(-120), minutes(-1));
-    for (const contest of [live, past]) {
-      await testPrisma.participation.create({
-        data: {
-          type: "contest",
-          contestId: contest.id,
-          userId: student.userId,
-          status: "active",
-        },
-      });
-    }
+    const { contest: live } = await contestWithProblem(running.id, minutes(-1), minutes(60));
+    const { contest: past } = await contestWithProblem(ended.id, minutes(-120), minutes(-1));
+    for (const contest of [live, past]) await joinContest(contest.id, student.userId);
 
     await expect(
       source(student, running.id, { type: "contest", contestId: live.id }),
@@ -293,7 +318,7 @@ describe("problemDomain.getJudgeProgramSource", () => {
     const student = await buildStudent();
     const outsider = await buildStudent();
     const problem = await checkerProblem("private");
-    const contest = await contestWithProblem(problem.id, minutes(-180), minutes(-120));
+    const { contest } = await contestWithProblem(problem.id, minutes(-180), minutes(-120));
     const virtual = await testPrisma.participation.create({
       data: {
         type: "virtual",
@@ -308,5 +333,138 @@ describe("problemDomain.getJudgeProgramSource", () => {
 
     await expect(source(student, problem.id, context)).resolves.toEqual(checkerView);
     await expect(source(outsider, problem.id, context)).rejects.toBeInstanceOf(NotFoundError);
+  });
+
+  it("hides a contest's private checker from its participant before the start", async () => {
+    const student = await buildStudent();
+    const problem = await checkerProblem("private");
+    const { contest } = await contestWithProblem(problem.id, minutes(10), minutes(60));
+    await joinContest(contest.id, student.userId);
+
+    await expect(
+      source(student, problem.id, { type: "contest", contestId: contest.id }),
+    ).rejects.toBeInstanceOf(NotFoundError);
+  });
+
+  it("serves a running contest's private checker through its end instant", async () => {
+    const student = await buildStudent();
+    const problem = await checkerProblem("private");
+    const { contest } = await contestWithProblem(problem.id, minutes(-10), minutes(60));
+    await joinContest(contest.id, student.userId);
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(contest.endsAt);
+
+    await expect(
+      source(student, problem.id, { type: "contest", contestId: contest.id }),
+    ).resolves.toEqual(checkerView);
+  });
+
+  it("hides a draft contest's private checker from its participant and its organizer", async () => {
+    const student = await buildStudent();
+    const problem = await checkerProblem("private");
+    const { contest, organizer } = await contestWithProblem(
+      problem.id,
+      minutes(-10),
+      minutes(60),
+      "draft",
+    );
+    await joinContest(contest.id, student.userId);
+    const context = { type: "contest" as const, contestId: contest.id };
+
+    await expect(source(student, problem.id, context)).rejects.toBeInstanceOf(NotFoundError);
+    await expect(source(organizer, problem.id, context)).rejects.toBeInstanceOf(NotFoundError);
+  });
+
+  it("serves a running contest's private checker to its organizer", async () => {
+    const problem = await checkerProblem("private");
+    const { contest, organizer } = await contestWithProblem(
+      problem.id,
+      minutes(-10),
+      minutes(60),
+    );
+
+    await expect(
+      source(organizer, problem.id, { type: "contest", contestId: contest.id }),
+    ).resolves.toEqual(checkerView);
+  });
+
+  it.each([
+    ["before it opens", { opensAt: minutes(10), closesAt: minutes(60) }],
+    ["in an archived course", { archived: true }],
+    ["while it is a draft", { status: "draft" }],
+  ] as const)(
+    "hides an assignment's private checker from its enrolled student %s",
+    async (_label, options) => {
+      const student = await buildStudent();
+      const problem = await checkerProblem("private");
+      const { course, context } = await assignmentWithProblem(problem.id, options);
+      await enrol(course.id, student.userId);
+
+      await expect(source(student, problem.id, context)).rejects.toBeInstanceOf(NotFoundError);
+    },
+  );
+
+  it("keeps a closed assignment's private checker readable only through the ended-assignment rule", async () => {
+    const student = await buildStudent();
+    const outsider = await buildStudent();
+    const problem = await checkerProblem("private");
+    const { course, context } = await assignmentWithProblem(problem.id, {
+      opensAt: minutes(-120),
+      closesAt: minutes(-1),
+    });
+    await enrol(course.id, student.userId);
+
+    await expect(source(student, problem.id, context)).resolves.toEqual(checkerView);
+    await expect(source(student, problem.id)).resolves.toEqual(checkerView);
+    await expect(source(outsider, problem.id, context)).rejects.toBeInstanceOf(NotFoundError);
+  });
+
+  it("hides an exam's private checker from a session on a non-whitelisted IP", async () => {
+    const student = await buildStudent();
+    const problem = await checkerProblem("private");
+    const { course, exam } = await examWithProblem(problem.id);
+    await testPrisma.exam.update({
+      where: { id: exam.id },
+      data: { ipWhitelistEnabled: true, ipWhitelist: ["10.0.0.0/8"], ipViolationMode: "block" },
+    });
+    await enrol(course.id, student.userId);
+    await examDomain.session.startSessionWithGate(student, { examId: exam.id });
+
+    await expect(
+      source(student, problem.id, { type: "exam", examId: exam.id }),
+    ).rejects.toBeInstanceOf(NotFoundError);
+  });
+
+  it("hides a private checker outside the exam from a session in a non-locked exam", async () => {
+    const student = await buildStudent();
+    const problem = await checkerProblem("private");
+    const other = await checkerProblem("private");
+    const { course, exam } = await examWithProblem(problem.id);
+    await enrol(course.id, student.userId);
+    await examDomain.session.startSessionWithGate(student, { examId: exam.id });
+
+    await expect(
+      source(student, other.id, { type: "exam", examId: exam.id }),
+    ).rejects.toBeInstanceOf(NotFoundError);
+  });
+
+  it("hides a virtual contest's private checker once its timer has ended", async () => {
+    const student = await buildStudent();
+    const problem = await checkerProblem("private");
+    const { contest } = await contestWithProblem(problem.id, minutes(-300), minutes(-240));
+    const virtual = await testPrisma.participation.create({
+      data: {
+        type: "virtual",
+        contestId: contest.id,
+        userId: student.userId,
+        status: "active",
+        startedAt: minutes(-70),
+        endsAt: minutes(-10),
+      },
+    });
+
+    await expect(
+      source(student, problem.id, { type: "virtual", participationId: virtual.id }),
+    ).rejects.toBeInstanceOf(NotFoundError);
   });
 });

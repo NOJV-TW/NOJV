@@ -81,12 +81,11 @@ async function contextIncludesProblem(
         contestRepo.findById(context.contestId),
         contestProblemRepo.existsById(context.contestId, problemId),
       ]);
-      if (!contest || !inContest) return false;
+      if (contest?.visibility !== "published" || !inContest) return false;
       if (canManageContest(actor.userId, contest, actor.platformRole)) return true;
       return (
-        contest.visibility === "published" &&
         now >= contest.startsAt &&
-        now < contest.endsAt &&
+        now <= contest.endsAt &&
         Boolean(await participationRepo.findContestParticipation(contest.id, actor.userId))
       );
     }

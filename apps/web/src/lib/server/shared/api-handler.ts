@@ -78,7 +78,7 @@ export async function readJsonBody(
   }
 }
 
-export function parseContextParam(raw: string | null): unknown {
+export function parseJsonContextParam(raw: string | null): unknown {
   if (raw === null) throw new HttpError("context is required.", 400);
   try {
     return JSON.parse(raw);
