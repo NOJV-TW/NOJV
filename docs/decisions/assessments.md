@@ -76,7 +76,7 @@ The domain layer computes `problemsHidden = !isManager && now < startsAt` and re
 
 - Rejected: UI-only link disabling; a per-contest opt-in flag; showing problem count or points before start.
 - Rule: Never send problem IDs, titles or points to non-managers before `startsAt`; the start instant reveals (strict `<`).
-- Rule: Compute `now` once per request and pass it through. Non-manager problem pages redirect to the contest before start and out of contest context after end.
+- Rule: Compute `now` once per request and pass it through. Non-manager problem pages redirect to the contest before start, for every problem id and before the membership check, and out of contest context after end. Otherwise a problem outside the contest is 404, managers included.
 - Code: `packages/application/src/contest/queries.ts` (`resolveVisibility`), `apps/web/src/routes/(app)/contests/[contestId]/problems/[problemId]/+page.server.ts`
 
 ### ASM-08 ICPC penalty counts only judged wrong attempts; penalty minutes per contest
