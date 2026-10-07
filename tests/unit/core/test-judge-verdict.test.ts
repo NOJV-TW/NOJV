@@ -107,17 +107,34 @@ describe("interactiveCaseVerdict", () => {
     ).toEqual({ verdict: "TLE" });
   });
 
-  it.each(["memory-limit", "instruction-limit", "wall-time-limit"])(
-    "lets an interactor failure win over a contestant %s, as official judging does",
-    (termination) => {
+  it.each([
+    ["logical-time-limit", "TLE"],
+    ["instruction-limit", "TLE"],
+    ["wall-time-limit", "TLE"],
+    ["memory-limit", "MLE"],
+  ])(
+    "keeps a contestant %s when the interactor then dies on the closed pipe",
+    (termination, verdict) => {
       expect(
         interactiveCaseVerdict({
           contestant: { termination, code: 0 },
           interactor: exited(120),
         }),
-      ).toEqual({ verdict: "SE" });
+      ).toEqual({ verdict });
     },
   );
+
+  it("maps an interactor crash to SE when the contestant exited normally", () => {
+    expect(
+      interactiveCaseVerdict({ contestant: exited(0), interactor: exited(120) }, "partial"),
+    ).toEqual({ verdict: "SE" });
+  });
+
+  it("maps an interactor crash to SE when the contestant crashed", () => {
+    expect(interactiveCaseVerdict({ contestant: exited(1), interactor: exited(120) })).toEqual({
+      verdict: "SE",
+    });
+  });
 });
 
 describe("truncateUtf8", () => {

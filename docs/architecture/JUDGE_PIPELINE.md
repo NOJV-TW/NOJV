@@ -576,17 +576,17 @@ While it prepares, Test stays clickable and shows the toolchain download or
    `interact(contestant, interactor)` once per case. The interactor gets the checker's
    args, the case's input as `/judge/input`, an empty `/judge/answer` and an empty
    `/judge/feedback/`.
-3. `interactiveCaseVerdict` merges as official judging does: an interactor that exits
-   with anything but 42 or 43, or is stopped by a limit, is SE; otherwise a contestant
-   TLE, MLE or RE wins; otherwise the interactor's AC or WA stands.
+3. `interactiveCaseVerdict` merges each case: a contestant stopped by a time limit
+   (logical time, instruction budget or the wall stop) or by the memory limit is TLE or
+   MLE, whatever the interactor did; otherwise an interactor that exits with anything
+   but 42 or 43, or is stopped by a limit, is SE; otherwise a contestant RE wins;
+   otherwise the interactor's AC or WA stands.
 4. Each case shows the verdict, contestant stderr (100,000 bytes), both transcript
    directions (64 KiB each, cut at a UTF-8 boundary) and the contestant's logical
    time. The interactor's `teammessage` and stderr are not shown.
-5. The engine closes the pipes of a side that stops, while official judging keeps
-   reading the interactor's output after the contestant ends and only gives it EOF. A
-   Python interactor that writes after the contestant stopped at a limit therefore
-   exits 120, and the case is SE in Test where Submit gives TLE or MLE; so is a case
-   where both sides reach the shared wall stop.
+5. When the contestant exits, normally or with an error, before the interactor's next
+   write, that write fails (a Python interactor exits 120) and the case is SE; Submit
+   gives that case RE or the interactor's verdict.
 
 ### Limits
 
