@@ -61,7 +61,7 @@ Solve pages all render `ProblemSolveView` via `loadProblemSolveData` in `lib/ser
 | `/contests`                                        | List and invite-code join                                                                                                                        |
 | `/contests/new`                                    | Teacher / admin                                                                                                                                  |
 | `/contests/[contestId]`                            | Join (before or during) then Enter; managers get `AssessmentManageTabs` (no score overrides)                                                     |
-| `/contests/[contestId]/problems/[problemId]`       | Non-managers: before start or not joined → contest page; after end → `/problems/[problemId]`                                                     |
+| `/contests/[contestId]/problems/[problemId]`       | Non-managers: before start or not joined → contest page; after end → `/problems/[problemId]`; problem not in contest → 404                       |
 | `/contests/[contestId]/scoreboard`                 | ICPC / IOI; refreshes on `scoreboard/stream` SSE (1.5 s debounce) and every 30 s while visible; frozen snapshot during freeze                    |
 | `/contests/[contestId]/upsolve`                    | Post-contest per-problem solve status                                                                                                            |
 | `/contests/[contestId]/virtual`                    | Time-shifted virtual run of an ended contest; solve at `virtual/problems/[problemId]`                                                            |
