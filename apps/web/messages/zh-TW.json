@@ -311,7 +311,7 @@
   "admin_inputFormatTooltip": "描述輸入資料的格式，支援 Markdown。",
   "admin_interactionFormat": "互動說明",
   "admin_interactionFormatTooltip": "說明 interactor 會從輸入檔讀到什麼，以及它如何與學生程式互動。會顯示給學生，支援 Markdown。",
-  "admin_interactorHelpBody": "你的 interactor 採用 DOMjudge 互動介面。提交時在判題沙盒中執行，按「測試」時則在學生的瀏覽器中執行；兩種情況都一樣：學生 stdout → interactor stdin，interactor stdout → 學生 stdin。呼叫方式為 `interactor <input> <judge_answer> <feedback_dir>`。Python：`judge_input`、`judge_answer` 已預先注入為字串；`read()` 讀學生送來的一行（自動去掉換行符號，若學生提早關閉串流會自動 wrong）；`write(msg)` 寫一行給學生（已自動 flush）。`accept(team_msg=\"\")`、`wrong(team_msg=\"\")` 會寫入回饋並以 exit 42/43 結束，`judge_log(msg)` 則寫入只給助教看的判題訊息。C++：讀取 `argv[1]` / `argv[2]`，透過 `cin` / `cout` 與學生互動（讀取前先 flush），把 `teammessage.txt` 寫進 `argv[3]`，並以 exit 42（接受）或 43（錯誤）結束——不需任何評測標頭檔。Interactor 與學生共享題目的時間限制。",
+  "admin_interactorHelpBody": "你的 interactor 採用 DOMjudge 互動介面。提交時在判題沙盒中執行，按「測試」時則在學生的瀏覽器中執行；兩種情況都一樣：學生 stdout → interactor stdin，interactor stdout → 學生 stdin。呼叫方式為 `interactor <input> <judge_answer> <feedback_dir>`；按「測試」時 `judge_answer` 是空的，請改從 `judge_input` 讀取祕密資料。Python：`judge_input`、`judge_answer` 已預先注入為字串；`read()` 讀學生送來的一行（自動去掉換行符號，若學生提早關閉串流會自動 wrong）；`write(msg)` 寫一行給學生（已自動 flush）。`accept(team_msg=\"\")`、`wrong(team_msg=\"\")` 會寫入回饋並以 exit 42/43 結束，`judge_log(msg)` 則寫入只給助教看的判題訊息。C++：讀取 `argv[1]` / `argv[2]`，透過 `cin` / `cout` 與學生互動（讀取前先 flush），把 `teammessage.txt` 寫進 `argv[3]`，並以 exit 42（接受）或 43（錯誤）結束——不需任何評測標頭檔。Interactor 與學生共享題目的時間限制。",
   "admin_interactorHelpTitle": "如何撰寫 Interactor",
   "admin_interactorLanguage": "Interactor 語言",
   "admin_judgeChecker": "Checker 腳本",

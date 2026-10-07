@@ -36,16 +36,16 @@ export function checkerCaseVerdict(
   return { verdict: outcome.verdict, teamMessage: capFeedback(outcome.teamMessage) };
 }
 
-export function interactiveCaseVerdict(
-  result: { contestant: ProcessTermination; interactor: ProcessTermination },
-  teamMessage?: string,
-): { verdict: TestJudgeVerdict; teamMessage?: string } {
+export function interactiveCaseVerdict(result: {
+  contestant: ProcessTermination;
+  interactor: ProcessTermination;
+}): { verdict: TestJudgeVerdict } {
   const contestant = wasmOjTerminationVerdict(
     result.contestant.termination,
     result.contestant.code,
   );
   if (contestant === "TLE" || contestant === "MLE") return { verdict: contestant };
-  const interactor = checkerCaseVerdict(result.interactor, teamMessage);
+  const interactor = checkerCaseVerdict(result.interactor);
   if (interactor.verdict === "SE") return interactor;
   return contestant === "AC" ? interactor : { verdict: contestant };
 }

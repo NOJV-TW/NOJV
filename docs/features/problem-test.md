@@ -56,7 +56,7 @@ The endpoint requires a session and the problem page's view access for the conte
 
 - Given an interactive problem, the case panel lists each sample's interactor input and shows the problem's interaction notes; a sample without an interactor input is left out.
 - Given the student adds a case, its input is an interactor input (for example the hidden number), and the real interactor judges it like a sample. The case panel says "…Cases you add are judged the same way."
-- When the student presses Test, the browser compiles the program and runs it against the interactor once per case. Each case shows its verdict, the student's stderr, the time, and a transcript with "From the interactor" and "From your program", each cut at 64 KiB.
+- When the student presses Test, the browser compiles the program and runs it against the interactor once per case. Each case shows its verdict, the student's stderr, and a transcript with "From the interactor" and "From your program", each cut at 64 KiB; the result shows the longest logical time across the cases.
 - Given the student's program is stopped by a time or memory limit, the case is TLE or MLE, whatever the interactor does; otherwise, given the interactor fails (an exit code other than 42 or 43, or a limit), the case is SE; otherwise the student's RE wins; otherwise the interactor's AC or WA stands.
 - Given JavaScript or TypeScript is selected, Test is disabled with "Test can't run interactive problems in JavaScript or TypeScript yet…"; switching to another language enables it.
 

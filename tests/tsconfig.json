@@ -92,6 +92,7 @@
     "unit/worker/docker-resource-sweeper.test.ts",
     "unit/worker/service-container-readiness.test.ts",
     "unit/worker/worker-app.test.ts",
+    "unit/worker/mailer-startup.test.ts",
     "unit/worker/judge-benchmark.test.ts",
     "unit/worker/judge-phase-metrics.test.ts",
     "unit/worker/k8s-interactive-orchestration.test.ts",

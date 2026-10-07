@@ -506,13 +506,13 @@ judge program's source. **Submit** always uses the server pipeline above.
 
 ### Availability
 
-| Case                                                     | Test                                         |
-| -------------------------------------------------------- | -------------------------------------------- |
-| `standard`                                               | Available                                    |
-| `checker` or `interactive`                               | Available once the judge program is prepared |
-| `special_env`                                            | Disabled ("doesn't support Test")            |
-| Interactive with a JavaScript or TypeScript contestant   | Disabled for that language                   |
-| The judge program failed to build or could not be loaded | Disabled for the rest of the editor session  |
+| Case                                                     | Test                                              |
+| -------------------------------------------------------- | ------------------------------------------------- |
+| `standard`                                               | Available                                         |
+| `checker` or `interactive`                               | Available; waits while the judge program prepares |
+| `special_env`                                            | Disabled ("doesn't support Test")                 |
+| Interactive with a JavaScript or TypeScript contestant   | Disabled for that language                        |
+| The judge program failed to build or could not be loaded | Disabled for the rest of the editor session       |
 
 ### Judge programs
 
@@ -522,12 +522,13 @@ allowlist) returns `{ role, language, source, sha256 }` for a checker or interac
 problem, read through the verified script pointer.
 
 - Access is the problem page's view access for that context. A context grants its
-  problem while its page would render: course staff and contest organisers always;
-  students in an open assignment, a running published contest they joined, their own
-  running virtual contest, or a running exam session that passes the proctoring gate.
-  Otherwise the practice view rules apply, so the program stays readable after an exam
-  or contest ends to students who can still view the problem. A page-locked exam
-  session keeps the request inside that exam's problems.
+  problem while its page would render: course staff always; contest organisers while
+  the contest is published; students in an open assignment, a running published
+  contest they joined, their own running virtual contest, or a running exam session
+  that passes the proctoring gate. Otherwise the practice view rules apply, so the
+  program stays readable after an exam or contest ends to students who can still view
+  the problem. A page-locked exam session keeps the request inside that exam's
+  problems.
 - Hidden testcases never leave the server; Test uses only the problem's samples and
   the student's own cases.
 
@@ -584,9 +585,10 @@ While it prepares, Test stays clickable and shows the toolchain download or
    MLE, whatever the interactor did; otherwise an interactor that exits with anything
    but 42 or 43, or is stopped by a limit, is SE; otherwise a contestant RE wins;
    otherwise the interactor's AC or WA stands.
-4. Each case shows the verdict, contestant stderr (100,000 bytes), both transcript
-   directions (64 KiB each, cut at a UTF-8 boundary) and the contestant's logical
-   time. The interactor's `teammessage` and stderr are not shown.
+4. Each case shows the verdict, contestant stderr (100,000 bytes) and both transcript
+   directions (64 KiB each, cut at a UTF-8 boundary); the run shows the largest
+   contestant logical time across its cases. The interactor's `teammessage` and stderr
+   are not shown.
 5. When the contestant exits, normally or with an error, before the interactor's next
    write, that write fails (a Python interactor exits 120) and the case is SE; Submit
    gives that case RE or the interactor's verdict.
