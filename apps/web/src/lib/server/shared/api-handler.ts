@@ -1,6 +1,7 @@
 import { json, error, isRedirect } from "@sveltejs/kit";
 import type { RequestEvent } from "@sveltejs/kit";
 import { ZodError, type ZodType } from "zod";
+import { HttpError } from "@nojv/application";
 
 import { classifyRequestError } from "./handle-action-error";
 import {
@@ -74,6 +75,15 @@ export async function readJsonBody(
   } catch (reason) {
     if (!(reason instanceof SyntaxError)) throw reason;
     error(400, "Invalid request body: expected valid JSON.");
+  }
+}
+
+export function parseContextParam(raw: string | null): unknown {
+  if (raw === null) throw new HttpError("context is required.", 400);
+  try {
+    return JSON.parse(raw);
+  } catch {
+    throw new HttpError("context must be JSON.", 400);
   }
 }
 

@@ -4,7 +4,7 @@ import {
   codeDraftScopeSchema,
   MAX_SUBMISSION_BODY_BYTES,
 } from "@nojv/core";
-import { codeDraftDomain, HttpError } from "@nojv/application";
+import { codeDraftDomain } from "@nojv/application";
 
 import type { RequestHandler } from "./$types";
 
@@ -13,17 +13,9 @@ import { getClientIp } from "$lib/server/shared/client-ip";
 import {
   assertJsonBodyWithinLimit,
   draftApiHandler,
+  parseContextParam,
   readJsonBody,
 } from "$lib/server/shared/api-handler";
-
-function parseContextParam(raw: string | null): unknown {
-  if (raw === null) throw new HttpError("context is required.", 400);
-  try {
-    return JSON.parse(raw);
-  } catch {
-    throw new HttpError("context must be JSON.", 400);
-  }
-}
 
 export const GET: RequestHandler = draftApiHandler(async (event) => {
   const actor = requireApiAuth(event);
