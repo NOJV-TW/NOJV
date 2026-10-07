@@ -70,7 +70,7 @@ Active TAs can remove student members (linked or pending) but cannot remove TAs,
 
 ### ASM-07 Contest problems are withheld from non-managers until start
 
-**Decided:** 2026-04 · **Source:** [2026-04-11-contest-hide-problems-and-tabs-design](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-04-11-contest-hide-problems-and-tabs-design.md), [2026-04-11-contest-hide-problems-and-tabs](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-04-11-contest-hide-problems-and-tabs.md)
+**Decided:** 2026-04 · **Source:** [2026-04-11-contest-hide-problems-and-tabs-design](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-04-11-contest-hide-problems-and-tabs-design.md), [2026-04-11-contest-hide-problems-and-tabs](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-04-11-contest-hide-problems-and-tabs.md), [#643](https://github.com/NOJV-TW/NOJV/pull/643)
 
 The domain layer computes `problemsHidden = !isManager && now < startsAt` and returns `problems: null` (deliberately withheld, not `[]`), for every contest with no opt-in. Problems used to leak in the page payload, and an opt-in flag risked owners forgetting it.
 
