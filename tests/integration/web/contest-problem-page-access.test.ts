@@ -36,6 +36,7 @@ async function fixture(startsAt: Date) {
   const inContest = await createTestProblem({ authorId: owner.id });
   const outside = await createTestProblem({
     authorId: (await createTestUser({ platformRole: "teacher" })).id,
+    visibility: "private",
   });
   await testPrisma.contestProblem.create({
     data: { contestId: contest.id, problemId: inContest.id, ordinal: 1, points: 100 },
