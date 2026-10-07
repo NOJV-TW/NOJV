@@ -1141,6 +1141,7 @@
   "editor_checkerPreparing": "準備 checker 中...",
   "editor_checkerBuildFailed": "此題的 checker 編譯失敗。",
   "editor_checkerLoadFailed": "無法載入此題的 checker，請重新載入頁面後再試。",
+  "editor_checkerUnavailable": "無法載入此題的 checker。",
   "editor_judgeSystemError": "評測程式在這組測資出錯，這是評測端的問題，不是你的程式造成的。",
   "editor_interactiveTestNote": "測試會用每組範例的 Interactor 輸入，讓你的程式和本題的 interactor 對話，由 interactor 即時判斷你的回應。互動題無法自行新增測資。",
   "editor_checkerCasesNote": "本題的 checker 只評測範例測資。你新增或修改的測資只會執行、不會判定對錯，請自行檢查輸出。",

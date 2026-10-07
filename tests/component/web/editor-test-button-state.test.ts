@@ -39,6 +39,7 @@ vi.mock("$lib/components/features/problem/editors/use-editor-run.svelte", () => 
       return mocks.controllerReason;
     },
     markDestroyed: vi.fn(),
+    setBottomTab: vi.fn(),
     submit: vi.fn(),
     run: vi.fn(),
   }),
@@ -122,6 +123,7 @@ function visibleReason(button: HTMLButtonElement): string | undefined {
   const caption = id ? document.getElementById(id) : null;
   if (!caption || caption.closest(".sr-only") || caption.hidden) return undefined;
   expect(caption.tagName).toBe("P");
+  expect(caption.getAttribute("role")).toBe("status");
   expect(caption.className).not.toContain("sr-only");
   expect(button.parentElement?.contains(caption)).toBe(true);
   return caption.textContent.trim();
@@ -185,6 +187,11 @@ describe("Test button state", () => {
       "can't be loaded",
       { ok: false, reason: "load_failed" } as const,
       () => m.editor_checkerLoadFailed(),
+    ],
+    [
+      "is refused",
+      { ok: false, reason: "unavailable" } as const,
+      () => m.editor_checkerUnavailable(),
     ],
   ])("is disabled when the checker %s", async (_label, prepared, reason) => {
     mocks.prepare.mockResolvedValue(prepared);

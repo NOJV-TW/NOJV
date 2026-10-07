@@ -99,6 +99,8 @@
     ).then((prepared) => {
       judgeProgramProgress = null;
       if (!prepared.ok) judgeProgramFailure = prepared;
+      if (!prepared.ok && prepared.reason === "build_failed")
+        runController.setBottomTab("result");
       return prepared;
     });
     return judgeProgramPreparation;
@@ -254,6 +256,7 @@
     }
     if (judgeProgramFailure?.reason === "build_failed") return m.editor_checkerBuildFailed();
     if (judgeProgramFailure?.reason === "load_failed") return m.editor_checkerLoadFailed();
+    if (judgeProgramFailure?.reason === "unavailable") return m.editor_checkerUnavailable();
     return runController.testDisabledReason;
   });
 

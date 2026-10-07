@@ -433,6 +433,9 @@ it("runs a checker on the student's output with the sample as its input and answ
       logicalTimeLimitMs: 30_000,
       memoryLimitBytes: 512 * 1024 * 1024,
       wallTimeLimitMs: 60_000,
+      outputLimitBytes: 16 * 1024 * 1024,
+      filesystemWriteLimitBytes: 64 * 1024 * 1024,
+      filesystemEntryLimit: 4096,
     },
   });
 });

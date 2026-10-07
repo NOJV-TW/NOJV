@@ -76,14 +76,13 @@
     {/if}
   </div>
   <div class="flex min-w-0 items-center justify-end gap-2">
-    {#if testDisabledReason !== null}
-      <p
-        id={`${uid}-test-reason`}
-        class="min-w-0 text-right text-caption leading-snug text-muted-foreground"
-      >
-        {testDisabledReason}
-      </p>
-    {/if}
+    <p
+      id={`${uid}-test-reason`}
+      role="status"
+      class="min-w-0 text-right text-caption leading-snug text-muted-foreground"
+    >
+      {testDisabledReason ?? ""}
+    </p>
     <button
       class="shrink-0 rounded-full border border-border px-3 py-1 text-caption font-medium text-foreground transition-[transform,box-shadow,background-color] duration-fast ease-out-soft hover:-translate-y-0.5 hover:bg-accent disabled:cursor-not-allowed disabled:opacity-60"
       disabled={isRunning || disabled || testDisabledReason !== null}

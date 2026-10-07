@@ -1,4 +1,4 @@
-import type { JudgeProgramRole, JudgeScriptLanguage, SubmissionContext } from "@nojv/core";
+import type { JudgeProgramSourceView, SubmissionContext } from "@nojv/core";
 import {
   assessmentProblemRepo,
   assessmentRepo,
@@ -21,13 +21,6 @@ import { canManageCourse, getCourseRole } from "../shared/permissions";
 import { storage } from "../shared/storage-singleton";
 import { parsePersistedJudgeConfig } from "./judge-config";
 import { assertProblemViewAccess } from "./permissions";
-
-export interface JudgeProgramSourceView {
-  role: JudgeProgramRole;
-  language: JudgeScriptLanguage;
-  source: string;
-  sha256: string;
-}
 
 type ActiveExamSession = Awaited<ReturnType<typeof examSessionRepo.findActiveForUser>>;
 

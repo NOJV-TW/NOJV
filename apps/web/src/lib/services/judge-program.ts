@@ -1,8 +1,9 @@
-import type {
-  JudgeProgramRole,
-  JudgeProgramSource,
-  JudgeScriptLanguage,
-  SubmissionContext,
+import {
+  judgeProgramSourceViewSchema,
+  type JudgeProgramRole,
+  type JudgeProgramSourceView,
+  type JudgeScriptLanguage,
+  type SubmissionContext,
 } from "@nojv/core";
 import type { BuildArtifact } from "@wasm-oj/browser";
 import {
@@ -12,37 +13,45 @@ import {
   withPreloadRetries,
 } from "./browser-local-run";
 
-interface JudgeProgramSourceView extends JudgeProgramSource {
-  sha256: string;
-}
-
 export type JudgeProgramProgress =
   { phase: "fetch" } | { phase: "toolchain"; percent: number } | { phase: "build" };
 
 export type PreparedJudgeProgram =
   | { ok: true; role: JudgeProgramRole; language: JudgeScriptLanguage; artifact: BuildArtifact }
   | { ok: false; reason: "build_failed"; diagnostics: string }
-  | { ok: false; reason: "load_failed" };
+  | { ok: false; reason: "load_failed" | "unavailable" };
+
+type JudgeProgramFailure = Extract<PreparedJudgeProgram, { reason: string }>;
 
 const LOAD_FAILED = { ok: false, reason: "load_failed" } as const;
+const UNAVAILABLE = { ok: false, reason: "unavailable" } as const;
 const builds = new Map<string, Promise<PreparedJudgeProgram>>();
 
 async function fetchJudgeProgram(
   problemId: string,
   context: SubmissionContext,
-): Promise<JudgeProgramSourceView | null> {
+): Promise<JudgeProgramSourceView | JudgeProgramFailure> {
   const query = new URLSearchParams({ context: JSON.stringify(context) });
   try {
     return await withPreloadRetries(async () => {
       const response = await fetch(
         `/api/problems/${encodeURIComponent(problemId)}/judge-program?${query}`,
       );
-      if (response.ok) return (await response.json()) as JudgeProgramSourceView;
-      if (response.status < 500 && response.status !== 429) return null;
-      throw new Error(`Judge program request failed with ${String(response.status)}.`);
+      if (response.ok) return judgeProgramSourceViewSchema.parse(await response.json());
+      const failure = `Judge program request failed with ${String(response.status)}.`;
+      if (response.status === 403 || response.status === 404) {
+        console.warn(failure);
+        return UNAVAILABLE;
+      }
+      if (response.status < 500 && response.status !== 429) {
+        console.warn(failure);
+        return LOAD_FAILED;
+      }
+      throw new Error(failure);
     });
-  } catch {
-    return null;
+  } catch (error) {
+    console.warn("Couldn't load the judge program.", error);
+    return LOAD_FAILED;
   }
 }
 
@@ -50,7 +59,7 @@ function buildJudgeProgram(
   problemId: string,
   program: JudgeProgramSourceView,
 ): Promise<PreparedJudgeProgram> {
-  const key = `${problemId}:${program.sha256}`;
+  const key = `${problemId}:${program.language}:${program.sha256}`;
   const cached = builds.get(key);
   if (cached) return cached;
   const build = compileBrowserJudgeProgram(problemId, program).then(
@@ -63,7 +72,8 @@ function buildJudgeProgram(
             artifact: outcome.artifact,
           }
         : { ok: false, reason: "build_failed", diagnostics: outcome.diagnostics },
-    (): PreparedJudgeProgram => {
+    (error: unknown): PreparedJudgeProgram => {
+      console.warn("Couldn't build the judge program.", error);
       builds.delete(key);
       return LOAD_FAILED;
     },
@@ -78,12 +88,13 @@ export async function prepareJudgeProgram(
 ): Promise<PreparedJudgeProgram> {
   onProgress({ phase: "fetch" });
   const program = await fetchJudgeProgram(problemId, context);
-  if (!program) return LOAD_FAILED;
+  if ("ok" in program) return program;
   try {
     await preloadBrowserToolchain(program.language, (progress) =>
       onProgress({ phase: "toolchain", percent: browserToolchainPercent(progress) }),
     );
-  } catch {
+  } catch (error) {
+    console.warn("Couldn't load the judge program's toolchain.", error);
     return LOAD_FAILED;
   }
   onProgress({ phase: "build" });

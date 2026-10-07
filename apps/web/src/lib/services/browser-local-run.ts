@@ -50,7 +50,13 @@ const BROWSER_TOOLCHAINS = [
 const PRELOAD_RETRY_DELAYS_MS = [2_000, 5_000];
 const CHECKER_MEMORY_LIMIT_BYTES = 512 * 1024 * 1024;
 const CHECKER_TEAM_MESSAGE_PATH = "/judge/feedback/teammessage.txt";
+const RUN_OUTPUT_LIMITS = {
+  outputLimitBytes: MAX_EXECUTION_OUTPUT_BYTES,
+  filesystemWriteLimitBytes: 64 * 1024 * 1024,
+  filesystemEntryLimit: 4096,
+};
 let browserEnginePromise: Promise<Engine> | undefined;
+let engineQueueTail: Promise<void> = Promise.resolve();
 
 interface ToolchainPreload {
   promise: Promise<void>;
@@ -78,6 +84,51 @@ async function getBrowserEngine(): Promise<Engine> {
 
 export async function prewarmBrowserLocalEngine(): Promise<void> {
   await getBrowserEngine();
+}
+
+async function waitForTurn(
+  previous: Promise<void>,
+  signal: AbortSignal | undefined,
+): Promise<void> {
+  if (!signal) return previous;
+  signal.throwIfAborted();
+  let leave!: () => void;
+  const left = new Promise<void>((resolve) => (leave = resolve));
+  signal.addEventListener("abort", leave, { once: true });
+  try {
+    await Promise.race([previous, left]);
+  } finally {
+    signal.removeEventListener("abort", leave);
+  }
+  signal.throwIfAborted();
+}
+
+async function withBrowserEngine<T>(
+  signal: AbortSignal | undefined,
+  operation: (engine: Engine) => Promise<T>,
+): Promise<T> {
+  const previous = engineQueueTail;
+  let finish!: () => void;
+  engineQueueTail = new Promise<void>((resolve) => (finish = resolve));
+  try {
+    await waitForTurn(previous, signal);
+  } catch (error) {
+    void previous.then(finish);
+    throw error;
+  }
+  try {
+    const engine = await getBrowserEngine();
+    signal?.throwIfAborted();
+    const cancel = () => engine.cancel();
+    signal?.addEventListener("abort", cancel, { once: true });
+    try {
+      return await operation(engine);
+    } finally {
+      signal?.removeEventListener("abort", cancel);
+    }
+  } finally {
+    finish();
+  }
 }
 
 export function browserToolchainPercent(progress: BrowserToolchainPrefetchProgress): number {
@@ -317,11 +368,7 @@ export async function compileBrowserLocally(
   problemId: string,
   signal: AbortSignal,
 ): Promise<BrowserCompileOutcome> {
-  const browserEngine = await getBrowserEngine();
-  const cancel = () => browserEngine.cancel();
-  signal.addEventListener("abort", cancel, { once: true });
-  try {
-    signal.throwIfAborted();
+  return withBrowserEngine(signal, async (browserEngine) => {
     const { entry, files } = browserLocalFiles(request);
     const build = await browserEngine.compile(
       {
@@ -350,29 +397,28 @@ export async function compileBrowserLocally(
       };
     }
     return { ok: true, artifact: build.artifact };
-  } finally {
-    signal.removeEventListener("abort", cancel);
-  }
+  });
 }
 
 export async function compileBrowserJudgeProgram(
   problemId: string,
   program: JudgeProgramSource,
 ): Promise<{ ok: true; artifact: BuildArtifact } | { ok: false; diagnostics: string }> {
-  const browserEngine = await getBrowserEngine();
-  const build = await browserEngine.compile(
-    {
-      ...judgeProgramCompileInput(program, WASM_OJ_LIBCXX_PCH_HEADER),
-      target: "wasip1",
-      optimization: "release",
-      name: `NOJV ${program.role} ${problemId}`,
-      projectId: `nojv-judge-program-v1-${problemId}-${program.role}`,
-    },
-    { cache: true },
-  );
-  if (!build.success || !build.artifact)
-    return { ok: false, diagnostics: compileFeedback(build) };
-  return { ok: true, artifact: build.artifact };
+  return withBrowserEngine(undefined, async (browserEngine) => {
+    const build = await browserEngine.compile(
+      {
+        ...judgeProgramCompileInput(program, WASM_OJ_LIBCXX_PCH_HEADER),
+        target: "wasip1",
+        optimization: "release",
+        name: `NOJV ${program.role} ${problemId}`,
+        projectId: `nojv-judge-program-v1-${problemId}-${program.role}-${program.language}`,
+      },
+      { cache: true },
+    );
+    if (!build.success || !build.artifact)
+      return { ok: false, diagnostics: compileFeedback(build) };
+    return { ok: true, artifact: build.artifact };
+  });
 }
 
 export async function runBrowserCases(
@@ -381,11 +427,7 @@ export async function runBrowserCases(
   limits: BrowserRunLimits,
   signal: AbortSignal,
 ): Promise<BrowserCaseRun[]> {
-  const browserEngine = await getBrowserEngine();
-  const cancel = () => browserEngine.cancel();
-  signal.addEventListener("abort", cancel, { once: true });
-  try {
-    signal.throwIfAborted();
+  return withBrowserEngine(signal, async (browserEngine) => {
     const logicalTimeLimitMs = effectiveTimeLimitMs(limits.timeLimitMs, limits.language);
     const runs: BrowserCaseRun[] = [];
     for (const testCase of cases) {
@@ -395,18 +437,14 @@ export async function runBrowserCases(
         resources: {
           logicalTimeLimitMs,
           memoryLimitBytes: limits.memoryLimitMb * 1024 * 1024,
-          outputLimitBytes: MAX_EXECUTION_OUTPUT_BYTES,
-          filesystemWriteLimitBytes: 64 * 1024 * 1024,
-          filesystemEntryLimit: 4096,
+          ...RUN_OUTPUT_LIMITS,
         },
       });
       signal.throwIfAborted();
       runs.push(browserCaseRun(run));
     }
     return runs;
-  } finally {
-    signal.removeEventListener("abort", cancel);
-  }
+  });
 }
 
 export async function runBrowserChecker(
@@ -419,11 +457,7 @@ export async function runBrowserChecker(
   }: { input: string; answer: string; output: string; timeLimitMs: number },
   signal: AbortSignal,
 ): Promise<ReturnType<typeof checkerCaseVerdict>> {
-  const browserEngine = await getBrowserEngine();
-  const cancel = () => browserEngine.cancel();
-  signal.addEventListener("abort", cancel, { once: true });
-  try {
-    signal.throwIfAborted();
+  return withBrowserEngine(signal, async (browserEngine) => {
     const timeoutMs = validatorTimeoutMs(timeLimitMs);
     const run = await browserEngine.run(artifact, {
       args: ["/judge/input", "/judge/answer", "/judge/feedback"],
@@ -438,6 +472,7 @@ export async function runBrowserChecker(
         logicalTimeLimitMs: timeoutMs,
         memoryLimitBytes: CHECKER_MEMORY_LIMIT_BYTES,
         wallTimeLimitMs: executionWallTimeLimitMs(timeoutMs),
+        ...RUN_OUTPUT_LIMITS,
       },
     });
     signal.throwIfAborted();
@@ -446,9 +481,7 @@ export async function runBrowserChecker(
       run,
       teamMessage === undefined ? undefined : new TextDecoder().decode(teamMessage),
     );
-  } finally {
-    signal.removeEventListener("abort", cancel);
-  }
+  });
 }
 
 export async function runBrowserLocally(args: {

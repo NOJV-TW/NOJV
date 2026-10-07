@@ -5,6 +5,7 @@ import {
   PYTHON_VALIDATOR_WRAPPER,
   cppStandardHeader,
   judgeProgramCompileInput,
+  judgeProgramSourceViewSchema,
   pythonJudgeWrapper,
   type JudgeProgramSource,
 } from "@nojv/core";
@@ -49,5 +50,22 @@ describe("judgeProgramCompileInput", () => {
       "src/bits/stdc++.h": cppStandardHeader("PCH"),
       "wasm-oj.pch.hpp": "PCH",
     });
+  });
+});
+
+describe("judgeProgramSourceViewSchema", () => {
+  const view = { role: "interactor", language: "python", source: "", sha256: "f".repeat(64) };
+
+  it("accepts the judge-program endpoint's response", () => {
+    expect(judgeProgramSourceViewSchema.parse(view)).toEqual(view);
+  });
+
+  it.each([
+    ["an unknown role", { role: "validator" }],
+    ["an unsupported language", { language: "javascript" }],
+    ["a digest that is not lowercase SHA-256 hex", { sha256: "F".repeat(64) }],
+    ["a missing source", { source: undefined }],
+  ])("rejects %s", (_label, change) => {
+    expect(judgeProgramSourceViewSchema.safeParse({ ...view, ...change }).success).toBe(false);
   });
 });
