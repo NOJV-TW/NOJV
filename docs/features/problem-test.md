@@ -64,4 +64,4 @@ The endpoint requires a session and the problem page's view access for the conte
 - On an interactive problem the statement shows the "Interaction" notes, and each sample shows its interactor input with a copy button, above the transcript-style input and output.
 - The basic info section shows "Interaction notes" (Markdown, up to 8,000 characters) only for interactive problems.
 - On an interactive problem each sample has an "Interactor input" field, and its input and output are labelled as the two sides of the transcript. Saving samples on an interactive problem with any sample lacking a non-blank interactor input fails with "Every interactive sample needs an interactor input."
-- Students can read the checker or interactor source; `judgemessage` and the interactor's stderr are not shown in Test.
+- Students can read the checker or interactor source, and the judge tab of the edit page says so under the checker or interactor language ("Students can read this program when they press Test."); `judgemessage` and the interactor's stderr are not shown in Test.

@@ -231,6 +231,8 @@
           </select>
         </label>
 
+        <p class="text-caption text-muted-foreground">{m.admin_judgeProgramReadableNote()}</p>
+
         <details class="rounded-md border border-border-subtle bg-muted/30 px-3 py-2">
           <summary class="cursor-pointer text-caption font-semibold">
             {m.admin_checkerHelpTitle()}
@@ -273,6 +275,8 @@
             <option value="cpp">{m.common_language_cpp()}</option>
           </select>
         </label>
+
+        <p class="text-caption text-muted-foreground">{m.admin_judgeProgramReadableNote()}</p>
 
         <details class="rounded-md border border-border-subtle bg-muted/30 px-3 py-2">
           <summary class="cursor-pointer text-caption font-semibold">
