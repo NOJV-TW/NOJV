@@ -11,15 +11,13 @@ import type {
   SubmissionContext,
   SubmissionResult,
   SubmissionOperationStatus,
-  TestCapability,
-  TestJudgeCaseResult,
 } from "@nojv/core";
 
 export interface TestCaseView extends CaseResult {
   executionOnly?: true;
   serverJudged?: true;
   teamMessage?: string;
-  transcript?: NonNullable<TestJudgeCaseResult["transcript"]>;
+  transcript?: { toInteractor: string; toContestant: string };
 }
 
 export interface TestRunResult extends SubmissionResult {
@@ -68,7 +66,6 @@ export interface ProblemDetail extends ProblemOverview {
   statement: string;
   status: ProblemStatus;
   tags: string[];
-  testCapability: TestCapability;
   timeLimitMs: number;
   totalScore: number;
   visibility: ProblemVisibility;

@@ -3,7 +3,6 @@ import {
   judgeConfigSchema,
   type AdvancedConfig,
   type JudgeConfig,
-  type JudgeScriptLanguage,
 } from "@nojv/core";
 
 import { IntegrityError } from "../shared/errors";
@@ -31,10 +30,4 @@ export function parsePersistedAdvancedConfig(
       .map((issue) => `${issue.path.join(".") || "advancedConfig"}: ${issue.message}`)
       .join("; ")}`,
   );
-}
-
-export function judgeScriptLanguageOf(config: JudgeConfig): JudgeScriptLanguage | null {
-  if (config.type === "checker") return config.checkerLanguage ?? null;
-  if (config.type === "interactive") return config.interactorLanguage ?? null;
-  return null;
 }

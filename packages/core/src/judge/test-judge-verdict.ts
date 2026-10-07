@@ -1,7 +1,8 @@
 import { MAX_FEEDBACK_LEN } from "../schemas/submission";
-import type { TestJudgeVerdict } from "../schemas/test-judge";
 import { parseValidatorFeedback } from "./validator";
 import { wasmOjTerminationVerdict } from "./wasm-oj-verdict";
+
+type TestJudgeVerdict = "AC" | "WA" | "TLE" | "MLE" | "RE" | "SE";
 
 interface ProcessTermination {
   termination: string;

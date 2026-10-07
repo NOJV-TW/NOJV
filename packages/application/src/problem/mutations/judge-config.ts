@@ -9,19 +9,15 @@ import {
 } from "@nojv/db";
 import {
   advancedConfigSchema,
-  staticTestCapability,
   type AdvancedJudgeConfiguration,
   type JudgeConfig,
   type JudgeScriptLanguage,
-  type TestJudgeProgramBuildInput,
 } from "@nojv/core";
 import { assertStorageObjectPointer, type StorageObjectPointer } from "@nojv/storage";
 import { ConflictError, NotFoundError } from "../../shared/errors";
-import { getDomainOrchestration } from "../../shared/orchestration";
 import { commitStoragePointerSwap } from "../../shared/storage-object-lifecycle";
-import { isTestJudgeEnabled } from "../../shared/test-judge-enabled";
 import { writeCheckerScriptBlob, writeInteractorScriptBlob } from "../blobs";
-import { judgeScriptLanguageOf, parsePersistedJudgeConfig } from "../judge-config";
+import { parsePersistedJudgeConfig } from "../judge-config";
 import {
   assertCanCreateAdvancedProblems,
   assertProblemEditAccess,
@@ -33,17 +29,6 @@ import {
   testcaseStoragePointers,
   testcaseStorageSize,
 } from "./storage-pointers";
-
-async function prebuildJudgeProgram(
-  problemId: string,
-  input: TestJudgeProgramBuildInput,
-): Promise<void> {
-  try {
-    await getDomainOrchestration().dispatchTestJudgeProgramBuild(input);
-  } catch (error) {
-    console.warn("Test-judge program prebuild dispatch failed", { problemId, error });
-  }
-}
 
 export interface SaveJudgeConfigInput {
   judgeConfig: JudgeConfig;
@@ -83,7 +68,7 @@ export async function saveProblemJudgeConfig(
       : {}),
   };
 
-  const saved = await runTransaction(async (tx) => {
+  return runTransaction(async (tx) => {
     const current = await lockProblemForEdit(tx, actor, problemId);
     const previousBytes =
       optionalPointerSize(current.checkerStorage) +
@@ -109,26 +94,6 @@ export async function saveProblemJudgeConfig(
     });
     return { id: problemId };
   });
-
-  const scriptPointer = checkerStorage ?? interactorStorage;
-  const language = judgeScriptLanguageOf(judgeConfig);
-  if (
-    scriptPointer &&
-    language &&
-    staticTestCapability({
-      isSpecialEnv: problem.type === "special_env",
-      judgeType: type,
-      judgeLanguage: language,
-      testJudgeEnabled: isTestJudgeEnabled(),
-    }).available
-  ) {
-    void prebuildJudgeProgram(problemId, {
-      role: type === "checker" ? "checker" : "interactor",
-      language,
-      scriptPointer,
-    });
-  }
-  return saved;
 }
 
 export async function updateAdvancedJudgeConfiguration(

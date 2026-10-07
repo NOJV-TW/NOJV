@@ -75,7 +75,6 @@ async function render(type: ProblemDetail["type"] = "full_source", code = "int m
         judgeConfig: {},
         timeLimitMs: 1000,
         memoryLimitMb: 256,
-        testCapability: { available: true },
       } as unknown as ProblemDetail,
       context: { type: "practice" },
       draftContext: { userId: "user_1", cipherKey: "", kind: "practice" },

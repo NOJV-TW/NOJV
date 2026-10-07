@@ -7,7 +7,6 @@ import {
   apiRateLimiter,
   draftApiRateLimiter,
   registryTokenRateLimiter,
-  testJudgeApiRateLimiter,
   writeApiRateLimiter,
   type RateLimiterLike,
 } from "./rate-limiter";
@@ -136,8 +135,4 @@ export function draftApiHandler(handler: ApiHandler): ApiHandler {
 
 export function registryTokenApiHandler(handler: ApiHandler): ApiHandler {
   return wrapHandler(handler, registryTokenRateLimiter);
-}
-
-export function testJudgeApiHandler(handler: ApiHandler): ApiHandler {
-  return wrapHandler(handler, testJudgeApiRateLimiter);
 }

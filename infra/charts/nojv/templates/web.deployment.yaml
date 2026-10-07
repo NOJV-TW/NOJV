@@ -111,8 +111,6 @@ spec:
               value: {{ .Values.web.dbPoolMax | quote }}
             - name: SUBMIT_COOLDOWN_MIN_SEC
               value: {{ .Values.web.submitCooldownMinSec | quote }}
-            - name: TEST_JUDGE_ENABLED
-              value: {{ .Values.worker.test.enabled | quote }}
             - name: SANDBOX_IMAGE
               value: {{ include "nojv.image" (dict "root" . "component" "sandbox") }}
             - name: S3_BUCKET

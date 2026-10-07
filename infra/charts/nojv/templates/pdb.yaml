@@ -3,9 +3,6 @@
 {{- if .Values.registry.enabled }}
 {{- $names = append $names "registry" }}
 {{- end }}
-{{- if .Values.worker.test.enabled }}
-{{- $names = append $names "worker-test" }}
-{{- end }}
 {{- range $name := $names }}
 ---
 apiVersion: policy/v1

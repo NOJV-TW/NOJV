@@ -204,10 +204,10 @@ it("keeps local results visible with the server's notice when samples could not 
     runCases: [{ input: "1 2", expectedOutput: "3" }],
     runResult: {
       ...result([{ index: 0, verdict: "AC", timeMs: 3, stdout: "3\n", executionOnly: true }]),
-      serverNotice: m.editor_testJudgeBusy(),
+      serverNotice: "Test is busy right now.",
     },
   });
-  expect(target.textContent).toContain(m.editor_testJudgeBusy());
+  expect(target.textContent).toContain("Test is busy right now.");
   expect(target.textContent).toContain(m.editor_executed());
   expect(target.textContent).toContain(m.editor_executedNote());
   expect(target.textContent).toContain("3\n");

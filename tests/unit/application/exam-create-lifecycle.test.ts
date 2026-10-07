@@ -96,7 +96,6 @@ beforeEach(() => {
     dispatchRegistryGarbageCollect: vi.fn(),
     dispatchJudgeExecution: vi.fn().mockResolvedValue(undefined),
     dispatchJudgeCleanup: vi.fn().mockResolvedValue(undefined),
-    dispatchTestJudgeProgramBuild: vi.fn().mockResolvedValue(undefined),
     ensureAssignmentDueSoon: vi.fn(),
     ensureContestLifecycle: vi.fn(),
     ensureExamAutoClose,
@@ -104,7 +103,6 @@ beforeEach(() => {
     replaceAssignmentDueSoon: vi.fn(),
     replaceContestLifecycle: vi.fn(),
     replaceExamAutoClose: vi.fn(),
-    runTestJudge: vi.fn(),
     terminateSubmissionJudge: vi.fn(),
   });
 });

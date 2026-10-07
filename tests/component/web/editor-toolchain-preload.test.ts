@@ -91,7 +91,6 @@ it("preloads the editor language's toolchain and shows its progress on Test", as
         judgeConfig: {},
         timeLimitMs: 1000,
         memoryLimitMb: 256,
-        testCapability: { available: true },
       } as unknown as ProblemDetail,
       context: { type: "practice" },
       draftContext: { userId: "user_1", cipherKey: "", kind: "practice" },

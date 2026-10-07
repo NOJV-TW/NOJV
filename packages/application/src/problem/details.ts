@@ -7,7 +7,6 @@ import {
 import {
   LANGUAGE_TEMPLATES,
   problemSampleSchema,
-  staticTestCapability,
   type AdvancedConfig,
   type JudgeConfig,
   type JudgeType,
@@ -16,17 +15,11 @@ import {
   type ProblemStatus,
   type ProblemType,
   type ProblemVisibility,
-  type TestCapability,
 } from "@nojv/core";
 import { NotFoundError } from "../shared/errors";
-import { isTestJudgeEnabled } from "../shared/test-judge-enabled";
 import { readCachedWorkspaceFileBlob } from "./blobs";
 import { computeProblemTotalScore } from "./total-score";
-import {
-  judgeScriptLanguageOf,
-  parsePersistedAdvancedConfig,
-  parsePersistedJudgeConfig,
-} from "./judge-config";
+import { parsePersistedAdvancedConfig, parsePersistedJudgeConfig } from "./judge-config";
 
 export interface ProblemDetail {
   acceptanceRate: number;
@@ -46,7 +39,6 @@ export interface ProblemDetail {
   statement: string;
   status: ProblemStatus;
   tags: string[];
-  testCapability: TestCapability;
   timeLimitMs: number;
   title: string;
   totalScore: number;
@@ -148,12 +140,6 @@ async function mapPersistedProblemDetail(
     statement: statement?.bodyMarkdown ?? "",
     status: problem.status,
     tags,
-    testCapability: staticTestCapability({
-      isSpecialEnv: type === "special_env",
-      judgeType: judgeConfig.type,
-      judgeLanguage: judgeScriptLanguageOf(judgeConfig),
-      testJudgeEnabled: isTestJudgeEnabled(),
-    }),
     timeLimitMs: problem.timeLimitMs,
     title: problem.title,
     totalSubmissions: attempters,

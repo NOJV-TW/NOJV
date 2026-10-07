@@ -223,17 +223,13 @@
   $effect(() => () => runController.markDestroyed());
 
   let testDisabledReason = $derived.by(() => {
-    const capability = problem.testCapability;
-    if (!capability.available) {
-      return capability.reason === "special_env"
-        ? m.editor_testUnsupportedProblemType()
-        : m.editor_testUnavailableForProblem();
-    }
+    if (isSpecialEnv) return m.editor_testUnsupportedProblemType();
     if (problem.judgeType === "interactive") {
       if (!interactiveContestantSupported(language)) return m.editor_testInteractiveLanguage();
       if (!problem.samples.some((sample) => sample.interactorInput?.trim()))
         return m.editor_testNoInteractiveSamples();
     }
+    if (problem.judgeType !== "standard") return m.editor_testUnavailableForProblem();
     return runController.testDisabledReason;
   });
 

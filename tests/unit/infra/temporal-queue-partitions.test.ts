@@ -41,13 +41,7 @@ function singlePartitionQueues(yamlText: string, key: string): string[] {
 describe("Temporal task-queue partitions", () => {
   it("finds every NOJV task queue", () => {
     expect(queues).toEqual(
-      expect.arrayContaining([
-        "judge",
-        "judge-state",
-        "judge-cleanup",
-        "platform",
-        "test-judge",
-      ]),
+      expect.arrayContaining(["judge", "judge-state", "judge-cleanup", "platform"]),
     );
   });
 

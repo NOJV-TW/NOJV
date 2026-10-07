@@ -3,13 +3,10 @@ import {
   submissionDraftSchema,
   submissionDispatchResponseSchema,
   submissionOperationSchema,
-  testJudgeResponseSchema,
   type Language,
   type SubmissionContext,
   type SubmissionResult,
   type SubmissionRunCase,
-  type TestJudgeRequest,
-  type TestJudgeResponse,
 } from "@nojv/core";
 
 import { fetchWithCsrf } from "$lib/services/http";
@@ -133,52 +130,6 @@ async function postSubmission(
   }
 
   return submissionDispatchResponseSchema.parse(await response.json());
-}
-
-function testJudgeErrorCode(status: number, code: unknown): string {
-  if (status === 413) return "test_request_too_large";
-  if (typeof code === "string") return code;
-  return status === 429 ? "test_judge_busy" : "test_rejected";
-}
-
-export async function requestTestJudge(
-  problemId: string,
-  body: TestJudgeRequest,
-  signal: AbortSignal,
-): Promise<TestJudgeResponse | null> {
-  let response: Response;
-  try {
-    response = await fetchWithCsrf(`/api/problems/${problemId}/test-judge`, {
-      body: JSON.stringify(body),
-      method: "POST",
-      signal,
-    });
-  } catch (err) {
-    if (signal.aborted) return null;
-    throw err;
-  }
-  if (!response.ok) {
-    const error = (await response.json().catch(() => null)) as Record<string, unknown> | null;
-    if (signal.aborted) return null;
-    throw new SubmissionRequestError(
-      typeof error?.message === "string" ? error.message : "Test judge failed.",
-      testJudgeErrorCode(response.status, error?.code),
-      null,
-    );
-  }
-  let payload: unknown;
-  try {
-    payload = await response.json();
-  } catch (err) {
-    if (signal.aborted) return null;
-    throw err;
-  }
-  if (signal.aborted) return null;
-  const parsed = testJudgeResponseSchema.parse(payload);
-  if (parsed.cases.length !== body.cases.length) {
-    throw new Error("The test judge returned a different number of cases.");
-  }
-  return parsed;
 }
 
 export async function executeSubmission(

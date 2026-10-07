@@ -4,7 +4,6 @@ import {
   checkerCaseVerdict,
   interactiveCaseVerdict,
   MAX_FEEDBACK_LEN,
-  testJudgeCaseResultSchema,
   truncateUtf8,
 } from "@nojv/core";
 
@@ -54,7 +53,6 @@ describe("checkerCaseVerdict", () => {
     const result = checkerCaseVerdict(exited(43), `a${"😀".repeat(MAX_FEEDBACK_LEN)}`);
     expect(result.teamMessage).toHaveLength(MAX_FEEDBACK_LEN - 1);
     expect(result.teamMessage?.endsWith("😀")).toBe(true);
-    expect(testJudgeCaseResultSchema.safeParse(result).success).toBe(true);
   });
 });
 

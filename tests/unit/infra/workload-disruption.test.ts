@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 
 const repoRoot = process.cwd();
 
-function render(valuesFile: string, ...extraArgs: string[]): string[] {
+function render(valuesFile: string): string[] {
   const gkeArgs = valuesFile.endsWith("values-gke.yaml")
     ? ["-f", "tests/fixtures/helm/gke-production-config.yaml"]
     : [];
@@ -21,7 +21,6 @@ function render(valuesFile: string, ...extraArgs: string[]): string[] {
       "-f",
       "tests/fixtures/helm/production-external-backups.yaml",
       ...gkeArgs,
-      ...extraArgs,
     ],
     { cwd: repoRoot, encoding: "utf8" },
   ).split(/^---$/m);
@@ -53,17 +52,6 @@ describe("workload disruption on GKE", () => {
     expect(find(docs, "Deployment", name)).toMatch(/^ {2}replicas: 2$/m);
   });
 
-  it("lets a drain evict the test worker once it is enabled", () => {
-    expect(() => find(docs, "PodDisruptionBudget", "nojv-worker-test")).toThrow();
-    const pdb = find(
-      render("infra/charts/nojv/values-gke.yaml", "--set", "worker.test.enabled=true"),
-      "PodDisruptionBudget",
-      "nojv-worker-test",
-    );
-    expect(pdb).toContain("maxUnavailable: 1");
-    expect(pdb).toContain("app.kubernetes.io/name: nojv-worker-test");
-  });
-
   it.each(replicated)("softly spreads %s across zones and nodes", (name) => {
     const deployment = find(docs, "Deployment", name);
     for (const key of ["topology.kubernetes.io/zone", "kubernetes.io/hostname"]) {
@@ -93,20 +81,8 @@ describe("workload disruption on GKE", () => {
 describe("workload disruption on a single machine", () => {
   const docs = render("infra/charts/nojv/values-single-machine.yaml");
 
-  it.each(["nojv-worker-platform", "nojv-registry", "nojv-worker-test"])(
-    "runs one %s replica",
-    (name) => {
-      expect(find(docs, "Deployment", name)).toMatch(/^ {2}replicas: 1$/m);
-    },
-  );
-
-  it("keeps the test worker running through a release window the hooks do not restore it from", () => {
-    const upgrade = render("infra/charts/nojv/values-single-machine.yaml", "--is-upgrade");
-    for (const name of ["nojv-worker", "nojv-worker-platform"]) {
-      expect(find(upgrade, "Deployment", name)).toMatch(/^ {2}replicas: 0$/m);
-    }
-    expect(find(upgrade, "Deployment", "nojv-worker-test")).toMatch(/^ {2}replicas: 1$/m);
-    expect(find(upgrade, "Job", "nojv-workloads-ready")).not.toContain("nojv-worker-test");
+  it.each(["nojv-worker-platform", "nojv-registry"])("runs one %s replica", (name) => {
+    expect(find(docs, "Deployment", name)).toMatch(/^ {2}replicas: 1$/m);
   });
 
   it("renders no PodDisruptionBudget that could block a one-node drain", () => {

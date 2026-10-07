@@ -36,7 +36,7 @@ export function codeDraftContextKey(context: SubmissionContext): string {
   }
 }
 
-export async function assertProblemContextAllowed(
+async function assertProblemContextAllowed(
   actor: ActorContext,
   scope: CodeDraftScope,
   now: Date,

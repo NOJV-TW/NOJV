@@ -11,8 +11,6 @@ export const keys = {
   scoreboardLock: (contestId: string, variant: "live" | "public") =>
     `nojv:sb-lock:${contestId}:${variant}`,
 
-  testJudgeInFlight: (userId: string) => `nojv:test-judge:in-flight:${userId}`,
-
   userChannel: (userId: string) => `nojv:user:${userId}`,
   notificationChannel: (userId: string) => `nojv:notification:${userId}`,
   contestChannel: (contestId: string) => `nojv:contest:${contestId}`,

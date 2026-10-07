@@ -2,7 +2,7 @@
 
 import { mount, tick, unmount } from "svelte";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { Language, TestCapability } from "@nojv/core";
+import type { Language } from "@nojv/core";
 import type { ProblemDetail } from "$lib/types";
 import { m } from "$lib/paraglide/messages.js";
 
@@ -70,7 +70,6 @@ afterEach(async () => {
 async function renderTestButton(options: {
   type?: ProblemDetail["type"];
   judgeType?: ProblemDetail["judgeType"];
-  testCapability?: TestCapability;
   language?: Language;
   samples?: ProblemDetail["samples"];
 }) {
@@ -90,7 +89,6 @@ async function renderTestButton(options: {
         timeLimitMs: 1000,
         memoryLimitMb: 256,
         interactionFormat: "",
-        testCapability: options.testCapability ?? { available: true },
       } as unknown as ProblemDetail,
       initialLanguage: options.language ?? "cpp",
       context: { type: "practice" },
@@ -120,27 +118,21 @@ const interactiveSamples = [{ input: "", output: "", interactorInput: "1 100\n42
 
 describe("Test button state", () => {
   it("is disabled on special_env problems and explains why", async () => {
-    const button = await renderTestButton({
-      type: "special_env",
-      testCapability: { available: false, reason: "special_env" },
-    });
+    const button = await renderTestButton({ type: "special_env" });
     expect(button.disabled).toBe(true);
     expect(visibleReason(button)).toBe(m.editor_testUnsupportedProblemType());
     expect(mocks.preload).not.toHaveBeenCalled();
   });
 
-  it.each(["test_judge_unavailable", "judge_program_unsupported"] as const)(
-    "is disabled when the server reports %s",
-    async (reason) => {
-      const button = await renderTestButton({
-        judgeType: "checker",
-        testCapability: { available: false, reason },
-      });
-      expect(button.disabled).toBe(true);
-      expect(visibleReason(button)).toBe(m.editor_testUnavailableForProblem());
-      expect(mocks.preload).not.toHaveBeenCalled();
-    },
-  );
+  it.each([
+    ["checker", []],
+    ["interactive", interactiveSamples],
+  ] as const)("is disabled on a %s problem in C++", async (judgeType, samples) => {
+    const button = await renderTestButton({ judgeType, samples });
+    expect(button.disabled).toBe(true);
+    expect(visibleReason(button)).toBe(m.editor_testUnavailableForProblem());
+    expect(mocks.preload).not.toHaveBeenCalled();
+  });
 
   it("is disabled for an interactive problem in JavaScript", async () => {
     const button = await renderTestButton({
@@ -161,18 +153,6 @@ describe("Test button state", () => {
     expect(visibleReason(button)).toBe(m.editor_testNoInteractiveSamples());
   });
 
-  it("is enabled for an interactive problem in C++", async () => {
-    const button = await renderTestButton({
-      judgeType: "interactive",
-      samples: interactiveSamples,
-    });
-    expect(button.disabled).toBe(false);
-    expect(button.hasAttribute("aria-describedby")).toBe(false);
-    await vi.waitFor(() =>
-      expect(mocks.preload).toHaveBeenCalledWith("cpp", expect.any(Function)),
-    );
-  });
-
   it("is enabled on a standard problem and preloads the toolchain", async () => {
     const button = await renderTestButton({});
     expect(button.disabled).toBe(false);
@@ -183,11 +163,11 @@ describe("Test button state", () => {
     );
   });
 
-  it("is disabled with the controller's reason after a judge program fails to build", async () => {
-    mocks.controllerReason = m.editor_testJudgeProgramBuildFailed();
-    const button = await renderTestButton({ judgeType: "checker" });
+  it("is disabled with the controller's reason", async () => {
+    mocks.controllerReason = m.editor_testUnavailableForProblem();
+    const button = await renderTestButton({});
     expect(button.disabled).toBe(true);
-    expect(visibleReason(button)).toBe(m.editor_testJudgeProgramBuildFailed());
+    expect(visibleReason(button)).toBe(m.editor_testUnavailableForProblem());
     expect(mocks.preload).not.toHaveBeenCalled();
   });
 });
