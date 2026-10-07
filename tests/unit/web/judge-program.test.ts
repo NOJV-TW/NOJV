@@ -45,19 +45,22 @@ const cppChecker = {
   sha256: "b".repeat(64),
 };
 const context = { type: "practice" } as const;
+const signal = new AbortController().signal;
+const built = {
+  success: true,
+  artifact: { id: "checker-artifact" },
+  diagnostics: [],
+  stdout: "",
+  stderr: "",
+};
 
 function respondWith(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status });
 }
 
 beforeEach(() => {
-  fakes.engine.compile.mockReset().mockResolvedValue({
-    success: true,
-    artifact: { id: "checker-artifact" },
-    diagnostics: [],
-    stdout: "",
-    stderr: "",
-  });
+  fakes.engine.compile.mockReset().mockResolvedValue(built);
+  fakes.engine.cancel.mockReset();
   fakes.preload.mockReset().mockResolvedValue(undefined);
   fakes.fetch.mockReset().mockImplementation(async () => respondWith(pythonChecker));
   fakes.warn.mockReset();
@@ -74,8 +77,9 @@ afterEach(() => {
 it("fetches a Python checker for its context and packages it with the DOMjudge wrapper", async () => {
   const progress: unknown[] = [];
 
-  const prepared = await prepareJudgeProgram({ problemId: "python-1", context }, (update) =>
-    progress.push(update),
+  const prepared = await prepareJudgeProgram(
+    { problemId: "python-1", context, signal },
+    (update) => progress.push(update),
   );
 
   expect(prepared).toEqual({
@@ -109,8 +113,9 @@ it("compiles a C++ checker with the libc++ PCH shim and reports its toolchain do
   });
   const progress: unknown[] = [];
 
-  const prepared = await prepareJudgeProgram({ problemId: "cpp-1", context }, (update) =>
-    progress.push(update),
+  const prepared = await prepareJudgeProgram(
+    { problemId: "cpp-1", context, signal },
+    (update) => progress.push(update),
   );
 
   expect(prepared).toMatchObject({ ok: true, language: "cpp" });
@@ -141,7 +146,9 @@ it("returns the compiler output when the checker fails to build", async () => {
     stderr: "main.cpp:2:1: error: expected ';'",
   });
 
-  await expect(prepareJudgeProgram({ problemId: "broken-1", context })).resolves.toEqual({
+  await expect(
+    prepareJudgeProgram({ problemId: "broken-1", context, signal }),
+  ).resolves.toEqual({
     ok: false,
     reason: "build_failed",
     diagnostics: "main.cpp:2:1: error: expected ';'",
@@ -149,19 +156,19 @@ it("returns the compiler output when the checker fails to build", async () => {
 });
 
 it("refetches the source on every preparation but builds each digest once", async () => {
-  await prepareJudgeProgram({ problemId: "memo-1", context });
-  await prepareJudgeProgram({ problemId: "memo-1", context });
+  await prepareJudgeProgram({ problemId: "memo-1", context, signal });
+  await prepareJudgeProgram({ problemId: "memo-1", context, signal });
 
   expect(fakes.fetch).toHaveBeenCalledTimes(2);
   expect(fakes.engine.compile).toHaveBeenCalledOnce();
 });
 
 it("rebuilds when the source's digest changes", async () => {
-  await prepareJudgeProgram({ problemId: "digest-1", context });
+  await prepareJudgeProgram({ problemId: "digest-1", context, signal });
   fakes.fetch.mockImplementation(async () =>
     respondWith({ ...pythonChecker, source: "reject()\n", sha256: "c".repeat(64) }),
   );
-  await prepareJudgeProgram({ problemId: "digest-1", context });
+  await prepareJudgeProgram({ problemId: "digest-1", context, signal });
 
   expect(fakes.engine.compile).toHaveBeenCalledTimes(2);
   expect(fakes.engine.compile.mock.calls[1]![0].files["main.py"]!.endsWith("reject()\n")).toBe(
@@ -170,23 +177,87 @@ it("rebuilds when the source's digest changes", async () => {
 });
 
 it("rebuilds when only the language changes", async () => {
-  await prepareJudgeProgram({ problemId: "language-1", context });
+  await prepareJudgeProgram({ problemId: "language-1", context, signal });
   fakes.fetch.mockImplementation(async () =>
     respondWith({ ...cppChecker, sha256: pythonChecker.sha256 }),
   );
 
   await expect(
-    prepareJudgeProgram({ problemId: "language-1", context }),
+    prepareJudgeProgram({ problemId: "language-1", context, signal }),
   ).resolves.toMatchObject({ ok: true, language: "cpp" });
   expect(fakes.engine.compile).toHaveBeenCalledTimes(2);
   expect(fakes.engine.compile.mock.calls[1]![0].language).toBe("cpp");
+});
+
+it("rebuilds when only the role changes", async () => {
+  await prepareJudgeProgram({ problemId: "role-1", context, signal });
+  fakes.fetch.mockImplementation(async () =>
+    respondWith({ ...pythonChecker, role: "interactor" }),
+  );
+
+  await expect(
+    prepareJudgeProgram({ problemId: "role-1", context, signal }),
+  ).resolves.toMatchObject({ ok: true, role: "interactor" });
+  expect(fakes.engine.compile).toHaveBeenCalledTimes(2);
+  expect(fakes.engine.compile.mock.calls[1]![0].projectId).toBe(
+    "nojv-judge-program-v1-role-1-interactor-python",
+  );
+});
+
+it("drops a queued build when its editor closes, so the next visit builds it", async () => {
+  let finishBusy!: (value: unknown) => void;
+  fakes.engine.compile.mockImplementationOnce(
+    () => new Promise((resolve) => (finishBusy = resolve)),
+  );
+  const busy = prepareJudgeProgram({ problemId: "busy-1", context, signal });
+  await vi.waitFor(() => expect(fakes.engine.compile).toHaveBeenCalledOnce());
+  const leaving = new AbortController();
+  const progress: unknown[] = [];
+  const left = prepareJudgeProgram(
+    { problemId: "left-1", context, signal: leaving.signal },
+    (update) => progress.push(update),
+  );
+  await vi.waitFor(() => expect(progress).toContainEqual({ phase: "build" }));
+
+  leaving.abort();
+  finishBusy(built);
+  await expect(busy).resolves.toMatchObject({ ok: true });
+  await expect(left).resolves.toEqual({ ok: false, reason: "load_failed" });
+  expect(fakes.engine.compile).toHaveBeenCalledOnce();
+  expect(fakes.warn).not.toHaveBeenCalled();
+
+  await expect(
+    prepareJudgeProgram({ problemId: "left-1", context, signal }),
+  ).resolves.toMatchObject({ ok: true });
+  expect(fakes.engine.compile).toHaveBeenCalledTimes(2);
+  expect(fakes.engine.compile.mock.calls[1]![0].projectId).toBe(
+    "nojv-judge-program-v1-left-1-checker-python",
+  );
+});
+
+it("finishes and keeps a build that started before its editor closed", async () => {
+  let finishBuild!: (value: unknown) => void;
+  fakes.engine.compile.mockImplementationOnce(
+    () => new Promise((resolve) => (finishBuild = resolve)),
+  );
+  const leaving = new AbortController();
+  const left = prepareJudgeProgram({ problemId: "started-1", context, signal: leaving.signal });
+  await vi.waitFor(() => expect(fakes.engine.compile).toHaveBeenCalledOnce());
+
+  leaving.abort();
+  finishBuild(built);
+  await expect(left).resolves.toMatchObject({ ok: true });
+  expect(fakes.engine.cancel).not.toHaveBeenCalled();
+
+  await prepareJudgeProgram({ problemId: "started-1", context, signal });
+  expect(fakes.engine.compile).toHaveBeenCalledOnce();
 });
 
 it("retries a failing source request before reporting a load failure", async () => {
   vi.useFakeTimers();
   fakes.fetch.mockImplementation(async () => respondWith({}, 503));
 
-  const pending = prepareJudgeProgram({ problemId: "flaky-1", context });
+  const pending = prepareJudgeProgram({ problemId: "flaky-1", context, signal });
   await vi.advanceTimersByTimeAsync(7_000);
 
   await expect(pending).resolves.toEqual({ ok: false, reason: "load_failed" });
@@ -203,7 +274,9 @@ it.each([403, 404])(
   async (status) => {
     fakes.fetch.mockImplementation(async () => respondWith({ message: "No" }, status));
 
-    await expect(prepareJudgeProgram({ problemId: "refused-1", context })).resolves.toEqual({
+    await expect(
+      prepareJudgeProgram({ problemId: "refused-1", context, signal }),
+    ).resolves.toEqual({
       ok: false,
       reason: "unavailable",
     });
@@ -218,7 +291,7 @@ it("reports a malformed source response as a load failure", async () => {
   vi.useFakeTimers();
   fakes.fetch.mockImplementation(async () => respondWith({ ...pythonChecker, sha256: "x" }));
 
-  const pending = prepareJudgeProgram({ problemId: "malformed-1", context });
+  const pending = prepareJudgeProgram({ problemId: "malformed-1", context, signal });
   await vi.advanceTimersByTimeAsync(7_000);
 
   await expect(pending).resolves.toEqual({ ok: false, reason: "load_failed" });
@@ -233,7 +306,9 @@ it("reports a toolchain that can't be loaded as a load failure", async () => {
   const failure = new TypeError("Failed to fetch");
   fakes.preload.mockRejectedValue(failure);
 
-  await expect(prepareJudgeProgram({ problemId: "toolchain-1", context })).resolves.toEqual({
+  await expect(
+    prepareJudgeProgram({ problemId: "toolchain-1", context, signal }),
+  ).resolves.toEqual({
     ok: false,
     reason: "load_failed",
   });
@@ -248,12 +323,16 @@ it("reports an engine failure as a load failure and builds again next time", asy
   const failure = new Error("Failed to fetch");
   fakes.engine.compile.mockRejectedValueOnce(failure);
 
-  await expect(prepareJudgeProgram({ problemId: "engine-1", context })).resolves.toEqual({
+  await expect(
+    prepareJudgeProgram({ problemId: "engine-1", context, signal }),
+  ).resolves.toEqual({
     ok: false,
     reason: "load_failed",
   });
   expect(fakes.warn).toHaveBeenCalledWith("Couldn't build the judge program.", failure);
-  await expect(prepareJudgeProgram({ problemId: "engine-1", context })).resolves.toMatchObject({
+  await expect(
+    prepareJudgeProgram({ problemId: "engine-1", context, signal }),
+  ).resolves.toMatchObject({
     ok: true,
   });
   expect(fakes.engine.compile).toHaveBeenCalledTimes(2);

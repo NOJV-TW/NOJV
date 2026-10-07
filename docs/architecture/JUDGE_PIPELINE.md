@@ -499,8 +499,10 @@ judge program's source. **Submit** always uses the server pipeline above.
   checker runs and interactions) goes through one module-level FIFO queue on one
   shared engine, which runs one foreground compile at a time. A caller that aborts
   while waiting leaves the queue, and aborting cancels the engine only while that
-  caller's own operation runs. A judge-program build nobody waits for any more keeps
-  running, because the page-session memo wants its result.
+  caller's own operation runs. A judge-program build waits on its editor's signal: when
+  the editor closes before the build starts, it leaves the queue and the page-session
+  memo, so a later visit rebuilds it; a build that has started keeps running, because
+  the memo wants its result.
 
 ### Availability
 
@@ -540,8 +542,9 @@ for the selected language, `prepareJudgeProgram`
    (`python-judge-wrappers.ts`, byte-identical to the sandbox runner's) and is
    packaged without a compile; C++ gets the platform `bits/stdc++.h` shim and the
    libc++ PCH header under the rule above;
-4. keeps the built program for the page session per problem, language and `sha256`.
-   Each editor mount refetches the source, so it rebuilds only when the source changed.
+4. keeps the built program for the page session per problem, role, language and
+   `sha256`. Each editor mount refetches the source, so it rebuilds only when the
+   source changed.
 
 While it prepares, Test stays clickable and shows the toolchain download or
 "Preparing checker..." / "Preparing interactor..."; pressing Test waits for it.

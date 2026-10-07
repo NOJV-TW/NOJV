@@ -8,7 +8,7 @@ import { m } from "$lib/paraglide/messages.js";
 type Prepared = import("$lib/services/judge-program").PreparedJudgeProgram;
 
 const mocks = vi.hoisted(() => ({
-  prepare: vi.fn<() => Promise<Prepared>>(),
+  prepare: vi.fn<(request: { signal: AbortSignal }) => Promise<Prepared>>(),
   compile: vi.fn(),
   runCases: vi.fn(),
   check: vi.fn(),
@@ -126,4 +126,17 @@ it("prepares the checker once across opening the editor and pressing Test", asyn
   await vi.waitFor(() => expect(target.textContent).toContain("Correct"));
   expect(mocks.check).toHaveBeenCalledOnce();
   expect(mocks.prepare).toHaveBeenCalledOnce();
+});
+
+it("lets a queued checker build go when the editor closes", async () => {
+  mocks.prepare.mockReturnValue(new Promise(() => undefined));
+  mountCheckerEditor();
+  await vi.waitFor(() => expect(mocks.prepare).toHaveBeenCalledOnce());
+  const [{ signal }] = mocks.prepare.mock.calls[0]!;
+  expect(signal.aborted).toBe(false);
+
+  await unmount(component!);
+  component = undefined;
+
+  expect(signal.aborted).toBe(true);
 });

@@ -58,11 +58,12 @@ async function fetchJudgeProgram(
 function buildJudgeProgram(
   problemId: string,
   program: JudgeProgramSourceView,
+  signal: AbortSignal,
 ): Promise<PreparedJudgeProgram> {
-  const key = `${problemId}:${program.language}:${program.sha256}`;
+  const key = `${problemId}:${program.role}:${program.language}:${program.sha256}`;
   const cached = builds.get(key);
   if (cached) return cached;
-  const build = compileBrowserJudgeProgram(problemId, program).then(
+  const build = compileBrowserJudgeProgram(problemId, program, signal).then(
     (outcome): PreparedJudgeProgram =>
       outcome.ok
         ? {
@@ -73,7 +74,7 @@ function buildJudgeProgram(
           }
         : { ok: false, reason: "build_failed", diagnostics: outcome.diagnostics },
     (error: unknown): PreparedJudgeProgram => {
-      console.warn("Couldn't build the judge program.", error);
+      if (!signal.aborted) console.warn("Couldn't build the judge program.", error);
       builds.delete(key);
       return LOAD_FAILED;
     },
@@ -83,7 +84,11 @@ function buildJudgeProgram(
 }
 
 export async function prepareJudgeProgram(
-  { problemId, context }: { problemId: string; context: SubmissionContext },
+  {
+    problemId,
+    context,
+    signal,
+  }: { problemId: string; context: SubmissionContext; signal: AbortSignal },
   onProgress: (progress: JudgeProgramProgress) => void = () => undefined,
 ): Promise<PreparedJudgeProgram> {
   onProgress({ phase: "fetch" });
@@ -98,5 +103,5 @@ export async function prepareJudgeProgram(
     return LOAD_FAILED;
   }
   onProgress({ phase: "build" });
-  return buildJudgeProgram(problemId, program);
+  return buildJudgeProgram(problemId, program, signal);
 }

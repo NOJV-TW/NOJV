@@ -95,11 +95,7 @@ export async function prewarmBrowserLocalEngine(): Promise<void> {
   await getBrowserEngine();
 }
 
-async function waitForTurn(
-  previous: Promise<void>,
-  signal: AbortSignal | undefined,
-): Promise<void> {
-  if (!signal) return previous;
+async function waitForTurn(previous: Promise<void>, signal: AbortSignal): Promise<void> {
   signal.throwIfAborted();
   let leave!: () => void;
   const left = new Promise<void>((resolve) => (leave = resolve));
@@ -113,8 +109,9 @@ async function waitForTurn(
 }
 
 async function withBrowserEngine<T>(
-  signal: AbortSignal | undefined,
+  signal: AbortSignal,
   operation: (engine: Engine) => Promise<T>,
+  { cancelOnAbort = true } = {},
 ): Promise<T> {
   const previous = engineQueueTail;
   let finish!: () => void;
@@ -127,13 +124,14 @@ async function withBrowserEngine<T>(
   }
   try {
     const engine = await getBrowserEngine();
-    signal?.throwIfAborted();
+    signal.throwIfAborted();
+    if (!cancelOnAbort) return await operation(engine);
     const cancel = () => engine.cancel();
-    signal?.addEventListener("abort", cancel, { once: true });
+    signal.addEventListener("abort", cancel, { once: true });
     try {
       return await operation(engine);
     } finally {
-      signal?.removeEventListener("abort", cancel);
+      signal.removeEventListener("abort", cancel);
     }
   } finally {
     finish();
@@ -419,22 +417,27 @@ export async function compileBrowserLocally(
 export async function compileBrowserJudgeProgram(
   problemId: string,
   program: JudgeProgramSource,
+  signal: AbortSignal,
 ): Promise<{ ok: true; artifact: BuildArtifact } | { ok: false; diagnostics: string }> {
-  return withBrowserEngine(undefined, async (browserEngine) => {
-    const build = await browserEngine.compile(
-      {
-        ...judgeProgramCompileInput(program, WASM_OJ_LIBCXX_PCH_HEADER),
-        target: "wasip1",
-        optimization: "release",
-        name: `NOJV ${program.role} ${problemId}`,
-        projectId: `nojv-judge-program-v1-${problemId}-${program.role}-${program.language}`,
-      },
-      { cache: true },
-    );
-    if (!build.success || !build.artifact)
-      return { ok: false, diagnostics: compileFeedback(build) };
-    return { ok: true, artifact: build.artifact };
-  });
+  return withBrowserEngine(
+    signal,
+    async (browserEngine) => {
+      const build = await browserEngine.compile(
+        {
+          ...judgeProgramCompileInput(program, WASM_OJ_LIBCXX_PCH_HEADER),
+          target: "wasip1",
+          optimization: "release",
+          name: `NOJV ${program.role} ${problemId}`,
+          projectId: `nojv-judge-program-v1-${problemId}-${program.role}-${program.language}`,
+        },
+        { cache: true },
+      );
+      if (!build.success || !build.artifact)
+        return { ok: false, diagnostics: compileFeedback(build) };
+      return { ok: true, artifact: build.artifact };
+    },
+    { cancelOnAbort: false },
+  );
 }
 
 export async function runBrowserCases(

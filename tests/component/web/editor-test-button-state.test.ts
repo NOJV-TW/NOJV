@@ -142,7 +142,11 @@ describe("Test button state", () => {
     const button = await renderTestButton({ judgeType: "checker" });
     await vi.waitFor(() => expect(button.textContent).toContain(m.editor_checkerPreparing()));
     expect(mocks.prepare).toHaveBeenCalledWith(
-      { problemId: "problem_1", context: { type: "practice" } },
+      {
+        problemId: "problem_1",
+        context: { type: "practice" },
+        signal: expect.any(AbortSignal),
+      },
       expect.any(Function),
     );
     expect(button.disabled).toBe(false);

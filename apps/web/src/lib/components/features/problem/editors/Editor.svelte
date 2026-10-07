@@ -91,6 +91,8 @@
   let judgeProgramProgress = $state<JudgeProgramProgress | null>(null);
   let judgeProgramFailure = $state<Exclude<PreparedJudgeProgram, { ok: true }> | null>(null);
   let judgeProgramPreparation: Promise<PreparedJudgeProgram> | null = null;
+  const judgeProgramAbort = new AbortController();
+  onDestroy(() => judgeProgramAbort.abort());
   const judgeProgramMessages =
     initialProblem.judgeType === "interactive"
       ? {
@@ -108,7 +110,11 @@
 
   function prepareProblemJudgeProgram(): Promise<PreparedJudgeProgram> {
     judgeProgramPreparation ??= prepareJudgeProgram(
-      { problemId: initialProblem.id, context: untrack(() => context) },
+      {
+        problemId: initialProblem.id,
+        context: untrack(() => context),
+        signal: judgeProgramAbort.signal,
+      },
       (progress) => (judgeProgramProgress = progress),
     ).then((prepared) => {
       judgeProgramProgress = null;

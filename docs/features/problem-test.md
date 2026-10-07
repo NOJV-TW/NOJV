@@ -41,6 +41,7 @@ The endpoint requires a session and the problem page's view access for the conte
 - Given a checker or interactive problem, when the editor opens, the browser fetches the problem's checker or interactor and builds it while the student works; the Test button shows the toolchain download or "Preparing checker..." / "Preparing interactor...".
 - Given the judge program is still preparing, when the student presses Test, Test waits for it and then runs.
 - Given the same problem is reopened in the page session with an unchanged judge program, it is not rebuilt; given its source changed, it is rebuilt.
+- Given the student leaves a problem before its judge program starts building, that build is dropped and does not delay Test on the next problem; reopening the problem builds it then.
 - Given the judge program fails to build, Test is disabled with "This problem's checker failed to build." (or "interactor"), and the Test Result panel opens on the compiler output.
 - Given the source request is refused (403 or 404), Test is disabled with "Couldn't load this problem's checker." (or "interactor"); given it fails for any other reason (a server or network failure is retried twice first), the message adds "Reload the page to try again."
 - Given a student who may view the problem in the context (including after an exam or contest ends, while the problem is still viewable), the source loads; given an active page-locked exam session, only that exam's problems load.

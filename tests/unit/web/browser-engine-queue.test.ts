@@ -76,7 +76,11 @@ async function settle() {
 }
 
 it("queues a student compile behind a judge-program build that is still running", async () => {
-  const checkerBuild = compileBrowserJudgeProgram("checker-problem", checker);
+  const checkerBuild = compileBrowserJudgeProgram(
+    "checker-problem",
+    checker,
+    new AbortController().signal,
+  );
   await vi.waitFor(() => expect(engine.compile).toHaveBeenCalledOnce());
 
   const studentBuild = compileBrowserLocally(request, "next", new AbortController().signal);
@@ -93,7 +97,11 @@ it("queues a student compile behind a judge-program build that is still running"
 });
 
 it("lets an aborted waiter leave the queue without cancelling the build ahead of it", async () => {
-  const checkerBuild = compileBrowserJudgeProgram("checker-problem", checker);
+  const checkerBuild = compileBrowserJudgeProgram(
+    "checker-problem",
+    checker,
+    new AbortController().signal,
+  );
   await vi.waitFor(() => expect(engine.compile).toHaveBeenCalledOnce());
   const leaving = new AbortController();
   const abandoned = compileBrowserLocally(request, "next", leaving.signal);
@@ -120,7 +128,11 @@ it("cancels the engine only for the operation that is running", async () => {
   const leaving = new AbortController();
   const studentBuild = compileBrowserLocally(request, "next", leaving.signal);
   await vi.waitFor(() => expect(engine.compile).toHaveBeenCalledOnce());
-  const checkerBuild = compileBrowserJudgeProgram("checker-problem", checker);
+  const checkerBuild = compileBrowserJudgeProgram(
+    "checker-problem",
+    checker,
+    new AbortController().signal,
+  );
 
   leaving.abort();
   expect(engine.cancel).toHaveBeenCalledOnce();
