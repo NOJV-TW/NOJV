@@ -7,6 +7,7 @@
 **Spec:** `docs/superpowers/specs/2026-10-07-browser-test-judge-programs-design.md`.
 
 **Owner decisions (2026-10-07):**
+
 - No authoring check and no notice beyond a single "students can read this program" line; authors test their own problems.
 - Interactive ships together with checker. No "not available yet" state.
 - Judge programs compile in the student's browser. No test worker.
@@ -32,6 +33,7 @@
 ## Task 1: Remove the server side
 
 Reapply commit `6bdacae9` from `feat/test-execution-only` with `git cherry-pick -n`, then review every hunk. It removes:
+
 - the test worker, its workflows, queue partitions, chart and image layers, plus `@wasm-oj/server` and its patch;
 - the Test API, the Redis lock, the limiter and the application test-judge module;
 - `TEST_JUDGE_ENABLED`;
@@ -42,6 +44,7 @@ Reapply commit `6bdacae9` from `feat/test-execution-only` with `git cherry-pick 
 - their tests.
 
 Fix up after the cherry-pick:
+
 - **Restore in core** what the browser needs:
   - `judge/test-judge-verdict.ts` (`checkerCaseVerdict`, `interactiveCaseVerdict`, `truncateUtf8`);
   - `judge/wasm-oj-verdict.ts`;
@@ -50,6 +53,7 @@ Fix up after the cherry-pick:
   - `interactiveContestantSupported`.
 
   Restore their tests too: `test-judge-verdict`, `wasm-oj-verdict`, `judge-program-sources`, and the compile-input part of `test-judge-program`.
+
 - **Capability:** keep a simplified `staticTestCapability({ isSpecialEnv })`, or inline it if it is only `special_env`. Make sure nothing still takes `testJudgeEnabled` or `judgeLanguage`.
 - **WEB-05 coverage:** move the contest participation and contest-window cases from the deleted `test-judge-domain.test.ts` (lines 527–715 on main) onto `listCodeDrafts`.
 - **`assertProblemContextAllowed`:** keep it unexported unless something outside `code-draft.ts` uses it.
@@ -129,6 +133,7 @@ Add one line in the checker and interactor sections of `JudgeTab.svelte`, editor
   5. drop the old enum.
 
   Add the `-- expand-contract-ok:` line for `scripts/check-migrations.mjs`.
+
 - **Schema and docs:** update `problem.prisma` and regenerate `DATABASE.generated.md`.
 - **Core:** `workspaceFileVisibilitySchema` becomes `["editable", "readonly"]`. The judge-snapshot parser maps a legacy `hidden` to `readonly`, and drops its duplicate pointer schema if one still exists.
 - **Application:** drop the content blanking in `details.ts` and the type in `workspace.ts`.
@@ -149,6 +154,7 @@ Add one line in the checker and interactor sections of `JudgeTab.svelte`, editor
 ## Task 8: Docs, decisions, verification
 
 **Decisions:**
+
 - JDG-15 is rewritten per the spec.
 - JDG-26, SEC-15 and OPS-21 are withdrawn. Keep each heading and index line; `27fd8226` has the format.
 - JDG-05 is scoped to official judging.
@@ -157,6 +163,7 @@ Add one line in the checker and interactor sections of `JudgeTab.svelte`, editor
 - Every ID token in the README must still match a heading (`tests/unit/docs/doc-links.test.ts`).
 
 **Living docs:**
+
 - `ARCHITECTURE.md`, `JUDGE_PIPELINE.md` (Test sections and the visibility table), `FRONTEND.md`, `REDIS.md`, `DATABASE.md`;
 - `DEPLOYMENT.md`, `RELIABILITY.md`, `SECURITY.md`, `THREAT_MODEL.md`;
 - `QUALITY_SCORE.md`: drop the server-Test items, and add the Wasm official-judging fast path as an item to evaluate;
@@ -167,6 +174,7 @@ Add one line in the checker and interactor sections of `JudgeTab.svelte`, editor
 Delete this plan and the spec.
 
 **Verification:**
+
 1. `pnpm ci:verify` (long; run it in the background with a long timeout), `pnpm lint:helm` and `pnpm install --frozen-lockfile`.
 2. Run the touched integration tests against an isolated Postgres and Redis.
 3. **Browser check** on a seeded local stack: the worktree dev server on port 5174 with an isolated database, and forge built locally until the release, then the release. Take screenshots.
@@ -198,19 +206,20 @@ Delete this plan and the spec.
    - interaction notes, interactor inputs and transcripts for the four interactive problems.
 
    Restate them in the PR body.
+
 3. No backfill is needed: nothing is precompiled.
 
 ---
 
 ## Dead-code checklist (`git grep` must find nothing outside history)
 
-| Area | Must be gone |
-| --- | --- |
-| Worker | `WORKER_MODE.*test`, `nojv-worker-test`, `TEST_JUDGE_SLOTS`, `WASM_OJ_RUNTIME_DIR`, `WASM_OJ_TOOLCHAIN_DIR`, `WASM_OJ_CACHE_DIR`, `@wasm-oj/server`, `@wasm-oj__server` |
-| Temporal | `test-judge` queue, `testJudgeWorkflow`, `testJudgeProgramBuildWorkflow`, `runTestJudgeWorkflow`, `dispatchTestJudgeProgramBuild`, `TEST_JUDGE_TASK_QUEUE` |
-| Application | `runTestJudge`, `buildTestJudgeProgram`, `withUserTestJudgeLock`, `checkSamplesWithChecker`, `getJudgeProgramStatus`, `isTestJudgeEnabled`, `TEST_JUDGE_ENABLED` |
-| Storage, Redis, limiter | `test-judge-requests/`, `test-judge-programs/`, `testJudgeRequestKey`, `testJudgeProgramKey`, `testJudgeInFlight`, `rl:test-judge`, `testJudgeApiHandler` |
-| Core | `testJudgeRequestSchema`, `testJudgeResponseSchema`, `testJudgeStoredRequestSchema`, `storedJudgeProgramSchema`, `testJudgeProgramCacheKey`, `WASM_OJ_SERVER_IDENTITY`, `serialiseBuildArtifact`, `boundedTestJudgeOutput` |
-| Web | `requestTestJudge`, `serverJudged`, `serverNotice`, `JudgeProgramTestStatus`, `checkSamples` |
-| Message keys | `admin_checkSamples*`, `admin_judgeProgram*`, `admin_testJudgeDisabled`, `editor_testJudgeBusy`, `editor_testTooLarge`, `editor_judgingOnServer`, `editor_judgedOnServer`, `admin_fileHidden`, `admin_workspaceHiddenTestNote`, `workspace_fileHidden*`, `workspace_visibilityHidden` |
-| Infra | `worker-test`, `test-executor`, `TEST_JUDGE_EXECUTOR`, `worker-test.deployment.yaml`, `infra/docker/wasm-oj-toolchains`, the WASM-OJ stages in `worker.Dockerfile`, `"hidden"` as a workspace visibility |
+| Area                    | Must be gone                                                                                                                                                                                                                                                                          |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Worker                  | `WORKER_MODE.*test`, `nojv-worker-test`, `TEST_JUDGE_SLOTS`, `WASM_OJ_RUNTIME_DIR`, `WASM_OJ_TOOLCHAIN_DIR`, `WASM_OJ_CACHE_DIR`, `@wasm-oj/server`, `@wasm-oj__server`                                                                                                               |
+| Temporal                | `test-judge` queue, `testJudgeWorkflow`, `testJudgeProgramBuildWorkflow`, `runTestJudgeWorkflow`, `dispatchTestJudgeProgramBuild`, `TEST_JUDGE_TASK_QUEUE`                                                                                                                            |
+| Application             | `runTestJudge`, `buildTestJudgeProgram`, `withUserTestJudgeLock`, `checkSamplesWithChecker`, `getJudgeProgramStatus`, `isTestJudgeEnabled`, `TEST_JUDGE_ENABLED`                                                                                                                      |
+| Storage, Redis, limiter | `test-judge-requests/`, `test-judge-programs/`, `testJudgeRequestKey`, `testJudgeProgramKey`, `testJudgeInFlight`, `rl:test-judge`, `testJudgeApiHandler`                                                                                                                             |
+| Core                    | `testJudgeRequestSchema`, `testJudgeResponseSchema`, `testJudgeStoredRequestSchema`, `storedJudgeProgramSchema`, `testJudgeProgramCacheKey`, `WASM_OJ_SERVER_IDENTITY`, `serialiseBuildArtifact`, `boundedTestJudgeOutput`                                                            |
+| Web                     | `requestTestJudge`, `serverJudged`, `serverNotice`, `JudgeProgramTestStatus`, `checkSamples`                                                                                                                                                                                          |
+| Message keys            | `admin_checkSamples*`, `admin_judgeProgram*`, `admin_testJudgeDisabled`, `editor_testJudgeBusy`, `editor_testTooLarge`, `editor_judgingOnServer`, `editor_judgedOnServer`, `admin_fileHidden`, `admin_workspaceHiddenTestNote`, `workspace_fileHidden*`, `workspace_visibilityHidden` |
+| Infra                   | `worker-test`, `test-executor`, `TEST_JUDGE_EXECUTOR`, `worker-test.deployment.yaml`, `infra/docker/wasm-oj-toolchains`, the WASM-OJ stages in `worker.Dockerfile`, `"hidden"` as a workspace visibility                                                                              |

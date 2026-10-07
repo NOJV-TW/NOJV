@@ -7,6 +7,7 @@
 #641 (merged 2026-10-06, not released) added Test for checker and interactive problems by running the problem's checker or interactor on a server test worker. That worker runs TA-authored judge programs, plus the student's Wasm on interactive problems. The only thing between that code and the container's object-storage keys (every problem's hidden testcases) and Redis URL is the Wasm runtime.
 
 The owner's direction:
+
 - Test is the student's own run, so all of it happens in the student's browser: the judge program is compiled and run there too.
 - Judge programs become readable by students. Keeping them robust is the authors' responsibility, and authors test their own problems.
 - For Test, the server keeps nothing but a read endpoint for the judge program's source.
@@ -32,16 +33,17 @@ The owner's direction:
 
 ## What becomes public, and the accepted risk
 
-| Data | Test sends it to the browser |
-| --- | --- |
-| Checker / interactor source | yes |
+| Data                                   | Test sends it to the browser   |
+| -------------------------------------- | ------------------------------ |
+| Checker / interactor source            | yes                            |
 | Sample input, output, interactor input | yes (already in the statement) |
-| `readonly` workspace files | yes (already today) |
-| Hidden testcases (input or answer) | **never** (SEC-12) |
+| `readonly` workspace files             | yes (already today)            |
+| Hidden testcases (input or answer)     | **never** (SEC-12)             |
 
 The accepted risk: bugs in a judge program, such as a missing validity check or an off-by-one query limit, become easier to find. Those bugs exist whether or not the source is public, and authors own them. The judge tab states once that students can read the program.
 
 The docs record safe authoring practice:
+
 - A checker only verifies, and reads the optimum from `judge_answer` (the testcase's expected-output field), as the seed checkers do.
 - An interactor reads its secret from `judge_input`.
 
@@ -58,6 +60,7 @@ The docs record safe authoring practice:
 ### Preparing the judge program in the browser
 
 When the editor opens on a checker or interactive problem, it:
+
 1. fetches the source;
 2. builds it with `@wasm-oj/browser`, using core's `judgeProgramCompileInput` (the DOMjudge Python wrapper, or the C++ `bits/stdc++.h` shim with the PCH-only-when-included rule):
    - **Python** is packaged into a runtime bundle at once, with no compile;
@@ -91,11 +94,11 @@ Test waits for it, as it already waits for the student's toolchain, and the butt
 
 This PR merges only after a `@wasm-oj` release that contains:
 
-| Change | Status | Why |
-| --- | --- | --- |
-| Browser `interact` passes `startupEntropyBytes` | new PR | `runner.worker.ts` `interactiveCoreProgram` omits the field, but runtime-core requires it (`startup_entropy_bytes: u64`, no serde default), so every browser `interact` fails while decoding its request |
-| Python (runtime-bundle) interactors | wasm-oj/forge#93 | all four interactive problems use Python interactors |
-| In-module interactive metering | wasm-oj/forge#95 | a CPU-bound contestant must stop at its instruction budget instead of keeping the student's tab busy until the wall limit |
+| Change                                          | Status           | Why                                                                                                                                                                                                      |
+| ----------------------------------------------- | ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Browser `interact` passes `startupEntropyBytes` | new PR           | `runner.worker.ts` `interactiveCoreProgram` omits the field, but runtime-core requires it (`startup_entropy_bytes: u64`, no serde default), so every browser `interact` fails while decoding its request |
+| Python (runtime-bundle) interactors             | wasm-oj/forge#93 | all four interactive problems use Python interactors                                                                                                                                                     |
+| In-module interactive metering                  | wasm-oj/forge#95 | a CPU-bound contestant must stop at its instruction budget instead of keeping the student's tab busy until the wall limit                                                                                |
 
 Until that release, NOJV develops against locally built packages. It then pins `@wasm-oj/browser` and the toolchains to the release. Forge must not be patched inside NOJV (JDG-15).
 
