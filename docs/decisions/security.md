@@ -157,6 +157,6 @@ Run output is copied host-side by `safeCopyTree` (lstat first, drop symlinks and
 
 ### SEC-15 Withdrawn: server-judged Test ran only problem samples, from server-side data
 
-**Decided:** 2026-10, withdrawn 2026-10 · **Source:** [#641](https://github.com/NOJV-TW/NOJV/pull/641), #TBD
+**Decided:** 2026-10, withdrawn 2026-10 · **Source:** [#641](https://github.com/NOJV-TW/NOJV/pull/641), [#645](https://github.com/NOJV-TW/NOJV/pull/645)
 
-Withdrawn 2026-10 (#TBD): Test no longer judges anything on the server (JDG-15). The rule kept private judge programs from becoming an oracle for client-supplied cases; judge programs are now readable by students, so the browser judges a student's interactive cases with the real interactor. Test still never receives non-sample testcase data (SEC-12).
+Withdrawn 2026-10 (#645): Test no longer judges anything on the server (JDG-15). The rule kept private judge programs from becoming an oracle for client-supplied cases; judge programs are now readable by students, so the browser judges a student's interactive cases with the real interactor. Test still never receives non-sample testcase data (SEC-12).

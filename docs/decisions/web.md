@@ -49,7 +49,7 @@ A `Notification` row is a persistent review-later event behind the navbar bell; 
 
 ### WEB-05 The server holds the code draft of record, keyed by context, problem and language
 
-**Decided:** 2026-09, revised 2026-10 · **Source:** [2026-05-11-code-draft-autosave-design](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-05-11-code-draft-autosave-design.md), [2026-09-23-server-code-drafts](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-09-23-server-code-drafts.md), [#641](https://github.com/NOJV-TW/NOJV/pull/641), #TBD
+**Decided:** 2026-09, revised 2026-10 · **Source:** [2026-05-11-code-draft-autosave-design](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-05-11-code-draft-autosave-design.md), [2026-09-23-server-code-drafts](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-09-23-server-code-drafts.md), [#641](https://github.com/NOJV-TW/NOJV/pull/641), [#645](https://github.com/NOJV-TW/NOJV/pull/645)
 
 `CodeDraft` keyed by (user, contextKey, problem, language) holds unsubmitted code with autosave; the browser keeps only unacknowledged edits in a v2 local cache sealed with a per-user AES-GCM key and deletes them once acknowledged. Contexts (`practice`, `assignment:`, `exam:`, `contest:`, `virtual:`) never share drafts. Students lost code on reload, and plain localStorage lost exam code on shared lab PCs and could leak it to the next user.
 

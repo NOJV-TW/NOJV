@@ -236,6 +236,6 @@ Production pulls images over a ~0.5 MB/s uplink, and the web image was 1.1 GB co
 
 ### OPS-21 Withdrawn: the worker image carried the WASM-OJ runtime as stable layers
 
-**Decided:** 2026-10, withdrawn 2026-10 · **Source:** [#641](https://github.com/NOJV-TW/NOJV/pull/641), #TBD
+**Decided:** 2026-10, withdrawn 2026-10 · **Source:** [#641](https://github.com/NOJV-TW/NOJV/pull/641), [#645](https://github.com/NOJV-TW/NOJV/pull/645)
 
-Withdrawn 2026-10 (#TBD): with server-side Test gone (JDG-15) the worker image carries no WASM-OJ runtime or server toolchains, and Renovate no longer skips `@wasm-oj/*` or a `rust` builder image. The layers were pinned and timestamp-normalised because production pulls images over a ~0.5 MB/s uplink (OPS-20) and they cost about 82 MB compressed.
+Withdrawn 2026-10 (#645): with server-side Test gone (JDG-15) the worker image carries no WASM-OJ runtime or server toolchains, and Renovate no longer skips `@wasm-oj/*` or a `rust` builder image. The layers were pinned and timestamp-normalised because production pulls images over a ~0.5 MB/s uplink (OPS-20) and they cost about 82 MB compressed.
