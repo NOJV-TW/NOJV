@@ -4,17 +4,17 @@ Durable decisions for the problem model, authoring, publication, ownership, and 
 
 ### PRB-01 Three problem types; workspace files instead of templates
 
-**Decided:** 2026-04 · **Source:** [2026-04-09-problem-ui-redesign](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-04-09-problem-ui-redesign.md), [2026-04-12-codebase-cleanup-audit](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-04-12-codebase-cleanup-audit.md), [2026-05-12-full-source-system-templates-design](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-05-12-full-source-system-templates-design.md), [2026-04-01-cp-problem-judge-mapping](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-04-01-cp-problem-judge-mapping.md), [#628](https://github.com/NOJV-TW/NOJV/pull/628), [#629](https://github.com/NOJV-TW/NOJV/pull/629)
+**Decided:** 2026-04, revised 2026-10 · **Source:** [2026-04-09-problem-ui-redesign](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-04-09-problem-ui-redesign.md), [2026-04-12-codebase-cleanup-audit](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-04-12-codebase-cleanup-audit.md), [2026-05-12-full-source-system-templates-design](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-05-12-full-source-system-templates-design.md), [2026-04-01-cp-problem-judge-mapping](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-04-01-cp-problem-judge-mapping.md), [#628](https://github.com/NOJV-TW/NOJV/pull/628), [#629](https://github.com/NOJV-TW/NOJV/pull/629), #TBD
 
-Problem types are `full_source`, `multi_file` and `special_env`. `multi_file` problems use `ProblemWorkspaceFile` (problem, language, path) with whole-file visibility `editable`/`readonly`/`hidden`; the server merges the student's editable files with the rest and judges the whole tree. `full_source` accepts every supported language with system `LANGUAGE_TEMPLATES` starters and no teacher starters. One model covers single-file, fill-in-function, library and multi-file problems without hidden wrapping code.
+Problem types are `full_source`, `multi_file` and `special_env`. `multi_file` problems use `ProblemWorkspaceFile` (problem, language, path) with whole-file visibility `editable`/`readonly`; the server merges the student's editable files with the rest and judges the whole tree. `full_source` accepts every supported language with system `LANGUAGE_TEMPLATES` starters and no teacher starters. One model covers single-file, fill-in-function, library and multi-file problems without hidden wrapping code.
 
 - Rejected: a LeetCode-style `function` type with `driverCode`, insertion markers, `editableRegions` or `assembleSource` templates (use `multi_file` plus a readonly driver); per-file editable regions; letting workspace files decide `full_source` languages; function-mode, custom-script and score-stage judge kits. Nondeterministic or subjective course tasks get deterministic statements or manual grading instead of new judge modes.
 - Rule: no insertion markers or driver injection; students submit whole editable files.
 - Rule: workspace-file requirements and language filtering apply only when `type === "multi_file"`.
 - Rule: a `multi_file` language is allowed exactly when it ships an editable `main.<ext>`; there is no allowed-languages column, so the editor derives its ticks from entry files and drops unticked languages' files on save.
 - Rule: published problems never change type through any path, and the workspace action refuses `special_env` problems, whose limits and config have their own guarded actions.
-- Rule: `hidden` controls student editor/API presentation for helpers, drivers or an implementation behind an assumed API. The judge still supplies these files to compilation and execution, so student code can inspect them; this provides no runtime confidentiality. Do not put secrets or testcase answers in workspace files.
-- Rejected: treating `hidden` as a runtime-secret guarantee or isolating hidden workspace code from student execution. Files that must run with student code remain part of that execution's trust boundary.
+- Rule: workspace files give no confidentiality: students read every one in the editor or through Test, and student code can read them during judging. Do not put secrets or testcase answers in workspace files.
+- Rejected: a `hidden` visibility (removed 2026-10, #TBD). It gave no confidentiality, since official judging and student code read the file and browser Test would have to ship it; production had no hidden files on 2026-10-07; and authors took it for a secret. Earlier: isolating hidden workspace code from student execution; files that must run with student code stay inside that execution's trust boundary.
 - Code: `packages/core/src/types.ts`, `packages/application/src/problem/details.ts`, `packages/core/src/language-templates.ts`
 
 ### PRB-02 Judge settings live in one validated `judgeConfig` JSON column
@@ -29,16 +29,16 @@ Eight scattered judge columns became one Zod-validated `Problem.judgeConfig` (ty
 
 ### PRB-03 Samples are presentation data, not testcases
 
-**Decided:** 2026-04, revised 2026-10 · **Source:** [2026-04-09-problem-ui-redesign](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-04-09-problem-ui-redesign.md), [#629](https://github.com/NOJV-TW/NOJV/pull/629), [#641](https://github.com/NOJV-TW/NOJV/pull/641)
+**Decided:** 2026-04, revised 2026-10 · **Source:** [2026-04-09-problem-ui-redesign](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-04-09-problem-ui-redesign.md), [#629](https://github.com/NOJV-TW/NOJV/pull/629), [#641](https://github.com/NOJV-TW/NOJV/pull/641), #TBD
 
 Sample input/output pairs live in `Problem.samples` (JSON); every `TestcaseSet` is a judged subtask with weight ≥ 0. Samples are problem presentation, not grading data. A teacher may add a 0-point set (for example the sample cases) so every submission is judged on it without it adding points; a failing 0-point set still shows in the verdict. Publishing requires the subtask weights to total more than 0, and a problem that is published or used in an activity cannot have its set weights or sets changed so that the total drops to 0; an unused draft may pass through 0 while its subtasks are being built.
 
 - Rejected: samples as a flagged or hidden `TestcaseSet` (`isHidden` was removed). Earlier: every `TestcaseSet` weight > 0 (teachers need judged 0-point sets, 2026-10).
 - Rule: do not reintroduce sample flags on `TestcaseSet`; sample-only runs read `Problem.samples`, never 0-point sets.
 - Rule: on an interactive problem a sample's `input`/`output` are the two sides of its transcript, and `interactorInput` is the interactor's input file for that sample; saving samples on an interactive problem requires a non-blank `interactorInput` on each, which students see and Test feeds to the interactor (JDG-15). Switching an existing problem to interactive does not check samples; samples without one are left out of Test. `ProblemStatement.interactionFormat` (Markdown) describes the interactor's input and behaviour and is shown only on interactive problems.
-- Rule: server-judged Test on a checker problem uses `sample.output` as the answer file. Authors check that the checker accepts each sample output with the edit page's sample check; a rejected sample shows WA in students' Test.
+- Rule: browser Test on a checker problem uses `sample.output` as the answer file; a sample output the checker rejects shows WA in students' Test, so authors press Test on their own problem (JDG-15).
 - Rejected: a separate sample answer field for Test.
-- Code: `packages/db/prisma/schema/problem.prisma`, `packages/core/src/schemas/problem.ts`, `packages/application/src/problem/mutations/records.ts`, `packages/application/src/problem/subtask-points.ts`, `packages/application/src/test-judge/index.ts`
+- Code: `packages/db/prisma/schema/problem.prisma`, `packages/core/src/schemas/problem.ts`, `packages/application/src/problem/mutations/records.ts`, `packages/application/src/problem/subtask-points.ts`, `apps/web/src/lib/components/features/problem/editors/use-editor-run.svelte.ts`
 
 ### PRB-04 Testcase and workspace content live in object storage behind versioned pointers
 
@@ -101,13 +101,13 @@ New problems start as `draft` (students may only create private drafts) so autho
 
 ### PRB-09 Publication requires a private, current reference solution
 
-**Decided:** 2026-08 · **Source:** [2026-08-08-reference-solution-validation](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/active/2026-08-08-reference-solution-validation.md), [2026-08-15-reference-validation-editor-form](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/active/2026-08-15-reference-validation-editor-form.md), [#629](https://github.com/NOJV-TW/NOJV/pull/629)
+**Decided:** 2026-08, revised 2026-10 · **Source:** [2026-08-08-reference-solution-validation](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/active/2026-08-08-reference-solution-validation.md), [2026-08-15-reference-validation-editor-form](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/active/2026-08-15-reference-validation-editor-form.md), [#629](https://github.com/NOJV-TW/NOJV/pull/629), #TBD
 
 A standard problem publishes only with an accepted reference solution for the current judge configuration, authored in the editor's "Reference solution" section. It is an ordinary practice submission flagged `isReferenceSolution` against the full testcase set, pointed to by `Problem.referenceSolutionSubmissionId`, and tied to the problem's storage generation so any judge-affecting edit invalidates it. It validates the testcase and judge contract, not correctness.
 
 - Rejected: a separate route or modal; ZIP upload; auto-generated editorials; review queues or approval states; schema defaults for time/memory limits (required fields).
 - Rule: reference source is never public and never appears in lists or history; only the owner, an admin, or course staff with PRB-10 content read access (including staff of an archived course that shares the problem) may read it directly.
-- Rule: only authorized publishers submit with the reference purpose; hidden workspace files are never exposed in the section.
+- Rule: only authorized publishers submit with the reference purpose.
 - Rule: invalidation covers testcases, subtask weights, workspace files, judge config/checker/interactor, languages/type, limits and advanced config; subtask descriptions are presentation and do not invalidate.
 - Code: `packages/application/src/problem/mutations/publishing.ts`, `packages/db/prisma/schema/submission.prisma`
 
@@ -244,9 +244,9 @@ Tracking belongs to the authenticated session (SSE wakeups, 5 s visible polling 
 
 ### PRB-22 Every non-sample submission waits a per-problem cooldown with a platform minimum
 
-**Decided:** 2026-10 · **Source:** [PR #634](https://github.com/NOJV-TW/NOJV/pull/634), [#641](https://github.com/NOJV-TW/NOJV/pull/641)
+**Decided:** 2026-10 · **Source:** [PR #634](https://github.com/NOJV-TW/NOJV/pull/634)
 
-In every context (practice, assignment, exam, contest, virtual) a user's non-sample submission to a problem must come at least `max(activity submitCooldownSec, SUBMIT_COOLDOWN_MIN_SEC)` seconds after their previous one to the same problem in the same context; assignments, practice and virtual contests use the platform minimum alone. One env value is both the platform cooldown and the minimum for exam and contest settings, so teachers and students learn one rule: "wait N seconds before resubmitting this problem". Test never creates a submission and is exempt; server-judged Test has its own per-user limit (JDG-15). The Data Structures exams of 2026-10 had 29–58% of submissions within 60 s of the same student's previous one on the same problem.
+In every context (practice, assignment, exam, contest, virtual) a user's non-sample submission to a problem must come at least `max(activity submitCooldownSec, SUBMIT_COOLDOWN_MIN_SEC)` seconds after their previous one to the same problem in the same context; assignments, practice and virtual contests use the platform minimum alone. One env value is both the platform cooldown and the minimum for exam and contest settings, so teachers and students learn one rule: "wait N seconds before resubmitting this problem". Test never creates a submission and is exempt (JDG-15). The Data Structures exams of 2026-10 had 29–58% of submissions within 60 s of the same student's previous one on the same problem.
 
 - Rejected: a platform floor across all problems (the first 2026-10-05 draft; a second cooldown scope would mean two rules and two settings); capping each student's concurrently queued submissions (students cannot tell why they are blocked); a Redis cooldown key (DAT-10); answering 429 (clients already key on `code: "submit_cooldown"` with 403); relaxing the cooldown near an exam's end.
 - Rule: the server enforces the maximum at submit time; form `min` attributes and the settings display only help teachers. A one-time migration raised stored exam and contest settings below 30 to 30.

@@ -49,14 +49,14 @@ A `Notification` row is a persistent review-later event behind the navbar bell; 
 
 ### WEB-05 The server holds the code draft of record, keyed by context, problem and language
 
-**Decided:** 2026-09, revised 2026-10 · **Source:** [2026-05-11-code-draft-autosave-design](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-05-11-code-draft-autosave-design.md), [2026-09-23-server-code-drafts](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-09-23-server-code-drafts.md), [#641](https://github.com/NOJV-TW/NOJV/pull/641)
+**Decided:** 2026-09, revised 2026-10 · **Source:** [2026-05-11-code-draft-autosave-design](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-05-11-code-draft-autosave-design.md), [2026-09-23-server-code-drafts](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-09-23-server-code-drafts.md), [#641](https://github.com/NOJV-TW/NOJV/pull/641), #TBD
 
 `CodeDraft` keyed by (user, contextKey, problem, language) holds unsubmitted code with autosave; the browser keeps only unacknowledged edits in a v2 local cache sealed with a per-user AES-GCM key and deletes them once acknowledged. Contexts (`practice`, `assignment:`, `exam:`, `contest:`, `virtual:`) never share drafts. Students lost code on reload, and plain localStorage lost exam code on shared lab PCs and could leak it to the next user.
 
 - Rejected: server-side encryption at rest (access control is the boundary); staff visibility of drafts; TTL expiry. Earlier: localStorage-only drafts saved on Ctrl+S with no server sync (v1, 2026-05), then local autosave (2026-06) — replaced by server `CodeDraft` rows.
 - Rule: draft keys always include the context so drafts never leak across contexts.
 - Rule: owner-only access; exam drafts need an active exam session on a published, not-ended exam containing the problem, and an active exam session sees only that exam's drafts.
-- Rule: contest drafts need the contest to be running and the user to participate; contest managers are exempt. Server-judged Test shares this check (SEC-15).
+- Rule: contest drafts need the contest to be running and the user to participate; contest managers are exempt. Test's judge-program source endpoint does not use this check; it grants the problem page's view access for the context (JDG-15).
 - Rule: drafts use their own rate limiter, never the submission budget; no pushes after a failed initial load; last write wins.
 - Rule: when local storage is full, evict the oldest drafts; no scheduled expiry.
 - Code: `packages/application/src/code-draft.ts`, `packages/db/prisma/schema/submission.prisma`, `apps/web/src/routes/api/drafts/+server.ts`, `apps/web/src/lib/services/draft-sync.ts`, `apps/web/src/lib/stores/code-draft.ts`
