@@ -540,16 +540,9 @@ export async function runBrowserInteraction(
       },
     });
     signal.throwIfAborted();
-    const contestantStop = wasmOjTerminationVerdict(
-      run.contestant.termination,
-      run.contestant.code,
-    );
     const stderr = truncateUtf8(run.contestant.stderr, MAX_CASE_STDERR_BYTES);
     return {
-      verdict:
-        contestantStop === "TLE" || contestantStop === "MLE"
-          ? contestantStop
-          : interactiveCaseVerdict(run).verdict,
+      verdict: interactiveCaseVerdict(run).verdict,
       timeMs: Math.max(0, Math.ceil((run.contestant.metrics.logicalTimeNs ?? 0) / 1_000_000)),
       transcript: {
         toInteractor: truncateUtf8(run.contestantToInteractor, INTERACTION_TRANSCRIPT_BYTES),

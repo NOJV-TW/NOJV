@@ -586,17 +586,17 @@ it.each([
   ],
   ["the contestant exits with an error", interaction({ contestant: side("exited", 3) }), "RE"],
   [
+    "the contestant hits the wall stop and the interactor rejects the closed input",
+    interaction({ contestant: side("wall-time-limit", 0), interactor: side("exited", 43) }),
+    "TLE",
+  ],
+  [
     "the contestant runs out of instructions and the interactor dies on the closed pipe",
     interaction({
       contestant: side("instruction-limit", 137),
       interactor: side("exited", 120),
     }),
-    "TLE",
-  ],
-  [
-    "the contestant exceeds its memory and the interactor dies on the closed pipe",
-    interaction({ contestant: side("memory-limit", 0), interactor: side("exited", 120) }),
-    "MLE",
+    "SE",
   ],
   [
     "the contestant exits with an error and the interactor crashes",
@@ -609,7 +609,7 @@ it.each([
       contestant: side("wall-time-limit", 0),
       interactor: side("wall-time-limit", 0),
     }),
-    "TLE",
+    "SE",
   ],
 ])("maps an interaction where %s", async (_label, run, verdict) => {
   engine.interact.mockResolvedValueOnce(run);

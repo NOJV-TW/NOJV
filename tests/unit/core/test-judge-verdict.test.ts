@@ -95,14 +95,29 @@ describe("interactiveCaseVerdict", () => {
     ).toEqual({ verdict: "SE" });
   });
 
-  it("lets an interactor protocol failure win over a contestant failure", () => {
+  it("keeps a contestant limit when the interactor then reads EOF and rejects", () => {
     expect(
-      interactiveCaseVerdict({
-        contestant: { termination: "memory-limit", code: 0 },
-        interactor: exited(1),
-      }),
-    ).toEqual({ verdict: "SE" });
+      interactiveCaseVerdict(
+        {
+          contestant: { termination: "logical-time-limit", code: 0 },
+          interactor: exited(43),
+        },
+        "solution closed its output early",
+      ),
+    ).toEqual({ verdict: "TLE" });
   });
+
+  it.each(["memory-limit", "instruction-limit", "wall-time-limit"])(
+    "lets an interactor failure win over a contestant %s, as official judging does",
+    (termination) => {
+      expect(
+        interactiveCaseVerdict({
+          contestant: { termination, code: 0 },
+          interactor: exited(120),
+        }),
+      ).toEqual({ verdict: "SE" });
+    },
+  );
 });
 
 describe("truncateUtf8", () => {
