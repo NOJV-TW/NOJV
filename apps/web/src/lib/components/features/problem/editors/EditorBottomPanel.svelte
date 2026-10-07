@@ -16,6 +16,7 @@
     judgeType?: JudgeType;
     interactionFormat?: string | undefined;
     testDisabledReason?: string | null | undefined;
+    judgeProgramDiagnostics?: string | null | undefined;
     tab: "testcase" | "result";
     runResult: TestRunResult | null;
     runSource?: "local" | null;
@@ -31,6 +32,7 @@
     judgeType,
     interactionFormat = "",
     testDisabledReason = null,
+    judgeProgramDiagnostics = null,
     tab,
     runResult,
     runSource = null,
@@ -435,6 +437,12 @@
           <p class="py-4 text-body-sm text-muted-foreground">
             {testDisabledReason ?? m.editor_runFirst()}
           </p>
+          {#if judgeProgramDiagnostics}
+            <pre
+              class="max-h-64 overflow-auto rounded-md bg-destructive/10 px-3 py-2 font-mono text-body-sm text-destructive">{formatJudgeOutput(
+                judgeProgramDiagnostics,
+              )}</pre>
+          {/if}
         {/if}
       </div>
     {/if}

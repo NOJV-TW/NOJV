@@ -37,6 +37,11 @@
     prewarmBrowserLocalEngine,
     supportsBrowserLocalRun,
   } from "$lib/services/browser-local-run";
+  import {
+    prepareJudgeProgram,
+    type JudgeProgramProgress,
+    type PreparedJudgeProgram,
+  } from "$lib/services/judge-program";
 
   interface Props {
     allowedLanguages?: Language[] | undefined;
@@ -83,6 +88,21 @@
   let drafts = $state({ ...initialProblem.starterByLanguage });
   let isFullscreen = $state(false);
   let toolchainPercent = $state<number | null>(null);
+  let judgeProgramProgress = $state<JudgeProgramProgress | null>(null);
+  let judgeProgramFailure = $state<Exclude<PreparedJudgeProgram, { ok: true }> | null>(null);
+  let judgeProgramPreparation: Promise<PreparedJudgeProgram> | null = null;
+
+  function prepareProblemJudgeProgram(): Promise<PreparedJudgeProgram> {
+    judgeProgramPreparation ??= prepareJudgeProgram(
+      { problemId: initialProblem.id, context: untrack(() => context) },
+      (progress) => (judgeProgramProgress = progress),
+    ).then((prepared) => {
+      judgeProgramProgress = null;
+      if (!prepared.ok) judgeProgramFailure = prepared;
+      return prepared;
+    });
+    return judgeProgramPreparation;
+  }
 
   let isWorkspaceMode = $derived(isWorkspaceProblem(problem.type));
   let isSpecialEnv = $derived(isSpecialEnvProblem(problem.type));
@@ -103,6 +123,7 @@
       preloadBrowserToolchain(selected, (progress) => {
         if (active) toolchainPercent = browserToolchainPercent(progress);
       }).then(finish, finish);
+      if (initialProblem.judgeType === "checker") void prepareProblemJudgeProgram();
     }, 0);
 
     return () => {
@@ -228,10 +249,22 @@
       if (!interactiveContestantSupported(language)) return m.editor_testInteractiveLanguage();
       if (!problem.samples.some((sample) => sample.interactorInput?.trim()))
         return m.editor_testNoInteractiveSamples();
+      return m.editor_testUnavailableForProblem();
     }
-    if (problem.judgeType !== "standard") return m.editor_testUnavailableForProblem();
+    if (judgeProgramFailure?.reason === "build_failed") return m.editor_checkerBuildFailed();
+    if (judgeProgramFailure?.reason === "load_failed") return m.editor_checkerLoadFailed();
     return runController.testDisabledReason;
   });
+
+  let testToolchainPercent = $derived(
+    toolchainPercent ??
+      (judgeProgramProgress?.phase === "toolchain" ? judgeProgramProgress.percent : null),
+  );
+  let testPreparingLabel = $derived(
+    judgeProgramProgress && judgeProgramProgress.phase !== "toolchain"
+      ? m.editor_checkerPreparing()
+      : null,
+  );
 
   function handleShortcut(event: KeyboardEvent) {
     if (!(event.ctrlKey || event.metaKey) || event.shiftKey || event.altKey) return;
@@ -309,7 +342,8 @@
 
   <EditorActionBar
     isRunning={runController.isRunning}
-    {toolchainPercent}
+    toolchainPercent={testToolchainPercent}
+    preparingLabel={testPreparingLabel}
     isSubmitting={runController.isSubmitting}
     {hasSubmittableSource}
     {attemptsExhausted}
@@ -340,6 +374,9 @@
       judgeType={problem.judgeType}
       interactionFormat={problem.interactionFormat}
       {testDisabledReason}
+      judgeProgramDiagnostics={judgeProgramFailure?.reason === "build_failed"
+        ? judgeProgramFailure.diagnostics
+        : null}
       tab={runController.bottomTab}
       runResult={runController.runResult}
       runSource={runController.runSource}

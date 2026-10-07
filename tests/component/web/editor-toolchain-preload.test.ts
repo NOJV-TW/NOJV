@@ -6,10 +6,19 @@ import type { ProblemDetail } from "$lib/types";
 import { m } from "$lib/paraglide/messages.js";
 
 type Progress = { loadedBytes: number; totalBytes: number };
+type JudgeProgramProgress = import("$lib/services/judge-program").JudgeProgramProgress;
+type PreparedJudgeProgram = import("$lib/services/judge-program").PreparedJudgeProgram;
 
 const mocks = vi.hoisted(() => ({
   preload:
     vi.fn<(language: string, onProgress: (progress: Progress) => void) => Promise<void>>(),
+  prepare:
+    vi.fn<
+      (
+        scope: unknown,
+        onProgress: (progress: JudgeProgramProgress) => void,
+      ) => Promise<PreparedJudgeProgram>
+    >(),
   prewarm: vi.fn(),
   run: {
     isSubmitting: false,
@@ -25,6 +34,7 @@ vi.mock("$lib/services/browser-local-run", () => ({
   browserToolchainPercent: ({ loadedBytes, totalBytes }: Progress) =>
     Math.floor((loadedBytes / totalBytes) * 100),
 }));
+vi.mock("$lib/services/judge-program", () => ({ prepareJudgeProgram: mocks.prepare }));
 vi.mock("$lib/components/features/problem/editors/use-draft.svelte", () => ({
   createDraftController: () => ({
     save: vi.fn(),
@@ -66,16 +76,7 @@ afterEach(async () => {
   vi.clearAllMocks();
 });
 
-it("preloads the editor language's toolchain and shows its progress on Test", async () => {
-  let finishDownload!: () => void;
-  mocks.prewarm.mockResolvedValue(undefined);
-  mocks.preload.mockImplementation(
-    (_language, onProgress) =>
-      new Promise<void>((resolve) => {
-        onProgress({ loadedBytes: 30, totalBytes: 100 });
-        finishDownload = resolve;
-      }),
-  );
+function mountEditor(judgeType: ProblemDetail["judgeType"]) {
   target = document.createElement("div");
   document.body.append(target);
   component = mount(Editor, {
@@ -87,7 +88,7 @@ it("preloads the editor language's toolchain and shows its progress on Test", as
         starterByLanguage: { cpp: "int main() {}" },
         workspaceFiles: [],
         samples: [],
-        judgeType: "standard",
+        judgeType,
         judgeConfig: {},
         timeLimitMs: 1000,
         memoryLimitMb: 256,
@@ -96,7 +97,20 @@ it("preloads the editor language's toolchain and shows its progress on Test", as
       draftContext: { userId: "user_1", cipherKey: "", kind: "practice" },
     },
   });
-  const testButton = () => target.querySelector("button");
+  return () => target.querySelector("button");
+}
+
+it("preloads the editor language's toolchain and shows its progress on Test", async () => {
+  let finishDownload!: () => void;
+  mocks.prewarm.mockResolvedValue(undefined);
+  mocks.preload.mockImplementation(
+    (_language, onProgress) =>
+      new Promise<void>((resolve) => {
+        onProgress({ loadedBytes: 30, totalBytes: 100 });
+        finishDownload = resolve;
+      }),
+  );
+  const testButton = mountEditor("standard");
 
   await vi.waitFor(() =>
     expect(mocks.preload).toHaveBeenCalledWith("cpp", expect.any(Function)),
@@ -107,6 +121,43 @@ it("preloads the editor language's toolchain and shows its progress on Test", as
 
   finishDownload();
   await vi.waitFor(() => expect(testButton()?.textContent).toContain(m.editor_run()));
+  expect(mocks.prepare).not.toHaveBeenCalled();
+});
+
+it("prepares a checker problem's checker next to the editor language's toolchain", async () => {
+  let report!: (progress: JudgeProgramProgress) => void;
+  let finishBuild!: (prepared: PreparedJudgeProgram) => void;
+  mocks.prewarm.mockResolvedValue(undefined);
+  mocks.preload.mockResolvedValue(undefined);
+  mocks.prepare.mockImplementation(
+    (_scope, onProgress) =>
+      new Promise<PreparedJudgeProgram>((resolve) => {
+        report = onProgress;
+        finishBuild = resolve;
+      }),
+  );
+  const testButton = mountEditor("checker");
+
+  await vi.waitFor(() =>
+    expect(mocks.preload).toHaveBeenCalledWith("cpp", expect.any(Function)),
+  );
+  await vi.waitFor(() => expect(mocks.prepare).toHaveBeenCalledOnce());
+  report({ phase: "toolchain", percent: 60 });
+  await tick();
+  expect(testButton()?.textContent).toContain(m.editor_toolchainDownloading({ percent: 60 }));
+
+  report({ phase: "build" });
+  await tick();
+  expect(testButton()?.textContent).toContain(m.editor_checkerPreparing());
+
+  finishBuild({
+    ok: true,
+    role: "checker",
+    language: "python",
+    artifact: {} as Extract<PreparedJudgeProgram, { ok: true }>["artifact"],
+  });
+  await vi.waitFor(() => expect(testButton()?.textContent).toContain(m.editor_run()));
+  expect(mocks.prepare).toHaveBeenCalledOnce();
 });
 
 it("keeps Test clickable while the toolchain downloads", async () => {

@@ -4,6 +4,7 @@
   interface Props {
     isRunning: boolean;
     toolchainPercent?: number | null | undefined;
+    preparingLabel?: string | null | undefined;
     isSubmitting: boolean;
     hasSubmittableSource: boolean;
     availableLanguageCount: number;
@@ -20,6 +21,7 @@
   let {
     isRunning,
     toolchainPercent = null,
+    preparingLabel = null,
     isSubmitting,
     hasSubmittableSource,
     availableLanguageCount,
@@ -85,7 +87,7 @@
     <button
       class="shrink-0 rounded-full border border-border px-3 py-1 text-caption font-medium text-foreground transition-[transform,box-shadow,background-color] duration-fast ease-out-soft hover:-translate-y-0.5 hover:bg-accent disabled:cursor-not-allowed disabled:opacity-60"
       disabled={isRunning || disabled || testDisabledReason !== null}
-      aria-busy={isRunning || toolchainPercent !== null}
+      aria-busy={isRunning || toolchainPercent !== null || preparingLabel !== null}
       aria-describedby={testDisabledReason !== null ? `${uid}-test-reason` : undefined}
       onclick={onRun}
       title={!hasSubmittableSource ? m.editor_emptySourceTooltip() : undefined}
@@ -95,6 +97,8 @@
         {m.editor_running()}
       {:else if toolchainPercent !== null}
         {m.editor_toolchainDownloading({ percent: toolchainPercent })}
+      {:else if preparingLabel !== null}
+        {preparingLabel}
       {:else}
         {m.editor_run()}
       {/if}

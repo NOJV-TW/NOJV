@@ -4,11 +4,13 @@ import {
   entryFileNameFor,
   effectiveTimeLimitMs,
   isBrowserLocalLanguage,
+  judgeProgramCompileInput,
   wasmOjTerminationVerdict,
   withCppPlatformHeaders,
   type CaseResult,
   type CompareConfig,
   type JudgeConfig,
+  type JudgeProgramSource,
   type Language,
   type SubmissionResult,
   type SubmissionRunCase,
@@ -42,7 +44,7 @@ const BROWSER_TOOLCHAINS = [
   pythonSource(BROWSER_TOOLCHAIN_BASE_URL),
   rustSource(BROWSER_TOOLCHAIN_BASE_URL),
 ];
-const TOOLCHAIN_PRELOAD_RETRY_DELAYS_MS = [2_000, 5_000];
+const PRELOAD_RETRY_DELAYS_MS = [2_000, 5_000];
 let browserEnginePromise: Promise<Engine> | undefined;
 
 interface ToolchainPreload {
@@ -97,10 +99,16 @@ export function preloadBrowserToolchain(
     settled: false,
   };
   toolchainPreloads.set(language, preload);
-  preload.promise = prefetchWithRetries(language, (progress) => {
-    preload.progress = progress;
-    for (const listener of preload.listeners) listener(progress);
-  })
+  preload.promise = withPreloadRetries(() =>
+    prefetchBrowserToolchain(BROWSER_TOOLCHAINS, {
+      language,
+      libcxxPrecompiledHeader: language === "cpp",
+      onProgress: (progress) => {
+        preload.progress = progress;
+        for (const listener of preload.listeners) listener(progress);
+      },
+    }),
+  )
     .catch((error: unknown) => {
       toolchainPreloads.delete(language);
       throw error;
@@ -112,20 +120,12 @@ export function preloadBrowserToolchain(
   return preload.promise;
 }
 
-async function prefetchWithRetries(
-  language: Language,
-  onProgress: (progress: BrowserToolchainPrefetchProgress) => void,
-): Promise<void> {
+export async function withPreloadRetries<T>(task: () => Promise<T>): Promise<T> {
   for (let attempt = 0; ; attempt += 1) {
     try {
-      await prefetchBrowserToolchain(BROWSER_TOOLCHAINS, {
-        language,
-        libcxxPrecompiledHeader: language === "cpp",
-        onProgress,
-      });
-      return;
+      return await task();
     } catch (error) {
-      const delay = TOOLCHAIN_PRELOAD_RETRY_DELAYS_MS[attempt];
+      const delay = PRELOAD_RETRY_DELAYS_MS[attempt];
       if (delay === undefined) throw error;
       await new Promise((resolve) => setTimeout(resolve, delay));
     }
@@ -348,6 +348,26 @@ export async function compileBrowserLocally(
   } finally {
     signal.removeEventListener("abort", cancel);
   }
+}
+
+export async function compileBrowserJudgeProgram(
+  problemId: string,
+  program: JudgeProgramSource,
+): Promise<{ ok: true; artifact: BuildArtifact } | { ok: false; diagnostics: string }> {
+  const browserEngine = await getBrowserEngine();
+  const build = await browserEngine.compile(
+    {
+      ...judgeProgramCompileInput(program, WASM_OJ_LIBCXX_PCH_HEADER),
+      target: "wasip1",
+      optimization: "release",
+      name: `NOJV ${program.role} ${problemId}`,
+      projectId: `nojv-judge-program-v1-${problemId}-${program.role}`,
+    },
+    { cache: true },
+  );
+  if (!build.success || !build.artifact)
+    return { ok: false, diagnostics: compileFeedback(build) };
+  return { ok: true, artifact: build.artifact };
 }
 
 export async function runBrowserCases(

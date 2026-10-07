@@ -6,8 +6,13 @@ import type { Language } from "@nojv/core";
 import type { ProblemDetail } from "$lib/types";
 import { m } from "$lib/paraglide/messages.js";
 
+type Prepared = import("$lib/services/judge-program").PreparedJudgeProgram;
+type Progress = import("$lib/services/judge-program").JudgeProgramProgress;
+
 const mocks = vi.hoisted(() => ({
   preload: vi.fn(() => Promise.resolve()),
+  prepare:
+    vi.fn<(scope: unknown, onProgress: (progress: Progress) => void) => Promise<Prepared>>(),
   controllerReason: null as string | null,
 }));
 vi.mock("$lib/services/browser-local-run", () => ({
@@ -16,6 +21,7 @@ vi.mock("$lib/services/browser-local-run", () => ({
   preloadBrowserToolchain: mocks.preload,
   browserToolchainPercent: () => 0,
 }));
+vi.mock("$lib/services/judge-program", () => ({ prepareJudgeProgram: mocks.prepare }));
 vi.mock("$lib/components/features/problem/editors/use-draft.svelte", () => ({
   createDraftController: () => ({
     save: vi.fn(),
@@ -97,12 +103,19 @@ async function renderTestButton(options: {
   });
   await tick();
   await new Promise((resolve) => setTimeout(resolve, 0));
-  const button = [...target.querySelectorAll("button")].find((candidate) =>
-    candidate.textContent.includes(m.editor_run()),
+  const button = target.querySelector<HTMLButtonElement>(
+    '[data-tour="problem-actions"] button',
   );
   if (!button) throw new Error("Test button not rendered");
   return button;
 }
+
+const checkerReady: Prepared = {
+  ok: true,
+  role: "checker",
+  language: "python",
+  artifact: {} as Extract<Prepared, { ok: true }>["artifact"],
+};
 
 function visibleReason(button: HTMLButtonElement): string | undefined {
   const id = button.getAttribute("aria-describedby");
@@ -124,14 +137,61 @@ describe("Test button state", () => {
     expect(mocks.preload).not.toHaveBeenCalled();
   });
 
-  it.each([
-    ["checker", []],
-    ["interactive", interactiveSamples],
-  ] as const)("is disabled on a %s problem in C++", async (judgeType, samples) => {
-    const button = await renderTestButton({ judgeType, samples });
+  it("is disabled on an interactive problem in C++", async () => {
+    const button = await renderTestButton({
+      judgeType: "interactive",
+      samples: interactiveSamples,
+    });
     expect(button.disabled).toBe(true);
     expect(visibleReason(button)).toBe(m.editor_testUnavailableForProblem());
     expect(mocks.preload).not.toHaveBeenCalled();
+    expect(mocks.prepare).not.toHaveBeenCalled();
+  });
+
+  it("says the checker is preparing and keeps Test clickable while it builds", async () => {
+    mocks.prepare.mockImplementation((_scope, onProgress) => {
+      onProgress({ phase: "build" });
+      return new Promise<Prepared>(() => undefined);
+    });
+    const button = await renderTestButton({ judgeType: "checker" });
+    await vi.waitFor(() => expect(button.textContent).toContain(m.editor_checkerPreparing()));
+    expect(mocks.prepare).toHaveBeenCalledWith(
+      { problemId: "problem_1", context: { type: "practice" } },
+      expect.any(Function),
+    );
+    expect(button.disabled).toBe(false);
+    expect(button.getAttribute("aria-busy")).toBe("true");
+    expect(visibleReason(button)).toBeUndefined();
+  });
+
+  it("is enabled once the checker is built", async () => {
+    mocks.prepare.mockResolvedValue(checkerReady);
+    const button = await renderTestButton({ judgeType: "checker" });
+    await vi.waitFor(() => expect(mocks.prepare).toHaveBeenCalledOnce());
+    await tick();
+    expect(button.textContent).toContain(m.editor_run());
+    expect(button.disabled).toBe(false);
+    expect(button.getAttribute("aria-busy")).toBe("false");
+    expect(visibleReason(button)).toBeUndefined();
+  });
+
+  it.each([
+    [
+      "fails to build",
+      { ok: false, reason: "build_failed", diagnostics: "error" } as const,
+      () => m.editor_checkerBuildFailed(),
+    ],
+    [
+      "can't be loaded",
+      { ok: false, reason: "load_failed" } as const,
+      () => m.editor_checkerLoadFailed(),
+    ],
+  ])("is disabled when the checker %s", async (_label, prepared, reason) => {
+    mocks.prepare.mockResolvedValue(prepared);
+    const button = await renderTestButton({ judgeType: "checker" });
+    await vi.waitFor(() => expect(button.disabled).toBe(true));
+    expect(visibleReason(button)).toBe(reason());
+    expect(button.textContent).toContain(m.editor_run());
   });
 
   it("is disabled for an interactive problem in JavaScript", async () => {
@@ -161,6 +221,7 @@ describe("Test button state", () => {
     await vi.waitFor(() =>
       expect(mocks.preload).toHaveBeenCalledWith("cpp", expect.any(Function)),
     );
+    expect(mocks.prepare).not.toHaveBeenCalled();
   });
 
   it("is disabled with the controller's reason", async () => {

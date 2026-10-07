@@ -115,6 +115,17 @@ it("hides output comparison on checker problems and explains that only samples a
   expect(target.textContent).toContain(m.editor_checkerCasesNote());
 });
 
+it("shows the checker's compiler output under the reason Test is disabled", async () => {
+  await mountPanel({
+    tab: "result",
+    judgeType: "checker",
+    testDisabledReason: m.editor_checkerBuildFailed(),
+    judgeProgramDiagnostics: "main.cpp:2:1: error: expected ';'",
+  });
+  expect(target.textContent).toContain(m.editor_checkerBuildFailed());
+  expect(target.querySelector("pre")?.textContent).toBe("main.cpp:2:1: error: expected ';'");
+});
+
 it("renders the interactive transcript instead of an empty output block", async () => {
   await mountPanel({
     tab: "result",
