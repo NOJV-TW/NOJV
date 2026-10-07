@@ -24,6 +24,7 @@ import {
   preloadBrowserToolchain,
   runBrowserCases,
   runBrowserChecker,
+  runBrowserInteraction,
   runBrowserLocally,
   supportsBrowserLocalRun,
 } from "$lib/services/browser-local-run";
@@ -71,8 +72,6 @@ export interface EditorRunController {
   readonly runSource: "local" | null;
   readonly runStatus: string | null;
   readonly runError: string | null;
-  readonly testDisabledReason: string | null;
-  readonly customCasesAllowed: boolean;
   readonly cooldownUntil: number | null;
   panelRunCases: SubmissionRunCase[];
   setBottomTab: (tab: "testcase" | "result") => void;
@@ -87,8 +86,6 @@ function messageForSubmitError(code: string | null): string {
       return m.editor_clientTestCustomImage();
     case "client_test_language":
       return m.editor_clientTestLanguage();
-    case "client_test_judge_program":
-      return m.editor_testUnavailableForProblem();
     case "browser_toolchain_unavailable":
       return m.editor_toolchainUnavailable();
     case "invalid_source":
@@ -112,8 +109,6 @@ function messageForSubmitError(code: string | null): string {
   }
 }
 
-const TEST_DISABLING_CODES = new Set(["client_test_judge_program"]);
-
 function initialRunCases(
   samples: ProblemDetail["samples"],
   judgeType: JudgeType,
@@ -134,7 +129,6 @@ export function createEditorRunController(args: EditorRunArgs): EditorRunControl
   let runSource = $state<"local" | null>(null);
   let runStatus = $state<string | null>(null);
   let runError = $state<string | null>(null);
-  let testDisabledReason = $state<string | null>(null);
   let cooldownUntil = $state<number | null>(null);
   let panelRunCases = $state<SubmissionRunCase[]>(
     initialRunCases(args.initialSamples, args.judgeType()),
@@ -142,6 +136,15 @@ export function createEditorRunController(args: EditorRunArgs): EditorRunControl
 
   let destroyed = false;
   let abortController: AbortController | null = null;
+
+  function runLimits(language: Language) {
+    return {
+      language,
+      timeLimitMs: args.timeLimitMs,
+      memoryLimitMb: args.memoryLimitMb,
+      env: args.judgeConfig().runtime?.env ?? {},
+    };
+  }
 
   async function runCheckerTest(
     request: SubmissionRequest,
@@ -155,12 +158,7 @@ export function createEditorRunController(args: EditorRunArgs): EditorRunControl
       const runs = await runBrowserCases(
         build.artifact,
         runCases,
-        {
-          language: request.language,
-          timeLimitMs: args.timeLimitMs,
-          memoryLimitMb: args.memoryLimitMb,
-          env: args.judgeConfig().runtime?.env ?? {},
-        },
+        runLimits(request.language),
         signal,
       );
       const caseResults: TestCaseView[] = [];
@@ -194,17 +192,36 @@ export function createEditorRunController(args: EditorRunArgs): EditorRunControl
     }
   }
 
+  async function runInteractiveTest(
+    request: SubmissionRequest,
+    runCases: SubmissionRunCase[],
+    interactor: BuildArtifact,
+    signal: AbortSignal,
+  ): Promise<TestRunResult | null> {
+    try {
+      const build = await compileBrowserLocally(request, args.problemId, signal);
+      if (!build.ok) return build.result;
+      const caseResults: TestCaseView[] = [];
+      for (const [index, testCase] of runCases.entries()) {
+        const interaction = await runBrowserInteraction(
+          build.artifact,
+          interactor,
+          { interactorInput: testCase.input, limits: runLimits(request.language) },
+          signal,
+        );
+        caseResults.push({ index, ...interaction, judged: true });
+      }
+      return { ...browserLocalSubmissionResult(caseResults), caseResults };
+    } catch (error) {
+      return signal.aborted ? null : browserLocalErrorResult(error);
+    }
+  }
+
   async function runSubmission(): Promise<TestRunResult | null> {
     if (args.isSpecialEnv())
       throw new SubmissionRequestError(
         "Client Test requires a browser runtime.",
         "client_test_custom_image",
-        null,
-      );
-    if (args.judgeType() === "interactive")
-      throw new SubmissionRequestError(
-        "Test can't run this problem's judge program in the browser yet.",
-        "client_test_judge_program",
         null,
       );
     const language = args.language();
@@ -256,12 +273,18 @@ export function createEditorRunController(args: EditorRunArgs): EditorRunControl
     }
     if (signal.aborted) return null;
     const browserRequest = projectBrowserSubmission(request, args.workspaceFiles());
-    if (args.judgeType() === "checker") {
-      runStatus = m.editor_checkerPreparing();
-      const checker = await args.judgeProgram();
-      if (!checker.ok) return null;
+    if (args.judgeType() !== "standard") {
+      runStatus =
+        args.judgeType() === "interactive"
+          ? m.editor_interactorPreparing()
+          : m.editor_checkerPreparing();
+      const judgeProgram = await args.judgeProgram();
+      if (!judgeProgram.ok) return null;
       runStatus = m.editor_running();
-      const judged = await runCheckerTest(browserRequest, runCases, checker.artifact, signal);
+      const judged =
+        args.judgeType() === "interactive"
+          ? await runInteractiveTest(browserRequest, runCases, judgeProgram.artifact, signal)
+          : await runCheckerTest(browserRequest, runCases, judgeProgram.artifact, signal);
       return destroyed ? null : judged;
     }
     runStatus = m.editor_running();
@@ -302,9 +325,6 @@ export function createEditorRunController(args: EditorRunArgs): EditorRunControl
         err instanceof SubmissionRequestError
           ? messageForSubmitError(err.code)
           : m.editor_runFailed();
-      if (err instanceof SubmissionRequestError && TEST_DISABLING_CODES.has(err.code ?? "")) {
-        testDisabledReason = message;
-      }
       runError = message;
       toasts.error(message);
       runStatus = null;
@@ -395,12 +415,6 @@ export function createEditorRunController(args: EditorRunArgs): EditorRunControl
     },
     get runError() {
       return runError;
-    },
-    get testDisabledReason() {
-      return testDisabledReason;
-    },
-    get customCasesAllowed() {
-      return args.judgeType() !== "interactive";
     },
     get cooldownUntil() {
       return cooldownUntil;

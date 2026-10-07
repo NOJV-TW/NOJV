@@ -91,6 +91,20 @@
   let judgeProgramProgress = $state<JudgeProgramProgress | null>(null);
   let judgeProgramFailure = $state<Exclude<PreparedJudgeProgram, { ok: true }> | null>(null);
   let judgeProgramPreparation: Promise<PreparedJudgeProgram> | null = null;
+  const judgeProgramMessages =
+    initialProblem.judgeType === "interactive"
+      ? {
+          preparing: m.editor_interactorPreparing,
+          build_failed: m.editor_interactorBuildFailed,
+          load_failed: m.editor_interactorLoadFailed,
+          unavailable: m.editor_interactorUnavailable,
+        }
+      : {
+          preparing: m.editor_checkerPreparing,
+          build_failed: m.editor_checkerBuildFailed,
+          load_failed: m.editor_checkerLoadFailed,
+          unavailable: m.editor_checkerUnavailable,
+        };
 
   function prepareProblemJudgeProgram(): Promise<PreparedJudgeProgram> {
     judgeProgramPreparation ??= prepareJudgeProgram(
@@ -125,7 +139,7 @@
       preloadBrowserToolchain(selected, (progress) => {
         if (active) toolchainPercent = browserToolchainPercent(progress);
       }).then(finish, finish);
-      if (initialProblem.judgeType === "checker") void prepareProblemJudgeProgram();
+      if (initialProblem.judgeType !== "standard") void prepareProblemJudgeProgram();
     }, 0);
 
     return () => {
@@ -248,16 +262,10 @@
 
   let testDisabledReason = $derived.by(() => {
     if (isSpecialEnv) return m.editor_testUnsupportedProblemType();
-    if (problem.judgeType === "interactive") {
-      if (!interactiveContestantSupported(language)) return m.editor_testInteractiveLanguage();
-      if (!problem.samples.some((sample) => sample.interactorInput?.trim()))
-        return m.editor_testNoInteractiveSamples();
-      return m.editor_testUnavailableForProblem();
-    }
-    if (judgeProgramFailure?.reason === "build_failed") return m.editor_checkerBuildFailed();
-    if (judgeProgramFailure?.reason === "load_failed") return m.editor_checkerLoadFailed();
-    if (judgeProgramFailure?.reason === "unavailable") return m.editor_checkerUnavailable();
-    return runController.testDisabledReason;
+    if (problem.judgeType === "interactive" && !interactiveContestantSupported(language))
+      return m.editor_testInteractiveLanguage();
+    if (judgeProgramFailure) return judgeProgramMessages[judgeProgramFailure.reason]();
+    return null;
   });
 
   let testToolchainPercent = $derived(
@@ -266,7 +274,7 @@
   );
   let testPreparingLabel = $derived(
     judgeProgramProgress && judgeProgramProgress.phase !== "toolchain"
-      ? m.editor_checkerPreparing()
+      ? judgeProgramMessages.preparing()
       : null,
   );
 
@@ -374,7 +382,6 @@
     <EditorBottomPanel
       bind:runCases={runController.panelRunCases}
       isReadOnly={isSpecialEnv}
-      customCasesAllowed={runController.customCasesAllowed}
       judgeType={problem.judgeType}
       interactionFormat={problem.interactionFormat}
       {testDisabledReason}

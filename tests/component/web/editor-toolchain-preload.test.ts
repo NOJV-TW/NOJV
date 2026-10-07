@@ -23,7 +23,6 @@ const mocks = vi.hoisted(() => ({
   run: {
     isSubmitting: false,
     panelRunCases: [],
-    testDisabledReason: null,
     markDestroyed: vi.fn(),
   },
 }));

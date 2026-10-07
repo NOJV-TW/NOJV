@@ -13,7 +13,6 @@ const mocks = vi.hoisted(() => ({
   preload: vi.fn(() => Promise.resolve()),
   prepare:
     vi.fn<(scope: unknown, onProgress: (progress: Progress) => void) => Promise<Prepared>>(),
-  controllerReason: null as string | null,
 }));
 vi.mock("$lib/services/browser-local-run", () => ({
   supportsBrowserLocalRun: () => true,
@@ -35,9 +34,6 @@ vi.mock("$lib/components/features/problem/editors/use-editor-run.svelte", () => 
     isRunning: false,
     isSubmitting: false,
     panelRunCases: [],
-    get testDisabledReason() {
-      return mocks.controllerReason;
-    },
     markDestroyed: vi.fn(),
     setBottomTab: vi.fn(),
     submit: vi.fn(),
@@ -70,7 +66,6 @@ afterEach(async () => {
   if (component) await unmount(component);
   component = undefined;
   target.remove();
-  mocks.controllerReason = null;
   vi.clearAllMocks();
 });
 
@@ -139,17 +134,6 @@ describe("Test button state", () => {
     expect(mocks.preload).not.toHaveBeenCalled();
   });
 
-  it("is disabled on an interactive problem in C++", async () => {
-    const button = await renderTestButton({
-      judgeType: "interactive",
-      samples: interactiveSamples,
-    });
-    expect(button.disabled).toBe(true);
-    expect(visibleReason(button)).toBe(m.editor_testUnavailableForProblem());
-    expect(mocks.preload).not.toHaveBeenCalled();
-    expect(mocks.prepare).not.toHaveBeenCalled();
-  });
-
   it("says the checker is preparing and keeps Test clickable while it builds", async () => {
     mocks.prepare.mockImplementation((_scope, onProgress) => {
       onProgress({ phase: "build" });
@@ -201,7 +185,75 @@ describe("Test button state", () => {
     expect(button.textContent).toContain(m.editor_run());
   });
 
-  it("is disabled for an interactive problem in JavaScript", async () => {
+  it("says the interactor is preparing and keeps Test clickable while it builds", async () => {
+    mocks.prepare.mockImplementation((_scope, onProgress) => {
+      onProgress({ phase: "build" });
+      return new Promise<Prepared>(() => undefined);
+    });
+    const button = await renderTestButton({
+      judgeType: "interactive",
+      samples: interactiveSamples,
+    });
+    await vi.waitFor(() =>
+      expect(button.textContent).toContain(m.editor_interactorPreparing()),
+    );
+    expect(mocks.preload).toHaveBeenCalledWith("cpp", expect.any(Function));
+    expect(button.disabled).toBe(false);
+    expect(button.getAttribute("aria-busy")).toBe("true");
+    expect(visibleReason(button)).toBeUndefined();
+  });
+
+  it("is enabled once the interactor is built", async () => {
+    mocks.prepare.mockResolvedValue({ ...checkerReady, role: "interactor" });
+    const button = await renderTestButton({
+      judgeType: "interactive",
+      samples: interactiveSamples,
+    });
+    await vi.waitFor(() => expect(mocks.prepare).toHaveBeenCalledOnce());
+    await tick();
+    expect(button.textContent).toContain(m.editor_run());
+    expect(button.disabled).toBe(false);
+    expect(visibleReason(button)).toBeUndefined();
+  });
+
+  it.each([
+    [
+      "fails to build",
+      { ok: false, reason: "build_failed", diagnostics: "error" } as const,
+      () => m.editor_interactorBuildFailed(),
+    ],
+    [
+      "can't be loaded",
+      { ok: false, reason: "load_failed" } as const,
+      () => m.editor_interactorLoadFailed(),
+    ],
+    [
+      "is refused",
+      { ok: false, reason: "unavailable" } as const,
+      () => m.editor_interactorUnavailable(),
+    ],
+  ])("is disabled when the interactor %s", async (_label, prepared, reason) => {
+    mocks.prepare.mockResolvedValue(prepared);
+    const button = await renderTestButton({
+      judgeType: "interactive",
+      samples: interactiveSamples,
+    });
+    await vi.waitFor(() => expect(button.disabled).toBe(true));
+    expect(visibleReason(button)).toBe(reason());
+  });
+
+  it("is enabled for an interactive problem without interactor samples", async () => {
+    mocks.prepare.mockResolvedValue({ ...checkerReady, role: "interactor" });
+    const button = await renderTestButton({
+      judgeType: "interactive",
+      samples: [{ input: "1", output: "1" }],
+    });
+    await vi.waitFor(() => expect(mocks.prepare).toHaveBeenCalledOnce());
+    expect(button.disabled).toBe(false);
+    expect(visibleReason(button)).toBeUndefined();
+  });
+
+  it("is disabled for an interactive problem in JavaScript without preparing anything", async () => {
     const button = await renderTestButton({
       judgeType: "interactive",
       language: "javascript",
@@ -209,15 +261,8 @@ describe("Test button state", () => {
     });
     expect(button.disabled).toBe(true);
     expect(visibleReason(button)).toBe(m.editor_testInteractiveLanguage());
-  });
-
-  it("is disabled for an interactive problem without interactor samples", async () => {
-    const button = await renderTestButton({
-      judgeType: "interactive",
-      samples: [{ input: "1", output: "1" }],
-    });
-    expect(button.disabled).toBe(true);
-    expect(visibleReason(button)).toBe(m.editor_testNoInteractiveSamples());
+    expect(mocks.preload).not.toHaveBeenCalled();
+    expect(mocks.prepare).not.toHaveBeenCalled();
   });
 
   it("is enabled on a standard problem and preloads the toolchain", async () => {
@@ -229,13 +274,5 @@ describe("Test button state", () => {
       expect(mocks.preload).toHaveBeenCalledWith("cpp", expect.any(Function)),
     );
     expect(mocks.prepare).not.toHaveBeenCalled();
-  });
-
-  it("is disabled with the controller's reason", async () => {
-    mocks.controllerReason = m.editor_testUnavailableForProblem();
-    const button = await renderTestButton({});
-    expect(button.disabled).toBe(true);
-    expect(visibleReason(button)).toBe(m.editor_testUnavailableForProblem());
-    expect(mocks.preload).not.toHaveBeenCalled();
   });
 });

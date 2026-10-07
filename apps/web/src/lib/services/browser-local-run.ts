@@ -1,12 +1,18 @@
 import {
+  DEFAULT_MAX_MEMORY_MB,
+  DEFAULT_MEMORY_HEADROOM_MB,
+  MAX_CASE_STDERR_BYTES,
   MAX_EXECUTION_OUTPUT_BYTES,
   checkerCaseVerdict,
   compareStandard,
   entryFileNameFor,
   effectiveTimeLimitMs,
   executionWallTimeLimitMs,
+  interactiveCaseVerdict,
   isBrowserLocalLanguage,
   judgeProgramCompileInput,
+  resolveContainerMemoryMb,
+  truncateUtf8,
   validatorTimeoutMs,
   wasmOjTerminationVerdict,
   withCppPlatformHeaders,
@@ -48,8 +54,11 @@ const BROWSER_TOOLCHAINS = [
   rustSource(BROWSER_TOOLCHAIN_BASE_URL),
 ];
 const PRELOAD_RETRY_DELAYS_MS = [2_000, 5_000];
+const JUDGE_PROGRAM_ARGS = ["/judge/input", "/judge/answer", "/judge/feedback"];
 const CHECKER_MEMORY_LIMIT_BYTES = 512 * 1024 * 1024;
 const CHECKER_TEAM_MESSAGE_PATH = "/judge/feedback/teammessage.txt";
+const MIN_INTERACTIVE_WALL_LIMIT_MS = 3_000;
+const INTERACTION_TRANSCRIPT_BYTES = 64 * 1024;
 const RUN_OUTPUT_LIMITS = {
   outputLimitBytes: MAX_EXECUTION_OUTPUT_BYTES,
   filesystemWriteLimitBytes: 64 * 1024 * 1024,
@@ -241,6 +250,13 @@ interface BrowserRunLimits {
   timeLimitMs: number;
   memoryLimitMb: number;
   env: Record<string, string>;
+}
+
+interface BrowserInteraction {
+  verdict: ReturnType<typeof interactiveCaseVerdict>["verdict"];
+  timeMs: number;
+  transcript: { toInteractor: string; toContestant: string };
+  stderr?: string;
 }
 
 type BrowserCompileOutcome =
@@ -460,7 +476,7 @@ export async function runBrowserChecker(
   return withBrowserEngine(signal, async (browserEngine) => {
     const timeoutMs = validatorTimeoutMs(timeLimitMs);
     const run = await browserEngine.run(artifact, {
-      args: ["/judge/input", "/judge/answer", "/judge/feedback"],
+      args: JUDGE_PROGRAM_ARGS,
       stdin: output,
       files: {
         "/judge/input": input,
@@ -481,6 +497,66 @@ export async function runBrowserChecker(
       run,
       teamMessage === undefined ? undefined : new TextDecoder().decode(teamMessage),
     );
+  });
+}
+
+export async function runBrowserInteraction(
+  contestant: BuildArtifact,
+  interactor: BuildArtifact,
+  { interactorInput, limits }: { interactorInput: string; limits: BrowserRunLimits },
+  signal: AbortSignal,
+): Promise<BrowserInteraction> {
+  return withBrowserEngine(signal, async (browserEngine) => {
+    const timeLimitMs = effectiveTimeLimitMs(limits.timeLimitMs, limits.language);
+    const wallTimeLimitMs = Math.max(MIN_INTERACTIVE_WALL_LIMIT_MS, 3 * timeLimitMs);
+    const interactorMemoryMb = resolveContainerMemoryMb(limits.memoryLimitMb, {
+      defaultMemoryMb: limits.memoryLimitMb,
+      headroomMb: DEFAULT_MEMORY_HEADROOM_MB,
+      maxMemoryMb: DEFAULT_MAX_MEMORY_MB,
+    });
+    const run = await browserEngine.interact(contestant, interactor, {
+      contestant: {
+        env: limits.env,
+        resources: {
+          logicalTimeLimitMs: timeLimitMs,
+          memoryLimitBytes: limits.memoryLimitMb * 1024 * 1024,
+          wallTimeLimitMs,
+          ...RUN_OUTPUT_LIMITS,
+        },
+      },
+      interactor: {
+        args: JUDGE_PROGRAM_ARGS,
+        files: {
+          "/judge/input": interactorInput,
+          "/judge/answer": "",
+          "/judge/feedback/.keep": "",
+        },
+        resources: {
+          logicalTimeLimitMs: validatorTimeoutMs(timeLimitMs),
+          memoryLimitBytes: interactorMemoryMb * 1024 * 1024,
+          wallTimeLimitMs,
+          ...RUN_OUTPUT_LIMITS,
+        },
+      },
+    });
+    signal.throwIfAborted();
+    const contestantStop = wasmOjTerminationVerdict(
+      run.contestant.termination,
+      run.contestant.code,
+    );
+    const stderr = truncateUtf8(run.contestant.stderr, MAX_CASE_STDERR_BYTES);
+    return {
+      verdict:
+        contestantStop === "TLE" || contestantStop === "MLE"
+          ? contestantStop
+          : interactiveCaseVerdict(run).verdict,
+      timeMs: Math.max(0, Math.ceil((run.contestant.metrics.logicalTimeNs ?? 0) / 1_000_000)),
+      transcript: {
+        toInteractor: truncateUtf8(run.contestantToInteractor, INTERACTION_TRANSCRIPT_BYTES),
+        toContestant: truncateUtf8(run.interactorToContestant, INTERACTION_TRANSCRIPT_BYTES),
+      },
+      ...(stderr ? { stderr } : {}),
+    };
   });
 }
 

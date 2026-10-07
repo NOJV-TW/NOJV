@@ -2,6 +2,7 @@ import { expect, it, vi } from "vitest";
 import {
   runBrowserCases,
   runBrowserChecker,
+  runBrowserInteraction,
   runBrowserLocally,
 } from "$lib/services/browser-local-run";
 
@@ -18,6 +19,7 @@ const engine = vi.hoisted(() => ({
     durationMs: 1,
     metrics: { logicalTimeNs: 1, memoryBytes: 1024 },
   }),
+  interact: vi.fn(),
   cancel: vi.fn(),
 }));
 vi.mock("../../../apps/web/node_modules/@wasm-oj/browser", async (importOriginal) => ({
@@ -469,4 +471,176 @@ it.each([
       new AbortController().signal,
     ),
   ).resolves.toEqual({ verdict: "SE" });
+});
+
+function side(termination: string, code: number, stderr = "", logicalTimeNs = 1) {
+  return { termination, code, stderr, metrics: { logicalTimeNs, memoryBytes: 1024 } };
+}
+
+function interaction(overrides: Record<string, unknown> = {}) {
+  return {
+    contestant: side("exited", 0),
+    interactor: side("exited", 42),
+    contestantToInteractor: "50\n",
+    interactorToContestant: "1 100\n",
+    durationMs: 1,
+    ...overrides,
+  };
+}
+
+const interactionLimits = {
+  language: "python",
+  timeLimitMs: 1000,
+  memoryLimitMb: 256,
+  env: { MODE: "strict" },
+} as const;
+
+it("runs the contestant against the interactor with the sample's input and official limits", async () => {
+  const contestant = { id: "contestant" } as never;
+  const interactor = { id: "interactor" } as never;
+  engine.interact.mockResolvedValueOnce(
+    interaction({ contestant: side("exited", 0, "", 12_300_000) }),
+  );
+
+  const result = await runBrowserInteraction(
+    contestant,
+    interactor,
+    { interactorInput: "1 100\n42\n", limits: interactionLimits },
+    new AbortController().signal,
+  );
+
+  expect(result).toEqual({
+    verdict: "AC",
+    timeMs: 13,
+    transcript: { toInteractor: "50\n", toContestant: "1 100\n" },
+  });
+  expect(engine.interact).toHaveBeenLastCalledWith(contestant, interactor, {
+    contestant: {
+      env: { MODE: "strict" },
+      resources: {
+        logicalTimeLimitMs: 3000,
+        memoryLimitBytes: 256 * 1024 * 1024,
+        wallTimeLimitMs: 9000,
+        outputLimitBytes: 16 * 1024 * 1024,
+        filesystemWriteLimitBytes: 64 * 1024 * 1024,
+        filesystemEntryLimit: 4096,
+      },
+    },
+    interactor: {
+      args: ["/judge/input", "/judge/answer", "/judge/feedback"],
+      files: {
+        "/judge/input": "1 100\n42\n",
+        "/judge/answer": "",
+        "/judge/feedback/.keep": "",
+      },
+      resources: {
+        logicalTimeLimitMs: 30_000,
+        memoryLimitBytes: 320 * 1024 * 1024,
+        wallTimeLimitMs: 9000,
+        outputLimitBytes: 16 * 1024 * 1024,
+        filesystemWriteLimitBytes: 64 * 1024 * 1024,
+        filesystemEntryLimit: 4096,
+      },
+    },
+  });
+});
+
+it("keeps short limits at a 3 s wall stop and caps the interactor's memory headroom", async () => {
+  engine.interact.mockResolvedValueOnce(interaction());
+
+  await runBrowserInteraction(
+    { id: "contestant" } as never,
+    { id: "interactor" } as never,
+    {
+      interactorInput: "",
+      limits: { language: "cpp", timeLimitMs: 200, memoryLimitMb: 1500, env: {} },
+    },
+    new AbortController().signal,
+  );
+
+  const config = engine.interact.mock.calls.at(-1)?.[2];
+  expect(config.contestant.resources).toMatchObject({
+    logicalTimeLimitMs: 200,
+    memoryLimitBytes: 1500 * 1024 * 1024,
+    wallTimeLimitMs: 3000,
+  });
+  expect(config.interactor.resources).toMatchObject({
+    logicalTimeLimitMs: 30_000,
+    memoryLimitBytes: 1536 * 1024 * 1024,
+    wallTimeLimitMs: 3000,
+  });
+});
+
+it.each([
+  ["the interactor rejects the replies", interaction({ interactor: side("exited", 43) }), "WA"],
+  ["the interactor crashes", interaction({ interactor: side("trap", 1) }), "SE"],
+  [
+    "the contestant runs out of instructions",
+    interaction({ contestant: side("instruction-limit", 0) }),
+    "TLE",
+  ],
+  [
+    "the contestant exceeds its memory",
+    interaction({ contestant: side("memory-limit", 0) }),
+    "MLE",
+  ],
+  ["the contestant exits with an error", interaction({ contestant: side("exited", 3) }), "RE"],
+  [
+    "the contestant runs out of instructions and the interactor dies on the closed pipe",
+    interaction({
+      contestant: side("instruction-limit", 137),
+      interactor: side("exited", 120),
+    }),
+    "TLE",
+  ],
+  [
+    "the contestant exceeds its memory and the interactor dies on the closed pipe",
+    interaction({ contestant: side("memory-limit", 0), interactor: side("exited", 120) }),
+    "MLE",
+  ],
+  [
+    "the contestant exits with an error and the interactor crashes",
+    interaction({ contestant: side("exited", 3), interactor: side("exited", 120) }),
+    "SE",
+  ],
+  [
+    "both sides hit the wall stop",
+    interaction({
+      contestant: side("wall-time-limit", 0),
+      interactor: side("wall-time-limit", 0),
+    }),
+    "TLE",
+  ],
+])("maps an interaction where %s", async (_label, run, verdict) => {
+  engine.interact.mockResolvedValueOnce(run);
+
+  const result = await runBrowserInteraction(
+    { id: "contestant" } as never,
+    { id: "interactor" } as never,
+    { interactorInput: "", limits: interactionLimits },
+    new AbortController().signal,
+  );
+
+  expect(result.verdict).toBe(verdict);
+});
+
+it("caps each transcript direction at 64 KiB and the contestant's stderr", async () => {
+  engine.interact.mockResolvedValueOnce(
+    interaction({
+      contestant: side("exited", 0, "e".repeat(200_000)),
+      contestantToInteractor: "q".repeat(70_000),
+      interactorToContestant: `${"a".repeat(65_535)}中`,
+    }),
+  );
+
+  const result = await runBrowserInteraction(
+    { id: "contestant" } as never,
+    { id: "interactor" } as never,
+    { interactorInput: "", limits: interactionLimits },
+    new AbortController().signal,
+  );
+
+  expect(result.transcript.toInteractor).toBe("q".repeat(64 * 1024));
+  expect(result.transcript.toContestant).toBe("a".repeat(65_535));
+  expect(result.stderr).toBe("e".repeat(100_000));
 });

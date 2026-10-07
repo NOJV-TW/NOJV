@@ -11,6 +11,7 @@ const mocks = vi.hoisted(() => ({
   compile: vi.fn(),
   runCases: vi.fn(),
   check: vi.fn(),
+  interact: vi.fn(),
   toast: vi.fn(),
 }));
 vi.mock("$lib/services/submission-service", async (importOriginal) => ({
@@ -24,6 +25,7 @@ vi.mock("$lib/services/browser-local-run", async (importOriginal) => ({
   compileBrowserLocally: mocks.compile,
   runBrowserCases: mocks.runCases,
   runBrowserChecker: mocks.check,
+  runBrowserInteraction: mocks.interact,
 }));
 vi.mock("$lib/stores/toast", () => ({ toasts: { error: mocks.toast } }));
 import { createEditorRunController } from "$lib/components/features/problem/editors/use-editor-run.svelte";
@@ -193,16 +195,118 @@ const interactiveSamples = [
   { input: "? 7", output: "=", interactorInput: "7" },
 ];
 
-it("reports interactive Test as unavailable and disables it without compiling", async () => {
-  const run = controller("interactive", { samples: interactiveSamples });
+const interactorReady: PreparedJudgeProgram = {
+  ok: true,
+  role: "interactor",
+  language: "python",
+  artifact: checkerArtifact,
+};
+
+function interacted(verdict: string, toInteractor: string, toContestant: string) {
+  return { verdict, timeMs: 4, transcript: { toInteractor, toContestant } };
+}
+
+it("runs interactive samples and custom cases through the prepared interactor", async () => {
+  mocks.compile.mockResolvedValue({ ok: true, artifact: { id: "contestant" } });
+  mocks.interact
+    .mockResolvedValueOnce(interacted("AC", "50\n42\n", "lower\ncorrect\n"))
+    .mockResolvedValueOnce({ ...interacted("TLE", "", ""), stderr: "spinning" })
+    .mockResolvedValueOnce(interacted("WA", "1\n", "higher\n"));
+  const run = controller("interactive", {
+    samples: interactiveSamples,
+    judgeProgram: () => Promise.resolve(interactorReady),
+  });
+  run.panelRunCases = [...run.panelRunCases, { input: "99" }];
+
   await run.run();
-  expect(mocks.preload).not.toHaveBeenCalled();
+
+  expect(mocks.compile).toHaveBeenCalledOnce();
   expect(mocks.run).not.toHaveBeenCalled();
-  expect(mocks.execute).not.toHaveBeenCalled();
+  expect(mocks.runCases).not.toHaveBeenCalled();
+  expect(mocks.check).not.toHaveBeenCalled();
+  expect(
+    mocks.interact.mock.calls.map(([contestant, interactor, data]) => [
+      contestant,
+      interactor,
+      data,
+    ]),
+  ).toEqual(
+    ["42", "7", "99"].map((interactorInput) => [
+      { id: "contestant" },
+      checkerArtifact,
+      {
+        interactorInput,
+        limits: { language: "cpp", timeLimitMs: 1000, memoryLimitMb: 128, env: {} },
+      },
+    ]),
+  );
+  expect(run.runResult?.verdict).toBe("time_limit_exceeded");
+  expect(run.runResult?.caseResults).toEqual([
+    {
+      index: 0,
+      verdict: "AC",
+      timeMs: 4,
+      judged: true,
+      transcript: { toInteractor: "50\n42\n", toContestant: "lower\ncorrect\n" },
+    },
+    expect.objectContaining({ index: 1, verdict: "TLE", judged: true, stderr: "spinning" }),
+    expect.objectContaining({ index: 2, verdict: "WA", judged: true }),
+  ]);
+});
+
+it("waits for the interactor and stops when it can't be loaded", async () => {
+  let finishPreparing!: (prepared: PreparedJudgeProgram) => void;
+  const run = controller("interactive", {
+    samples: interactiveSamples,
+    judgeProgram: () =>
+      new Promise<PreparedJudgeProgram>((resolve) => (finishPreparing = resolve)),
+  });
+
+  const pending = run.run();
+  await vi.waitFor(() => expect(run.runStatus).toBe(m.editor_interactorPreparing()));
+  expect(mocks.compile).not.toHaveBeenCalled();
+
+  finishPreparing({ ok: false, reason: "load_failed" });
+  await pending;
+  expect(mocks.compile).not.toHaveBeenCalled();
+  expect(mocks.interact).not.toHaveBeenCalled();
   expect(run.runResult).toBeNull();
-  expect(run.runError).toBe(m.editor_testUnavailableForProblem());
-  expect(mocks.toast).toHaveBeenCalledWith(m.editor_testUnavailableForProblem());
-  expect(run.testDisabledReason).toBe(m.editor_testUnavailableForProblem());
+  expect(run.runError).toBeNull();
+});
+
+it("shows the contestant's compile error without starting an interaction", async () => {
+  const compileError = {
+    accepted: false,
+    caseResults: [],
+    feedback: "main.cpp:1: error",
+    runtimeMs: 0,
+    score: 0,
+    verdict: "compile_error",
+  };
+  mocks.compile.mockResolvedValue({ ok: false, result: compileError });
+  const run = controller("interactive", {
+    samples: interactiveSamples,
+    judgeProgram: () => Promise.resolve(interactorReady),
+  });
+
+  await run.run();
+
+  expect(run.runResult).toEqual(compileError);
+  expect(mocks.interact).not.toHaveBeenCalled();
+});
+
+it("reports an engine failure during an interaction as a system error", async () => {
+  mocks.compile.mockResolvedValue({ ok: true, artifact: { id: "contestant" } });
+  mocks.interact.mockRejectedValueOnce(new Error("Worker crashed"));
+  const run = controller("interactive", {
+    samples: interactiveSamples,
+    judgeProgram: () => Promise.resolve(interactorReady),
+  });
+
+  await run.run();
+
+  expect(run.runResult).toMatchObject({ verdict: "system_error", caseResults: [] });
+  expect(run.runResult?.feedback).toContain("Worker crashed");
 });
 
 function exited(stdout: string) {
@@ -301,11 +405,9 @@ it("waits for the checker before compiling and stops when it failed to build", a
   expect(mocks.toast).not.toHaveBeenCalled();
 });
 
-it("starts interactive cases from the samples' interactor inputs and allows no custom cases", () => {
+it("starts interactive cases from the samples' interactor inputs", () => {
   const run = controller("interactive", { samples: interactiveSamples });
   expect(run.panelRunCases).toEqual([{ input: "42" }, { input: "7" }]);
-  expect(run.customCasesAllowed).toBe(false);
-  expect(controller("checker", { samples: checkerSamples }).customCasesAllowed).toBe(true);
 });
 
 it("ignores a second Test press while one is running", async () => {
