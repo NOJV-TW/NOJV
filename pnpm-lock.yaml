@@ -266,8 +266,8 @@ importers:
         specifier: ^0.222.0
         version: 0.222.0(@opentelemetry/api@1.9.1)
       '@wasm-oj/browser':
-        specifier: 0.2.3
-        version: 0.2.3
+        specifier: 0.2.4
+        version: 0.2.4
       '@wasm-oj/toolchain-clang':
         specifier: 0.2.0
         version: 0.2.0
@@ -3524,20 +3524,20 @@ packages:
   '@vitest/utils@4.1.11':
     resolution: {integrity: sha512-zTCVGpyFsGWBhllOyKlTw/vnr6D9qxsfSDyfbyZmTyjHw5N/VuvzHpHoQjm2ZJzn4RJgx5w4r7V0er69CmLgPQ==}
 
-  '@wasm-oj/browser@0.2.3':
-    resolution: {integrity: sha512-M6k0Sjmr0bHeE8T9VNyL7B4uy2cF4d9pPUPa0g9kO2O91E6f22qZGMYWllnp6aQSEI8r8UvSdqFyO75IydBHZw==}
+  '@wasm-oj/browser@0.2.4':
+    resolution: {integrity: sha512-OT2dCZIKKO2mvfWxcXNvd/PKkv9zMARUVf2oTCnZfCIrQAhYSE0gSbdSg9LVXWRPo8gauQm8Frd5GeCGaHDuZQ==}
     engines: {node: '>=24.18.0 <25'}
 
   '@wasm-oj/contracts@0.2.2':
     resolution: {integrity: sha512-Hvjx4xvkd45iRBIU3yAXOBkzLFtF33jSml9OMNtMHeEG6dCXPdlDz86QOveYLCj7xELH3db5vWx0hE6rFzaG7w==}
     engines: {node: '>=24.18.0 <25'}
 
-  '@wasm-oj/contracts@0.2.3':
-    resolution: {integrity: sha512-a48ZH3NDVNAbCU+OzXW2aF/Sc0fgPQcNEVttajEJovi0t03il+lR8fbz1doevY4Zq+RL04o69FqYD0hz2j2a7A==}
+  '@wasm-oj/contracts@0.2.4':
+    resolution: {integrity: sha512-v0iYzF7cNecV1a2wlgsiUj1nWN4lhen2TPc+n1m7uNzjANX5LDGPDNXlkqUigWzlGlQ6URFI/yQWnbswlEXtww==}
     engines: {node: '>=24.18.0 <25'}
 
-  '@wasm-oj/core@0.2.3':
-    resolution: {integrity: sha512-zM8jPrjLdRijIViqPRcDJyHKtPZlklkXvi3M8GfUmtk0OZb7ds+hTBkDIh06iYdDtisI0TKmS3u4ELl5m0k/pg==}
+  '@wasm-oj/core@0.2.4':
+    resolution: {integrity: sha512-lgYMHzwjNkbUpSD8hqJUMmx3VI9nARJiiu4bLeVZ8qwKAd5MpySQhyNT+TqRAexN9g/yjOPf9NtMVKc+CgSW/w==}
     engines: {node: '>=24.18.0 <25'}
 
   '@wasm-oj/toolchain-clang@0.2.0':
@@ -9847,21 +9847,21 @@ snapshots:
       tinyrainbow: 3.1.1
     optional: true
 
-  '@wasm-oj/browser@0.2.3':
+  '@wasm-oj/browser@0.2.4':
     dependencies:
-      '@wasm-oj/contracts': 0.2.3
-      '@wasm-oj/core': 0.2.3
+      '@wasm-oj/contracts': 0.2.4
+      '@wasm-oj/core': 0.2.4
       '@wasmer/sdk': 0.10.0
       es-module-lexer: 2.3.1
       fflate: 0.8.3
 
   '@wasm-oj/contracts@0.2.2': {}
 
-  '@wasm-oj/contracts@0.2.3': {}
+  '@wasm-oj/contracts@0.2.4': {}
 
-  '@wasm-oj/core@0.2.3':
+  '@wasm-oj/core@0.2.4':
     dependencies:
-      '@wasm-oj/contracts': 0.2.3
+      '@wasm-oj/contracts': 0.2.4
       fflate: 0.8.3
 
   '@wasm-oj/toolchain-clang@0.2.0':
