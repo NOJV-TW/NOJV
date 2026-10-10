@@ -1,5 +1,5 @@
 export const PYTHON_CHECKER_EXAMPLE = `# Bound: judge_input, judge_answer, team_output (strings)
-# Helpers: accept(team_msg=""), wrong(team_msg=""), set_score(x), judge_log(msg)
+# Helpers: accept(team_msg=""), wrong(team_msg=""), judge_log(msg)
 
 u = team_output.split()
 e = judge_answer.split()
@@ -12,13 +12,12 @@ accept()
 `;
 
 export const PYTHON_INTERACTOR_EXAMPLE = `# Bound: judge_input, judge_answer (strings); read(), write(msg)
-# Helpers: accept(team_msg=""), wrong(team_msg=""), set_score(x), judge_log(msg)
+# Helpers: accept(team_msg=""), wrong(team_msg=""), judge_log(msg)
 
 secret = int(judge_input.strip())
 for i in range(1, 21):
     g = int(read())
     if g == secret:
-        set_score(max(0, 100 - (i - 1) * 5))
         accept(f"correct in {i} guesses")
     write("higher" if secret > g else "lower")
 wrong("exceeded 20 guesses")
@@ -62,8 +61,7 @@ int main(int argc, char* argv[]) {
     std::ifstream in(argv[1]);
     std::string feedback_dir = argv[3];
 
-    auto finish = [&](int code, int score, const std::string& msg) {
-        std::ofstream(feedback_dir + "/score.txt") << score;
+    auto finish = [&](int code, const std::string& msg) {
         std::ofstream(feedback_dir + "/teammessage.txt") << msg;
         std::exit(code);
     };
@@ -72,12 +70,11 @@ int main(int argc, char* argv[]) {
     in >> secret;
     for (int guess_count = 1; guess_count <= 20; guess_count++) {
         int g;
-        if (!(std::cin >> g)) finish(43, 0, "solution closed its output early");
+        if (!(std::cin >> g)) finish(43, "solution closed its output early");
         if (g == secret)
-            finish(42, std::max(0, 100 - (guess_count - 1) * 5),
-                   "correct in " + std::to_string(guess_count) + " guesses");
+            finish(42, "correct in " + std::to_string(guess_count) + " guesses");
         std::cout << (secret > g ? "higher" : "lower") << std::endl;
     }
-    finish(43, 0, "exceeded 20 guesses");
+    finish(43, "exceeded 20 guesses");
 }
 `;

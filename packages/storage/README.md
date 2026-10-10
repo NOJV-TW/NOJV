@@ -5,7 +5,7 @@
 ## 職責
 
 - 封裝 `@aws-sdk/client-s3`：immutable、hash 驗證的物件讀寫與 storage pointer
-- 集中管理 key 命名（testcase、workspace、checker / interactor、submission source / verdict detail、圖片、avatar、test judge request / program）
+- 集中管理 key 命名（testcase、workspace、checker / interactor、submission source / verdict detail、圖片、avatar）
 - **不負責**：DB 中的 pointer 與 ownership（`@nojv/db` / `@nojv/application`）、權限（`@nojv/application`）
 
 低階物件 writer 不檢查配額。使用者上傳須經 `@nojv/application`
@@ -16,7 +16,7 @@
 - `src/client.ts` — `createStorageClient()`
 - `src/env.ts` — `storageEnvSchema`、`getStorageEnv()`；`S3_ENDPOINT`、`S3_ACCESS_KEY`、`S3_SECRET_KEY`（production 必填）、`S3_BUCKET`（預設 `nojv`）、`S3_REGION`（預設 `auto`）
 - `src/object.ts` — `StorageObjectPointer`、`putImmutableObject` / `putImmutableText` / `putObjectIfAbsent`、`getVerifiedObject` / `getVerifiedText`
-- `src/keys.ts` — `testcase*Key`、`workspaceFileKey`、`checkerKey`、`interactorKey`、`submission*Key`、`problemImageKey`、`userContentImageKey`、`testJudgeRequestKey`、`testJudgeProgramKey`
+- `src/keys.ts` — `testcase*Key`、`workspaceFileKey`、`checkerKey`、`interactorKey`、`submission*Key`、`problemImageKey`、`userContentImageKey`
 - `src/submission.ts` — submission source plan / manifest、verdict detail
 - `src/images.ts`、`src/avatar.ts` — 題目、使用者內容圖片及 avatar 讀取；`listImageObjectInventory` / `readImageObjectInventory` 盤點既有物件，以內容計算 size / SHA-256 並保留 content type，略過已不存在的 key。`images.ts` 讀取最多 5 MiB，盤點共用 60 秒截止時間
 - `src/blobs.ts` — `getObject` / `getText` / `deleteBlob` / `deleteBlobsByPrefix` / `listByPrefix`

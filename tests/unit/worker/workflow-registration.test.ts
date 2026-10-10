@@ -31,8 +31,8 @@ function exportedWorkflowNames(): Set<string> {
 describe("Temporal workflow registration (string-name drift guard)", () => {
   const dispatch = readFileSync(dispatchFile, "utf8");
 
-  it('every workflow.start/execute("name") in dispatch is exported from workflows/index.ts', () => {
-    const started = matchAll(dispatch, /workflow\.(?:start|execute)(?:<\w+>)?\(\s*"([^"]+)"/g);
+  it('every workflow.start("name") in dispatch is exported from workflows/index.ts', () => {
+    const started = matchAll(dispatch, /workflow\.start\(\s*"([^"]+)"/g);
     const exported = exportedWorkflowNames();
     const unregistered = started.filter((name) => !exported.has(name));
     expect(

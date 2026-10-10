@@ -7,8 +7,6 @@ import {
   workspaceFileKey,
   checkerKey,
   interactorKey,
-  testJudgeRequestKey,
-  testJudgeProgramKey,
 } from "../../../packages/storage/src/keys";
 
 describe("storage key builders", () => {
@@ -71,15 +69,5 @@ describe("storage key builders", () => {
   it("rejects unsafe version segments", () => {
     expect(() => workspaceFileKey("prob_1", "ws_1", "../current")).toThrow();
     expect(() => checkerKey("prob_1", "current/latest")).toThrow();
-  });
-
-  it("testJudgeRequestKey stores requests under the request prefix", () => {
-    expect(testJudgeRequestKey("req_1")).toBe("test-judge-requests/req_1.json");
-    expect(() => testJudgeRequestKey("../req_1")).toThrow();
-  });
-
-  it("testJudgeProgramKey stores programs under the versioned test-judge prefix", () => {
-    expect(testJudgeProgramKey("ab12")).toBe("test-judge-programs/v1/ab12.json");
-    expect(() => testJudgeProgramKey("a/b")).toThrow();
   });
 });

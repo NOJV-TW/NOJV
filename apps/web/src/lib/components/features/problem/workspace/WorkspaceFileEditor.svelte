@@ -9,7 +9,7 @@
     path: string;
     content: string;
     description: string;
-    visibility: "editable" | "readonly" | "hidden";
+    visibility: "editable" | "readonly";
     orderIndex: number;
   }
 
@@ -51,7 +51,6 @@
       >
         <option value="editable">{m.admin_fileEditable()}</option>
         <option value="readonly">{m.admin_fileReadonly()}</option>
-        <option value="hidden">{m.admin_fileHidden()}</option>
       </select>
     </label>
     <button

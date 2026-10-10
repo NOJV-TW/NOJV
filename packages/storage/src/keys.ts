@@ -60,13 +60,3 @@ export const problemImageKey = (problemId: string, filename: string): string =>
 
 export const userContentImageKey = (userId: string, filename: string): string =>
   `users/${versionSegment(userId)}/images/${versionSegment(filename)}`;
-
-// ponytail: request blobs orphaned by a web crash between write and delete are never swept; add a bucket lifecycle expiry on this prefix
-export const TEST_JUDGE_REQUEST_PREFIX = "test-judge-requests/";
-
-export const testJudgeRequestKey = (requestId: string): string =>
-  `${TEST_JUDGE_REQUEST_PREFIX}${versionSegment(requestId)}.json`;
-
-// ponytail: input-addressed test-judge programs are never collected; add a prefix sweep if the bucket grows
-export const testJudgeProgramKey = (cacheKey: string): string =>
-  `test-judge-programs/v1/${versionSegment(cacheKey)}.json`;

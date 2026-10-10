@@ -7,7 +7,6 @@ import {
 import {
   LANGUAGE_TEMPLATES,
   problemSampleSchema,
-  staticTestCapability,
   type AdvancedConfig,
   type JudgeConfig,
   type JudgeType,
@@ -16,17 +15,11 @@ import {
   type ProblemStatus,
   type ProblemType,
   type ProblemVisibility,
-  type TestCapability,
 } from "@nojv/core";
 import { NotFoundError } from "../shared/errors";
-import { isTestJudgeEnabled } from "../shared/test-judge-enabled";
 import { readCachedWorkspaceFileBlob } from "./blobs";
 import { computeProblemTotalScore } from "./total-score";
-import {
-  judgeScriptLanguageOf,
-  parsePersistedAdvancedConfig,
-  parsePersistedJudgeConfig,
-} from "./judge-config";
+import { parsePersistedAdvancedConfig, parsePersistedJudgeConfig } from "./judge-config";
 
 export interface ProblemDetail {
   acceptanceRate: number;
@@ -46,7 +39,6 @@ export interface ProblemDetail {
   statement: string;
   status: ProblemStatus;
   tags: string[];
-  testCapability: TestCapability;
   timeLimitMs: number;
   title: string;
   totalScore: number;
@@ -56,7 +48,7 @@ export interface ProblemDetail {
     language: string;
     path: string;
     content: string;
-    visibility: "editable" | "readonly" | "hidden";
+    visibility: "editable" | "readonly";
     description: string;
   }[];
   advancedConfig: AdvancedConfig | null;
@@ -108,18 +100,13 @@ async function mapPersistedProblemDetail(
 
   const rawFiles = problem.workspaceFiles;
   const visibleWorkspaceFiles = await Promise.all(
-    rawFiles.map(async (f) => {
-      const visibility = f.visibility;
-      const content =
-        visibility === "hidden" ? "" : await readCachedWorkspaceFileBlob(f.contentStorage);
-      return {
-        language: f.language,
-        path: f.path,
-        content,
-        visibility,
-        description: f.description,
-      };
-    }),
+    rawFiles.map(async (f) => ({
+      language: f.language,
+      path: f.path,
+      content: await readCachedWorkspaceFileBlob(f.contentStorage),
+      visibility: f.visibility,
+      description: f.description,
+    })),
   );
 
   const type = problem.type;
@@ -148,12 +135,6 @@ async function mapPersistedProblemDetail(
     statement: statement?.bodyMarkdown ?? "",
     status: problem.status,
     tags,
-    testCapability: staticTestCapability({
-      isSpecialEnv: type === "special_env",
-      judgeType: judgeConfig.type,
-      judgeLanguage: judgeScriptLanguageOf(judgeConfig),
-      testJudgeEnabled: isTestJudgeEnabled(),
-    }),
     timeLimitMs: problem.timeLimitMs,
     title: problem.title,
     totalSubmissions: attempters,

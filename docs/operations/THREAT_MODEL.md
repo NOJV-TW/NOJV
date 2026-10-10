@@ -23,7 +23,6 @@ Enforcement points are listed in [Security — Key code](SECURITY.md#key-code). 
 | Admin / super-admin access              | Platform-wide data and role control                                |
 | `DATABASE_URL`, object-storage keys     | Read/write of all data, source and testcases                       |
 | Graded testcases, Advanced grade images | Grading integrity across every context                             |
-| Checker and interactor programs         | Reference algorithms and checker holes exposed; verdicts gameable  |
 | Submission source and drafts            | Privacy, academic integrity                                        |
 | Exam configuration and IP records       | Exam integrity                                                     |
 | OAuth client secrets, provider tokens   | Application impersonation; provider API access for linked accounts |
@@ -41,7 +40,6 @@ Untrusted                    |  Trusted
 Browser ---> Cloudflare -----|---> web (SvelteKit) ---> PostgreSQL, Redis, object storage, Temporal
                              |                                   |
 Student code ----------------|---> sandbox Pod/container <--- worker (Temporal)
-Student Wasm (Test) ---------|---> worker-test (WASM-OJ runner) ---> Redis, object storage, Temporal
 Teacher Advanced images -----|---> run / grade / service containers
 Docker client (registry) ----|---> /api/registry/token ---> in-cluster registry
 ```
@@ -51,7 +49,6 @@ Docker client (registry) ----|---> /api/registry/token ---> in-cluster registry
 | Internet ↔ origin                | High     | Only via Cloudflare; client IP trust depends on it                           |
 | Browser ↔ web                    | High     | All input untrusted; cookie and bearer-token auth                            |
 | Student code ↔ sandbox           | Critical | Arbitrary code, highest-risk input                                           |
-| Student Wasm ↔ test worker       | High     | Compiled by the student's browser; runs in a pod with service credentials    |
 | Teacher image ↔ sandbox          | High     | Semi-trusted authors; grade images hold answers                              |
 | Worker ↔ Docker daemon / K8s API | High     | Worker creates workloads; its credentials are privileged                     |
 | Web/worker ↔ Postgres, Redis, S3 | Medium   | Internal network only; Redis unauthenticated in compose and in-cluster chart |
@@ -113,9 +110,8 @@ Each item names the mitigating control; _Residual_ is what remains.
 
 - **IDOR on submissions or source (`/api/submissions/[id]`, `/source`)** — `getSubmissionForActor` returns 404 for non-owners ([Authorization](SECURITY.md#authorization)).
 - **Graded testcase leak through results (e.g. echo-stdin submission)** — `sanitizeStudentResult` on every student result path (SEC-12).
-- **Reading a checker or interactor through Test** — Judge programs run only in the test worker; a Test response carries verdicts, `teammessage`, contestant stderr and the transcript, never the program, `judgemessage`, interactor stderr or diagnostics (JDG-15).
-- **Using Test as a checker or interactor oracle with crafted cases** — Test judges only problem samples, by index, from server-side data; custom cases never reach the judge program (SEC-15). _Residual:_ a student can vary their own output on public samples, which shows only how the checker treats those inputs.
-- **Hidden workspace file leak** — Filtered from student editor/API reads; the worker merges them into compilation and execution. _Residual:_ Student programs can read these files, so editor hiding provides no runtime confidentiality.
+- **Reading a checker or interactor** — Accepted risk: anyone who may view the problem in a context reads its judge program through `/api/problems/[id]/judge-program`, and browser Test runs it (JDG-15). _Residual:_ bugs such as a missing validity check or an off-by-one query limit are easier to find and then exploit in official judging; authors own them. A checker should only verify and read the optimum from `judge_answer`, and an interactor should read its secret from `judge_input`, as the seed programs do.
+- **Hidden testcases through Test** — Test receives only `Problem.samples` and the judge program's source; the server runs nothing for Test, so no Test path touches graded testcases (SEC-12).
 - **Co-editor overreach (publish, export, other courses' submissions)** — Resource-based problem permissions with in-transaction recheck ([Authorization](SECURITY.md#authorization)).
 - **Revoked staff finishing an upload started while authorized** — `lockProblemForEdit` recheck before commit.
 - **Revoked staff dispatches rejudge after snapshot preparation** — Commit holds scope-authority and requester locks and rechecks current authority before execution/outbox writes.
@@ -140,8 +136,6 @@ Controls: [Sandbox Isolation](SECURITY.md#sandbox-isolation).
 - **Cross-teacher image theft or replacement** — Namespace-scoped registry tokens. _Residual:_ Isolation is per teacher, not per course.
 - **Compromised worker creates privileged workloads** — Pod Security `restricted`, split service accounts, minimal `sandbox-job-manager` role. _Residual:_ The judge identity can still create sandbox Jobs.
 - **Checker/interactor exploits run output** — Validators run in the same hardened sandbox; output treated as untrusted data.
-- **Student Wasm escapes the test judge runtime** — WASM-OJ static admission, logical-time and instruction budgets, memory limits and wall stops; non-root, read-only, capability-free pod with no service-account token and no database credentials ([Sandbox Isolation](SECURITY.md#sandbox-isolation)). _Residual:_ the pod holds Redis, object-storage and Temporal access, so an escape from the WebAssembly sandbox reaches them (Open Gaps).
-- **Test floods starve official judging** — Test runs only on `test-judge` in its own Deployment with fixed slots and a 2-CPU limit; per-user 30 requests a minute and one in flight; each request ends within 30 s. _Residual:_ the test worker shares node CPU with stage Pods, and a full class can keep every slot busy so further Tests answer "busy".
 
 ### Uploads, Markdown and object storage
 
@@ -153,7 +147,7 @@ Controls: [Content and Uploads](SECURITY.md#content-and-uploads).
 - **Reader tracking via remote Markdown images** — Authenticated same-origin relay with short private caching; browsers never contact upstream hosts.
 - **SSRF via the image proxy (private IPs, rebinding, redirects)** — Public-only DNS pinning, redirect revalidation, HTTPS/443 only.
 - **Storage or bandwidth exhaustion** — Shared 50 MiB problem budget including images, 50 MiB user content-image budget, atomic capacity reservations including pending writes, bounded avatar replacement, and remote-fetch limiting. Reader GET requests create no permanent storage; author URL imports consume the owner's quota. _Residual:_ Existing over-quota content is retained; remote references remain dependent on upstream availability unless imported.
-- **Hidden workspace file read by student code** — Hidden controls editor/API presentation for helpers, drivers and opaque assumed APIs. Official compilation/execution receives the file; authors must not put secrets or answers there (PRB-01).
+- **Secrets in workspace files** — Workspace files are `editable` or `readonly`; students see both, browser Test runs them and official compilation and execution receive them. Authors must not put secrets or answers there (PRB-01).
 
 ### Exam and contest integrity
 
@@ -178,23 +172,22 @@ Controls: [Infrastructure](SECURITY.md#infrastructure).
 
 ## Criticality
 
-| Level    | Threats                                                                                                                                                                                                     |
-| -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Critical | Sandbox escape; `BETTER_AUTH_SECRET` or database credential leak; authorization bypass to admin; graded testcase or answer exposure                                                                         |
-| High     | Cross-user source access; exam integrity bypass; stored XSS; object-storage or registry credential leak; worker orchestrator abuse; OAuth secret leak; test-worker runtime escape; judge-program disclosure |
-| Medium   | Submission or SSE flooding; storage exhaustion; plagiarism-run load; Redis tampering in dev or in-cluster; Zod schema disclosure                                                                            |
-| Low      | Undetected tab/device switching; public probe disclosure; development-only defaults                                                                                                                         |
+| Level    | Threats                                                                                                                                               |
+| -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Critical | Sandbox escape; `BETTER_AUTH_SECRET` or database credential leak; authorization bypass to admin; graded testcase or answer exposure                   |
+| High     | Cross-user source access; exam integrity bypass; stored XSS; object-storage or registry credential leak; worker orchestrator abuse; OAuth secret leak |
+| Medium   | Submission or SSE flooding; storage exhaustion; plagiarism-run load; Redis tampering in dev or in-cluster; Zod schema disclosure                      |
+| Low      | Undetected tab/device switching; public probe disclosure; development-only defaults                                                                   |
 
 ## Open Gaps
 
-| Gap                                         | Current state                                                                                                             | Recommendation                                                                                                     | Priority |
-| ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ | -------- |
-| SSE concurrency caps are per replica        | `acquireSseSlot` caps 5 streams per user per stream type and 2000 per replica, in memory; SSE routes are not rate-limited | Move counters to Redis if a global cap is needed                                                                   | Low      |
-| No per-account sign-in lockout              | Password sign-in is limited per IP (and per username for exam passwords)                                                  | Add a per-account limiter if distributed brute force appears                                                       | Low      |
-| Redis unauthenticated                       | Compose and the in-cluster chart Redis have no password; GKE uses external Redis                                          | Add Redis auth for single-machine deployments                                                                      | Low      |
-| Browser tab / device switching not detected | Page lock covers NOJV server routes only                                                                                  | Only if remote proctoring becomes a requirement                                                                    | Low      |
-| No plagiarism concurrency cap               | Dolos runs in-process per activity, bounded by one target's submissions and the activity timeout                          | Add an activity concurrency limit if parser contention appears                                                     | Low      |
-| Test worker holds service credentials       | Student Wasm runs in `nojv-worker-test`, which has the runtime S3 keys (whole bucket), Redis and Temporal access          | Scope its object-storage credential to the test-judge prefixes and validator reads, or run the runner without them | Medium   |
+| Gap                                         | Current state                                                                                                             | Recommendation                                                 | Priority |
+| ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- | -------- |
+| SSE concurrency caps are per replica        | `acquireSseSlot` caps 5 streams per user per stream type and 2000 per replica, in memory; SSE routes are not rate-limited | Move counters to Redis if a global cap is needed               | Low      |
+| No per-account sign-in lockout              | Password sign-in is limited per IP (and per username for exam passwords)                                                  | Add a per-account limiter if distributed brute force appears   | Low      |
+| Redis unauthenticated                       | Compose and the in-cluster chart Redis have no password; GKE uses external Redis                                          | Add Redis auth for single-machine deployments                  | Low      |
+| Browser tab / device switching not detected | Page lock covers NOJV server routes only                                                                                  | Only if remote proctoring becomes a requirement                | Low      |
+| No plagiarism concurrency cap               | Dolos runs in-process per activity, bounded by one target's submissions and the activity timeout                          | Add an activity concurrency limit if parser contention appears | Low      |
 
 ## Related Docs
 

@@ -152,9 +152,7 @@
   const workspaceLanguages = $derived([
     ...new Set(workspaceFiles.map((file) => file.language)),
   ]);
-  const visibleFiles = $derived(
-    workspaceFiles.filter((file) => file.language === language && file.visibility !== "hidden"),
-  );
+  const visibleFiles = $derived(workspaceFiles.filter((file) => file.language === language));
   const selectedFile = $derived(visibleFiles[selectedIndex]);
   const failedSubtasks = $derived(
     (lastResult?.subtaskResults ?? [])

@@ -37,6 +37,11 @@
     prewarmBrowserLocalEngine,
     supportsBrowserLocalRun,
   } from "$lib/services/browser-local-run";
+  import {
+    prepareJudgeProgram,
+    type JudgeProgramProgress,
+    type PreparedJudgeProgram,
+  } from "$lib/services/judge-program";
 
   interface Props {
     allowedLanguages?: Language[] | undefined;
@@ -83,6 +88,43 @@
   let drafts = $state({ ...initialProblem.starterByLanguage });
   let isFullscreen = $state(false);
   let toolchainPercent = $state<number | null>(null);
+  let judgeProgramProgress = $state<JudgeProgramProgress | null>(null);
+  let judgeProgramFailure = $state<Exclude<PreparedJudgeProgram, { ok: true }> | null>(null);
+  let judgeProgramPreparation: Promise<PreparedJudgeProgram> | null = null;
+  const judgeProgramAbort = new AbortController();
+  onDestroy(() => judgeProgramAbort.abort());
+  const judgeProgramMessages =
+    initialProblem.judgeType === "interactive"
+      ? {
+          preparing: m.editor_interactorPreparing,
+          build_failed: m.editor_interactorBuildFailed,
+          load_failed: m.editor_interactorLoadFailed,
+          unavailable: m.editor_interactorUnavailable,
+        }
+      : {
+          preparing: m.editor_checkerPreparing,
+          build_failed: m.editor_checkerBuildFailed,
+          load_failed: m.editor_checkerLoadFailed,
+          unavailable: m.editor_checkerUnavailable,
+        };
+
+  function prepareProblemJudgeProgram(): Promise<PreparedJudgeProgram> {
+    judgeProgramPreparation ??= prepareJudgeProgram(
+      {
+        problemId: initialProblem.id,
+        context: untrack(() => context),
+        signal: judgeProgramAbort.signal,
+      },
+      (progress) => (judgeProgramProgress = progress),
+    ).then((prepared) => {
+      judgeProgramProgress = null;
+      if (!prepared.ok) judgeProgramFailure = prepared;
+      if (!prepared.ok && prepared.reason === "build_failed")
+        runController.setBottomTab("result");
+      return prepared;
+    });
+    return judgeProgramPreparation;
+  }
 
   let isWorkspaceMode = $derived(isWorkspaceProblem(problem.type));
   let isSpecialEnv = $derived(isSpecialEnvProblem(problem.type));
@@ -103,6 +145,7 @@
       preloadBrowserToolchain(selected, (progress) => {
         if (active) toolchainPercent = browserToolchainPercent(progress);
       }).then(finish, finish);
+      if (initialProblem.judgeType !== "standard") void prepareProblemJudgeProgram();
     }, 0);
 
     return () => {
@@ -215,6 +258,7 @@
     workspaceDrafts: () => workspaceFiles.drafts,
     workspaceFiles: () => workspaceFilesForLanguage,
     context: () => context,
+    judgeProgram: prepareProblemJudgeProgram,
     onSubmissionDispatched: (id, lang) => onSubmissionDispatched?.(id, lang),
     onSubmissionComplete: (id, result, lang, src) =>
       onSubmissionComplete?.(id, result, lang, src),
@@ -223,19 +267,22 @@
   $effect(() => () => runController.markDestroyed());
 
   let testDisabledReason = $derived.by(() => {
-    const capability = problem.testCapability;
-    if (!capability.available) {
-      return capability.reason === "special_env"
-        ? m.editor_testUnsupportedProblemType()
-        : m.editor_testUnavailableForProblem();
-    }
-    if (problem.judgeType === "interactive") {
-      if (!interactiveContestantSupported(language)) return m.editor_testInteractiveLanguage();
-      if (!problem.samples.some((sample) => sample.interactorInput?.trim()))
-        return m.editor_testNoInteractiveSamples();
-    }
-    return runController.testDisabledReason;
+    if (isSpecialEnv) return m.editor_testUnsupportedProblemType();
+    if (problem.judgeType === "interactive" && !interactiveContestantSupported(language))
+      return m.editor_testInteractiveLanguage();
+    if (judgeProgramFailure) return judgeProgramMessages[judgeProgramFailure.reason]();
+    return null;
   });
+
+  let testToolchainPercent = $derived(
+    toolchainPercent ??
+      (judgeProgramProgress?.phase === "toolchain" ? judgeProgramProgress.percent : null),
+  );
+  let testPreparingLabel = $derived(
+    judgeProgramProgress && judgeProgramProgress.phase !== "toolchain"
+      ? judgeProgramMessages.preparing()
+      : null,
+  );
 
   function handleShortcut(event: KeyboardEvent) {
     if (!(event.ctrlKey || event.metaKey) || event.shiftKey || event.altKey) return;
@@ -313,7 +360,8 @@
 
   <EditorActionBar
     isRunning={runController.isRunning}
-    {toolchainPercent}
+    toolchainPercent={testToolchainPercent}
+    preparingLabel={testPreparingLabel}
     isSubmitting={runController.isSubmitting}
     {hasSubmittableSource}
     {attemptsExhausted}
@@ -340,10 +388,12 @@
     <EditorBottomPanel
       bind:runCases={runController.panelRunCases}
       isReadOnly={isSpecialEnv}
-      customCasesAllowed={runController.customCasesAllowed}
       judgeType={problem.judgeType}
       interactionFormat={problem.interactionFormat}
       {testDisabledReason}
+      judgeProgramDiagnostics={judgeProgramFailure?.reason === "build_failed"
+        ? judgeProgramFailure.diagnostics
+        : null}
       tab={runController.bottomTab}
       runResult={runController.runResult}
       runSource={runController.runSource}

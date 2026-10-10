@@ -20,13 +20,12 @@ function file(
 }
 
 it.each(["c", "cpp", "go", "java", "javascript", "python", "rust", "typescript"] as const)(
-  "%s browser files preserve public helpers and match authoritative workspace overrides",
+  "%s browser files preserve readonly helpers and match authoritative workspace overrides",
   (language) => {
     const entry = entryFileNameFor(language);
     const files = [
       file(language, entry, "starter", "editable"),
       file(language, "helper.txt", "readonly".repeat(75_000), "readonly"),
-      file(language, "private.txt", "secret", "hidden"),
       file(language === "python" ? "cpp" : "python", "other.txt", "other language", "readonly"),
     ];
     const request = buildSubmissionRequest({
@@ -54,9 +53,7 @@ it.each(["c", "cpp", "go", "java", "javascript", "python", "rust", "typescript"]
       request.sourceFiles!,
       files.filter((f) => f.language === language),
     );
-    expect(server.filter((f) => f.path !== "private.txt")).toEqual(local.sourceFiles);
-    expect(server.find((f) => f.path === "private.txt")?.content).toBe("secret");
-    expect(JSON.stringify(local)).not.toContain("secret");
+    expect(server).toEqual(local.sourceFiles);
   },
 );
 
@@ -78,22 +75,19 @@ it("includes public workspace dependencies for single-file browser Test", () => 
   ]);
 });
 
-it("keeps readonly and hidden files authoritative and ignores unconfigured uploaded paths", () => {
+it("keeps readonly files authoritative and ignores unconfigured uploaded paths", () => {
   const files = [
     file("cpp", "main.cpp", "starter", "editable"),
     file("cpp", "helper.h", "trusted", "readonly"),
-    file("cpp", "secret.h", "secret", "hidden"),
   ];
   const sources = [
     { path: "main.cpp", content: "solution" },
     { path: "helper.h", content: "tamper" },
-    { path: "secret.h", content: "tamper" },
     { path: "extra.h", content: "extra" },
   ];
   expect(mergeWorkspaceSources(sources, files)).toEqual([
     { path: "main.cpp", content: "solution" },
     { path: "helper.h", content: "trusted" },
-    { path: "secret.h", content: "secret" },
   ]);
 });
 

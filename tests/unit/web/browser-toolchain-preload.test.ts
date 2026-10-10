@@ -1,6 +1,9 @@
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import {
+  browserToolchainPercent,
+  preloadBrowserToolchain,
+} from "$lib/services/browser-local-run";
 
-type BrowserLocalRun = typeof import("$lib/services/browser-local-run");
 type Progress = { loadedBytes: number; totalBytes: number };
 type PrefetchOptions = {
   language: string;
@@ -16,12 +19,8 @@ vi.mock("../../../apps/web/node_modules/@wasm-oj/browser", async (importOriginal
   prefetchBrowserToolchain: prefetch,
 }));
 
-let browserLocalRun: BrowserLocalRun;
-
-beforeEach(async () => {
-  vi.resetModules();
+beforeEach(() => {
   prefetch.mockReset();
-  browserLocalRun = await import("$lib/services/browser-local-run");
 });
 
 afterEach(() => {
@@ -36,12 +35,12 @@ it("prefetches a language's toolchain once through WASM-OJ and forwards its prog
   const updates: number[] = [];
 
   await Promise.all([
-    browserLocalRun.preloadBrowserToolchain("cpp", (progress) =>
-      updates.push(browserLocalRun.browserToolchainPercent(progress)),
+    preloadBrowserToolchain("cpp", (progress) =>
+      updates.push(browserToolchainPercent(progress)),
     ),
-    browserLocalRun.preloadBrowserToolchain("cpp"),
+    preloadBrowserToolchain("cpp"),
   ]);
-  await browserLocalRun.preloadBrowserToolchain("cpp");
+  await preloadBrowserToolchain("cpp");
 
   expect(prefetch).toHaveBeenCalledOnce();
   expect(prefetch.mock.calls[0]![0]).toHaveLength(6);
@@ -54,7 +53,7 @@ it("prefetches a language's toolchain once through WASM-OJ and forwards its prog
 
 it("requests the libc++ PCH only for C++", async () => {
   prefetch.mockResolvedValue(undefined);
-  await browserLocalRun.preloadBrowserToolchain("c");
+  await preloadBrowserToolchain("c");
   expect(prefetch.mock.calls[0]![1]).toMatchObject({
     language: "c",
     libcxxPrecompiledHeader: false,
@@ -65,7 +64,7 @@ it("retries a failed prefetch before succeeding", async () => {
   vi.useFakeTimers();
   prefetch.mockRejectedValueOnce(new TypeError("Failed to fetch")).mockResolvedValue(undefined);
 
-  const pending = browserLocalRun.preloadBrowserToolchain("python");
+  const pending = preloadBrowserToolchain("python");
   await vi.advanceTimersByTimeAsync(2_000);
 
   await expect(pending).resolves.toBeUndefined();
@@ -76,23 +75,19 @@ it("reports the toolchain unavailable after its retries and starts over on the n
   vi.useFakeTimers();
   prefetch.mockRejectedValue(new TypeError("Failed to fetch"));
 
-  const pending = browserLocalRun.preloadBrowserToolchain("python");
+  const pending = preloadBrowserToolchain("java");
   const assertion = expect(pending).rejects.toThrow("Failed to fetch");
   await vi.advanceTimersByTimeAsync(7_000);
   await assertion;
   expect(prefetch).toHaveBeenCalledTimes(3);
 
   prefetch.mockResolvedValue(undefined);
-  await expect(browserLocalRun.preloadBrowserToolchain("python")).resolves.toBeUndefined();
+  await expect(preloadBrowserToolchain("java")).resolves.toBeUndefined();
   expect(prefetch).toHaveBeenCalledTimes(4);
 });
 
 it("turns byte progress into a bounded percentage", () => {
-  expect(browserLocalRun.browserToolchainPercent({ loadedBytes: 0, totalBytes: 0 })).toBe(0);
-  expect(browserLocalRun.browserToolchainPercent({ loadedBytes: 50, totalBytes: 200 })).toBe(
-    25,
-  );
-  expect(browserLocalRun.browserToolchainPercent({ loadedBytes: 300, totalBytes: 200 })).toBe(
-    100,
-  );
+  expect(browserToolchainPercent({ loadedBytes: 0, totalBytes: 0 })).toBe(0);
+  expect(browserToolchainPercent({ loadedBytes: 50, totalBytes: 200 })).toBe(25);
+  expect(browserToolchainPercent({ loadedBytes: 300, totalBytes: 200 })).toBe(100);
 });

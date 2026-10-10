@@ -4,7 +4,6 @@ import {
   checkerCaseVerdict,
   interactiveCaseVerdict,
   MAX_FEEDBACK_LEN,
-  testJudgeCaseResultSchema,
   truncateUtf8,
 } from "@nojv/core";
 
@@ -54,7 +53,6 @@ describe("checkerCaseVerdict", () => {
     const result = checkerCaseVerdict(exited(43), `a${"😀".repeat(MAX_FEEDBACK_LEN)}`);
     expect(result.teamMessage).toHaveLength(MAX_FEEDBACK_LEN - 1);
     expect(result.teamMessage?.endsWith("😀")).toBe(true);
-    expect(testJudgeCaseResultSchema.safeParse(result).success).toBe(true);
   });
 });
 
@@ -71,15 +69,15 @@ describe("interactiveCaseVerdict", () => {
   });
 
   it("maps a contestant crash to RE", () => {
-    expect(
-      interactiveCaseVerdict({ contestant: exited(1), interactor: exited(43) }, "eof"),
-    ).toEqual({ verdict: "RE" });
+    expect(interactiveCaseVerdict({ contestant: exited(1), interactor: exited(43) })).toEqual({
+      verdict: "RE",
+    });
   });
 
-  it("maps interactor 43 to WA with the team message", () => {
-    expect(
-      interactiveCaseVerdict({ contestant: exited(0), interactor: exited(43) }, "wrong guess"),
-    ).toEqual({ verdict: "WA", teamMessage: "wrong guess" });
+  it("maps interactor 43 to WA", () => {
+    expect(interactiveCaseVerdict({ contestant: exited(0), interactor: exited(43) })).toEqual({
+      verdict: "WA",
+    });
   });
 
   it("maps interactor 42 to AC", () => {
@@ -90,20 +88,49 @@ describe("interactiveCaseVerdict", () => {
 
   it("maps an interactor that did not exit to SE", () => {
     expect(
-      interactiveCaseVerdict(
-        { contestant: exited(0), interactor: { termination: "trap", code: 0 } },
-        "partial",
-      ),
+      interactiveCaseVerdict({
+        contestant: exited(0),
+        interactor: { termination: "trap", code: 0 },
+      }),
     ).toEqual({ verdict: "SE" });
   });
 
-  it("lets an interactor protocol failure win over a contestant failure", () => {
+  it("keeps a contestant limit when the interactor then reads EOF and rejects", () => {
     expect(
       interactiveCaseVerdict({
-        contestant: { termination: "memory-limit", code: 0 },
-        interactor: exited(1),
+        contestant: { termination: "logical-time-limit", code: 0 },
+        interactor: exited(43),
       }),
-    ).toEqual({ verdict: "SE" });
+    ).toEqual({ verdict: "TLE" });
+  });
+
+  it.each([
+    ["logical-time-limit", "TLE"],
+    ["instruction-limit", "TLE"],
+    ["wall-time-limit", "TLE"],
+    ["memory-limit", "MLE"],
+  ])(
+    "keeps a contestant %s when the interactor then dies on the closed pipe",
+    (termination, verdict) => {
+      expect(
+        interactiveCaseVerdict({
+          contestant: { termination, code: 0 },
+          interactor: exited(120),
+        }),
+      ).toEqual({ verdict });
+    },
+  );
+
+  it("maps an interactor crash to SE when the contestant exited normally", () => {
+    expect(interactiveCaseVerdict({ contestant: exited(0), interactor: exited(120) })).toEqual({
+      verdict: "SE",
+    });
+  });
+
+  it("maps an interactor crash to SE when the contestant crashed", () => {
+    expect(interactiveCaseVerdict({ contestant: exited(1), interactor: exited(120) })).toEqual({
+      verdict: "SE",
+    });
   });
 });
 

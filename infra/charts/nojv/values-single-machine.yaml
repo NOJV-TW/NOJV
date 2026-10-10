@@ -138,8 +138,6 @@ worker:
   platform:
     replicas: 1
     submissionPendingTimeoutMinutes: 10
-  test:
-    enabled: true
   sandbox:
     imagePullSecret: nojv-registry-pull
     cpuRequest: "300m"

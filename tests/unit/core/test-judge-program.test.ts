@@ -1,20 +1,12 @@
-import { createHash } from "node:crypto";
-
 import { describe, expect, it } from "vitest";
 
 import {
   PYTHON_INTERACTOR_WRAPPER,
   PYTHON_VALIDATOR_WRAPPER,
-  WASM_OJ_SERVER_IDENTITY,
-  WASM_OJ_SERVER_VERSIONS,
   cppStandardHeader,
-  deserialiseBuildArtifact,
   judgeProgramCompileInput,
+  judgeProgramSourceViewSchema,
   pythonJudgeWrapper,
-  serialiseBuildArtifact,
-  serialisedArtifactBytes,
-  serialisedBuildArtifactSchema,
-  testJudgeProgramCacheKey,
   type JudgeProgramSource,
 } from "@nojv/core";
 
@@ -23,15 +15,6 @@ const cppChecker: JudgeProgramSource = {
   language: "cpp",
   source: "#include <cstdio>\nint main() { return 42; }\n",
 };
-
-describe("WASM_OJ_SERVER_IDENTITY", () => {
-  it("names the pinned server and toolchain versions", () => {
-    const { server, clang, python } = WASM_OJ_SERVER_VERSIONS;
-    expect(WASM_OJ_SERVER_IDENTITY).toBe(
-      `wasm-oj-server@${server}+clang@${clang}+python@${python}`,
-    );
-  });
-});
 
 describe("judgeProgramCompileInput", () => {
   it.each([
@@ -70,104 +53,19 @@ describe("judgeProgramCompileInput", () => {
   });
 });
 
-describe("testJudgeProgramCacheKey", () => {
-  function sha256(text: string): string {
-    return createHash("sha256").update(text).digest("hex");
-  }
+describe("judgeProgramSourceViewSchema", () => {
+  const view = { role: "interactor", language: "python", source: "", sha256: "f".repeat(64) };
 
-  it.each<JudgeProgramSource>([
-    cppChecker,
-    { role: "checker", language: "python", source: "accept()\n" },
-    { role: "interactor", language: "python", source: "accept()\n" },
-  ])("hashes the toolchain identity and the exact compile input (%o)", async (program) => {
-    const compileInput = judgeProgramCompileInput(program, "<wasm-oj-pch>");
-    const key = await testJudgeProgramCacheKey(program);
-
-    expect(key).toBe(
-      sha256(JSON.stringify([WASM_OJ_SERVER_IDENTITY, JSON.stringify(compileInput)])),
-    );
-    expect(await testJudgeProgramCacheKey({ ...program })).toBe(key);
+  it("accepts the judge-program endpoint's response", () => {
+    expect(judgeProgramSourceViewSchema.parse(view)).toEqual(view);
   });
-
-  it.each<Partial<JudgeProgramSource>>([
-    { language: "python" },
-    { source: "#include <cstdio>\nint main() { return 43; }\n" },
-    { source: "#include <bits/stdc++.h>\nint main() { return 42; }\n" },
-  ])("changes when the compile input changes (%o)", async (change) => {
-    expect(await testJudgeProgramCacheKey({ ...cppChecker, ...change })).not.toBe(
-      await testJudgeProgramCacheKey(cppChecker),
-    );
-  });
-
-  it("changes with the role of a Python program, whose wrapper depends on it", async () => {
-    const checker = { role: "checker", language: "python", source: "x = 1\n" } as const;
-
-    expect(await testJudgeProgramCacheKey({ ...checker, role: "interactor" })).not.toBe(
-      await testJudgeProgramCacheKey(checker),
-    );
-  });
-
-  it("shares one build between a C++ checker and interactor with the same source", async () => {
-    expect(await testJudgeProgramCacheKey({ ...cppChecker, role: "interactor" })).toBe(
-      await testJudgeProgramCacheKey(cppChecker),
-    );
-  });
-});
-
-describe("build artifact wire format", () => {
-  const wasm = {
-    kind: "wasm" as const,
-    language: "cpp",
-    size: 5,
-    bytes: new Uint8Array([0, 97, 115, 109, 255]),
-  };
-  const bundle = {
-    kind: "runtime-bundle" as const,
-    language: "python",
-    files: { "main.py": "print(1)\n", "lib.pyc": new Uint8Array([1, 2, 3, 250]) },
-  };
 
   it.each([
-    ["wasm", wasm],
-    ["runtime-bundle", bundle],
-  ] as const)("round-trips a %s artifact through JSON", (_kind, artifact) => {
-    const wire: unknown = JSON.parse(JSON.stringify(serialiseBuildArtifact(artifact)));
-    const parsed = serialisedBuildArtifactSchema.parse(wire);
-
-    expect(deserialiseBuildArtifact(parsed)).toEqual(artifact);
-  });
-
-  it("encodes bytes as base64 and keeps text files as text", () => {
-    expect(serialiseBuildArtifact(wasm)).toEqual({
-      kind: "wasm",
-      language: "cpp",
-      size: 5,
-      bytes: { base64: "AGFzbf8=" },
-    });
-    expect(serialiseBuildArtifact(bundle)).toMatchObject({
-      files: { "main.py": "print(1)\n", "lib.pyc": { base64: "AQID+g==" } },
-    });
-  });
-
-  it.each([0, 1, 2, 3, 4, 5])("measures %i Wasm bytes from their base64 length", (length) => {
-    const artifact = serialiseBuildArtifact({ kind: "wasm", bytes: new Uint8Array(length) });
-
-    expect(serialisedArtifactBytes(artifact)).toBe(length);
-  });
-
-  it("measures a runtime bundle as its UTF-8 text and decoded binary files", () => {
-    const artifact = serialiseBuildArtifact({
-      kind: "runtime-bundle",
-      files: { "main.py": "print('é')\n", "lib.pyc": new Uint8Array(7) },
-    });
-
-    expect(serialisedArtifactBytes(artifact)).toBe(12 + 7);
-  });
-
-  it("round-trips bytes larger than one encoding chunk", () => {
-    const bytes = Uint8Array.from({ length: 100_000 }, (_, index) => (index * 31) % 256);
-    const restored = deserialiseBuildArtifact(serialiseBuildArtifact({ kind: "wasm", bytes }));
-
-    expect(restored.kind === "wasm" && restored.bytes).toEqual(bytes);
+    ["an unknown role", { role: "validator" }],
+    ["an unsupported language", { language: "javascript" }],
+    ["a digest that is not lowercase SHA-256 hex", { sha256: "F".repeat(64) }],
+    ["a missing source", { source: undefined }],
+  ])("rejects %s", (_label, change) => {
+    expect(judgeProgramSourceViewSchema.safeParse({ ...view, ...change }).success).toBe(false);
   });
 });

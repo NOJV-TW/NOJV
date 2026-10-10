@@ -127,10 +127,10 @@ describe("mergeSandboxSources", () => {
       },
       { path: "lib.py", content: "# teacher lib", language: "python", visibility: "editable" },
       {
-        path: "hidden.py",
-        content: "# teacher hidden",
+        path: "config.py",
+        content: "# teacher config",
         language: "python",
-        visibility: "hidden",
+        visibility: "readonly",
       },
       {
         path: "readme.py",
@@ -142,7 +142,7 @@ describe("mergeSandboxSources", () => {
     const studentSources: SubmissionSource[] = [
       { path: "main.py", content: "print('main')" },
       { path: "lib.py", content: "print('lib')" },
-      { path: "hidden.py", content: "print('hidden')" },
+      { path: "config.py", content: "print('config')" },
       { path: "readme.py", content: "print('readme')" },
     ];
     const ctx = makeJudgeContext(workspaceFiles);
@@ -154,11 +154,11 @@ describe("mergeSandboxSources", () => {
     const byPath = new Map(result.sourceFiles!.map((f) => [f.path, f.content]));
     expect(byPath.get("main.py")).toBe("print('main')");
     expect(byPath.get("lib.py")).toBe("print('lib')");
-    expect(byPath.get("hidden.py")).toBe("# teacher hidden");
+    expect(byPath.get("config.py")).toBe("# teacher config");
     expect(byPath.get("readme.py")).toBe("# teacher readme");
     expect(
       result.sourceFiles!.map((f) => f.path).sort((a, b) => Number(a > b) - Number(a < b)),
-    ).toEqual(["hidden.py", "lib.py", "main.py", "readme.py"]);
+    ).toEqual(["config.py", "lib.py", "main.py", "readme.py"]);
   });
 
   it("preserves uploaded file paths for special_env problems despite the placeholder language", () => {

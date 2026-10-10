@@ -1,7 +1,8 @@
 import { MAX_FEEDBACK_LEN } from "../schemas/submission";
-import type { TestJudgeVerdict } from "../schemas/test-judge";
 import { parseValidatorFeedback } from "./validator";
 import { wasmOjTerminationVerdict } from "./wasm-oj-verdict";
+
+type TestJudgeVerdict = "AC" | "WA" | "TLE" | "MLE" | "RE" | "SE";
 
 interface ProcessTermination {
   termination: string;
@@ -35,15 +36,16 @@ export function checkerCaseVerdict(
   return { verdict: outcome.verdict, teamMessage: capFeedback(outcome.teamMessage) };
 }
 
-export function interactiveCaseVerdict(
-  result: { contestant: ProcessTermination; interactor: ProcessTermination },
-  teamMessage?: string,
-): { verdict: TestJudgeVerdict; teamMessage?: string } {
-  const interactor = checkerCaseVerdict(result.interactor, teamMessage);
-  if (interactor.verdict === "SE") return interactor;
+export function interactiveCaseVerdict(result: {
+  contestant: ProcessTermination;
+  interactor: ProcessTermination;
+}): { verdict: TestJudgeVerdict } {
   const contestant = wasmOjTerminationVerdict(
     result.contestant.termination,
     result.contestant.code,
   );
+  if (contestant === "TLE" || contestant === "MLE") return { verdict: contestant };
+  const interactor = checkerCaseVerdict(result.interactor);
+  if (interactor.verdict === "SE") return interactor;
   return contestant === "AC" ? interactor : { verdict: contestant };
 }

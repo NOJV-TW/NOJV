@@ -2,7 +2,6 @@ import { createRequire } from "node:module";
 
 import { NativeConnection, Worker, type WorkerOptions } from "@temporalio/worker";
 import { submissionDomain } from "@nojv/application";
-import { createStorageClient } from "@nojv/storage";
 import "./domain-orchestration";
 
 import {
@@ -14,7 +13,6 @@ import {
   JUDGE_STATE_TASK_QUEUE,
   JUDGE_TASK_QUEUE,
   PLATFORM_TASK_QUEUE,
-  TEST_JUDGE_TASK_QUEUE,
   temporalConnectionOptions,
 } from "@nojv/temporal";
 
@@ -140,14 +138,6 @@ export class WorkerApp {
     const address = this.env.TEMPORAL_ADDRESS;
     const namespace = this.env.TEMPORAL_NAMESPACE;
     const mode = this.env.WORKER_MODE;
-    const hasTestJudgeRuntime = Boolean(
-      this.env.WASM_OJ_RUNTIME_DIR && this.env.WASM_OJ_TOOLCHAIN_DIR,
-    );
-    if (mode === "test" && !hasTestJudgeRuntime) {
-      throw new Error(
-        "WORKER_MODE=test needs WASM_OJ_RUNTIME_DIR and WASM_OJ_TOOLCHAIN_DIR to be set.",
-      );
-    }
     if (mode === "all" || mode === "platform") {
       const stopMetrics = startJudgeRecoveryMetrics();
       this.cleanupSteps.push({
@@ -316,10 +306,6 @@ export class WorkerApp {
       this.assertStarting();
     }
 
-    if (mode === "test" || (mode === "all" && hasTestJudgeRuntime)) {
-      await this.startTestJudgeWorker(connection, namespace);
-    }
-
     this.registerTemporalClientCleanup();
     this.cleanupSteps.push({
       resource: "health server",
@@ -339,46 +325,6 @@ export class WorkerApp {
       namespace,
       taskQueues: taskQueues.join(", "),
     });
-  }
-
-  private async startTestJudgeWorker(
-    connection: NativeConnection,
-    namespace: string,
-  ): Promise<void> {
-    const { createEnginePool } = await import("./test-judge/runtime.js");
-    const { objectStorageJudgeProgramStore } = await import("./test-judge/judge-program.js");
-    const { objectStorageTestJudgeStorage, setTestJudgeDeps } =
-      await import("./activities/test-judge.js");
-    const pool = await createEnginePool({
-      runtimeDir: this.env.WASM_OJ_RUNTIME_DIR,
-      toolchainDir: this.env.WASM_OJ_TOOLCHAIN_DIR,
-      cacheDir: this.env.WASM_OJ_CACHE_DIR,
-      slots: this.env.TEST_JUDGE_SLOTS,
-    });
-    this.cleanupSteps.push({
-      resource: "test-judge engines",
-      run: () => Promise.resolve(pool.dispose()),
-    });
-    this.assertStarting();
-    const storage = createStorageClient();
-    setTestJudgeDeps({
-      pool,
-      storage: objectStorageTestJudgeStorage(storage),
-      programs: objectStorageJudgeProgramStore(storage),
-    });
-    const testJudgeWorker = await Worker.create({
-      connection,
-      namespace,
-      taskQueue: TEST_JUDGE_TASK_QUEUE,
-      workflowsPath: this.workflowsPath,
-      activities: await import("./activities/test-judge-bundle.js"),
-      maxConcurrentActivityTaskExecutions: this.env.TEST_JUDGE_SLOTS,
-      maxCachedWorkflows: 16,
-      maxConcurrentWorkflowTaskExecutions: 8,
-      shutdownGraceTime: "30s",
-    });
-    this.addWorker(testJudgeWorker, TEST_JUDGE_TASK_QUEUE);
-    this.assertStarting();
   }
 
   shutdown(signal: string): Promise<CleanupReport> {

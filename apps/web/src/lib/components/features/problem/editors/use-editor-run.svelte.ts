@@ -1,18 +1,14 @@
-import {
-  MAX_CASE_STDOUT_BYTES,
-  interactiveContestantSupported,
-  serialiseBuildArtifact,
-  type JudgeConfig,
-  type JudgeType,
-  type Language,
-  type SubmissionContext,
-  type SubmissionResult,
-  type SubmissionRunCase,
-  type TestJudgeCaseResult,
+import type {
+  JudgeConfig,
+  JudgeType,
+  Language,
+  SubmissionContext,
+  SubmissionResult,
+  SubmissionRunCase,
 } from "@nojv/core";
+import type { BuildArtifact } from "@wasm-oj/browser";
 import { m } from "$lib/paraglide/messages.js";
 import {
-  requestTestJudge,
   submissionRequestValidationError,
   SubmissionRequestError,
   type SubmissionRequest,
@@ -27,11 +23,12 @@ import {
   compileBrowserLocally,
   preloadBrowserToolchain,
   runBrowserCases,
+  runBrowserChecker,
+  runBrowserInteraction,
   runBrowserLocally,
   supportsBrowserLocalRun,
-  type BrowserCaseRun,
-  type BrowserCompileOutcome,
 } from "$lib/services/browser-local-run";
+import type { PreparedJudgeProgram } from "$lib/services/judge-program";
 import type { ProblemDetail, TestCaseView, TestRunResult } from "$lib/types";
 import {
   buildSubmissionRequest,
@@ -55,6 +52,7 @@ interface EditorRunArgs {
   workspaceDrafts: () => Record<string, string>;
   workspaceFiles: () => WorkspaceFile[];
   context: () => SubmissionContext;
+  judgeProgram: () => Promise<PreparedJudgeProgram>;
   onSubmissionDispatched?: ((submissionId: string, language: string) => void) | undefined;
   onSubmissionComplete?:
     | ((
@@ -74,8 +72,6 @@ export interface EditorRunController {
   readonly runSource: "local" | null;
   readonly runStatus: string | null;
   readonly runError: string | null;
-  readonly testDisabledReason: string | null;
-  readonly customCasesAllowed: boolean;
   readonly cooldownUntil: number | null;
   panelRunCases: SubmissionRunCase[];
   setBottomTab: (tab: "testcase" | "result") => void;
@@ -90,21 +86,6 @@ function messageForSubmitError(code: string | null): string {
       return m.editor_clientTestCustomImage();
     case "client_test_language":
       return m.editor_clientTestLanguage();
-    case "client_test_interactive_language":
-      return m.editor_testInteractiveLanguage();
-    case "client_test_no_interactive_samples":
-      return m.editor_testNoInteractiveSamples();
-    case "test_judge_busy":
-      return m.editor_testJudgeBusy();
-    case "test_request_too_large":
-      return m.editor_testTooLarge();
-    case "judge_program_build_failed":
-      return m.editor_testJudgeProgramBuildFailed();
-    case "test_judge_unavailable":
-    case "judge_program_unsupported":
-      return m.editor_testUnavailableForProblem();
-    case "test_rejected":
-      return m.editor_runFailed();
     case "browser_toolchain_unavailable":
       return m.editor_toolchainUnavailable();
     case "invalid_source":
@@ -128,17 +109,6 @@ function messageForSubmitError(code: string | null): string {
   }
 }
 
-const TEST_DISABLING_CODES = new Set([
-  "judge_program_build_failed",
-  "judge_program_unsupported",
-]);
-
-const UNJUDGED_SAMPLE_CODES = new Set(["test_judge_busy", "test_judge_unavailable"]);
-
-function interactiveSampleIndices(samples: ProblemDetail["samples"]): number[] {
-  return samples.flatMap((sample, index) => (sample.interactorInput?.trim() ? [index] : []));
-}
-
 function initialRunCases(
   samples: ProblemDetail["samples"],
   judgeType: JudgeType,
@@ -159,7 +129,6 @@ export function createEditorRunController(args: EditorRunArgs): EditorRunControl
   let runSource = $state<"local" | null>(null);
   let runStatus = $state<string | null>(null);
   let runError = $state<string | null>(null);
-  let testDisabledReason = $state<string | null>(null);
   let cooldownUntil = $state<number | null>(null);
   let panelRunCases = $state<SubmissionRunCase[]>(
     initialRunCases(args.initialSamples, args.judgeType()),
@@ -168,122 +137,84 @@ export function createEditorRunController(args: EditorRunArgs): EditorRunControl
   let destroyed = false;
   let abortController: AbortController | null = null;
 
+  function runLimits(language: Language) {
+    return {
+      language,
+      timeLimitMs: args.timeLimitMs,
+      memoryLimitMb: args.memoryLimitMb,
+      env: args.judgeConfig().runtime?.env ?? {},
+    };
+  }
+
   async function runCheckerTest(
     request: SubmissionRequest,
     runCases: SubmissionRunCase[],
+    checker: BuildArtifact,
     signal: AbortSignal,
   ): Promise<TestRunResult | null> {
-    let runs: BrowserCaseRun[];
     try {
       const build = await compileBrowserLocally(request, args.problemId, signal);
       if (!build.ok) return build.result;
-      runs = await runBrowserCases(
+      const runs = await runBrowserCases(
         build.artifact,
         runCases,
-        {
-          language: request.language,
-          timeLimitMs: args.timeLimitMs,
-          memoryLimitMb: args.memoryLimitMb,
-          env: args.judgeConfig().runtime?.env ?? {},
-        },
+        runLimits(request.language),
         signal,
       );
-    } catch (error) {
-      return signal.aborted ? null : browserLocalErrorResult(error);
-    }
-    const judgedCases = new Map<number, number>();
-    for (const [index, runCase] of runCases.entries()) {
-      const sampleIndex = args.initialSamples.findIndex(
-        (sample) => sample.input === runCase.input,
-      );
-      if (sampleIndex >= 0 && runs[index]?.verdict === "AC" && !judgedCases.has(sampleIndex)) {
-        judgedCases.set(sampleIndex, index);
-      }
-    }
-    const judgements = new Map<number, TestJudgeCaseResult>();
-    let serverNotice: string | undefined;
-    if (judgedCases.size > 0) {
-      runStatus = m.editor_judgingOnServer();
-      try {
-        const response = await requestTestJudge(
-          args.problemId,
+      const caseResults: TestCaseView[] = [];
+      for (const [index, run] of runs.entries()) {
+        const view = browserCaseResult(run, undefined, undefined, index);
+        const sample =
+          run.verdict === "AC"
+            ? args.initialSamples.find(
+                (candidate) => candidate.input === runCases[index]?.input,
+              )
+            : undefined;
+        if (!sample) {
+          caseResults.push(view.verdict === "AC" ? { ...view, executionOnly: true } : view);
+          continue;
+        }
+        const judgement = await runBrowserChecker(
+          checker,
           {
-            kind: "checker",
-            context: args.context(),
-            cases: [...judgedCases].map(([sampleIndex, index]) => ({
-              sampleIndex,
-              output: (runs[index]?.stdout ?? "").slice(0, MAX_CASE_STDOUT_BYTES),
-            })),
+            input: sample.input,
+            answer: sample.output,
+            output: run.stdout,
+            timeLimitMs: args.timeLimitMs,
           },
           signal,
         );
-        if (!response) return null;
-        for (const [position, index] of [...judgedCases.values()].entries()) {
-          const judgement = response.cases[position];
-          if (judgement) judgements.set(index, judgement);
-        }
-      } catch (error) {
-        if (
-          !(error instanceof SubmissionRequestError) ||
-          !UNJUDGED_SAMPLE_CODES.has(error.code ?? "")
-        )
-          throw error;
-        serverNotice = messageForSubmitError(error.code);
+        caseResults.push({ ...view, ...judgement, judged: true });
       }
+      return { ...browserLocalSubmissionResult(caseResults), caseResults };
+    } catch (error) {
+      return signal.aborted ? null : browserLocalErrorResult(error);
     }
-    const caseResults = runs.map((run, index): TestCaseView => {
-      const view = browserCaseResult(run, undefined, undefined, index);
-      const judgement = judgements.get(index);
-      if (!judgement) return view.verdict === "AC" ? { ...view, executionOnly: true } : view;
-      return {
-        ...view,
-        verdict: judgement.verdict,
-        serverJudged: true,
-        ...(judgement.teamMessage ? { teamMessage: judgement.teamMessage } : {}),
-      };
-    });
-    return {
-      ...browserLocalSubmissionResult(caseResults),
-      caseResults,
-      ...(serverNotice ? { serverNotice } : {}),
-    };
   }
 
   async function runInteractiveTest(
     request: SubmissionRequest,
-    sampleIndices: number[],
+    runCases: SubmissionRunCase[],
+    interactor: BuildArtifact,
     signal: AbortSignal,
   ): Promise<TestRunResult | null> {
-    let build: BrowserCompileOutcome;
     try {
-      build = await compileBrowserLocally(request, args.problemId, signal);
+      const build = await compileBrowserLocally(request, args.problemId, signal);
+      if (!build.ok) return build.result;
+      const caseResults: TestCaseView[] = [];
+      for (const [index, testCase] of runCases.entries()) {
+        const interaction = await runBrowserInteraction(
+          build.artifact,
+          interactor,
+          { interactorInput: testCase.input, limits: runLimits(request.language) },
+          signal,
+        );
+        caseResults.push({ index, ...interaction, judged: true });
+      }
+      return { ...browserLocalSubmissionResult(caseResults), caseResults };
     } catch (error) {
       return signal.aborted ? null : browserLocalErrorResult(error);
     }
-    if (!build.ok) return build.result;
-    runStatus = m.editor_judgingOnServer();
-    const response = await requestTestJudge(
-      args.problemId,
-      {
-        kind: "interactive",
-        context: args.context(),
-        language: request.language,
-        artifact: serialiseBuildArtifact(build.artifact),
-        cases: sampleIndices.map((sampleIndex) => ({ sampleIndex })),
-      },
-      signal,
-    );
-    if (!response) return null;
-    const caseResults = response.cases.map((judgement, index): TestCaseView => ({
-      index,
-      verdict: judgement.verdict,
-      serverJudged: true,
-      timeMs: judgement.timeMs ?? 0,
-      ...(judgement.contestantStderr ? { stderr: judgement.contestantStderr } : {}),
-      ...(judgement.teamMessage ? { teamMessage: judgement.teamMessage } : {}),
-      ...(judgement.transcript ? { transcript: judgement.transcript } : {}),
-    }));
-    return { ...browserLocalSubmissionResult(caseResults), caseResults };
   }
 
   async function runSubmission(): Promise<TestRunResult | null> {
@@ -293,28 +224,13 @@ export function createEditorRunController(args: EditorRunArgs): EditorRunControl
         "client_test_custom_image",
         null,
       );
-    const judgeType = args.judgeType();
     const language = args.language();
-    const interactive = judgeType === "interactive";
-    if (interactive && !interactiveContestantSupported(language))
-      throw new SubmissionRequestError(
-        "Interactive Test does not support this language.",
-        "client_test_interactive_language",
-        null,
-      );
-    const sampleIndices = interactive ? interactiveSampleIndices(args.initialSamples) : [];
-    if (interactive && sampleIndices.length === 0)
-      throw new SubmissionRequestError(
-        "No sample has an interactor input.",
-        "client_test_no_interactive_samples",
-        null,
-      );
 
     abortController = new AbortController();
     const { signal } = abortController;
 
-    const runCases = interactive ? [] : projectRunCasesForRequest(panelRunCases);
-    if (!interactive && runCases.length === 0)
+    const runCases = projectRunCasesForRequest(panelRunCases);
+    if (runCases.length === 0)
       throw new SubmissionRequestError("No testcases provided.", "invalid_run_cases", null);
 
     const request = buildSubmissionRequest({
@@ -326,7 +242,7 @@ export function createEditorRunController(args: EditorRunArgs): EditorRunControl
       sampleOnly: true,
       workspaceDrafts: args.workspaceDrafts(),
       workspaceFiles: args.workspaceFiles(),
-      ...(interactive ? {} : { runCases }),
+      runCases,
     });
 
     const validationError = submissionRequestValidationError(request);
@@ -356,32 +272,39 @@ export function createEditorRunController(args: EditorRunArgs): EditorRunControl
       );
     }
     if (signal.aborted) return null;
-    runStatus = m.editor_running();
     const browserRequest = projectBrowserSubmission(request, args.workspaceFiles());
-    let result: TestRunResult | null;
-    if (judgeType === "checker") {
-      result = await runCheckerTest(browserRequest, runCases, signal);
-    } else if (interactive) {
-      result = await runInteractiveTest(browserRequest, sampleIndices, signal);
-    } else {
-      const local = await runBrowserLocally({
-        request: browserRequest,
-        cases: runCases,
-        judgeConfig: args.judgeConfig(),
-        problemId: args.problemId,
-        timeLimitMs: args.timeLimitMs,
-        memoryLimitMb: args.memoryLimitMb,
-        signal,
-      });
-      result = local && {
-        ...local,
-        caseResults: local.caseResults?.map((view, index): TestCaseView =>
-          view.verdict === "AC" && runCases[index]?.expectedOutput === undefined
-            ? { ...view, executionOnly: true }
-            : view,
-        ),
-      };
+    if (args.judgeType() !== "standard") {
+      runStatus =
+        args.judgeType() === "interactive"
+          ? m.editor_interactorPreparing()
+          : m.editor_checkerPreparing();
+      const judgeProgram = await args.judgeProgram();
+      if (!judgeProgram.ok) return null;
+      runStatus = m.editor_running();
+      const judged =
+        args.judgeType() === "interactive"
+          ? await runInteractiveTest(browserRequest, runCases, judgeProgram.artifact, signal)
+          : await runCheckerTest(browserRequest, runCases, judgeProgram.artifact, signal);
+      return destroyed ? null : judged;
     }
+    runStatus = m.editor_running();
+    const local = await runBrowserLocally({
+      request: browserRequest,
+      cases: runCases,
+      judgeConfig: args.judgeConfig(),
+      problemId: args.problemId,
+      timeLimitMs: args.timeLimitMs,
+      memoryLimitMb: args.memoryLimitMb,
+      signal,
+    });
+    const result = local && {
+      ...local,
+      caseResults: local.caseResults?.map((view, index): TestCaseView =>
+        view.verdict === "AC" && runCases[index]?.expectedOutput === undefined
+          ? { ...view, executionOnly: true }
+          : view,
+      ),
+    };
     return destroyed ? null : result;
   }
 
@@ -402,9 +325,6 @@ export function createEditorRunController(args: EditorRunArgs): EditorRunControl
         err instanceof SubmissionRequestError
           ? messageForSubmitError(err.code)
           : m.editor_runFailed();
-      if (err instanceof SubmissionRequestError && TEST_DISABLING_CODES.has(err.code ?? "")) {
-        testDisabledReason = message;
-      }
       runError = message;
       toasts.error(message);
       runStatus = null;
@@ -495,12 +415,6 @@ export function createEditorRunController(args: EditorRunArgs): EditorRunControl
     },
     get runError() {
       return runError;
-    },
-    get testDisabledReason() {
-      return testDisabledReason;
-    },
-    get customCasesAllowed() {
-      return args.judgeType() !== "interactive";
     },
     get cooldownUntil() {
       return cooldownUntil;

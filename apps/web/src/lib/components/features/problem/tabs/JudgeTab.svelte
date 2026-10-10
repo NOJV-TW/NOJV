@@ -2,13 +2,11 @@
   import { untrack } from "svelte";
   import { invalidateAll } from "$app/navigation";
   import type { ProblemDetail } from "$lib/types";
-  import type { testJudgeDomain } from "@nojv/application";
   import type { JudgeScriptLanguage, JudgeType } from "@nojv/core";
   import { inputClassName } from "$lib/utils/css";
   import { m } from "$lib/paraglide/messages.js";
   import MonacoScriptEditor from "$lib/components/primitives/ui/MonacoScriptEditor.svelte";
   import UploadDropZone from "$lib/components/features/problem/admin/UploadDropZone.svelte";
-  import JudgeProgramTestStatus from "./judge/JudgeProgramTestStatus.svelte";
   import { toasts } from "$lib/stores/toast";
   import { submitFormAction } from "$lib/utils/actions";
   import {
@@ -21,11 +19,10 @@
   interface Props {
     problem: ProblemDetail;
     validatorScripts: { checkerScript: string; interactorScript: string };
-    judgeProgramStatus: testJudgeDomain.JudgeProgramStatus | null;
     ondirtychange?: (dirty: boolean) => void;
   }
 
-  let { problem, validatorScripts, judgeProgramStatus, ondirtychange }: Props = $props();
+  let { problem, validatorScripts, ondirtychange }: Props = $props();
 
   const cfg = untrack(() => problem.judgeConfig ?? {});
 
@@ -69,10 +66,9 @@
   let initialConfig = $state(dirtySnapshot());
   let saving = $state(false);
   let saveMessage = $state("");
-  let dirty = $derived(dirtySnapshot() !== initialConfig);
 
   $effect(() => {
-    ondirtychange?.(dirty);
+    ondirtychange?.(dirtySnapshot() !== initialConfig);
   });
 
   export function save() {
@@ -235,6 +231,8 @@
           </select>
         </label>
 
+        <p class="text-caption text-muted-foreground">{m.admin_judgeProgramReadableNote()}</p>
+
         <details class="rounded-md border border-border-subtle bg-muted/30 px-3 py-2">
           <summary class="cursor-pointer text-caption font-semibold">
             {m.admin_checkerHelpTitle()}
@@ -278,6 +276,8 @@
           </select>
         </label>
 
+        <p class="text-caption text-muted-foreground">{m.admin_judgeProgramReadableNote()}</p>
+
         <details class="rounded-md border border-border-subtle bg-muted/30 px-3 py-2">
           <summary class="cursor-pointer text-caption font-semibold">
             {m.admin_interactorHelpTitle()}
@@ -303,20 +303,6 @@
           onchange={(v) => (interactorScript = v)}
           language={interactorLanguage}
           height="320px"
-        />
-      </div>
-    {/if}
-
-    {#if judgeProgramStatus && judgeType !== "standard" && judgeType === problem.judgeType}
-      <div class="mt-4">
-        <JudgeProgramTestStatus
-          status={judgeProgramStatus}
-          testJudgeDisabled={!problem.testCapability.available &&
-            problem.testCapability.reason === "test_judge_unavailable"}
-          pythonInteractor={problem.judgeConfig.type === "interactive" &&
-            problem.judgeConfig.interactorLanguage === "python"}
-          checksSamples={judgeType === "checker"}
-          hasUnsavedChanges={dirty}
         />
       </div>
     {/if}

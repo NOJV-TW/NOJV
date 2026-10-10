@@ -50,8 +50,6 @@ server:
         constraints: { taskQueueName: judge-cleanup }
       - value: 1
         constraints: { taskQueueName: platform }
-      - value: 1
-        constraints: { taskQueueName: test-judge }
     matching.numTaskqueueReadPartitions:
       - value: 1
         constraints: { taskQueueName: judge }
@@ -61,8 +59,6 @@ server:
         constraints: { taskQueueName: judge-cleanup }
       - value: 1
         constraints: { taskQueueName: platform }
-      - value: 1
-        constraints: { taskQueueName: test-judge }
   nodeSelector:
     nojv-role: sandbox
   resources:

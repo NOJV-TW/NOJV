@@ -1,4 +1,5 @@
 export * from "./details";
+export * from "./judge-program";
 export * from "./list";
 export * from "./picker";
 export * from "./mutations/records";

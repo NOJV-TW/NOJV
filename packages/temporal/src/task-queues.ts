@@ -2,4 +2,3 @@ export const JUDGE_TASK_QUEUE = "judge" as const;
 export const JUDGE_STATE_TASK_QUEUE = "judge-state" as const;
 export const JUDGE_CLEANUP_TASK_QUEUE = "judge-cleanup" as const;
 export const PLATFORM_TASK_QUEUE = "platform" as const;
-export const TEST_JUDGE_TASK_QUEUE = "test-judge" as const;

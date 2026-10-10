@@ -7,14 +7,12 @@ import {
   JUDGE_CLEANUP_TASK_QUEUE,
   JUDGE_STATE_TASK_QUEUE,
   PLATFORM_TASK_QUEUE,
-  TEST_JUDGE_TASK_QUEUE,
 } from "@nojv/temporal";
 
 import {
   JUDGE_CLEANUP_QUEUE,
   JUDGE_STATE_QUEUE,
   PLATFORM_QUEUE,
-  TEST_JUDGE_QUEUE,
 } from "../../../apps/worker/src/workflows/activity-options";
 
 const WORKER_SRC = new URL("../../../apps/worker/src/", import.meta.url);
@@ -38,11 +36,6 @@ const QUEUE_BUNDLES = [
       "workflows/registry-gc.ts",
       "workflows/durable-work.ts",
     ],
-  },
-  {
-    bundle: "activities/test-judge-bundle.ts",
-    queue: "TEST_JUDGE_TASK_QUEUE",
-    workflows: ["workflows/test-judge.ts"],
   },
 ];
 
@@ -84,11 +77,10 @@ function bundleExportNames(bundleSource: string): Set<string> {
 
 describe("workflow queue literals", () => {
   it("match the @nojv/temporal task queues", () => {
-    expect([PLATFORM_QUEUE, JUDGE_STATE_QUEUE, JUDGE_CLEANUP_QUEUE, TEST_JUDGE_QUEUE]).toEqual([
+    expect([PLATFORM_QUEUE, JUDGE_STATE_QUEUE, JUDGE_CLEANUP_QUEUE]).toEqual([
       PLATFORM_TASK_QUEUE,
       JUDGE_STATE_TASK_QUEUE,
       JUDGE_CLEANUP_TASK_QUEUE,
-      TEST_JUDGE_TASK_QUEUE,
     ]);
   });
 });

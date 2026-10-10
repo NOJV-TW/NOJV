@@ -35,6 +35,7 @@ const REVIEWED_GET_ROUTES: Record<string, ExamClassification> = {
   "/api/posts/[id]/comments": "exam-confined",
   "/api/problems": "exam-safe",
   "/api/problems/[id]/bundle": "exam-safe",
+  "/api/problems/[id]/judge-program": "exam-scoped",
   "/api/problems/[id]/posts": "exam-confined",
   "/api/problems/[id]/storage-usage": "exam-safe",
   "/api/problems/[id]/testcases/[testcaseId]": "exam-safe",

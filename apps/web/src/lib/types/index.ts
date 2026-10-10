@@ -11,20 +11,17 @@ import type {
   SubmissionContext,
   SubmissionResult,
   SubmissionOperationStatus,
-  TestCapability,
-  TestJudgeCaseResult,
 } from "@nojv/core";
 
 export interface TestCaseView extends CaseResult {
   executionOnly?: true;
-  serverJudged?: true;
+  judged?: true;
   teamMessage?: string;
-  transcript?: NonNullable<TestJudgeCaseResult["transcript"]>;
+  transcript?: { toInteractor: string; toContestant: string };
 }
 
 export interface TestRunResult extends SubmissionResult {
   caseResults?: TestCaseView[] | undefined;
-  serverNotice?: string | undefined;
 }
 
 export interface ProblemSubmissionEntry {
@@ -68,7 +65,6 @@ export interface ProblemDetail extends ProblemOverview {
   statement: string;
   status: ProblemStatus;
   tags: string[];
-  testCapability: TestCapability;
   timeLimitMs: number;
   totalScore: number;
   visibility: ProblemVisibility;
@@ -78,7 +74,7 @@ export interface ProblemDetail extends ProblemOverview {
     language: string;
     path: string;
     content: string;
-    visibility: "editable" | "readonly" | "hidden";
+    visibility: "editable" | "readonly";
     description: string;
   }[];
 }

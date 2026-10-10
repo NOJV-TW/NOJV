@@ -81,9 +81,7 @@ function startOtel(): void {
     resource: resourceFromAttributes({
       "service.name":
         process.env.OTEL_SERVICE_NAME_WORKER ??
-        (process.env.WORKER_MODE === "judge" ||
-        process.env.WORKER_MODE === "platform" ||
-        process.env.WORKER_MODE === "test"
+        (process.env.WORKER_MODE === "judge" || process.env.WORKER_MODE === "platform"
           ? `nojv-worker-${process.env.WORKER_MODE}`
           : "nojv-worker"),
       "service.version": process.env.npm_package_version ?? "0.0.0",

@@ -61,14 +61,14 @@ function persistedProblem(id: string, sha = "a") {
       },
       {
         language: "cpp",
-        path: "grader.cpp",
+        path: "helper.h",
         contentStorage: {
-          key: `problems/${id}/workspace/grader`,
+          key: `problems/${id}/workspace/helper`,
           sha256: "c".repeat(64),
           size: 9,
         },
         description: "",
-        visibility: "hidden",
+        visibility: "readonly",
       },
     ],
   };
@@ -98,7 +98,10 @@ describe("problem solving page data", () => {
       advancedConfig: null,
       starterByLanguage: expect.objectContaining({ cpp: "int maina" }),
     });
-    expect(problem.workspaceFiles.map((file) => file.content)).toEqual(["int maina", ""]);
+    expect(problem.workspaceFiles.map((file) => file.content)).toEqual([
+      "int maina",
+      "int mainc",
+    ]);
     expect(await getProblemPageData("p-access")).toEqual(problem);
   });
 
@@ -123,11 +126,11 @@ describe("problem solving page data", () => {
     m.findDetailById.mockResolvedValue(persistedProblem("p-cache"));
     await getProblemPageData("p-cache");
     await getProblemPageData("p-cache");
-    expect(m.getVerifiedText).toHaveBeenCalledTimes(1);
+    expect(m.getVerifiedText).toHaveBeenCalledTimes(2);
 
     m.findDetailById.mockResolvedValue(persistedProblem("p-cache", "b"));
     const updated = await getProblemPageData("p-cache");
-    expect(m.getVerifiedText).toHaveBeenCalledTimes(2);
+    expect(m.getVerifiedText).toHaveBeenCalledTimes(3);
     expect(updated.workspaceFiles[0]?.content).toBe("int mainb");
   });
 

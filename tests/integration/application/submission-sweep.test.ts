@@ -34,7 +34,6 @@ beforeEach(() => {
     })),
     dispatchJudgeExecution: vi.fn(async () => {}),
     dispatchJudgeCleanup: vi.fn(async () => {}),
-    dispatchTestJudgeProgramBuild: vi.fn(async () => {}),
     ensureAssignmentDueSoon: vi.fn(async () => {}),
     ensureContestLifecycle: vi.fn(async () => {}),
     ensureExamAutoClose: vi.fn(async () => {}),
@@ -42,7 +41,6 @@ beforeEach(() => {
     replaceAssignmentDueSoon: vi.fn(async () => {}),
     replaceContestLifecycle: vi.fn(async () => {}),
     replaceExamAutoClose: vi.fn(async () => {}),
-    runTestJudge: vi.fn(async () => ({ ok: true as const, cases: [] })),
     terminateSubmissionJudge,
   });
 });

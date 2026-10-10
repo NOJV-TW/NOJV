@@ -36,8 +36,6 @@ const webEnvSchema = z
     REGISTRY_TOKEN_CERT: z.string().trim().default(""),
     REGISTRY_PULL_PASSWORD_HASH: z.string().trim().default(""),
 
-    TEST_JUDGE_ENABLED: z.enum(["true", "false"]).default("false"),
-
     BETTER_AUTH_SECRET: z.string().optional(),
     BETTER_AUTH_URL: z.url().default("http://localhost:5173"),
 

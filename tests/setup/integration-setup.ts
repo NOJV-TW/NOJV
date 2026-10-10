@@ -13,10 +13,7 @@ vi.mock("@nojv/storage", async (importOriginal) => {
     getText: async (_client: unknown, key: string) => {
       const value = testBlobs.get(key);
       if (value === undefined) {
-        throw Object.assign(new Error(`No body returned for object ${key}`), {
-          name: "NoSuchKey",
-          $metadata: { httpStatusCode: 404 },
-        });
+        throw new Error(`No body returned for object ${key}`);
       }
       return value.toString("utf8");
     },

@@ -113,6 +113,38 @@ describe("judge snapshot formats", () => {
     await expect(readJudgeSnapshot(pointer)).rejects.toThrow("SHA-256 mismatch");
   });
 
+  it.each([1, 2] as const)(
+    "reads a legacy hidden workspace file in a format-%i snapshot as readonly",
+    async (format) => {
+      const testcase =
+        format === 1
+          ? { id: "tc_1", weight: 1, input: "1 2\n", output: "3\n" }
+          : { id: "tc_1", weight: 1, input: put("in", "1 2\n"), output: put("out", "3\n") };
+      const base = snapshot(format, testcase);
+      const legacy = {
+        ...base,
+        context: {
+          ...base.context,
+          workspaceFiles: [
+            {
+              content: "int main(){}",
+              language: "cpp",
+              path: "main.cpp",
+              visibility: "editable",
+            },
+            { content: "#pragma once", language: "cpp", path: "lib.h", visibility: "hidden" },
+          ],
+        },
+      };
+      const pointer = put(`snap-${format}.json`, JSON.stringify(legacy));
+      const read = await readJudgeSnapshot(pointer);
+      expect(read.context.workspaceFiles.map((file) => file.visibility)).toEqual([
+        "editable",
+        "readonly",
+      ]);
+    },
+  );
+
   it("lists every pinned object once", () => {
     const input = put("in", "1");
     const output = put("out", "2");

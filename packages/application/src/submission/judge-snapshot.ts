@@ -61,7 +61,10 @@ const judgeContextSchema = z.object({
       content: z.string(),
       language: z.string(),
       path: z.string(),
-      visibility: workspaceFileVisibilitySchema,
+      visibility: z.preprocess(
+        (value) => (value === "hidden" ? "readonly" : value),
+        workspaceFileVisibilitySchema,
+      ),
     }),
   ),
   advanced: z

@@ -11,8 +11,6 @@ matching.numTaskqueueWritePartitions:
     constraints: { taskQueueName: judge-cleanup }
   - value: 1
     constraints: { taskQueueName: platform }
-  - value: 1
-    constraints: { taskQueueName: test-judge }
 matching.numTaskqueueReadPartitions:
   - value: 1
     constraints: { taskQueueName: judge }
@@ -22,5 +20,3 @@ matching.numTaskqueueReadPartitions:
     constraints: { taskQueueName: judge-cleanup }
   - value: 1
     constraints: { taskQueueName: platform }
-  - value: 1
-    constraints: { taskQueueName: test-judge }

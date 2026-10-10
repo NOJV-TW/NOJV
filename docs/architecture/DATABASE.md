@@ -151,10 +151,8 @@ erDiagram
   `Problem.samples`, not testcases (PRB-03). Samples saved on an interactive
   problem each need a non-blank `interactorInput`. `Testcase` and
   `ProblemWorkspaceFile` bodies are storage pointers (PRB-04). Workspace
-  `visibility` is `editable` / `readonly` / `hidden`; submitted contents cannot
-  override readonly or hidden files at merge time. Hidden content is omitted from
-  student editor/API reads (metadata can remain), but compilation and execution
-  still receive it. Visibility provides no runtime confidentiality; workspace
+  `visibility` is `editable` / `readonly`; submitted contents cannot override
+  readonly files at merge time. Visibility provides no confidentiality; workspace
   files must not hold secrets or testcase answers (PRB-01).
 - `special_env` problems use `advancedConfig` and `advancedRequiredPaths` and no
   testcase rows (PRB-12, PRB-13).

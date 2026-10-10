@@ -1,13 +1,13 @@
 import { json, error, isRedirect } from "@sveltejs/kit";
 import type { RequestEvent } from "@sveltejs/kit";
 import { ZodError, type ZodType } from "zod";
+import { HttpError } from "@nojv/application";
 
 import { classifyRequestError } from "./handle-action-error";
 import {
   apiRateLimiter,
   draftApiRateLimiter,
   registryTokenRateLimiter,
-  testJudgeApiRateLimiter,
   writeApiRateLimiter,
   type RateLimiterLike,
 } from "./rate-limiter";
@@ -78,6 +78,15 @@ export async function readJsonBody(
   }
 }
 
+export function parseJsonContextParam(raw: string | null): unknown {
+  if (raw === null) throw new HttpError("context is required.", 400);
+  try {
+    return JSON.parse(raw);
+  } catch {
+    throw new HttpError("context must be JSON.", 400);
+  }
+}
+
 export function parseContextQuery<T>(url: URL, schema: ZodType<T>): T {
   const type = url.searchParams.get("type");
   if (!type) return schema.parse({ type });
@@ -136,8 +145,4 @@ export function draftApiHandler(handler: ApiHandler): ApiHandler {
 
 export function registryTokenApiHandler(handler: ApiHandler): ApiHandler {
   return wrapHandler(handler, registryTokenRateLimiter);
-}
-
-export function testJudgeApiHandler(handler: ApiHandler): ApiHandler {
-  return wrapHandler(handler, testJudgeApiRateLimiter);
 }

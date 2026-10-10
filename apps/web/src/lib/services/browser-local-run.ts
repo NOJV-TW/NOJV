@@ -1,14 +1,25 @@
 import {
+  DEFAULT_MAX_MEMORY_MB,
+  DEFAULT_MEMORY_HEADROOM_MB,
+  MAX_CASE_STDERR_BYTES,
   MAX_EXECUTION_OUTPUT_BYTES,
+  checkerCaseVerdict,
   compareStandard,
   entryFileNameFor,
   effectiveTimeLimitMs,
+  executionWallTimeLimitMs,
+  interactiveCaseVerdict,
   isBrowserLocalLanguage,
+  judgeProgramCompileInput,
+  resolveContainerMemoryMb,
+  truncateUtf8,
+  validatorTimeoutMs,
   wasmOjTerminationVerdict,
   withCppPlatformHeaders,
   type CaseResult,
   type CompareConfig,
   type JudgeConfig,
+  type JudgeProgramSource,
   type Language,
   type SubmissionResult,
   type SubmissionRunCase,
@@ -42,8 +53,19 @@ const BROWSER_TOOLCHAINS = [
   pythonSource(BROWSER_TOOLCHAIN_BASE_URL),
   rustSource(BROWSER_TOOLCHAIN_BASE_URL),
 ];
-const TOOLCHAIN_PRELOAD_RETRY_DELAYS_MS = [2_000, 5_000];
+const PRELOAD_RETRY_DELAYS_MS = [2_000, 5_000];
+const JUDGE_PROGRAM_ARGS = ["/judge/input", "/judge/answer", "/judge/feedback"];
+const CHECKER_MEMORY_LIMIT_BYTES = 512 * 1024 * 1024;
+const CHECKER_TEAM_MESSAGE_PATH = "/judge/feedback/teammessage.txt";
+const MIN_INTERACTIVE_WALL_LIMIT_MS = 3_000;
+const INTERACTION_TRANSCRIPT_BYTES = 64 * 1024;
+const RUN_OUTPUT_LIMITS = {
+  outputLimitBytes: MAX_EXECUTION_OUTPUT_BYTES,
+  filesystemWriteLimitBytes: 64 * 1024 * 1024,
+  filesystemEntryLimit: 4096,
+};
 let browserEnginePromise: Promise<Engine> | undefined;
+let engineQueueTail: Promise<void> = Promise.resolve();
 
 interface ToolchainPreload {
   promise: Promise<void>;
@@ -73,6 +95,49 @@ export async function prewarmBrowserLocalEngine(): Promise<void> {
   await getBrowserEngine();
 }
 
+async function waitForTurn(previous: Promise<void>, signal: AbortSignal): Promise<void> {
+  signal.throwIfAborted();
+  let leave!: () => void;
+  const left = new Promise<void>((resolve) => (leave = resolve));
+  signal.addEventListener("abort", leave, { once: true });
+  try {
+    await Promise.race([previous, left]);
+  } finally {
+    signal.removeEventListener("abort", leave);
+  }
+  signal.throwIfAborted();
+}
+
+async function withBrowserEngine<T>(
+  signal: AbortSignal,
+  operation: (engine: Engine) => Promise<T>,
+  { cancelOnAbort = true } = {},
+): Promise<T> {
+  const previous = engineQueueTail;
+  let finish!: () => void;
+  engineQueueTail = new Promise<void>((resolve) => (finish = resolve));
+  try {
+    await waitForTurn(previous, signal);
+  } catch (error) {
+    void previous.then(finish);
+    throw error;
+  }
+  try {
+    const engine = await getBrowserEngine();
+    signal.throwIfAborted();
+    if (!cancelOnAbort) return await operation(engine);
+    const cancel = () => engine.cancel();
+    signal.addEventListener("abort", cancel, { once: true });
+    try {
+      return await operation(engine);
+    } finally {
+      signal.removeEventListener("abort", cancel);
+    }
+  } finally {
+    finish();
+  }
+}
+
 export function browserToolchainPercent(progress: BrowserToolchainPrefetchProgress): number {
   if (progress.totalBytes === 0) return 0;
   return Math.min(100, Math.floor((progress.loadedBytes / progress.totalBytes) * 100));
@@ -97,10 +162,16 @@ export function preloadBrowserToolchain(
     settled: false,
   };
   toolchainPreloads.set(language, preload);
-  preload.promise = prefetchWithRetries(language, (progress) => {
-    preload.progress = progress;
-    for (const listener of preload.listeners) listener(progress);
-  })
+  preload.promise = withPreloadRetries(() =>
+    prefetchBrowserToolchain(BROWSER_TOOLCHAINS, {
+      language,
+      libcxxPrecompiledHeader: language === "cpp",
+      onProgress: (progress) => {
+        preload.progress = progress;
+        for (const listener of preload.listeners) listener(progress);
+      },
+    }),
+  )
     .catch((error: unknown) => {
       toolchainPreloads.delete(language);
       throw error;
@@ -112,20 +183,12 @@ export function preloadBrowserToolchain(
   return preload.promise;
 }
 
-async function prefetchWithRetries(
-  language: Language,
-  onProgress: (progress: BrowserToolchainPrefetchProgress) => void,
-): Promise<void> {
+export async function withPreloadRetries<T>(task: () => Promise<T>): Promise<T> {
   for (let attempt = 0; ; attempt += 1) {
     try {
-      await prefetchBrowserToolchain(BROWSER_TOOLCHAINS, {
-        language,
-        libcxxPrecompiledHeader: language === "cpp",
-        onProgress,
-      });
-      return;
+      return await task();
     } catch (error) {
-      const delay = TOOLCHAIN_PRELOAD_RETRY_DELAYS_MS[attempt];
+      const delay = PRELOAD_RETRY_DELAYS_MS[attempt];
       if (delay === undefined) throw error;
       await new Promise((resolve) => setTimeout(resolve, delay));
     }
@@ -170,7 +233,7 @@ export function browserLocalTerminationFeedback(
   }
 }
 
-export interface BrowserCaseRun {
+interface BrowserCaseRun {
   verdict: ReturnType<typeof wasmOjTerminationVerdict>;
   stdout: string;
   stderr?: string;
@@ -180,14 +243,21 @@ export interface BrowserCaseRun {
   termination: RunResult["termination"];
 }
 
-export interface BrowserRunLimits {
+interface BrowserRunLimits {
   language: Language;
   timeLimitMs: number;
   memoryLimitMb: number;
   env: Record<string, string>;
 }
 
-export type BrowserCompileOutcome =
+interface BrowserInteraction {
+  verdict: ReturnType<typeof interactiveCaseVerdict>["verdict"];
+  timeMs: number;
+  transcript: { toInteractor: string; toContestant: string };
+  stderr?: string;
+}
+
+type BrowserCompileOutcome =
   { ok: true; artifact: BuildArtifact } | { ok: false; result: SubmissionResult };
 
 function browserCaseRun(run: RunResult): BrowserCaseRun {
@@ -312,11 +382,7 @@ export async function compileBrowserLocally(
   problemId: string,
   signal: AbortSignal,
 ): Promise<BrowserCompileOutcome> {
-  const browserEngine = await getBrowserEngine();
-  const cancel = () => browserEngine.cancel();
-  signal.addEventListener("abort", cancel, { once: true });
-  try {
-    signal.throwIfAborted();
+  return withBrowserEngine(signal, async (browserEngine) => {
     const { entry, files } = browserLocalFiles(request);
     const build = await browserEngine.compile(
       {
@@ -345,9 +411,33 @@ export async function compileBrowserLocally(
       };
     }
     return { ok: true, artifact: build.artifact };
-  } finally {
-    signal.removeEventListener("abort", cancel);
-  }
+  });
+}
+
+export async function compileBrowserJudgeProgram(
+  problemId: string,
+  program: JudgeProgramSource,
+  signal: AbortSignal,
+): Promise<{ ok: true; artifact: BuildArtifact } | { ok: false; diagnostics: string }> {
+  return withBrowserEngine(
+    signal,
+    async (browserEngine) => {
+      const build = await browserEngine.compile(
+        {
+          ...judgeProgramCompileInput(program, WASM_OJ_LIBCXX_PCH_HEADER),
+          target: "wasip1",
+          optimization: "release",
+          name: `NOJV ${program.role} ${problemId}`,
+          projectId: `nojv-judge-program-v1-${problemId}-${program.role}-${program.language}`,
+        },
+        { cache: true },
+      );
+      if (!build.success || !build.artifact)
+        return { ok: false, diagnostics: compileFeedback(build) };
+      return { ok: true, artifact: build.artifact };
+    },
+    { cancelOnAbort: false },
+  );
 }
 
 export async function runBrowserCases(
@@ -356,11 +446,7 @@ export async function runBrowserCases(
   limits: BrowserRunLimits,
   signal: AbortSignal,
 ): Promise<BrowserCaseRun[]> {
-  const browserEngine = await getBrowserEngine();
-  const cancel = () => browserEngine.cancel();
-  signal.addEventListener("abort", cancel, { once: true });
-  try {
-    signal.throwIfAborted();
+  return withBrowserEngine(signal, async (browserEngine) => {
     const logicalTimeLimitMs = effectiveTimeLimitMs(limits.timeLimitMs, limits.language);
     const runs: BrowserCaseRun[] = [];
     for (const testCase of cases) {
@@ -370,18 +456,104 @@ export async function runBrowserCases(
         resources: {
           logicalTimeLimitMs,
           memoryLimitBytes: limits.memoryLimitMb * 1024 * 1024,
-          outputLimitBytes: MAX_EXECUTION_OUTPUT_BYTES,
-          filesystemWriteLimitBytes: 64 * 1024 * 1024,
-          filesystemEntryLimit: 4096,
+          ...RUN_OUTPUT_LIMITS,
         },
       });
       signal.throwIfAborted();
       runs.push(browserCaseRun(run));
     }
     return runs;
-  } finally {
-    signal.removeEventListener("abort", cancel);
-  }
+  });
+}
+
+export async function runBrowserChecker(
+  artifact: BuildArtifact,
+  {
+    input,
+    answer,
+    output,
+    timeLimitMs,
+  }: { input: string; answer: string; output: string; timeLimitMs: number },
+  signal: AbortSignal,
+): Promise<ReturnType<typeof checkerCaseVerdict>> {
+  return withBrowserEngine(signal, async (browserEngine) => {
+    const timeoutMs = validatorTimeoutMs(timeLimitMs);
+    const run = await browserEngine.run(artifact, {
+      args: JUDGE_PROGRAM_ARGS,
+      stdin: output,
+      files: {
+        "/judge/input": input,
+        "/judge/answer": answer,
+        "/judge/feedback/.keep": "",
+      },
+      outputPaths: [CHECKER_TEAM_MESSAGE_PATH],
+      resources: {
+        logicalTimeLimitMs: timeoutMs,
+        memoryLimitBytes: CHECKER_MEMORY_LIMIT_BYTES,
+        wallTimeLimitMs: executionWallTimeLimitMs(timeoutMs),
+        ...RUN_OUTPUT_LIMITS,
+      },
+    });
+    signal.throwIfAborted();
+    const teamMessage = run.files[CHECKER_TEAM_MESSAGE_PATH];
+    return checkerCaseVerdict(
+      run,
+      teamMessage === undefined ? undefined : new TextDecoder().decode(teamMessage),
+    );
+  });
+}
+
+export async function runBrowserInteraction(
+  contestant: BuildArtifact,
+  interactor: BuildArtifact,
+  { interactorInput, limits }: { interactorInput: string; limits: BrowserRunLimits },
+  signal: AbortSignal,
+): Promise<BrowserInteraction> {
+  return withBrowserEngine(signal, async (browserEngine) => {
+    const timeLimitMs = effectiveTimeLimitMs(limits.timeLimitMs, limits.language);
+    const wallTimeLimitMs = Math.max(MIN_INTERACTIVE_WALL_LIMIT_MS, 3 * timeLimitMs);
+    const interactorMemoryMb = resolveContainerMemoryMb(limits.memoryLimitMb, {
+      defaultMemoryMb: limits.memoryLimitMb,
+      headroomMb: DEFAULT_MEMORY_HEADROOM_MB,
+      maxMemoryMb: DEFAULT_MAX_MEMORY_MB,
+    });
+    const run = await browserEngine.interact(contestant, interactor, {
+      contestant: {
+        env: limits.env,
+        resources: {
+          logicalTimeLimitMs: timeLimitMs,
+          memoryLimitBytes: limits.memoryLimitMb * 1024 * 1024,
+          wallTimeLimitMs,
+          ...RUN_OUTPUT_LIMITS,
+        },
+      },
+      interactor: {
+        args: JUDGE_PROGRAM_ARGS,
+        files: {
+          "/judge/input": interactorInput,
+          "/judge/answer": "",
+          "/judge/feedback/.keep": "",
+        },
+        resources: {
+          logicalTimeLimitMs: validatorTimeoutMs(timeLimitMs),
+          memoryLimitBytes: interactorMemoryMb * 1024 * 1024,
+          wallTimeLimitMs,
+          ...RUN_OUTPUT_LIMITS,
+        },
+      },
+    });
+    signal.throwIfAborted();
+    const stderr = truncateUtf8(run.contestant.stderr, MAX_CASE_STDERR_BYTES);
+    return {
+      verdict: interactiveCaseVerdict(run).verdict,
+      timeMs: Math.max(0, Math.ceil((run.contestant.metrics.logicalTimeNs ?? 0) / 1_000_000)),
+      transcript: {
+        toInteractor: truncateUtf8(run.contestantToInteractor, INTERACTION_TRANSCRIPT_BYTES),
+        toContestant: truncateUtf8(run.interactorToContestant, INTERACTION_TRANSCRIPT_BYTES),
+      },
+      ...(stderr ? { stderr } : {}),
+    };
+  });
 }
 
 export async function runBrowserLocally(args: {

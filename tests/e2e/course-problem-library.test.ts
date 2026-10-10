@@ -393,7 +393,7 @@ test("archived nonowner staff can navigate and copy all editor content while wri
   const id = `archived_editor_${randomUUID()}`;
   const advancedId = `${id}_advanced`;
   const referenceId = `${id}_reference`;
-  const hidden = `${"hidden content beyond the preview limit\n".repeat(8)}END_OF_HIDDEN_FILE`;
+  const support = `${"support content beyond the preview limit\n".repeat(8)}END_OF_SUPPORT_FILE`;
   const input = `${"1234567890".repeat(20)}\nEND_OF_INPUT`;
   const output = `${"abcdefghij".repeat(20)}\nEND_OF_OUTPUT`;
   const checker = "# checker contents\nprint('END_OF_CHECKER')";
@@ -436,9 +436,9 @@ test("archived nonowner staff can navigate and copy all editor content while wri
   }
 
   try {
-    const [hiddenStorage, inputStorage, outputStorage, checkerStorage, sourceStorage] =
+    const [supportStorage, inputStorage, outputStorage, checkerStorage, sourceStorage] =
       await Promise.all([
-        putImmutableText(storage, `problems/${id}/hidden.py`, hidden),
+        putImmutableText(storage, `problems/${id}/support.py`, support),
         putImmutableText(storage, `problems/${id}/input`, input),
         putImmutableText(storage, `problems/${id}/output`, output),
         putImmutableText(storage, `problems/${id}/checker.py`, checker),
@@ -486,10 +486,10 @@ test("archived nonowner staff can navigate and copy all editor content while wri
         workspaceFiles: {
           create: {
             language: "python",
-            path: "hidden.py",
-            visibility: "hidden",
-            description: "Hidden workspace fixture",
-            contentStorage: hiddenStorage,
+            path: "support.py",
+            visibility: "readonly",
+            description: "Readonly workspace fixture",
+            contentStorage: supportStorage,
           },
         },
         testcaseSets: {
@@ -560,10 +560,10 @@ test("archived nonowner staff can navigate and copy all editor content while wri
         page.getByRole("button", { name: "Save draft", exact: true }),
       ).toBeDisabled();
       if (section === "Workspace") {
-        await page.locator("summary").filter({ hasText: "hidden.py" }).click();
+        await page.locator("summary").filter({ hasText: "support.py" }).click();
         const file = page.locator("details[open]");
-        await expect(file).toContainText("Hidden workspace fixture");
-        await expectCopied(file, hidden);
+        await expect(file).toContainText("Readonly workspace fixture");
+        await expectCopied(file, support);
         await expect(page.getByRole("button", { name: /Add file|Delete/ })).toHaveCount(0);
       } else if (section === "Testcase Management") {
         await page.locator("summary").filter({ hasText: "Full hidden cases" }).click();
