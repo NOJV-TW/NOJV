@@ -124,13 +124,14 @@ A non-staff viewer sees their own questions plus answers staff marked `isPublic`
 
 ### ASM-12 Late policy: activity-level due date, hard close, flat or daily penalty
 
-**Decided:** 2026-09 · **Source:** [2026-09-08-late-submission-policy](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/active/2026-09-08-late-submission-policy.md), [2026-04-14-course-experience-redesign](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-04-14-course-experience-redesign.md), [2026-04-09-problem-ui-redesign](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-04-09-problem-ui-redesign.md), [2026-05-18-feature-completion-batch](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-05-18-feature-completion-batch.md)
+**Decided:** 2026-09 · **Source:** [2026-09-08-late-submission-policy](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/active/2026-09-08-late-submission-policy.md), [2026-04-14-course-experience-redesign](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-04-14-course-experience-redesign.md), [2026-04-09-problem-ui-redesign](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-04-09-problem-ui-redesign.md), [2026-05-18-feature-completion-batch](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-05-18-feature-completion-batch.md), [#648](https://github.com/NOJV-TW/NOJV/pull/648)
 
 Assignments and exams share `dueAt` (on-time) plus a hard deadline (`Assessment.closesAt` / `Exam.endsAt`) and at most one late penalty in `adjustmentRules`: `flat_late_penalty` or `daily_late_penalty`, where any fraction of a late day counts as a full day. An absent or equal due date means no late window; the allow-late toggle is form state only. Penalties are applied after judging to the raw score because instructors set one policy per homework. The late rule stays editable in settings; `time_bonus` exists in the schema but is not exposed.
 
 - Rejected: per-problem rules in `judgeConfig` and custom scoring scripts; half-life `late_penalty_decay`; `final_day_zero` and `startFrom` variants (normalized away in migration, no runtime compat layer); persisting an allow-late boolean; a `time_bonus` UI.
 - Rule: No official submission at or after the hard deadline; due equality is on-time; practice never affects official grades.
 - Rule: Percentage penalties apply only to point-sum exams. Running activities must not acquire an earlier deadline or a different penalty; hard-deadline changes reschedule exam auto-close.
+- Rule: A closed assignment keeps the running-assignment locks, so staff can extend its deadline from settings to reopen it (e.g. after an outage).
 - Rule: Settings updates preserve unrelated `time_bonus` rules and their order; existing grades are not rewritten.
 - Code: `packages/core/src/schemas/assessment-adjustments.ts` (`extractLatePenalty`)
 

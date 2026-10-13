@@ -570,7 +570,7 @@
   "assignmentDetail_settingsHeading": "Assignment settings",
   "assignmentDetail_settingsHint": "Fields lock as the assignment progresses through its states.",
   "assignmentDetail_settingsLanguagesLabel": "Allowed languages",
-  "assignmentDetail_settingsLockHintClosed": "The assignment has closed. Only archive is available.",
+  "assignmentDetail_settingsLockHintClosed": "The assignment has closed. opensAt is locked; extend the dates to reopen submissions.",
   "assignmentDetail_settingsLockHintOpen": "The assignment is open. opensAt is locked and dates can only be extended.",
   "assignmentDetail_settingsMaxAttemptsLabel": "Max attempts per day",
   "assignmentDetail_settingsMaxAttemptsPlaceholder": "Leave empty for unlimited",

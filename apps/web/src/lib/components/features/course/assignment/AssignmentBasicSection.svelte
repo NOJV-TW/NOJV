@@ -9,12 +9,10 @@
   interface Props {
     form: Writable<AssessmentSettingsFormData>;
     errors: Writable<ValidationErrors<AssessmentSettingsFormData>>;
-    editableBasics: boolean;
     editableOpensAt: boolean;
-    editableDeadlines: boolean;
   }
 
-  let { form, errors, editableBasics, editableOpensAt, editableDeadlines }: Props = $props();
+  let { form, errors, editableOpensAt }: Props = $props();
 </script>
 
 <section
@@ -33,7 +31,6 @@
         class={inputClassName}
         type="text"
         bind:value={$form.title}
-        disabled={!editableBasics}
         aria-invalid={$errors.title ? "true" : undefined}
       />
       {#if $errors.title}
@@ -48,8 +45,7 @@
       <textarea
         id="settings-summary"
         class="{inputClassName} min-h-24 resize-y"
-        bind:value={$form.summary}
-        disabled={!editableBasics}></textarea>
+        bind:value={$form.summary}></textarea>
     </div>
   </div>
 </section>
@@ -71,8 +67,7 @@
       finalErrors={$errors.closesAt}
       penaltyInvalid={!!$errors.latePenalty}
       editablePolicy={editableOpensAt}
-      editableDue={editableDeadlines}
-      editableEnd={editableDeadlines}
+      editableDue={true}
     >
       {#snippet startField()}
         <div>

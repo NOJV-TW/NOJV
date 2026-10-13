@@ -103,9 +103,7 @@ describe("LateSubmissionFields", () => {
       props: {
         form,
         errors: writable({}),
-        editableBasics: true,
         editableOpensAt: false,
-        editableDeadlines: true,
       },
     });
     expect(target.querySelector<HTMLInputElement>('input[type="checkbox"]')?.disabled).toBe(

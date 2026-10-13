@@ -134,9 +134,9 @@ describe("activity grading", () => {
     ).rejects.toThrow(/changed/);
     await expect(
       assignmentDomain.updateAssignmentRecord(actor, assignment.id, {
-        title: "Different title",
+        closesAt: new Date("2020-01-02").toISOString(),
       }),
-    ).rejects.toThrow(/read-only/);
+    ).rejects.toThrow(/closesAt/);
     await assignmentDomain.updateAssignmentRecord(actor, assignment.id, {
       ...patch,
       gradingRevision: 1,
