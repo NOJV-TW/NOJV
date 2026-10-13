@@ -131,6 +131,7 @@ Assignments and exams share `dueAt` (on-time) plus a hard deadline (`Assessment.
 - Rejected: per-problem rules in `judgeConfig` and custom scoring scripts; half-life `late_penalty_decay`; `final_day_zero` and `startFrom` variants (normalized away in migration, no runtime compat layer); persisting an allow-late boolean; a `time_bonus` UI.
 - Rule: No official submission at or after the hard deadline; due equality is on-time; practice never affects official grades.
 - Rule: Percentage penalties apply only to point-sum exams. Running activities must not acquire an earlier deadline or a different penalty; hard-deadline changes reschedule exam auto-close.
+- Rule: A closed assignment keeps the running-assignment locks, so staff can extend its deadline from settings to reopen it (e.g. after an outage).
 - Rule: Settings updates preserve unrelated `time_bonus` rules and their order; existing grades are not rewritten.
 - Code: `packages/core/src/schemas/assessment-adjustments.ts` (`extractLatePenalty`)
 

@@ -43,16 +43,15 @@ async function requireManagedAssignment(
   return requireAssignment(tx, assignmentId);
 }
 
-type AssignmentLiveStatus = "draft" | "upcoming" | "open" | "closed";
+type AssignmentLiveStatus = "draft" | "upcoming" | "started";
 
 function deriveLiveStatus(
-  row: { status: string; opensAt: Date; closesAt: Date },
+  row: { status: string; opensAt: Date },
   now: Date,
 ): AssignmentLiveStatus {
   if (row.status === "draft") return "draft";
   if (row.opensAt > now) return "upcoming";
-  if (row.closesAt < now) return "closed";
-  return "open";
+  return "started";
 }
 
 function assertFieldsAllowedForStatus(
@@ -60,16 +59,6 @@ function assertFieldsAllowedForStatus(
   current: { opensAt: Date; dueAt: Date | null; closesAt: Date },
   payload: AssessmentUpdate,
 ): void {
-  if (liveStatus === "closed") {
-    if (
-      Object.entries(payload).every(
-        ([key, value]) => value === undefined || ["problems", "gradingRevision"].includes(key),
-      )
-    )
-      return;
-    throw new ValidationError("Closed assignments are read-only.");
-  }
-
   if (liveStatus === "draft" || liveStatus === "upcoming") return;
 
   if (payload.opensAt !== undefined) {
@@ -152,7 +141,7 @@ export async function updateAssignmentRecord(
           : currentRules.toSpliced(index, 1, ...replacement);
     }
     assertLateSubmissionPolicy(effectiveRules, effectiveDueAt, effectiveClosesAt);
-    if (liveStatus === "open") {
+    if (liveStatus === "started") {
       if (JSON.stringify(effectiveRules) !== JSON.stringify(currentRules)) {
         throw new ValidationError(
           "Late penalties cannot be changed once the assignment is open.",

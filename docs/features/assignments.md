@@ -81,8 +81,7 @@ Rules come from PRB-10 and PRB-11; data model in [Database](../architecture/DATA
 ### Field locks by live status
 
 - `draft`, `upcoming`: all fields editable.
-- `open`: `opensAt` frozen (`"opensAt cannot be changed once the assignment is open."`); `closesAt` and `dueAt` extend only (`"closesAt can only be extended, not moved earlier."`, `"dueAt can only be extended, not moved earlier."`).
-- `closed`: only `problems` and `gradingRevision` may change; anything else fails with `"Closed assignments are read-only."`.
+- `open`, `closed`: `opensAt` frozen (`"opensAt cannot be changed once the assignment is open."`); `closesAt` and `dueAt` extend only (`"closesAt can only be extended, not moved earlier."`, `"dueAt can only be extended, not moved earlier."`); the late penalty is frozen. Extending `closesAt` past now reopens a closed assignment for submissions. The due-soon lifecycle is rescheduled; `assignment_started` dedupes on `opensAt`, so it is not sent again.
 
 ### Permissions
 

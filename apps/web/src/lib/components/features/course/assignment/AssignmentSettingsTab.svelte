@@ -97,12 +97,9 @@
   const isOpen = $derived(liveStatus === "open");
   const isClosed = $derived(liveStatus === "closed");
 
-  const editableBasics = $derived(isDraft || isUpcoming || isOpen);
   const editableOpensAt = $derived(isDraft || isUpcoming);
-  const editableDeadlines = $derived(isDraft || isUpcoming || isOpen);
 
   function toggleLanguage(lang: Language) {
-    if (!editableBasics) return;
     $form.allowedLanguages = toggleArrayItem($form.allowedLanguages ?? [], lang);
   }
 
@@ -148,13 +145,7 @@
     <fieldset disabled={readOnly} class="min-w-0 space-y-5">
       <FormError message={$formMessage?.kind === "error" ? $formMessage.text : null} />
 
-      <AssignmentBasicSection
-        {form}
-        {errors}
-        {editableBasics}
-        {editableOpensAt}
-        {editableDeadlines}
-      />
+      <AssignmentBasicSection {form} {errors} {editableOpensAt} />
 
       <section
         class="rounded-xl border border-border-subtle bg-[color:var(--color-panel)] p-4 shadow-rest"
@@ -177,7 +168,6 @@
                     : 'border-border bg-[color:var(--color-panel)] text-foreground hover:border-border-strong'}"
                   onclick={() => toggleLanguage(lang)}
                   aria-pressed={checked}
-                  disabled={!editableBasics}
                 >
                   {lang}
                 </button>
@@ -197,7 +187,6 @@
               max="999"
               placeholder={m.assignmentDetail_settingsMaxAttemptsPlaceholder()}
               bind:value={$form.maxAttemptsPerDay}
-              disabled={!editableBasics}
             />
             {#if $errors.maxAttemptsPerDay}
               <p class="mt-1 text-xs text-destructive">{$errors.maxAttemptsPerDay}</p>
@@ -215,7 +204,6 @@
               value={minutesToHHMM($form.attemptResetMinuteOfDay)}
               oninput={(e) =>
                 ($form.attemptResetMinuteOfDay = hhmmToMinutes(e.currentTarget.value))}
-              disabled={!editableBasics}
             />
             <p class="mt-1 text-xs text-muted-foreground">
               {m.assignmentDetail_settingsResetTimeDesc()}
@@ -278,7 +266,7 @@
             </Button>
           {/if}
 
-          <Button type="submit" variant="default" size="sm" disabled={$submitting || isClosed}>
+          <Button type="submit" variant="default" size="sm" disabled={$submitting}>
             {m.assignmentDetail_settingsSaveButton()}
           </Button>
 

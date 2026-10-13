@@ -570,7 +570,7 @@
   "assignmentDetail_settingsHeading": "作業設定",
   "assignmentDetail_settingsHint": "欄位會依作業目前狀態逐步鎖定。",
   "assignmentDetail_settingsLanguagesLabel": "允許語言",
-  "assignmentDetail_settingsLockHintClosed": "作業已關閉，僅能進行封存。",
+  "assignmentDetail_settingsLockHintClosed": "作業已截止；開放時間鎖定，延後截止時間即可重新開放提交。",
   "assignmentDetail_settingsLockHintOpen": "作業已開放；開放時間鎖定，日期僅能延後。",
   "assignmentDetail_settingsMaxAttemptsLabel": "每日嘗試上限",
   "assignmentDetail_settingsMaxAttemptsPlaceholder": "留空代表無限",

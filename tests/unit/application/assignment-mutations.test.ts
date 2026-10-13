@@ -319,20 +319,47 @@ describe("updateAssignmentRecord", () => {
     ).rejects.toThrow(/closesAt/);
   });
 
-  it("rejects any update once the assignment is closed", async () => {
+  it("extends a closed assignment's deadline", async () => {
     const now = new Date();
+    const closesAt = new Date(now.getTime() - 60_000);
+    const extended = new Date(now.getTime() + 86_400_000);
     assessmentFindById.mockResolvedValue(
       draftAssessment({
         status: "published",
         opensAt: new Date(now.getTime() - 120_000),
-        closesAt: new Date(now.getTime() - 60_000),
+        dueAt: closesAt,
+        closesAt,
+      }),
+    );
+
+    await updateAssignmentRecord(teacherActor, "asg_1", {
+      dueAt: extended.toISOString(),
+      closesAt: extended.toISOString(),
+    });
+
+    expect(assessmentUpdate).toHaveBeenCalledWith(
+      "asg_1",
+      expect.objectContaining({ dueAt: extended, closesAt: extended }),
+    );
+  });
+
+  it("refuses to shorten closesAt once closed", async () => {
+    const now = new Date();
+    const closesAt = new Date(now.getTime() - 60_000);
+    assessmentFindById.mockResolvedValue(
+      draftAssessment({
+        status: "published",
+        opensAt: new Date(now.getTime() - 120_000),
+        closesAt,
         dueAt: null,
       }),
     );
 
     await expect(
-      updateAssignmentRecord(teacherActor, "asg_1", { title: "nope" }),
-    ).rejects.toThrow(/closed/i);
+      updateAssignmentRecord(teacherActor, "asg_1", {
+        closesAt: new Date(closesAt.getTime() - 1_000).toISOString(),
+      }),
+    ).rejects.toThrow(/closesAt/);
   });
 
   it("locks, re-reads, and rejects a close that conflicts with the persisted due date", async () => {
