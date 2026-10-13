@@ -17,17 +17,6 @@ export interface CompletionEntry {
   isSnippet?: boolean;
 }
 
-const kindMap: Record<CompletionEntry["kind"], Monaco.languages.CompletionItemKind> = {
-  Class: 5,
-  Constant: 21,
-  Function: 1,
-  Keyword: 17,
-  Module: 8,
-  Snippet: 27,
-};
-
-const INSERT_AS_SNIPPET: Monaco.languages.CompletionItemInsertTextRule = 4;
-
 const completionsByLanguage: Record<string, CompletionEntry[]> = {
   c: cCompletions,
   cpp: cppCompletions,
@@ -61,9 +50,14 @@ export function acquireCompletionProviders(monaco: typeof Monaco): () => void {
 
               const suggestions: Monaco.languages.CompletionItem[] = entries.map((e) => ({
                 label: e.label,
-                kind: kindMap[e.kind],
+                kind: monaco.languages.CompletionItemKind[e.kind],
                 insertText: e.insertText,
-                ...(e.isSnippet ? { insertTextRules: INSERT_AS_SNIPPET } : {}),
+                ...(e.isSnippet
+                  ? {
+                      insertTextRules:
+                        monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+                    }
+                  : {}),
                 ...(e.detail ? { detail: e.detail } : {}),
                 range,
               }));
