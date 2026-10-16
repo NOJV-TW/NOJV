@@ -39,7 +39,7 @@ const expectedCommands: Record<
 
 describe("judge environment manifest", () => {
   it("pins Go to the currently available Alpine package revision", () => {
-    expect(judgeEnvironmentDefinition.apkPackages.go).toBe("1.26.8-r0");
+    expect(judgeEnvironmentDefinition.apkPackages.go).toBe("1.26.9-r0");
   });
 
   it("defines every supported language and its public command contract", () => {
