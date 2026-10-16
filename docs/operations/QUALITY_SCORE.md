@@ -68,9 +68,6 @@ Work that is known, not done, and not covered by an in-flight plan. Remove an it
 - The admin audit log's actor, action and target columns have no filters; adding them needs server-side filtering in `adminAuditLogRepo.listPaged` (UI-12).
 - Browser Test (WASM-OJ) deferred scope: official Submit from the browser, Advanced problems and limit calibration stay server-only until decided otherwise (JDG-15).
 - JavaScript and TypeScript contestants on interactive problems wait for streaming QuickJS stdin upstream (JDG-15).
-- The browser engine closes a stopped side's pipes, while official judging keeps reading the interactor's output after the contestant ends and only gives it EOF. When the contestant exits, normally or with an error, before the interactor's next write, that write fails in Test (a CPython interactor exits 120) and the case is SE where Submit gives RE or the interactor's verdict. A Python interactor that starts after a fast-failing contestant has stopped hits this on its first write. A contestant stopped by a time or memory limit is already TLE or MLE in Test whatever the interactor does (JDG-15). Fix upstream by discarding a finished contestant's input instead of failing the write.
-- After such a broken pipe the browser transcript can repeat the line the interactor failed to write (one CPython line showed five times). Raise upstream with the fix above.
-- In WebKit an empty `for(;;);` loop is not stopped by the instruction meter and runs to the wall stop, in `run` and `interact` alike; a loop with a side effect stops at its budget. Raise upstream.
 - Every official checker or interactive stage recompiles its judge program. Precompiling native judge programs once per source, language and sandbox image is open; measure the C++ per-stage compile cost first (on 2026-10-04 every production judge program was Python, which needs no compile).
 
 ## Evidence rules

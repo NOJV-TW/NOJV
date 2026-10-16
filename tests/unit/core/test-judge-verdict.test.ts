@@ -68,7 +68,7 @@ describe("interactiveCaseVerdict", () => {
     ).toEqual({ verdict: "TLE" });
   });
 
-  it("maps a contestant crash to RE", () => {
+  it("maps a contestant crash before the interactor's next write to RE", () => {
     expect(interactiveCaseVerdict({ contestant: exited(1), interactor: exited(43) })).toEqual({
       verdict: "RE",
     });
@@ -104,22 +104,44 @@ describe("interactiveCaseVerdict", () => {
     ).toEqual({ verdict: "TLE" });
   });
 
-  it.each([
-    ["logical-time-limit", "TLE"],
-    ["instruction-limit", "TLE"],
-    ["wall-time-limit", "TLE"],
-    ["memory-limit", "MLE"],
-  ])(
-    "keeps a contestant %s when the interactor then dies on the closed pipe",
-    (termination, verdict) => {
+  it.each(["logical-time-limit", "instruction-limit", "wall-time-limit", "memory-limit"])(
+    "lets an interactor crash win over a contestant %s, as official judging does",
+    (termination) => {
       expect(
         interactiveCaseVerdict({
           contestant: { termination, code: 0 },
           interactor: exited(120),
         }),
-      ).toEqual({ verdict });
+      ).toEqual({ verdict: "SE" });
     },
   );
+
+  it("maps an interactor stopped by its own limit to SE over a contestant limit", () => {
+    expect(
+      interactiveCaseVerdict({
+        contestant: { termination: "instruction-limit", code: 0 },
+        interactor: { termination: "logical-time-limit", code: 0 },
+      }),
+    ).toEqual({ verdict: "SE" });
+  });
+
+  it("maps the shared wall stop of both sides to the contestant's TLE", () => {
+    expect(
+      interactiveCaseVerdict({
+        contestant: { termination: "wall-time-limit", code: 137 },
+        interactor: { termination: "wall-time-limit", code: 137 },
+      }),
+    ).toEqual({ verdict: "TLE" });
+  });
+
+  it("maps an interactor stopped at the wall after the contestant exited to SE", () => {
+    expect(
+      interactiveCaseVerdict({
+        contestant: exited(0),
+        interactor: { termination: "wall-time-limit", code: 137 },
+      }),
+    ).toEqual({ verdict: "SE" });
+  });
 
   it("maps an interactor crash to SE when the contestant exited normally", () => {
     expect(interactiveCaseVerdict({ contestant: exited(0), interactor: exited(120) })).toEqual({

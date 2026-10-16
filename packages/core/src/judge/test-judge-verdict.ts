@@ -40,12 +40,14 @@ export function interactiveCaseVerdict(result: {
   contestant: ProcessTermination;
   interactor: ProcessTermination;
 }): { verdict: TestJudgeVerdict } {
+  const sharedWallStop =
+    result.contestant.termination === "wall-time-limit" &&
+    result.interactor.termination === "wall-time-limit";
+  const interactor = checkerCaseVerdict(result.interactor);
+  if (interactor.verdict === "SE" && !sharedWallStop) return interactor;
   const contestant = wasmOjTerminationVerdict(
     result.contestant.termination,
     result.contestant.code,
   );
-  if (contestant === "TLE" || contestant === "MLE") return { verdict: contestant };
-  const interactor = checkerCaseVerdict(result.interactor);
-  if (interactor.verdict === "SE") return interactor;
   return contestant === "AC" ? interactor : { verdict: contestant };
 }
