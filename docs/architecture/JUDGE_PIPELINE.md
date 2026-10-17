@@ -580,18 +580,22 @@ While it prepares, Test stays clickable and shows the toolchain download or
    `interact(contestant, interactor)` once per case. The interactor gets the checker's
    args, the case's input as `/judge/input`, an empty `/judge/answer` and an empty
    `/judge/feedback/`.
-3. `interactiveCaseVerdict` merges each case: a contestant stopped by a time limit
-   (logical time, instruction budget or the wall stop) or by the memory limit is TLE or
-   MLE, whatever the interactor did; otherwise an interactor that exits with anything
-   but 42 or 43, or is stopped by a limit, is SE; otherwise a contestant RE wins;
-   otherwise the interactor's AC or WA stands.
+3. `interactiveCaseVerdict` merges each case as official judging does: an interactor
+   that exits with anything but 42 or 43, or is stopped by its own limit, is SE;
+   otherwise a contestant TLE, MLE or RE wins; otherwise the interactor's AC or WA
+   stands. A case that the shared wall stop ends on both sides (a deadlock, such as a
+   contestant that never flushes) is TLE: the browser's shared wall stop reports both
+   sides, while native judging kills the solution first and the interactor then reads
+   EOF.
 4. Each case shows the verdict, contestant stderr (100,000 bytes) and both transcript
    directions (64 KiB each, cut at a UTF-8 boundary); the run shows the largest
    contestant logical time across its cases. The interactor's `teammessage` and stderr
    are not shown.
-5. When the contestant exits, normally or with an error, before the interactor's next
-   write, that write fails (a Python interactor exits 120) and the case is SE; Submit
-   gives that case RE or the interactor's verdict.
+5. When one side exits, the engine discards the other side's later writes to it and
+   gives that side EOF on its next read, as official judging's channel does; the
+   transcript shows each write once, discarded ones included. A contestant that exits
+   before reading the interactor's last reply therefore gets the interactor's verdict,
+   and one that exits with an error before the interactor's next write gets RE.
 
 ### Limits
 

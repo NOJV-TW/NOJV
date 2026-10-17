@@ -591,21 +591,39 @@ it.each([
     "TLE",
   ],
   [
-    "the contestant runs out of instructions and the interactor dies on the closed pipe",
+    "the contestant runs out of instructions and the interactor reads EOF and rejects",
     interaction({
       contestant: side("instruction-limit", 137),
-      interactor: side("exited", 120),
+      interactor: side("exited", 43),
     }),
     "TLE",
   ],
   [
-    "the contestant exceeds its memory and the interactor dies on the closed pipe",
-    interaction({ contestant: side("memory-limit", 0), interactor: side("exited", 120) }),
-    "MLE",
+    "the contestant exits with an error before the interactor's next write",
+    interaction({ contestant: side("exited", 3), interactor: side("exited", 43) }),
+    "RE",
   ],
   [
-    "the contestant exits normally and the interactor dies on the closed pipe",
+    "the contestant runs out of instructions and the interactor crashes",
+    interaction({
+      contestant: side("instruction-limit", 137),
+      interactor: side("exited", 120),
+    }),
+    "SE",
+  ],
+  [
+    "the contestant exceeds its memory and the interactor crashes",
+    interaction({ contestant: side("memory-limit", 0), interactor: side("exited", 120) }),
+    "SE",
+  ],
+  [
+    "the contestant exits normally and the interactor crashes",
     interaction({ interactor: side("exited", 120) }),
+    "SE",
+  ],
+  [
+    "the contestant exits normally and the interactor runs out of logical time",
+    interaction({ interactor: side("logical-time-limit", 0) }),
     "SE",
   ],
   [
@@ -614,10 +632,12 @@ it.each([
     "SE",
   ],
   [
-    "both sides hit the wall stop",
+    "a deadlock reaches the shared wall stop on both sides",
     interaction({
-      contestant: side("wall-time-limit", 0),
-      interactor: side("wall-time-limit", 0),
+      contestant: side("wall-time-limit", 137),
+      interactor: side("wall-time-limit", 137),
+      contestantToInteractor: "",
+      interactorToContestant: "",
     }),
     "TLE",
   ],
