@@ -252,7 +252,7 @@ The CloudNativePG operator caches every ConfigMap in the namespaces it watches, 
 
 ### OPS-23 The edge fallback Worker covers page loads only
 
-**Decided:** 2026-10 · **Source:** [#PR_NUMBER](https://github.com/NOJV-TW/NOJV/pull/PR_NUMBER)
+**Decided:** 2026-10 · **Source:** [#655](https://github.com/NOJV-TW/NOJV/pull/655)
 
 The `nojv-maintenance` Worker on `nojv.tw/*` replaces Cloudflare's origin-error pages with a NOJV maintenance page. The account is on Workers Free (100,000 requests per day), and exam days used up the quota: 115,148 invocations on 2026-10-05, and 96,534 by 15:00 Taipei on 2026-10-19. On 2026-10-19 from 08:00 to 16:00 Taipei, `/api/*`, `/_app/*` and `/wasm-oj/*` made up 89% of the requests the Worker would see. Submission polling (60,802 requests to `/api/submissions/pending`) and draft autosave (39,812 to `/api/drafts`) led. Those three paths now have routes with no Worker, so the quota goes to page loads and `__data.json`, where a maintenance page helps users.
 
