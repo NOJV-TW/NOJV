@@ -1,15 +1,16 @@
 <script lang="ts">
   import { goto } from "$app/navigation";
   import { m } from "$lib/paraglide/messages.js";
+  import { serverNow } from "$lib/utils/datetime.js";
   import type { ProblemWorkspaceTimer } from "./ProblemLeftPanel.svelte";
 
   let { timer }: { timer: ProblemWorkspaceTimer } = $props();
 
-  let now = $state(Date.now());
+  let now = $state(serverNow());
   let expired = $state(false);
 
   $effect(() => {
-    const interval = setInterval(() => (now = Date.now()), 1000);
+    const interval = setInterval(() => (now = serverNow()), 1000);
     return () => clearInterval(interval);
   });
 

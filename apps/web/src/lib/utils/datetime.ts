@@ -96,6 +96,16 @@ export function fmtDate(iso: string | Date, opts: FmtDateOptions = {}): string {
   return formatDateTimeCompact(d);
 }
 
+let serverClockOffsetMs = 0;
+
+export function syncServerClock(serverNowMs: number): void {
+  serverClockOffsetMs = serverNowMs - Date.now();
+}
+
+export function serverNow(): number {
+  return Date.now() + serverClockOffsetMs;
+}
+
 export function diffMs(iso: string | Date, now: Date = new Date()): number {
   const d = typeof iso === "string" ? new Date(iso) : iso;
   return d.getTime() - now.getTime();

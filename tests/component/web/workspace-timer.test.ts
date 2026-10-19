@@ -4,6 +4,7 @@ import { mount, tick, unmount } from "svelte";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { m } from "$lib/paraglide/messages.js";
 import WorkspaceTimer from "$lib/components/features/problem/layouts/WorkspaceTimer.svelte";
+import { syncServerClock } from "$lib/utils/datetime.js";
 
 const mocks = vi.hoisted(() => ({ goto: vi.fn() }));
 vi.mock("$app/navigation", () => ({ goto: mocks.goto }));
@@ -18,6 +19,7 @@ const due = Date.parse("2030-01-01T01:00:00Z");
 beforeEach(() => {
   vi.useFakeTimers();
   vi.setSystemTime(due - 1000);
+  syncServerClock(Date.now());
   vi.clearAllMocks();
   target = document.body.appendChild(document.createElement("div"));
 });
@@ -73,6 +75,26 @@ describe("WorkspaceTimer", () => {
       expect(target.textContent).toContain(m.lateSubmission_workspaceClosed());
       if (type === "exam") expect(mocks.goto).toHaveBeenCalledExactlyOnceWith("/exams/exam_1");
       else expect(mocks.goto).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each([8, -8])(
+    "counts down on server time when the local clock is off by %i hours",
+    async (skewHours) => {
+      vi.setSystemTime(due - 1000 + skewHours * 3_600_000);
+      syncServerClock(due - 1000);
+      component = mount(WorkspaceTimer, {
+        target,
+        props: {
+          timer: { type: "exam", examId: "exam_1", endsAt: new Date(due).toISOString() },
+        },
+      });
+      await tick();
+      expect(target.textContent).toContain("00:00:01");
+      expect(mocks.goto).not.toHaveBeenCalled();
+      await vi.advanceTimersByTimeAsync(1000);
+      await tick();
+      expect(mocks.goto).toHaveBeenCalledExactlyOnceWith("/exams/exam_1");
     },
   );
 });

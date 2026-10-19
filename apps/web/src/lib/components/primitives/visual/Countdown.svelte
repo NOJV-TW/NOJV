@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { m } from "$lib/paraglide/messages.js";
-  import { diffMs, fmtCountdown } from "$lib/utils/datetime.js";
+  import { diffMs, fmtCountdown, serverNow } from "$lib/utils/datetime.js";
 
   interface Props {
     iso: string;
@@ -10,10 +10,10 @@
 
   let { iso, isCompact = false }: Props = $props();
 
-  let now = $state(Date.now());
+  let now = $state(serverNow());
   onMount(() => {
     const id = setInterval(() => {
-      now = Date.now();
+      now = serverNow();
     }, 1000);
     return () => clearInterval(id);
   });

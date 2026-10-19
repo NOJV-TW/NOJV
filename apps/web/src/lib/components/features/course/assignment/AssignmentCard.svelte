@@ -9,7 +9,7 @@
   import { m } from "$lib/paraglide/messages.js";
   import Countdown from "$lib/components/primitives/visual/Countdown.svelte";
   import AssessmentRow from "$lib/components/features/coursework/AssessmentRow.svelte";
-  import { diffMs, fmtCountdown } from "$lib/utils/datetime";
+  import { diffMs, fmtCountdown, serverNow } from "$lib/utils/datetime";
 
   interface Props {
     assignment: AssignmentRow;
@@ -19,10 +19,10 @@
 
   let { assignment, showStatusIcon = true, delay = 0 }: Props = $props();
 
-  let now = $state(Date.now());
+  let now = $state(serverNow());
   onMount(() => {
     const id = setInterval(() => {
-      now = Date.now();
+      now = serverNow();
     }, 30_000);
     return () => clearInterval(id);
   });

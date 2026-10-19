@@ -78,6 +78,7 @@ Exams follow the [activity allocation and official score contract](assignments.m
 - Archived course: `ForbiddenError("This course is archived; new exam sessions are not allowed.")`. Existing sessions cannot read or save exam drafts, open problems or submit while the course is archived.
 - A submitted session or submitted participation gives `ForbiddenError("You have already submitted this exam.")` before any write.
 - The `startExam` action passes the client IP to `startSessionWithGate`; the request hook keeps enforcing the gate afterwards.
+- The overview status, start button and workspace timer follow server time, not the device clock: a student whose computer clock or time zone is wrong can start when the exam opens and is not sent back to the overview before `endsAt`.
 
 ### Hand-in
 
