@@ -239,3 +239,13 @@ Production pulls images over a ~0.5 MB/s uplink, and the web image was 1.1 GB co
 **Decided:** 2026-10, withdrawn 2026-10 · **Source:** [#641](https://github.com/NOJV-TW/NOJV/pull/641), [#645](https://github.com/NOJV-TW/NOJV/pull/645)
 
 Withdrawn 2026-10 (#645): with server-side Test gone (JDG-15) the worker image carries no WASM-OJ runtime or server toolchains, and Renovate no longer skips `@wasm-oj/*` or a `rust` builder image. The layers were pinned and timestamp-normalised because production pulls images over a ~0.5 MB/s uplink (OPS-20) and they cost about 82 MB compressed.
+
+### OPS-22 The CNPG operator watches only the application namespace
+
+**Decided:** 2026-10 · **Source:** [#PR](https://github.com/NOJV-TW/NOJV/pull/PR)
+
+The CloudNativePG operator caches every ConfigMap in the namespaces it watches, and by default it watches all of them. The judge keeps hundreds of MB of ConfigMaps in `nojv-sandbox` (JDG-23, JDG-24). On 2026-10-19, 180 MB there kept the operator OOMKilled at its 200Mi limit (245 restarts). Its webhooks (`failurePolicy: Fail`) then had no ready endpoint, so a release patching `nojv-pg` would have failed. The operator Deployment now sets `WATCH_NAMESPACE=nojv`, the only namespace with CNPG resources. Its cache now syncs in under a second and its working set fell from 199Mi to 22Mi, independent of judge load.
+
+- Rejected: raising the operator's memory limit (its cache grows with judge load; orphaned payloads reached 367 MB on 2026-09-30); moving testcases out of ConfigMaps (reopens JDG-23 for an operator setting); setting `WATCH_NAMESPACE` in `cnpg-controller-manager-config` (1.30 builds its cache from environment variables before it reads that ConfigMap).
+- Rule: a namespace that gets CNPG resources is added to the comma-separated `WATCH_NAMESPACE`; operator installs and upgrades set it.
+- Code: `docs/runbooks/k8s-single-machine.md`
