@@ -5,6 +5,7 @@ import type { PageServerLoad, PageServerLoadEvent } from "./$types";
 import { requireAuth } from "$lib/server/auth";
 import { handleLoad } from "$lib/server/shared/load-wrapper";
 import { feedbackDomain, submissionDomain } from "@nojv/application";
+import { sanitizeSubmissionHistoryReturnTo } from "$lib/utils/submission-history";
 
 const { getSubmissionDetail } = submissionDomain;
 
@@ -20,6 +21,17 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
   );
 
   const ctx = submission.context;
+  const returnPath =
+    ctx.kind === "assignment"
+      ? `/assignments/${ctx.assignmentId}`
+      : ctx.kind === "exam"
+        ? `/exams/${ctx.examId}`
+        : null;
+  const eventUrl = (event as unknown as { url?: URL }).url;
+  const returnTo = sanitizeSubmissionHistoryReturnTo(
+    eventUrl?.searchParams.get("returnTo") ?? null,
+    returnPath ?? "",
+  );
   let feedbackContext: feedbackDomain.FeedbackContext | null = null;
   if (ctx.kind === "assignment") {
     feedbackContext = { type: "assignment", assignmentId: ctx.assignmentId };
@@ -39,5 +51,6 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
     submission,
     feedback,
     execution: await submissionDomain.getJudgeExecutionView(submissionId),
+    returnTo,
   };
 });

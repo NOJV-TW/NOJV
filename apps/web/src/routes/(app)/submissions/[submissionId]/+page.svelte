@@ -71,6 +71,17 @@
   const backTarget = $derived.by(() => {
     const ctx = submission.context;
     const problemId = submission.problem.id;
+    if (data.returnTo) {
+      return {
+        href: data.returnTo,
+        label:
+          ctx.kind === "assignment"
+            ? m.submissionDetail_backToAssignment()
+            : ctx.kind === "exam"
+              ? m.submissionDetail_backToExam()
+              : m.submissionDetail_backToProblem(),
+      };
+    }
     if (ctx.kind === "assignment") {
       return {
         href: `/assignments/${ctx.assignmentId}/problems/${problemId}`,

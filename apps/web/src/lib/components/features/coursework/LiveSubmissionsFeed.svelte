@@ -1,6 +1,7 @@
 <script lang="ts">
   import { createSubmissionHistory } from "$lib/services/submission-history.svelte";
-  import { goto } from "$app/navigation";
+  import { page } from "$app/state";
+  import { goto, replaceState } from "$app/navigation";
   import { m } from "$lib/paraglide/messages.js";
   import { formatDateTime } from "$lib/utils/datetime";
   import { formatVerdictLabel } from "$lib/utils/verdict-style";
@@ -10,6 +11,12 @@
   import VerdictBadge from "$lib/components/primitives/ui/VerdictBadge.svelte";
   import { ariaSort, sortDirection, toggleSort, type TableSort } from "$lib/utils/table-sort";
   import { isSubmissionPending, languageLabel, type Language } from "@nojv/core";
+  import {
+    parseSubmissionHistoryFilters,
+    submissionHistoryReturnTo,
+    submissionHistoryUrl,
+    type SubmissionHistoryFilters,
+  } from "$lib/utils/submission-history";
 
   interface SubmissionRow {
     id: string;
@@ -35,12 +42,16 @@
     visibleCount = $bindable(rows.length),
     totalCount = $bindable(rows.length),
   }: Props = $props();
-  let verdictFilter = $state("");
-  let languageFilter = $state("");
-  let problemFilter = $state("");
-  let userFilter = $state("");
-  let ipFilter = $state("");
-  let sort = $state<TableSort<"createdAt" | "score">>({ key: "createdAt", direction: "desc" });
+  const initialFilters = parseSubmissionHistoryFilters(page.url);
+  let verdictFilter = $state(initialFilters.verdict);
+  let languageFilter = $state(initialFilters.language);
+  let problemFilter = $state(initialFilters.problem);
+  let userFilter = $state(initialFilters.user);
+  let ipFilter = $state(initialFilters.ip);
+  let sort = $state<TableSort<"createdAt" | "score">>({
+    key: initialFilters.sort === "score" ? "score" : "createdAt",
+    direction: initialFilters.order === "asc" ? "asc" : "desc",
+  });
 
   const history = createSubmissionHistory<SubmissionRow>(
     () => {
@@ -70,8 +81,32 @@
     totalCount = history.totalCount;
   });
 
+  function currentFilters(): SubmissionHistoryFilters {
+    return {
+      user: userFilter,
+      ip: ipFilter,
+      problem: problemFilter,
+      language: languageFilter,
+      verdict: verdictFilter,
+      sort: sort.key === "createdAt" ? "" : sort.key,
+      order: sort.direction === "desc" ? "" : sort.direction,
+    };
+  }
+
+  $effect(() => {
+    if (typeof window === "undefined") return;
+    const currentUrl = new URL(window.location.href);
+    const nextUrl = submissionHistoryUrl(currentUrl, currentFilters());
+    const currentPath = `${currentUrl.pathname}${currentUrl.search}${currentUrl.hash}`;
+    const nextPath = `${nextUrl.pathname}${nextUrl.search}${nextUrl.hash}`;
+    if (currentPath !== nextPath) {
+      replaceState(nextPath, {});
+    }
+  });
+
   function openSubmission(id: string) {
-    void goto(`/submissions/${id}`);
+    const returnTo = submissionHistoryReturnTo(new URL(window.location.href), currentFilters());
+    void goto(`/submissions/${id}?${new URLSearchParams({ returnTo }).toString()}`);
   }
 
   function handleRowKeydown(event: KeyboardEvent, id: string) {

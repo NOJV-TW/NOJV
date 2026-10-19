@@ -19,6 +19,7 @@ vi.mock("@lucide/svelte", async () => ({
 
 const mocks = vi.hoisted(() => ({
   goto: vi.fn(),
+  replaceState: vi.fn(),
   read: vi.fn(),
   watch: vi.fn(() => () => undefined),
   callbacks: new Set<(signal: AbortSignal) => Promise<void>>(),
@@ -39,7 +40,10 @@ vi.mock("$lib/services/submission-tracker", () => ({
     };
   },
 }));
-vi.mock("$app/navigation", () => ({ goto: mocks.goto }));
+vi.mock("$app/navigation", () => ({
+  goto: mocks.goto,
+  replaceState: mocks.replaceState,
+}));
 
 import LiveSubmissionsFeed from "$lib/components/features/coursework/LiveSubmissionsFeed.svelte";
 
@@ -79,6 +83,9 @@ function page(items: typeof rows) {
 }
 beforeEach(() => {
   mocks.watch.mockClear();
+  mocks.replaceState.mockImplementation((url: string | URL) => {
+    window.history.replaceState({}, "", url);
+  });
   mocks.read.mockImplementation(async (url: string) => {
     const query = new URL(url, "http://localhost").searchParams;
     const userSearch = query.get("userSearch") ?? "";
@@ -94,13 +101,16 @@ beforeEach(() => {
 describe("LiveSubmissionsFeed", () => {
   afterEach(() => {
     mocks.goto.mockReset();
+    mocks.replaceState.mockReset();
     mocks.read.mockReset();
     mocks.callbacks.clear();
     vi.useRealTimers();
     vi.unstubAllGlobals();
+    window.history.replaceState({}, "", "/");
   });
 
   it("opens a submission from anywhere on the row with mouse or keyboard", async () => {
+    window.history.replaceState({}, "", "/assignments/assignment_1?tab=submissions");
     const target = document.createElement("div");
     document.body.append(target);
     const component = mount(LiveSubmissionsFeed, {
@@ -115,7 +125,9 @@ describe("LiveSubmissionsFeed", () => {
     row
       ?.querySelector("td:nth-child(2)")
       ?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    expect(mocks.goto).toHaveBeenLastCalledWith("/submissions/sub_1");
+    expect(mocks.goto).toHaveBeenLastCalledWith(
+      "/submissions/sub_1?returnTo=%2Fassignments%2Fassignment_1%3Ftab%3Dsubmissions",
+    );
 
     row?.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
     expect(mocks.goto).toHaveBeenCalledTimes(2);
@@ -125,6 +137,7 @@ describe("LiveSubmissionsFeed", () => {
   });
 
   it("combines verdict, language, problem, student number, and IP filters", async () => {
+    window.history.replaceState({}, "", "/assignments/assignment_1?tab=submissions");
     const target = document.createElement("div");
     document.body.append(target);
     const component = mount(LiveSubmissionsFeed, {
@@ -210,6 +223,16 @@ describe("LiveSubmissionsFeed", () => {
       ipSearch: "203.0.113.10",
     });
     expect(query.has("search")).toBe(false);
+    expect(window.location.search).toContain("status=accepted");
+    expect(window.location.search).toContain("language=cpp");
+    expect(window.location.search).toContain("filterProblemId=p1");
+    expect(window.location.search).toContain("userSearch=student01");
+    expect(window.location.search).toContain("ipSearch=203.0.113.10");
+
+    target.querySelector<HTMLTableRowElement>("tbody tr")!.click();
+    expect(mocks.goto).toHaveBeenLastCalledWith(
+      "/submissions/sub_1?returnTo=%2Fassignments%2Fassignment_1%3Ftab%3Dsubmissions%26userSearch%3Dstudent01%26ipSearch%3D203.0.113.10%26filterProblemId%3Dp1%26language%3Dcpp%26status%3Daccepted",
+    );
 
     await setTextFilter(m.submissions_filterIp(), "live-submissions-ip-search", "192.0.2.1");
     await vi.waitFor(() => expect(target.textContent).toContain(m.submissions_noMatches()));
