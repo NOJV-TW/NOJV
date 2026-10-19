@@ -242,7 +242,7 @@ Withdrawn 2026-10 (#645): with server-side Test gone (JDG-15) the worker image c
 
 ### OPS-22 The CNPG operator watches only the application namespace
 
-**Decided:** 2026-10 · **Source:** [#PR](https://github.com/NOJV-TW/NOJV/pull/PR)
+**Decided:** 2026-10 · **Source:** [#654](https://github.com/NOJV-TW/NOJV/pull/654)
 
 The CloudNativePG operator caches every ConfigMap in the namespaces it watches, and by default it watches all of them. The judge keeps hundreds of MB of ConfigMaps in `nojv-sandbox` (JDG-23, JDG-24). On 2026-10-19, 180 MB there kept the operator OOMKilled at its 200Mi limit (245 restarts). Its webhooks (`failurePolicy: Fail`) then had no ready endpoint, so a release patching `nojv-pg` would have failed. The operator Deployment now sets `WATCH_NAMESPACE=nojv`, the only namespace with CNPG resources. Its cache now syncs in under a second and its working set fell from 199Mi to 22Mi, independent of judge load.
 
