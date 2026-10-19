@@ -435,6 +435,26 @@ The origin must be reachable only through Cloudflare, because the app trusts
   `registry.nojv.tw` to `http://nojv-registry.nojv.svc.cluster.local:5000`.
 - **GKE:** see below.
 
+### Edge Fallback Worker
+
+The `nojv-maintenance` Cloudflare Worker
+([NOJV-TW/nojv-maintenance](https://github.com/NOJV-TW/nojv-maintenance),
+deployed by Workers Builds on push to `main`) forwards requests unchanged. Only
+when Cloudflare reports the origin unreachable (502, 520–526, 530) does it answer
+with a 503 maintenance page, or JSON when `Accept` lacks `text/html` (OPS-23).
+Routes and the failure mode live in the Cloudflare dashboard, not in either repo:
+
+| Route                                                  | Worker                        |
+| ------------------------------------------------------ | ----------------------------- |
+| `nojv.tw/*`                                            | `nojv-maintenance`, fail open |
+| `nojv.tw/api/*`, `nojv.tw/_app/*`, `nojv.tw/wasm-oj/*` | none                          |
+
+The account is on Workers Free: 100,000 requests per day, reset at 00:00 UTC.
+The Worker sees page loads and `__data.json` only. When the origin is down,
+the excluded paths get Cloudflare's default error page. If the quota still runs
+out, fail open sends requests straight to the origin and the fallback is missing
+until the reset.
+
 ### Cloudflare + Cloud Armor Setup
 
 1. **DNS:** a proxied (orange-cloud) record for the public host and the registry
