@@ -31,7 +31,7 @@
     assessmentSubTabHref,
     parseAssessmentSubTab,
   } from "$lib/components/features/coursework/assessment-tab-state";
-  import { fmtDate } from "$lib/utils/datetime.js";
+  import { fmtDate, serverNow } from "$lib/utils/datetime.js";
   import type { ActionData, PageData } from "./$types";
 
   let { data, form }: { data: PageData; form: ActionData } = $props();
@@ -41,10 +41,10 @@
   const hasActiveSession = $derived(data.hasActiveSession ?? false);
   const isManager = $derived(data.isManager);
 
-  let nowMs = $state(Date.now());
+  let nowMs = $state(serverNow());
   $effect(() => {
     const id = setInterval(() => {
-      nowMs = Date.now();
+      nowMs = serverNow();
     }, 1000);
     return () => clearInterval(id);
   });

@@ -2,14 +2,15 @@
   import { goto } from "$app/navigation";
   import ProblemSolveView from "$lib/components/features/problem/views/ProblemSolveView.svelte";
   import { m } from "$lib/paraglide/messages.js";
+  import { serverNow } from "$lib/utils/datetime.js";
 
   let { data } = $props();
 
-  let now = $state(new Date());
+  let now = $state(new Date(serverNow()));
 
   $effect(() => {
     const interval = setInterval(() => {
-      now = new Date();
+      now = new Date(serverNow());
     }, 1000);
     return () => clearInterval(interval);
   });

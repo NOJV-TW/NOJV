@@ -33,7 +33,7 @@
     problemLetter,
   } from "$lib/components/features/contest/format";
   import { contestScoringLabel } from "$lib/utils/contest-scoring";
-  import { fmtDate } from "$lib/utils/datetime.js";
+  import { fmtDate, serverNow } from "$lib/utils/datetime.js";
 
   let { data } = $props();
   let contest = $derived(data.contest);
@@ -51,10 +51,10 @@
 
   let joining = $state(false);
 
-  let now = $state(new Date());
+  let now = $state(new Date(serverNow()));
   onMount(() => {
     const id = setInterval(() => {
-      now = new Date();
+      now = new Date(serverNow());
     }, 1000);
     return () => clearInterval(id);
   });

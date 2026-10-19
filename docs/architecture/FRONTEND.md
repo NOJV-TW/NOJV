@@ -150,6 +150,7 @@ Security headers, CSP and exam rules are specified in [Security Requirements](..
 - Markdown: `MarkdownRenderer` → `lib/utils/markdown.ts` (`marked` + KaTeX + DOMPurify); remote HTTPS images rewrite to `/api/images/proxy` at render time.
 - Charts: ECharts, lazily imported by `primitives/charts/EChart.svelte`.
 - Dates: `formatDateTime` / `formatDate` / `formatTime` in `lib/utils/datetime.ts` bind `Intl.DateTimeFormat` to the active locale; do not call bare `toLocale*`.
+- Clock: time-window UI (exam overview status and start button, `WorkspaceTimer`, contest and virtual-contest pages, `Countdown`, `AssignmentCard`) reads `serverNow()` from `lib/utils/datetime.ts`, never `Date.now()`. The root `+layout.ts` calls `syncServerClock` with the root layout's `serverNow` whenever that server data loads, so a wrong device clock or time zone does not open, block or end a window early. The server still enforces every window.
 - `(app)/+layout.svelte` starts the submission tracker, SSE, notifications and onboarding tours.
 
 ## Submission tracking

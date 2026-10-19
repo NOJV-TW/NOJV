@@ -4,5 +4,6 @@ export const load: LayoutServerLoad = ({ locals }) => {
   return {
     session: locals.session,
     user: locals.sessionUser,
+    serverNow: Date.now(),
   };
 };
