@@ -97,11 +97,13 @@ Automatic Helm rollback stays off: after a one-way migration the previous revisi
 
 ## Node disk pressure or CNPG unavailable
 
-Symptoms: releases stall on the old version; the migrator hook fails with `BackoffLimitExceeded`; `no endpoints available for cnpg-webhook-service`; pods `Evicted`; `nojv-node-disk-usage` or `nojv-pg-not-ready` firing.
+Symptoms: releases stall on the old version; the migrator hook fails with `BackoffLimitExceeded`; `no endpoints available for cnpg-webhook-service`; pods `Evicted`; the CNPG operator in `CrashLoopBackOff`; `nojv-node-disk-usage` or `nojv-pg-not-ready` firing.
 
 1. Confirm disk: `df -h` on the node and `DiskPressure` in `kubectl describe node`.
 2. Reclaim space: `sudo k3s crictl rmi --prune`, then oversized logs and orphaned volumes. Check the kubelet image GC drop-in is installed ([Single-Machine k3s](k8s-single-machine.md#kubelet-image-gc)).
 3. Restart the CNPG operator (`kubectl -n cnpg-system rollout restart deploy/cnpg-controller-manager`), then the `nojv-pg` instance pod. Wait for `kubectl cnpg status nojv-pg -n nojv` healthy and webhook endpoints present.
+   - An operator `OOMKilled` or failing liveness without disk pressure is caching too many ConfigMaps (`kubectl get cm -A -o json | wc -c`; the judge keeps hundreds of MB in `nojv-sandbox`). Check `kubectl -n cnpg-system get deploy cnpg-controller-manager -o jsonpath='{.spec.template.spec.containers[0].env}'` includes `WATCH_NAMESPACE=nojv` and set it as in [Single-Machine k3s](k8s-single-machine.md#cloudnativepg-operator).
+   - The webhook accepts requests when `kubectl -n nojv patch cluster nojv-pg --type merge -p '{}' --dry-run=server` succeeds.
 4. If the release is wedged, inspect the target with `helm get manifest nojv --revision <revision> -n nojv`. Roll back only if all three app Deployments carry `nojv.tw/schema-contract: versioned-storage-v1` and `nojv.tw/course-roster-contract: membership-v1`, then `helm rollback nojv <revision> -n nojv --wait --timeout 125m`. The schema fence denies pre-contract images.
 5. If no contract-compatible revision exists, keep workloads in maintenance and ship a forward fix once the database and operator recover. Never delete or bypass the schema fence.
 6. Re-run the release and confirm `/api/release` reports the new version.

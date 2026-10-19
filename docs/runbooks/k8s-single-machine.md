@@ -170,11 +170,16 @@ kubectl -n cnpg-system create configmap cnpg-controller-manager-config \
   --dry-run=client -o yaml | kubectl apply -f -
 kubectl apply --server-side --force-conflicts -f \
   https://raw.githubusercontent.com/cloudnative-pg/cloudnative-pg/release-1.30/releases/cnpg-1.30.1.yaml
+kubectl -n cnpg-system set env deploy/cnpg-controller-manager WATCH_NAMESPACE=nojv
 kubectl -n cnpg-system rollout status deploy/cnpg-controller-manager
 ```
 
-Production runs 1.30.1. The same two commands upgrade the operator (the
-ConfigMap must exist before the new operator starts). With in-place updates the
+Production runs 1.30.1. The same commands upgrade the operator (the
+ConfigMap must exist before the new operator starts). The operator watches only
+`nojv` (OPS-22): it caches every ConfigMap in the namespaces it watches, and the
+judge's ConfigMaps in `nojv-sandbox` would OOMKill it at its 200Mi limit.
+`WATCH_NAMESPACE` must be a Deployment environment variable; the operator reads
+`cnpg-controller-manager-config` only after it has built its cache. With in-place updates the
 operator swaps the instance manager inside the running Postgres pod instead of
 restarting it: confirm the pod UID, `restartCount` and `pg_postmaster_start_time()`
 are unchanged and the operator log says `Instance manager has been upgraded`.

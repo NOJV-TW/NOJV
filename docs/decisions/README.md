@@ -191,6 +191,7 @@ Durable decisions for NOJV, grouped by area. Each entry records what was decided
 - OPS-19 Single-machine Temporal is one pod per role, reproduced from the repo
 - OPS-20 The web image ships production dependencies only
 - OPS-21 Withdrawn: the worker image carried the WASM-OJ runtime as stable layers
+- OPS-22 The CNPG operator watches only the application namespace
 
 ## [Engineering practice](engineering.md)
 
