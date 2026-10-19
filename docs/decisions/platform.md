@@ -249,3 +249,14 @@ The CloudNativePG operator caches every ConfigMap in the namespaces it watches, 
 - Rejected: raising the operator's memory limit (its cache grows with judge load; orphaned payloads reached 367 MB on 2026-09-30); moving testcases out of ConfigMaps (reopens JDG-23 for an operator setting); setting `WATCH_NAMESPACE` in `cnpg-controller-manager-config` (1.30 builds its cache from environment variables before it reads that ConfigMap).
 - Rule: a namespace that gets CNPG resources is added to the comma-separated `WATCH_NAMESPACE`; operator installs and upgrades set it.
 - Code: `docs/runbooks/k8s-single-machine.md`
+
+### OPS-23 The edge fallback Worker covers page loads only
+
+**Decided:** 2026-10 · **Source:** [#655](https://github.com/NOJV-TW/NOJV/pull/655)
+
+The `nojv-maintenance` Worker on `nojv.tw/*` replaces Cloudflare's origin-error pages with a NOJV maintenance page. The account is on Workers Free (100,000 requests per day), and exam days used up the quota: 115,148 invocations on 2026-10-05, and 96,534 by 15:00 Taipei on 2026-10-19. On 2026-10-19 from 08:00 to 16:00 Taipei, `/api/*`, `/_app/*` and `/wasm-oj/*` made up 89% of the requests the Worker would see. Submission polling (60,802 requests to `/api/submissions/pending`) and draft autosave (39,812 to `/api/drafts`) led. Those three paths now have routes with no Worker, so the quota goes to page loads and `__data.json`, where a maintenance page helps users.
+
+- Rejected: Workers Paid at $5 a month (it keeps the JSON fallback for API calls, but pays for traffic that gains little from it); fail closed (an exhausted quota would serve error 1027 for the whole site while the origin is healthy).
+- Rule: the `nojv.tw/*` route stays fail open.
+- Rule: a new high-volume path (polling, streaming or static assets) gets a route with no Worker; page and `__data.json` paths stay on the Worker.
+- Code: `NOJV-TW/nojv-maintenance`; routes in the Cloudflare dashboard (Workers Routes for `nojv.tw`)

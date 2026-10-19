@@ -192,6 +192,7 @@ Durable decisions for NOJV, grouped by area. Each entry records what was decided
 - OPS-20 The web image ships production dependencies only
 - OPS-21 Withdrawn: the worker image carried the WASM-OJ runtime as stable layers
 - OPS-22 The CNPG operator watches only the application namespace
+- OPS-23 The edge fallback Worker covers page loads only
 
 ## [Engineering practice](engineering.md)
 
