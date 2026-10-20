@@ -82,8 +82,12 @@ export function sanitizeSubmissionHistoryReturnTo(
 ): string | null {
   if (!value || !value.startsWith("/") || value.startsWith("//")) return null;
 
-  const url = new URL(value, "http://nojv.local");
-  if (url.origin !== "http://nojv.local" || stripLocalePrefix(url.pathname) !== allowedPath) {
+  const url = URL.parse(value, "http://nojv.local");
+  if (
+    !url ||
+    url.origin !== "http://nojv.local" ||
+    stripLocalePrefix(url.pathname) !== allowedPath
+  ) {
     return null;
   }
   return `${url.pathname}${url.search}${url.hash}`;

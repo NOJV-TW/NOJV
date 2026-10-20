@@ -3,6 +3,7 @@
 import { mount, tick, unmount } from "svelte";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { m } from "$lib/paraglide/messages.js";
+import { page as appPage } from "$app/state";
 
 vi.mock("$lib/components/primitives/ui/select/select-content.svelte", async () => ({
   default: (await import("../../fixtures/web/select-content.svelte")).default,
@@ -107,6 +108,36 @@ describe("LiveSubmissionsFeed", () => {
     vi.useRealTimers();
     vi.unstubAllGlobals();
     window.history.replaceState({}, "", "/");
+    appPage.url = new URL("http://localhost/");
+  });
+
+  it("restores filters and sorting when returning to the assessment URL", async () => {
+    const path =
+      "/assignments/assignment_1?tab=submissions&userSearch=student01&ipSearch=203.0.113.10&filterProblemId=p1&language=cpp&status=accepted&sort=score&order=asc";
+    window.history.replaceState({}, "", path);
+    appPage.url = new URL(window.location.href);
+    const target = document.createElement("div");
+    document.body.append(target);
+    const component = mount(LiveSubmissionsFeed, {
+      target,
+      props: { rows, refreshUrl: "/api/submissions?context=assignment&id=assignment_1" },
+    });
+    await vi.waitFor(() => {
+      const query = new URL(mocks.read.mock.lastCall?.[0], "http://localhost").searchParams;
+      expect(Object.fromEntries(query)).toMatchObject({
+        userSearch: "student01",
+        ipSearch: "203.0.113.10",
+        filterProblemId: "p1",
+        language: "cpp",
+        status: "accepted",
+        sort: "score",
+        order: "asc",
+      });
+    });
+    expect(target.querySelector('th[aria-sort="ascending"]')).not.toBeNull();
+    expect(window.location.search).toContain("userSearch=student01");
+    await unmount(component);
+    target.remove();
   });
 
   it("opens a submission from anywhere on the row with mouse or keyboard", async () => {

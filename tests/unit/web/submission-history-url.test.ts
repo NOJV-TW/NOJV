@@ -7,6 +7,10 @@ import {
 } from "$lib/utils/submission-history";
 
 describe("submission history URL state", () => {
+  it("ignores malformed return URLs without failing the detail page", () => {
+    expect(sanitizeSubmissionHistoryReturnTo("/\\[", "/exams/exam_1")).toBeNull();
+  });
+
   it("round-trips filters without dropping the current assessment tab", () => {
     const current = new URL("http://localhost/exams/exam_1?tab=submissions");
     const filters = parseSubmissionHistoryFilters(
