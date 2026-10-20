@@ -161,6 +161,7 @@ Security headers, CSP and exam rules are specified in [Security Requirements](..
 - Routes carrying submission data call `depends("submission:data")`. The tracker invalidates them only when a submission differs from its last observed state (on first observation, from the state a watching page says it rendered), the pending set changes, an SSE verdict names an unseen submission, a rejudge finishes or a caller requests it; an invalidate due during navigation waits for the navigation to settle. Teacher edit drafts and grading revisions survive refresh; configuration forms ignore page-data rebinding.
 - Workspace history loads cursor batches of 50 on scroll; teacher and standalone histories use numbered 50-row pages anchored to a time/id snapshot and ordered on the server by time (newest first by default) or stored `Submission.score` (`/api/submissions?sort=score&order=asc`). The snapshot fixes the row set, not the order: pending rows sort as score 0 and queued rejudges by their retained score. New rows appear behind an explicit "view latest" prompt.
 - Batch rejudge dialogs recover progress for active rejudges from `GET /api/rejudges`.
+- Assignment and exam management submission histories preserve filters and sorting in the assessment URL. Opening a submission carries a return URL; the detail page accepts only a valid same-origin path for that submission's assessment, including supported locale prefixes.
 
 ## Real-time events
 
