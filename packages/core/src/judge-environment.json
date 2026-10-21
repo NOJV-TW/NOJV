@@ -1,8 +1,8 @@
 {
   "platform": {
     "name": "Alpine Linux",
-    "version": "3.24.1",
-    "nodeVersion": "24.18.0"
+    "version": "3.24.2",
+    "nodeVersion": "24.22.1"
   },
   "apkPackages": {
     "bash": "5.3.9-r1",
