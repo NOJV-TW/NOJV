@@ -12,7 +12,7 @@ is in the [Deployment Guide](../operations/DEPLOYMENT.md#environment-variables).
 ## 1. Prerequisites
 
 ```bash
-node -v   # >= 24.18.0 < 25
+node -v   # >= 24.22.1 < 25
 pnpm -v   # 12.9.1
 docker -v # daemon running
 ```

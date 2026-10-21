@@ -1,4 +1,4 @@
-FROM node:24-alpine@sha256:a0b9bf06e4e6193cf7a0f58816cc935ff8c2a908f81e6f1a95432d679c54fbfd AS builder
+FROM node:24.22.1-alpine@sha256:6a1c190e17215d844926b0677f4bf87273ff7d5e54db06d3b5b5863ab0b09a3d AS builder
 
 RUN npm install -g pnpm@12.9.1
 
@@ -24,7 +24,7 @@ RUN mkdir -p /judge-toolchain/node_modules/@types \
   && cp -RL "$(pnpm root -w)/typescript" /judge-toolchain/node_modules/typescript \
   && cp -RL "$(pnpm root -w)/@types/node" /judge-toolchain/node_modules/@types/node
 
-FROM node:24-alpine@sha256:a0b9bf06e4e6193cf7a0f58816cc935ff8c2a908f81e6f1a95432d679c54fbfd
+FROM node:24.22.1-alpine@sha256:6a1c190e17215d844926b0677f4bf87273ff7d5e54db06d3b5b5863ab0b09a3d
 
 COPY packages/core/src/judge-environment.json /runner/judge-environment.json
 
