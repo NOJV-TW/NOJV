@@ -279,3 +279,24 @@ describe("health probe hook boundary", () => {
     expect(apiRequestRecord).not.toHaveBeenCalled();
   });
 });
+
+describe("ambiguous request path guard", () => {
+  it.each(["GET", "POST"])(
+    "rejects %s double-slash paths before auth or route resolution",
+    async (method) => {
+      const event = routeEvent("http://localhost:5173//attacker.example/login");
+      event.request = new Request(event.url, { method });
+      const resolve = vi.fn().mockResolvedValue(new Response("resolved"));
+
+      const response = await handle({ event, resolve });
+
+      expect(event.url.origin).toBe("http://localhost:5173");
+      expect(event.url.pathname).toBe("//attacker.example/login");
+      expect(response.status).toBe(400);
+      expect(response.headers.get("location")).toBeNull();
+      expect(response.headers.get("x-content-type-options")).toBe("nosniff");
+      expect(getAuth).not.toHaveBeenCalled();
+      expect(resolve).not.toHaveBeenCalled();
+    },
+  );
+});

@@ -491,6 +491,13 @@ const runHandle = async ({ event, resolve }: Parameters<Handle>[0]): Promise<Res
   event.locals.adminAccessActive = false;
   event.locals.examGate = null;
 
+  if (event.url.pathname.startsWith("//")) {
+    return new Response("Invalid request path", {
+      status: 400,
+      headers: { "x-request-id": event.locals.requestId },
+    });
+  }
+
   if (isPublicSystemPath(event.url.pathname)) {
     const response = await resolve(event);
     response.headers.set("x-request-id", event.locals.requestId);

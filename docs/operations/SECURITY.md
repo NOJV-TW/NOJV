@@ -218,6 +218,14 @@ Advanced Mode (JDG-16, JDG-17, SEC-14, PRB-12):
 
 CI runs `pnpm audit --audit-level high` as a blocking gate alongside CodeQL (OPS-13). There is no suppression list; lagging upstream ranges are pinned to patched versions through `overrides` in `pnpm-workspace.yaml`. Review monthly and drop overrides once upstreams ship the fix.
 
+SvelteKit v2 remains subject to two low-severity package advisories. The request
+hook rejects parsed pathnames starting with `//` before auth and route resolution,
+following the [enhanced-form redirect advisory](https://github.com/advisories/GHSA-pfhg-q3qv-9q6r).
+The app does not prerender pages or forward untrusted `cache-control` values into
+`setHeaders`, so it does not expose the [prerender header injection](https://github.com/advisories/GHSA-27mw-82g8-phjj)
+condition. These findings remain visible in `pnpm audit`; the package-level fix
+requires SvelteKit v3. Migration is tracked in the [quality ledger](QUALITY_SCORE.md).
+
 ## Review Expectations
 
 Flag for security review when a change:

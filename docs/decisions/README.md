@@ -109,6 +109,7 @@ Durable decisions for NOJV, grouped by area. Each entry records what was decided
 - SEC-13 Rejudge control accepts only rejudge workflows owned by the caller or an admin
 - SEC-14 Advanced-mode `/output` capture never dereferences student paths
 - SEC-15 Withdrawn: server-judged Test ran only problem samples, from server-side data
+- SEC-16 Reject double-slash request paths before authentication
 
 ## [Web application](web.md)
 

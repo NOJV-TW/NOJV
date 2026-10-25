@@ -117,7 +117,7 @@ The HTTP API reference is the OpenAPI document (`/api/openapi.public.json`, `/ap
 
 `handle` in `hooks.server.ts` runs in this order; importing `$lib/server/otel` must stay first.
 
-1. Assign `x-request-id` (valid incoming id or UUID). `/api/livez`, `/api/readyz`, `/api/release` resolve immediately.
+1. Assign `x-request-id` (valid incoming id or UUID). Reject a parsed pathname starting with `//` with 400 before authentication or route resolution (SEC-16). `/api/livez`, `/api/readyz`, `/api/release` resolve immediately.
 2. Strip a `/zh-TW` path prefix for path-based checks.
 3. Bearer API token: only routes allowed by `apiTokenDomain.findApiTokenRouteRule`, else 403 (SEC-07).
 4. CSRF (`enforceCsrf`): for non-GET/HEAD/OPTIONS, form content types must be same-origin (Origin required); `/api/**` additionally rejects a foreign Origin and, outside `/api/auth`, requires `X-Requested-With: fetch` (`fetchWithCsrf` sets it). Token-authenticated allowed routes and `/api/registry/token` are exempt. SvelteKit's own origin check is disabled in `svelte.config.js` for the registry endpoint.

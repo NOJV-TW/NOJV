@@ -62,6 +62,10 @@ Work that is known, not done, and not covered by an in-flight plan. Remove an it
 
 - The GKE Temporal values (`infra/gcp/gke/temporal/helm-values.ha.yaml`) are an unvalidated reference: never installed on a cluster, and HA only on a regional Cloud SQL instance behind a Cloud SQL proxy that the repository neither provisions nor checks ([Temporal HA](../../infra/gcp/gke/temporal/HA-PRODUCTION.md)). Single-machine Temporal runs one pod per role by decision (OPS-19); its restart drill is recorded in the baseline.
 
+### Dependency maintenance
+
+- Migrate SvelteKit v2 to v3 to remove the two remaining low-severity package advisories. Preserve the request-path guard and review framework configuration, adapter origin handling, navigation APIs and form behavior during migration. Current exposure controls are in [Security](SECURITY.md#dependency-advisories); implementation source: [#659](https://github.com/NOJV-TW/NOJV/pull/659).
+
 ### Code and product
 
 - SonarQube reports 83 functions over the cognitive complexity limit (rule S3776, threshold 15). The worst are the better-auth `hooks.before` middleware in `apps/web/src/lib/auth.server.ts` (77), `scripts/judge-benchmark.ts` (72), `scripts/check-supply-chain-policy.mjs` (63) and `durableJudgeWorkflow` (61; any split must keep replay determinism).
