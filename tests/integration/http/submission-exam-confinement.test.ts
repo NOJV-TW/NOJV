@@ -127,6 +127,7 @@ describe("exam work is denied by the domain even with page lock disabled", () =>
         await callRoute({
           path: "/api/submissions",
           method: "POST",
+          headers: { origin: "http://localhost:5173" },
           user: student,
           module: submissionHistoryRoute,
           body: { ...body, sampleOnly: true },
@@ -134,6 +135,7 @@ describe("exam work is denied by the domain even with page lock disabled", () =>
         await callRoute({
           path: "/api/drafts",
           method: "PUT",
+          headers: { origin: "http://localhost:5173" },
           user: student,
           module: draftsRoute,
           body,
@@ -231,6 +233,7 @@ async function callSubmissionPoint(user: { id: string }, submissionId: string, m
   return callRoute({
     path: `/api/submissions/${submissionId}`,
     method,
+    headers: { origin: "http://localhost:5173" },
     module: submissionPointRoute,
     params: { id: submissionId },
     user,
@@ -281,6 +284,7 @@ describe("submission confinement at the real hooks/API boundary", () => {
       await callRoute({
         path: `/api/submissions/${current.id}/rejudge`,
         method: "POST",
+        headers: { origin: "http://localhost:5173" },
         module: submissionRejudgeRoute,
         params: { id: current.id },
         user: student,

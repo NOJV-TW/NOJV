@@ -190,7 +190,7 @@
           toasts.success(
             m.admin_usersRoleUpdateSuccess({ username: name, to: roleLabel(targetRole) }),
           );
-          await update();
+          await update({ navigate: false });
         } else if (result.type === "failure") {
           formElement.reset();
           const err =
@@ -198,7 +198,7 @@
             m.admin_usersRoleUpdateFailed();
           toasts.error(err);
         } else {
-          await update();
+          await update({ navigate: false });
         }
       };
     };
@@ -215,7 +215,7 @@
               ? m.admin_usersAdvancedGrantSuccess({ username: name })
               : m.admin_usersAdvancedRevokeSuccess({ username: name }),
           );
-          await update();
+          await update({ navigate: false });
         } else if (result.type === "failure") {
           formElement.reset();
           const err =
@@ -223,7 +223,7 @@
             m.admin_usersAdvancedUpdateFailed();
           toasts.error(err);
         } else {
-          await update();
+          await update({ navigate: false });
         }
       };
     };
@@ -251,13 +251,13 @@
       if (result.type === "success") {
         const affected = Number(result.data?.affected ?? 0);
         toasts.success(successMessage(affected));
-        await update();
+        await update({ navigate: false });
       } else if (result.type === "failure") {
         const err =
           (result.data as { error?: string } | undefined)?.error ?? m.admin_usersBulkFailed();
         toasts.error(err);
       } else {
-        await update();
+        await update({ navigate: false });
       }
     };
   }
@@ -605,14 +605,14 @@
                             ? m.admin_usersDisableSuccess({ username: name })
                             : m.admin_usersEnableSuccess({ username: name }),
                         );
-                        await update();
+                        await update({ navigate: false });
                       } else if (result.type === "failure") {
                         const err =
                           (result.data as { error?: string } | undefined)?.error ??
                           m.admin_usersDisableFailed();
                         toasts.error(err);
                       } else {
-                        await update();
+                        await update({ navigate: false });
                       }
                     };
                   }}
@@ -640,14 +640,14 @@
                     return async ({ result, update }) => {
                       if (result.type === "success") {
                         toasts.success(m.admin_usersDeleteSuccess({ username: name }));
-                        await update();
+                        await update({ navigate: false });
                       } else if (result.type === "failure") {
                         const err =
                           (result.data as { error?: string } | undefined)?.error ??
                           m.admin_usersDeleteFailed();
                         toasts.error(err);
                       } else {
-                        await update();
+                        await update({ navigate: false });
                       }
                     };
                   }}

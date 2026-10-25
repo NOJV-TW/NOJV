@@ -21,7 +21,9 @@ SvelteKit v3 and adapter-node v6 are configured in `apps/web/vite.config.ts`.
 Internal imports use the native `#lib/*` package imports with explicit extensions.
 `src/env.ts` declares runtime environment exports; the existing server Zod schema
 validates private settings. Navigation uses `refreshAll`, `reset` and `replace`;
-unknown return destinations use full browser navigation. Expected framework errors
+unknown return destinations use full browser navigation. Same-page enhanced actions
+use `update({ navigate: false })` so named actions preserve the selected query tab
+and filters. Expected framework errors
 retain their safe status/message, while unexpected server errors are sanitized.
 
 The Helm web deployment sets `PROTOCOL_HEADER=x-forwarded-proto`; the trusted

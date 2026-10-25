@@ -72,7 +72,7 @@
               typeof result.data?.error === "string" ? result.data.error : m.error_unexpected();
             return;
           }
-          await update();
+          await update({ navigate: false });
           if (result.type === "success") {
             open = false;
           }

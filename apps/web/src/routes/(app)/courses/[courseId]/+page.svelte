@@ -186,7 +186,7 @@
                             );
                             return;
                           }
-                          await update();
+                          await update({ navigate: false });
                         };
                       }}
                     >
@@ -460,7 +460,7 @@
           );
           return;
         }
-        await update();
+        await update({ navigate: false });
         if (result.type === "success") pendingDeleteId = null;
       };
     }}

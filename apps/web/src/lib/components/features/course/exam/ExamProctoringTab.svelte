@@ -338,7 +338,7 @@
                           failed = null;
                           return async ({ result, update }) => {
                             busy = null;
-                            if (result.type === "success") await update();
+                            if (result.type === "success") await update({ navigate: false });
                             else failed = row.userId;
                           };
                         }}
@@ -370,7 +370,13 @@
                   {#if row.userId}
                     <div class="flex gap-2">
                       {#if row.state !== "submitted" && (row.ipPin || row.violations.length > 0)}
-                        <form method="POST" action="?/resetStudentIpBinding" use:enhance>
+                        <form
+                          method="POST"
+                          action="?/resetStudentIpBinding"
+                          use:enhance={() =>
+                            ({ update }) =>
+                              update({ navigate: false })}
+                        >
                           <input type="hidden" name="targetUserId" value={row.userId} />
                           <Button type="submit" variant="outline" size="sm"
                             >{m.examProctoring_resetIpBinding()}</Button
@@ -378,7 +384,13 @@
                         </form>
                       {/if}
                       {#if pageLockEnabled && row.session}
-                        <form method="POST" action="?/releaseStudentSession" use:enhance>
+                        <form
+                          method="POST"
+                          action="?/releaseStudentSession"
+                          use:enhance={() =>
+                            ({ update }) =>
+                              update({ navigate: false })}
+                        >
                           <input type="hidden" name="targetUserId" value={row.userId} />
                           <Button type="submit" variant="outline" size="sm"
                             >{m.examProctoring_release()}</Button

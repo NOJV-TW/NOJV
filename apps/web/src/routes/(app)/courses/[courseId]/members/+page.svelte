@@ -214,7 +214,7 @@
                               return async ({ result, update }) => {
                                 try {
                                   if (result.type === "success") {
-                                    await update({ reset: false });
+                                    await update({ reset: false, navigate: false });
                                     editingMembershipId = null;
                                     toasts.success(m.members_usernameCorrected());
                                   } else {

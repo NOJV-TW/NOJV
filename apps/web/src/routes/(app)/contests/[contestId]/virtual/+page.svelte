@@ -81,7 +81,7 @@
           use:enhance={() => {
             starting = true;
             return async ({ update }) => {
-              await update();
+              await update({ navigate: false });
               starting = false;
             };
           }}

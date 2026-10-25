@@ -77,7 +77,7 @@
             submitting = false;
             if (result.type === "success" || result.type === "redirect") {
               open = false;
-              await update();
+              await update({ navigate: false });
             } else {
               error = m.examMode_submitEndFailed();
             }

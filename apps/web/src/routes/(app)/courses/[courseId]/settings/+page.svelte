@@ -264,7 +264,7 @@
               );
             }
             await applyAction(result);
-            await update({ reset: false });
+            await update({ reset: false, navigate: false });
           };
         }}
       >
@@ -349,7 +349,7 @@
               toasts.success(m.courseSettings_copySuccess());
             }
             await applyAction(result);
-            await update({ reset: false });
+            await update({ reset: false, navigate: false });
           };
         }}
         class="space-y-5"
@@ -442,7 +442,7 @@
             toasts.success(m.courseSettings_deleteSuccess());
           }
           await applyAction(result);
-          await update({ reset: false });
+          await update({ reset: false, navigate: false });
         };
       }}
       class="space-y-4"

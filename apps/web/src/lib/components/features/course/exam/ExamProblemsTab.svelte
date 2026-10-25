@@ -204,7 +204,7 @@
     action="?/updateProblems"
     use:enhance={() =>
       ({ update }) =>
-        update({ reset: false })}
+        update({ reset: false, navigate: false })}
     class="space-y-3"
   >
     {#if ids.length === 0}

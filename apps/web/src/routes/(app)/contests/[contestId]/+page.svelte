@@ -128,7 +128,7 @@
             );
             return;
           }
-          await update();
+          await update({ navigate: false });
         };
       }}
     >

@@ -81,7 +81,7 @@
           adding = true;
           return async ({ update }) => {
             try {
-              await update();
+              await update({ navigate: false });
             } finally {
               adding = false;
             }
@@ -229,7 +229,7 @@
                   removingId = problem.id;
                   return async ({ update }) => {
                     try {
-                      await update();
+                      await update({ navigate: false });
                     } finally {
                       removingId = null;
                     }

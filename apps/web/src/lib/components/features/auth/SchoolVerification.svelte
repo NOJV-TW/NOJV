@@ -106,7 +106,7 @@
                 const parsed = actionErrorSchema.safeParse(result.data);
                 error = parsed.success ? parsed.data.error : m.account_sendVerificationFailed();
               } else {
-                await update();
+                await update({ navigate: false });
               }
             };
           }}
@@ -164,7 +164,7 @@
                     ? parsed.data.error
                     : m.account_sendVerificationFailed();
                 } else {
-                  await update();
+                  await update({ navigate: false });
                 }
               };
             }}

@@ -59,7 +59,7 @@
         securityEmailOpen = false;
         securityEmailValue = "";
       }
-      await update({ reset: false });
+      await update({ reset: false, navigate: false });
     };
   };
 
@@ -138,7 +138,7 @@
             m.account_connections_unlinked({ provider: providerLabel[provider] ?? provider }),
           );
         }
-        await update();
+        await update({ navigate: false });
       };
     };
   }
@@ -188,7 +188,7 @@
         return;
       }
       deleteOpen = false;
-      await update();
+      await update({ navigate: false });
     };
   };
 

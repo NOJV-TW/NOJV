@@ -122,7 +122,7 @@
           errorMessage = null;
           submitting = true;
           return async ({ result, update }) => {
-            await update();
+            await update({ navigate: false });
             if (result.type === "success") {
               onOpenChange(false);
             } else if (result.type === "failure") {

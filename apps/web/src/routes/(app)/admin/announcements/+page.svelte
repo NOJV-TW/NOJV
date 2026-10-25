@@ -97,7 +97,7 @@
         use:enhance={(event) => {
           if (event.formData) serializeDateTimeFormData(event.formData, ["expiresAt"]);
           return async ({ result, update }) => {
-            await update();
+            await update({ navigate: false });
             if (result.type === "success") closeCreateForm();
           };
         }}
@@ -205,7 +205,7 @@
                   if (event.formData) serializeDateTimeFormData(event.formData, ["expiresAt"]);
                   return async ({ update }) => {
                     editingId = null;
-                    await update();
+                    await update({ navigate: false });
                   };
                 }}
               >

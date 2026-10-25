@@ -89,14 +89,14 @@
     }) => {
       if (result.type === "success") {
         toasts.success(m.admin_registry_deleteSuccess({ repo, tag }));
-        await update();
+        await update({ navigate: false });
       } else if (result.type === "failure") {
         const err =
           (result.data as { error?: string } | undefined)?.error ??
           m.admin_registry_deleteFailed();
         toasts.error(err);
       } else {
-        await update();
+        await update({ navigate: false });
       }
     };
   }
@@ -115,13 +115,13 @@
         } else {
           toasts.success(m.admin_registry_gcStarted());
         }
-        await update();
+        await update({ navigate: false });
       } else if (result.type === "failure") {
         const err =
           (result.data as { error?: string } | undefined)?.error ?? m.admin_registry_gcFailed();
         toasts.error(err);
       } else {
-        await update();
+        await update({ navigate: false });
       }
     };
   }

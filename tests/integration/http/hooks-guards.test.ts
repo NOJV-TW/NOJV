@@ -135,11 +135,11 @@ describe("multipart replacements at the shared problem storage limit", () => {
         const response = await callRoute({
           path: `/api/problems/${problem.id}/${kind}`,
           method: "POST",
+          headers: { origin: "http://localhost:5173" },
           module,
           params: { id: problem.id },
           user: author,
           formData,
-          headers: { origin: "http://localhost:5173" },
         });
         expect(response.status, await response.text()).toBe(expectedStatus);
       }
@@ -192,6 +192,7 @@ describe("hooks.server guard chain (request-layer redirects)", () => {
     const response = await callRoute({
       path: "/api/auth/sign-in/exam-password",
       method: "POST",
+      headers: { origin: "http://localhost:5173" },
       body: { username: "student", padding: "x".repeat(64 * 1024) },
       module: { POST: handler },
     });
@@ -208,6 +209,7 @@ describe("hooks.server guard chain (request-layer redirects)", () => {
       const response = await callRoute({
         path: `/api/auth/${endpoint}`,
         method: "POST",
+        headers: { origin: "http://localhost:5173" },
         user,
         module: { POST: handler },
       });
@@ -258,6 +260,7 @@ describe("hooks.server guard chain (request-layer redirects)", () => {
     const res = await callRoute({
       path: "/api/auth/sign-in/email",
       method: "POST",
+      headers: { origin: "http://localhost:5173" },
       module: { POST: handler },
     });
     expect(res.status).toBe(429);
@@ -270,6 +273,7 @@ describe("hooks.server guard chain (request-layer redirects)", () => {
     const res = await callRoute({
       path: "/api/auth/sign-in/username",
       method: "POST",
+      headers: { origin: "http://localhost:5173" },
       module: { POST: handler },
     });
     expect(res.status).toBe(429);
@@ -283,6 +287,7 @@ describe("hooks.server guard chain (request-layer redirects)", () => {
     const res = await callRoute({
       path: "/api/auth/sign-in/email",
       method: "POST",
+      headers: { origin: "http://localhost:5173" },
       module: { POST: handler },
     });
     expect(res.status).toBe(503);
@@ -309,6 +314,7 @@ describe("hooks.server guard chain (request-layer redirects)", () => {
       callRoute({
         path: "/api/auth/sign-in/exam-password",
         method: "POST",
+        headers: { origin: "http://localhost:5173" },
         ip,
         body: { username, password: "synthetic-test-password" },
         module: { POST: handler },
@@ -345,6 +351,7 @@ describe("hooks.server guard chain (request-layer redirects)", () => {
       const response = await callRoute({
         path: "/api/auth/sign-in/exam-password",
         method: "POST",
+        headers: { origin: "http://localhost:5173" },
         ip: "203.0.113.42",
         body,
         module: { POST: () => new Response(null, { status: 204 }) },
@@ -360,6 +367,7 @@ describe("hooks.server guard chain (request-layer redirects)", () => {
     const response = await callRoute({
       path: "/api/auth/sign-in/exam-password",
       method: "POST",
+      headers: { origin: "http://localhost:5173" },
       body: { username: "student_1" },
       module: { POST: handler },
     });
@@ -374,6 +382,7 @@ describe("hooks.server guard chain (request-layer redirects)", () => {
     const response = await callRoute({
       path: "/api/auth/sign-in/exam-password",
       method: "POST",
+      headers: { origin: "http://localhost:5173" },
       body: { username: "student_1" },
       module: { POST: handler },
     });
@@ -388,6 +397,7 @@ describe("hooks.server guard chain (request-layer redirects)", () => {
       callRoute({
         path: "/api/auth/sign-in/email",
         method: "POST",
+        headers: { origin: "http://localhost:5173" },
         module: { POST: vi.fn() },
       }),
     ).rejects.toBe(limiterError);
