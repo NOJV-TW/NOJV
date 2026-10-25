@@ -507,7 +507,10 @@ against workspace devDependencies (Prisma CLI, Vite, Vitest, TypeScript, SvelteK
 under better-auth and `@prisma/client`), so a package the server needs at runtime
 must not arrive only through `optionalDependencies`. adapter-node bundles everything the
 server imports except `apps/web` `dependencies`, which stay external and must be
-installed at runtime. A package the server never imports (fonts, Monaco, ECharts,
+installed at runtime. Each copied workspace package includes its production
+`node_modules` links as well as its `dist` and manifest. The final image imports
+the built handler as the runtime user during its build, using test mailer settings,
+so missing runtime dependencies fail image CI before publication. A package the server never imports (fonts, Monaco, ECharts,
 Svelte UI libraries) belongs in `devDependencies`. The WASM-OJ toolchain and
 browser runtime assets are served from `build/client`, so the runtime stage deletes
 their copies under `node_modules`; the server imports only the descriptor modules.
