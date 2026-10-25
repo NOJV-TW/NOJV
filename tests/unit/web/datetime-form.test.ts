@@ -6,7 +6,7 @@ import {
   restoreDateTimeFields,
   serializeDateTimeFormData,
   serializeDateTimeFields,
-} from "$lib/utils/datetime-form";
+} from "#lib/utils/datetime-form.js";
 
 describe("local datetime form conversion", () => {
   it("serializes a local wall-clock value with the browser offset", () => {

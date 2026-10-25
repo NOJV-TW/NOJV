@@ -3,7 +3,7 @@
 import { mount, tick, unmount } from "svelte";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { m } from "$lib/paraglide/messages.js";
+import { m } from "#lib/paraglide/messages.js";
 
 vi.mock("@lucide/svelte", async () => ({
   Copy: (await import("../../fixtures/web/empty-component.svelte")).default,
@@ -13,17 +13,17 @@ vi.mock("@lucide/svelte", async () => ({
 vi.mock("@lucide/svelte/icons/rotate-ccw", async () => ({
   default: (await import("../../fixtures/web/empty-component.svelte")).default,
 }));
-vi.mock("$lib/components/primitives/ui/CodeBlock.svelte", async () => ({
+vi.mock("#lib/components/primitives/ui/CodeBlock.svelte", async () => ({
   default: (await import("../../fixtures/web/empty-component.svelte")).default,
 }));
-vi.mock("$lib/components/features/submission/SubtaskResultTree.svelte", async () => ({
+vi.mock("#lib/components/features/submission/SubtaskResultTree.svelte", async () => ({
   default: (await import("../../fixtures/web/empty-component.svelte")).default,
 }));
-vi.mock("$lib/components/features/submission/CaseResultGrid.svelte", async () => ({
+vi.mock("#lib/components/features/submission/CaseResultGrid.svelte", async () => ({
   default: (await import("../../fixtures/web/empty-component.svelte")).default,
 }));
-vi.mock("$lib/services/http", () => ({ fetchWithCsrf: vi.fn() }));
-vi.mock("$lib/stores/toast", () => ({ toasts: { error: vi.fn(), success: vi.fn() } }));
+vi.mock("#lib/services/http.js", () => ({ fetchWithCsrf: vi.fn() }));
+vi.mock("#lib/stores/toast.js", () => ({ toasts: { error: vi.fn(), success: vi.fn() } }));
 
 describe("SubmissionHistoryPanel", () => {
   let component: ReturnType<typeof mount> | undefined;
@@ -51,7 +51,7 @@ describe("SubmissionHistoryPanel", () => {
 
   it("moves the score into the summary row and displays memory", async () => {
     const { default: SubmissionHistoryPanel } =
-      await import("$lib/components/features/problem/left-panel/SubmissionHistoryPanel.svelte");
+      await import("#lib/components/features/problem/left-panel/SubmissionHistoryPanel.svelte");
     target = document.createElement("div");
     document.body.append(target);
     component = mount(SubmissionHistoryPanel, {
@@ -113,7 +113,7 @@ describe("SubmissionHistoryPanel", () => {
   });
   it("automatically loads beyond 150 rows and retries without discarding earlier pages", async () => {
     const { default: SubmissionHistoryPanel } =
-      await import("$lib/components/features/problem/left-panel/SubmissionHistoryPanel.svelte");
+      await import("#lib/components/features/problem/left-panel/SubmissionHistoryPanel.svelte");
     const entries = Array.from({ length: 151 }, (_, index) => ({
       id: `submission_${index}`,
       language: "python",
@@ -223,7 +223,7 @@ describe("SubmissionHistoryPanel", () => {
   });
   it("renders a terminal error without a result object instead of a pending spinner", async () => {
     const { default: Panel } =
-      await import("$lib/components/features/problem/left-panel/SubmissionHistoryPanel.svelte");
+      await import("#lib/components/features/problem/left-panel/SubmissionHistoryPanel.svelte");
     target = document.createElement("div");
     document.body.append(target);
     component = mount(Panel, {

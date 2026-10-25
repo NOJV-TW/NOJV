@@ -1,20 +1,20 @@
 <script lang="ts">
   import { Pencil, Trash2 } from "@lucide/svelte";
-  import { toasts } from "$lib/stores/toast";
-  import { Button } from "$lib/components/primitives/ui/button";
-  import ConfirmDialog from "$lib/components/primitives/ui/ConfirmDialog.svelte";
-  import TableSelectColumnFilter from "$lib/components/primitives/ui/TableSelectColumnFilter.svelte";
-  import TableSortButton from "$lib/components/primitives/ui/TableSortButton.svelte";
-  import TableTextColumnFilter from "$lib/components/primitives/ui/TableTextColumnFilter.svelte";
-  import { m } from "$lib/paraglide/messages.js";
-  import { formatDateTime } from "$lib/utils/datetime";
+  import { toasts } from "#lib/stores/toast.js";
+  import { Button } from "#lib/components/primitives/ui/button/index.js";
+  import ConfirmDialog from "#lib/components/primitives/ui/ConfirmDialog.svelte";
+  import TableSelectColumnFilter from "#lib/components/primitives/ui/TableSelectColumnFilter.svelte";
+  import TableSortButton from "#lib/components/primitives/ui/TableSortButton.svelte";
+  import TableTextColumnFilter from "#lib/components/primitives/ui/TableTextColumnFilter.svelte";
+  import { m } from "#lib/paraglide/messages.js";
+  import { formatDateTime } from "#lib/utils/datetime.js";
   import {
     ariaSort,
     sortDirection,
     sortRows,
     toggleSort,
     type TableSort,
-  } from "$lib/utils/table-sort";
+  } from "#lib/utils/table-sort.js";
   import type { FeedbackRow } from "./FeedbackForm.svelte";
   import type { ProblemOption, StudentOption } from "./ScoreOverrideForm.svelte";
 

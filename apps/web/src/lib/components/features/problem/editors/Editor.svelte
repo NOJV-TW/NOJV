@@ -1,22 +1,22 @@
 <script lang="ts">
   import { onDestroy, untrack } from "svelte";
-  import { m } from "$lib/paraglide/messages.js";
+  import { m } from "#lib/paraglide/messages.js";
   import {
     interactiveContestantSupported,
     type Language,
     type SubmissionContext,
     type SubmissionResult,
   } from "@nojv/core";
-  import type { ProblemDetail } from "$lib/types";
+  import type { ProblemDetail } from "#lib/types/index.js";
   import EditorCore from "./EditorCore.svelte";
   import EditorBottomPanel from "./EditorBottomPanel.svelte";
   import StudentProblemView from "./StudentProblemView.svelte";
   import EditorTopBar from "./EditorTopBar.svelte";
   import EditorActionBar from "./EditorActionBar.svelte";
   import EditorResizeHandle from "./EditorResizeHandle.svelte";
-  import ConfirmDialog from "$lib/components/primitives/ui/ConfirmDialog.svelte";
-  import { type DraftContext } from "$lib/stores/code-draft";
-  import { createServerDraftSync } from "$lib/services/draft-sync";
+  import ConfirmDialog from "#lib/components/primitives/ui/ConfirmDialog.svelte";
+  import { type DraftContext } from "#lib/stores/code-draft.js";
+  import { createServerDraftSync } from "#lib/services/draft-sync.js";
   import {
     bindEscapeToExitFullscreen,
     createDocumentMouseDrag,
@@ -36,12 +36,12 @@
     preloadBrowserToolchain,
     prewarmBrowserLocalEngine,
     supportsBrowserLocalRun,
-  } from "$lib/services/browser-local-run";
+  } from "#lib/services/browser-local-run.js";
   import {
     prepareJudgeProgram,
     type JudgeProgramProgress,
     type PreparedJudgeProgram,
-  } from "$lib/services/judge-program";
+  } from "#lib/services/judge-program.js";
 
   interface Props {
     allowedLanguages?: Language[] | undefined;

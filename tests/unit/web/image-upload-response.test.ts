@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { readImageUploadUrl } from "$lib/utils/image-upload-response";
+import { readImageUploadUrl } from "#lib/utils/image-upload-response.js";
 
 describe("readImageUploadUrl", () => {
   it("returns the non-empty URL from a successful response", async () => {

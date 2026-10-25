@@ -1,6 +1,6 @@
 import type { RequestHandler } from "./$types";
-import { storedImageResponse } from "$lib/server/storage/image-response";
-import { readUserContentImage } from "$lib/server/storage/user-content-image";
+import { storedImageResponse } from "#lib/server/storage/image-response.js";
+import { readUserContentImage } from "#lib/server/storage/user-content-image.js";
 
 export const GET: RequestHandler = ({ params }) =>
   storedImageResponse(

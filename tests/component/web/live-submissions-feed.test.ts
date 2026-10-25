@@ -2,10 +2,10 @@
 
 import { mount, tick, unmount } from "svelte";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { m } from "$lib/paraglide/messages.js";
+import { m } from "#lib/paraglide/messages.js";
 import { page as appPage } from "$app/state";
 
-vi.mock("$lib/components/primitives/ui/select/select-content.svelte", async () => ({
+vi.mock("#lib/components/primitives/ui/select/select-content.svelte", async () => ({
   default: (await import("../../fixtures/web/select-content.svelte")).default,
 }));
 
@@ -20,12 +20,11 @@ vi.mock("@lucide/svelte", async () => ({
 
 const mocks = vi.hoisted(() => ({
   goto: vi.fn(),
-  replaceState: vi.fn(),
   read: vi.fn(),
   watch: vi.fn(() => () => undefined),
   callbacks: new Set<(signal: AbortSignal) => Promise<void>>(),
 }));
-vi.mock("$lib/services/submission-tracker", () => ({
+vi.mock("#lib/services/submission-tracker.js", () => ({
   watchSubmissionStates: mocks.watch,
   isNewerSubmission: () => true,
   submissionRead: mocks.read,
@@ -43,10 +42,9 @@ vi.mock("$lib/services/submission-tracker", () => ({
 }));
 vi.mock("$app/navigation", () => ({
   goto: mocks.goto,
-  replaceState: mocks.replaceState,
 }));
 
-import LiveSubmissionsFeed from "$lib/components/features/coursework/LiveSubmissionsFeed.svelte";
+import LiveSubmissionsFeed from "#lib/components/features/coursework/LiveSubmissionsFeed.svelte";
 
 const rows = [
   {
@@ -84,8 +82,8 @@ function page(items: typeof rows) {
 }
 beforeEach(() => {
   mocks.watch.mockClear();
-  mocks.replaceState.mockImplementation((url: string | URL) => {
-    window.history.replaceState({}, "", url);
+  mocks.goto.mockImplementation((url: string | URL, options?: { shallow?: boolean }) => {
+    if (options?.shallow) window.history.replaceState({}, "", url);
   });
   mocks.read.mockImplementation(async (url: string) => {
     const query = new URL(url, "http://localhost").searchParams;
@@ -102,7 +100,6 @@ beforeEach(() => {
 describe("LiveSubmissionsFeed", () => {
   afterEach(() => {
     mocks.goto.mockReset();
-    mocks.replaceState.mockReset();
     mocks.read.mockReset();
     mocks.callbacks.clear();
     vi.useRealTimers();

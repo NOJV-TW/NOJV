@@ -1,13 +1,13 @@
 <script lang="ts">
   import { enhance } from "$app/forms";
-  import { invalidateAll } from "$app/navigation";
-  import { m } from "$lib/paraglide/messages.js";
+  import { refreshAll } from "$app/navigation";
+  import { m } from "#lib/paraglide/messages.js";
   import { actionErrorSchema, broadcastVerifiedSchema } from "@nojv/core";
-  import { parseSchoolEmail, schoolAliasExample } from "$lib/utils/school";
-  import { Button } from "$lib/components/primitives/ui/button";
-  import { Badge } from "$lib/components/primitives/ui/badge";
-  import { Input } from "$lib/components/primitives/ui/input";
-  import FormField from "$lib/components/primitives/ui/FormField.svelte";
+  import { parseSchoolEmail, schoolAliasExample } from "#lib/utils/school.js";
+  import { Button } from "#lib/components/primitives/ui/button/index.js";
+  import { Badge } from "#lib/components/primitives/ui/badge/index.js";
+  import { Input } from "#lib/components/primitives/ui/input/index.js";
+  import FormField from "#lib/components/primitives/ui/FormField.svelte";
 
   interface Props {
     isSchoolVerified: boolean;
@@ -38,7 +38,7 @@
       if (broadcastVerifiedSchema.safeParse(event.data).success) {
         phase = "verified";
         setTimeout(() => {
-          void invalidateAll();
+          void refreshAll();
         }, 1500);
       }
     };
@@ -106,7 +106,7 @@
                 const parsed = actionErrorSchema.safeParse(result.data);
                 error = parsed.success ? parsed.data.error : m.account_sendVerificationFailed();
               } else {
-                await update();
+                await update({ navigate: false });
               }
             };
           }}
@@ -164,7 +164,7 @@
                     ? parsed.data.error
                     : m.account_sendVerificationFailed();
                 } else {
-                  await update();
+                  await update({ navigate: false });
                 }
               };
             }}

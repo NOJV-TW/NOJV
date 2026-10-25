@@ -1,29 +1,29 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { m } from "$lib/paraglide/messages.js";
-  import { goto, invalidateAll } from "$app/navigation";
+  import { m } from "#lib/paraglide/messages.js";
+  import { goto, refreshAll } from "$app/navigation";
   import { page } from "$app/state";
   import { AlertTriangle, Code2, LineChart, PieChart } from "@lucide/svelte";
-  import { Button } from "$lib/components/primitives/ui/button/index.js";
-  import EChart from "$lib/components/primitives/charts/EChart.svelte";
-  import ActivityHeatmap from "$lib/components/features/dashboard/ActivityHeatmap.svelte";
-  import PlatformOverview from "$lib/components/features/dashboard/PlatformOverview.svelte";
-  import { Card } from "$lib/components/primitives/ui/card";
-  import VerdictBadge from "$lib/components/primitives/ui/VerdictBadge.svelte";
-  import EmptyState from "$lib/components/primitives/ui/EmptyState.svelte";
-  import PageContainer from "$lib/components/primitives/layout/PageContainer.svelte";
-  import PageHeader from "$lib/components/primitives/layout/PageHeader.svelte";
-  import TabStrip from "$lib/components/primitives/visual/TabStrip.svelte";
-  import WelcomeGuide from "$lib/components/features/dashboard/WelcomeGuide.svelte";
-  import { Skeleton } from "$lib/components/primitives/ui/skeleton";
-  import { formatVerdictLabel } from "$lib/utils/verdict-style";
-  import { formatProblemDisplayName } from "$lib/utils/format-problem-display-name";
-  import { buildActivityModel } from "$lib/utils/activity";
-  import { relativeTime } from "$lib/utils/relative-time";
-  import { formatChartSummary } from "$lib/utils/chart-summary";
-  import { startAutomaticTour } from "$lib/onboarding/engine";
-  import { studentWelcomeIntro } from "$lib/onboarding/student-tour";
-  import { teacherWelcomeIntro } from "$lib/onboarding/teacher-tour";
+  import { Button } from "#lib/components/primitives/ui/button/index.js";
+  import EChart from "#lib/components/primitives/charts/EChart.svelte";
+  import ActivityHeatmap from "#lib/components/features/dashboard/ActivityHeatmap.svelte";
+  import PlatformOverview from "#lib/components/features/dashboard/PlatformOverview.svelte";
+  import { Card } from "#lib/components/primitives/ui/card/index.js";
+  import VerdictBadge from "#lib/components/primitives/ui/VerdictBadge.svelte";
+  import EmptyState from "#lib/components/primitives/ui/EmptyState.svelte";
+  import PageContainer from "#lib/components/primitives/layout/PageContainer.svelte";
+  import PageHeader from "#lib/components/primitives/layout/PageHeader.svelte";
+  import TabStrip from "#lib/components/primitives/visual/TabStrip.svelte";
+  import WelcomeGuide from "#lib/components/features/dashboard/WelcomeGuide.svelte";
+  import { Skeleton } from "#lib/components/primitives/ui/skeleton/index.js";
+  import { formatVerdictLabel } from "#lib/utils/verdict-style.js";
+  import { formatProblemDisplayName } from "#lib/utils/format-problem-display-name.js";
+  import { buildActivityModel } from "#lib/utils/activity.js";
+  import { relativeTime } from "#lib/utils/relative-time.js";
+  import { formatChartSummary } from "#lib/utils/chart-summary.js";
+  import { startAutomaticTour } from "#lib/onboarding/engine.js";
+  import { studentWelcomeIntro } from "#lib/onboarding/student-tour.js";
+  import { teacherWelcomeIntro } from "#lib/onboarding/teacher-tour.js";
   import type { EChartsOption } from "echarts";
 
   let { data } = $props();
@@ -38,13 +38,12 @@
   ]);
 
   function setView(next: string) {
-    const url = new URL(page.url);
+    const url = new URL(page.url.href);
     if (next === "server") url.searchParams.set("view", "server");
     else url.searchParams.delete("view");
     void goto(`?${url.searchParams.toString()}`, {
-      keepFocus: true,
-      replaceState: true,
-      noScroll: true,
+      reset: false,
+      replace: true,
     });
   }
 
@@ -363,7 +362,7 @@
         title={m.dashboard_loadError()}
         description={m.dashboard_loadErrorDescription()}
       />
-      <Button variant="outline" size="sm" onclick={() => invalidateAll()}>
+      <Button variant="outline" size="sm" onclick={() => refreshAll()}>
         {m.common_retry()}
       </Button>
     </div>

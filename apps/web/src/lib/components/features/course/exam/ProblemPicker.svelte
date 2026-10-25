@@ -4,12 +4,12 @@
   import Trash2 from "@lucide/svelte/icons/trash-2";
   import type { problemDomain } from "@nojv/application";
 
-  import { m } from "$lib/paraglide/messages.js";
+  import { m } from "#lib/paraglide/messages.js";
   import ProblemSelectDialog, {
     type CandidateProblem as PickerCandidate,
-  } from "$lib/components/features/problem/ProblemSelectDialog.svelte";
-  import { Button } from "$lib/components/primitives/ui/button";
-  import { moveItem } from "$lib/utils/reorder";
+  } from "#lib/components/features/problem/ProblemSelectDialog.svelte";
+  import { Button } from "#lib/components/primitives/ui/button/index.js";
+  import { moveItem } from "#lib/utils/reorder.js";
 
   type CandidateProblem = problemDomain.ProblemPickerCandidate;
   type CandidateGroups = problemDomain.ProblemPickerGroups;

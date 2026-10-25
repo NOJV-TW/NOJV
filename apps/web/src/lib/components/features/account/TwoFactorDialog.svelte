@@ -1,10 +1,10 @@
 <script lang="ts">
   import QRCode from "qrcode";
   import { enhance } from "$app/forms";
-  import { goto, invalidateAll } from "$app/navigation";
-  import * as Dialog from "$lib/components/primitives/ui/dialog";
-  import { m } from "$lib/paraglide/messages.js";
-  import { toasts } from "$lib/stores/toast";
+  import { refreshAll } from "$app/navigation";
+  import * as Dialog from "#lib/components/primitives/ui/dialog/index.js";
+  import { m } from "#lib/paraglide/messages.js";
+  import { toasts } from "#lib/stores/toast.js";
 
   interface Props {
     canRemove: boolean;
@@ -139,7 +139,7 @@
                   }
                   toasts.success(m.account_totp_removed());
                   open = false;
-                  await invalidateAll();
+                  await refreshAll();
                 };
               }}
             >
@@ -215,12 +215,12 @@
                 return;
               }
               if (result.type === "redirect") {
-                await goto(result.location, { invalidateAll: true });
+                window.location.href = result.location;
                 return;
               }
               toasts.success(m.account_totp_configured());
               open = false;
-              await invalidateAll();
+              await refreshAll();
             };
           }}
         >

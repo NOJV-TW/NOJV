@@ -1,35 +1,35 @@
 <script lang="ts">
   import { untrack } from "svelte";
   import { goto } from "$app/navigation";
-  import { appSuperForm } from "$lib/utils/super-form";
+  import { appSuperForm } from "#lib/utils/super-form.js";
   import GripVertical from "@lucide/svelte/icons/grip-vertical";
   import { supportedLanguages, type Language } from "@nojv/core";
-  import { problemLetter } from "$lib/components/features/contest/format";
-  import { inputClassName } from "$lib/utils/css";
-  import { restoreDateTimeFields, serializeDateTimeFields } from "$lib/utils/datetime-form";
-  import { moveItem } from "$lib/utils/reorder";
-  import { toggleArrayItem } from "$lib/utils";
-  import { m } from "$lib/paraglide/messages.js";
+  import { problemLetter } from "#lib/components/features/contest/format.js";
+  import { inputClassName } from "#lib/utils/css.js";
+  import { restoreDateTimeFields, serializeDateTimeFields } from "#lib/utils/datetime-form.js";
+  import { moveItem } from "#lib/utils/reorder.js";
+  import { toggleArrayItem } from "#lib/utils/index.js";
+  import { m } from "#lib/paraglide/messages.js";
   import TrophyIcon from "@lucide/svelte/icons/trophy";
   import ClockIcon from "@lucide/svelte/icons/clock";
   import SettingsIcon from "@lucide/svelte/icons/settings";
   import CodeIcon from "@lucide/svelte/icons/code";
   import ListIcon from "@lucide/svelte/icons/list";
   import Trash2 from "@lucide/svelte/icons/trash-2";
-  import ProblemPicker from "$lib/components/features/course/exam/ProblemPicker.svelte";
-  import { Card } from "$lib/components/primitives/ui/card/index.js";
-  import { Button } from "$lib/components/primitives/ui/button/index.js";
-  import HelpTooltip from "$lib/components/primitives/ui/HelpTooltip.svelte";
+  import ProblemPicker from "#lib/components/features/course/exam/ProblemPicker.svelte";
+  import { Card } from "#lib/components/primitives/ui/card/index.js";
+  import { Button } from "#lib/components/primitives/ui/button/index.js";
+  import HelpTooltip from "#lib/components/primitives/ui/HelpTooltip.svelte";
   import {
     contestScoringOptions,
     contestScoringModeHelp,
     contestModeUsesPoints,
-  } from "$lib/utils/contest-scoring";
-  import FormError from "$lib/components/primitives/ui/FormError.svelte";
-  import PageContainer from "$lib/components/primitives/layout/PageContainer.svelte";
-  import PageHero from "$lib/components/primitives/layout/PageHero.svelte";
-  import { toasts } from "$lib/stores/toast";
-  import type { FormMessage } from "$lib/types/form-message";
+  } from "#lib/utils/contest-scoring.js";
+  import FormError from "#lib/components/primitives/ui/FormError.svelte";
+  import PageContainer from "#lib/components/primitives/layout/PageContainer.svelte";
+  import PageHero from "#lib/components/primitives/layout/PageHero.svelte";
+  import { toasts } from "#lib/stores/toast.js";
+  import type { FormMessage } from "#lib/types/form-message.js";
 
   let { data } = $props();
 

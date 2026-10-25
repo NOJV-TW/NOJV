@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onDestroy, untrack } from "svelte";
-  import { m } from "$lib/paraglide/messages.js";
+  import { m } from "#lib/paraglide/messages.js";
   import { createDocumentMouseDrag, submissionContextBadge } from "../editors/editor-bindings";
   import {
     MAX_SUBMISSION_BODY_BYTES,
@@ -13,7 +13,7 @@
     ProblemDetail,
     ProblemSubmissionEntry,
     ProblemTestcaseSetSummary,
-  } from "$lib/types";
+  } from "#lib/types/index.js";
   import ProblemLeftPanel, {
     type ProblemWorkspaceTimer,
   } from "../layouts/ProblemLeftPanel.svelte";
@@ -22,14 +22,14 @@
   import {
     buildSubmissionBody,
     SubmissionRequestError,
-  } from "$lib/services/submission-service";
+  } from "#lib/services/submission-service.js";
   import {
     submitProblem,
     watchProblemSubmissions,
     applySubmissionState,
     mergeSubmissionEntries,
-  } from "$lib/services/problem-submission";
-  import { toasts } from "$lib/stores/toast";
+  } from "#lib/services/problem-submission.js";
+  import { toasts } from "#lib/stores/toast.js";
 
   interface Props {
     context: SubmissionContext;

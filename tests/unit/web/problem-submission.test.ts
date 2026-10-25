@@ -1,22 +1,27 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import type { SubmissionOperation } from "@nojv/core";
-import { applySubmissionState, mergeSubmissionEntries } from "$lib/services/problem-submission";
+import {
+  applySubmissionState,
+  mergeSubmissionEntries,
+} from "#lib/services/problem-submission.js";
 import {
   startSubmissionTracking,
   stopSubmissionTracking,
   watchSubmissionStates,
   watchRejudge,
-} from "$lib/services/submission-tracker";
+} from "#lib/services/submission-tracker.js";
 const mocks = vi.hoisted(() => ({
   refresh: vi.fn().mockResolvedValue(undefined),
   toast: vi.fn(),
   event: vi.fn(),
   open: vi.fn(),
 }));
-vi.mock("$app/navigation", () => ({ invalidateAll: mocks.refresh, invalidate: mocks.refresh }));
-vi.mock("$lib/stores/sse", () => ({ onSSEEvent: mocks.event, onSSEOpen: mocks.open }));
-vi.mock("$lib/stores/toast", () => ({ toasts: { success: mocks.toast, info: mocks.toast } }));
+vi.mock("$app/navigation", () => ({ refreshAll: mocks.refresh, invalidate: mocks.refresh }));
+vi.mock("#lib/stores/sse.js", () => ({ onSSEEvent: mocks.event, onSSEOpen: mocks.open }));
+vi.mock("#lib/stores/toast.js", () => ({
+  toasts: { success: mocks.toast, info: mocks.toast },
+}));
 const releases: (() => void)[] = [];
 const operation = (
   id = "s",

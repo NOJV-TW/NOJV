@@ -1,6 +1,6 @@
 <script lang="ts">
   import { problemTags } from "@nojv/core";
-  import { cn } from "$lib/utils/css.js";
+  import { cn } from "#lib/utils/css.js";
 
   interface Props {
     tags: string[];

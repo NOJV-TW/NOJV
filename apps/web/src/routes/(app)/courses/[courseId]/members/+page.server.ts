@@ -5,12 +5,12 @@ import { z } from "zod";
 import { canManageCourse, canManageMembers, courseDomain } from "@nojv/application";
 
 import type { Actions, PageServerLoad, PageServerLoadEvent } from "./$types";
-import { getCoursePermissionRole, requireAuth } from "$lib/server/auth";
-import { handleLoad } from "$lib/server/shared/load-wrapper";
-import { classifyRequestError } from "$lib/server/shared/handle-action-error";
-import { withAction } from "$lib/server/shared/action-handlers";
-import { m } from "$lib/paraglide/messages.js";
-import type { FormMessage } from "$lib/types/form-message";
+import { getCoursePermissionRole, requireAuth } from "#lib/server/auth.js";
+import { handleLoad } from "#lib/server/shared/load-wrapper.js";
+import { classifyRequestError } from "#lib/server/shared/handle-action-error.js";
+import { withAction } from "#lib/server/shared/action-handlers.js";
+import { m } from "#lib/paraglide/messages.js";
+import type { FormMessage } from "#lib/types/form-message.js";
 
 const {
   listMembersForCourse,

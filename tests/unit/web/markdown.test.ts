@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { renderMarkdown } from "$lib/utils/markdown";
+import { renderMarkdown } from "#lib/utils/markdown.js";
 
 describe("renderMarkdown", () => {
   it("proxies remote image sources without changing first-party or inline images", () => {

@@ -3,10 +3,10 @@ import { fail, redirect } from "@sveltejs/kit";
 import { message, superValidate } from "sveltekit-superforms";
 import { zod4 } from "sveltekit-superforms/adapters";
 
-import { getAuth } from "$lib/auth.server";
-import { requireAuth } from "$lib/server/auth";
-import { withRateLimit } from "$lib/server/shared/action-handlers";
-import type { FormMessage } from "$lib/types/form-message";
+import { getAuth } from "#lib/auth.server.js";
+import { requireAuth } from "#lib/server/auth.js";
+import { withRateLimit } from "#lib/server/shared/action-handlers.js";
+import type { FormMessage } from "#lib/types/form-message.js";
 
 import type { Actions, PageServerLoad } from "./$types";
 import { changePasswordSchema } from "./schemas";

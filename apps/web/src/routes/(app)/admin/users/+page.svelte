@@ -3,12 +3,12 @@
   import type { PlatformRole } from "@nojv/core";
   import { goto } from "$app/navigation";
   import { Users } from "@lucide/svelte";
-  import { Card } from "$lib/components/primitives/ui/card";
-  import PageContainer from "$lib/components/primitives/layout/PageContainer.svelte";
-  import EmptyState from "$lib/components/primitives/ui/EmptyState.svelte";
-  import UsersTable from "$lib/components/features/admin/users/UsersTable.svelte";
-  import Pagination from "$lib/components/features/admin/users/Pagination.svelte";
-  import { m } from "$lib/paraglide/messages.js";
+  import { Card } from "#lib/components/primitives/ui/card/index.js";
+  import PageContainer from "#lib/components/primitives/layout/PageContainer.svelte";
+  import EmptyState from "#lib/components/primitives/ui/EmptyState.svelte";
+  import UsersTable from "#lib/components/features/admin/users/UsersTable.svelte";
+  import Pagination from "#lib/components/features/admin/users/Pagination.svelte";
+  import { m } from "#lib/paraglide/messages.js";
 
   let { data } = $props();
 
@@ -42,7 +42,7 @@
     if (roleValue) params.set("role", roleValue);
     if (statusValue) params.set("status", statusValue);
     if (createdAtOrderValue === "asc") params.set("created", "asc");
-    goto(`/admin/users?${params.toString()}`, { keepFocus: true, noScroll: true });
+    goto(`/admin/users?${params.toString()}`, { reset: false });
   }
 </script>
 

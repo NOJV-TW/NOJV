@@ -7,9 +7,9 @@ import {
   type SubmissionOperation,
   type RejudgeProgress,
 } from "@nojv/core";
-import { onSSEEvent, onSSEOpen } from "$lib/stores/sse";
-import { toasts } from "$lib/stores/toast";
-import { formatVerdictLabel } from "$lib/utils/verdict-style";
+import { onSSEEvent, onSSEOpen } from "#lib/stores/sse.js";
+import { toasts } from "#lib/stores/toast.js";
+import { formatVerdictLabel } from "#lib/utils/verdict-style.js";
 
 type Listener = (operation: SubmissionOperation) => void;
 type SubmissionState = Pick<

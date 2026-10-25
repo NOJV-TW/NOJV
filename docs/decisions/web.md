@@ -90,3 +90,19 @@ With admin mode active, the courses/assignments/exams/contests lists redirect to
 - Rejected: a duplicate list implementation; any stored-role authorization bypass.
 - Rule: admin viewing or editing never creates course memberships; lifecycle edit restrictions still apply.
 - Code: `apps/web/src/routes/(app)/{courses,assignments,exams,contests}/+page.server.ts`
+
+### WEB-09 SvelteKit v3 uses native imports and runtime proxy origin
+
+**Decided:** 2026-10 · **Source:** [#659](https://github.com/NOJV-TW/NOJV/pull/659)
+
+Use SvelteKit v3 with adapter-node v6, explicit native `#lib/*` imports and Vite
+plugin configuration. Explicit environment declarations keep private variables
+server-only. Adapter-node derives origin from Host and the trusted proxy's
+`x-forwarded-proto`, keeping release images independent of deployment addresses.
+Expected framework errors preserve their safe status/message; unknown errors are
+sanitized. Better Auth links redirect only to the selected provider's origin,
+and unlink requests resolve the current user's account row before calling its API.
+
+- Rejected: retaining SvelteKit v2 security advisories; an alias compatibility layer; baking a production origin into the image.
+- Rule: the ingress must overwrite forwarded protocol and preserve Host; never trust arbitrary public proxy headers without this boundary.
+- Code: `apps/web/vite.config.ts`, `apps/web/src/env.ts`, `apps/web/src/hooks.server.ts`, `infra/charts/nojv/templates/web.deployment.yaml`

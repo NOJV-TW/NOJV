@@ -2,8 +2,8 @@ import { createHmac } from "node:crypto";
 import { submissionDomain } from "@nojv/application";
 import { redirect } from "@sveltejs/kit";
 
-import { EDITOR_LANGUAGE_COOKIE } from "$lib/components/features/problem/editors/editor-bindings";
-import { getWebEnv } from "$lib/server/env";
+import { EDITOR_LANGUAGE_COOKIE } from "#lib/components/features/problem/editors/editor-bindings.js";
+import { getWebEnv } from "#lib/server/env.js";
 import type { LayoutServerLoad } from "./$types";
 
 export const load: LayoutServerLoad = (event) => {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { entriesAroundUser } from "$lib/utils/scoreboard";
+import { entriesAroundUser } from "#lib/utils/scoreboard.js";
 
 const rows = (...ids: string[]) => ids.map((userId) => ({ userId }));
 

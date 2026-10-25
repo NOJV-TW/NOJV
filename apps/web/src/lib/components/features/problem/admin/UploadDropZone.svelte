@@ -1,7 +1,7 @@
 <script lang="ts">
   import { UploadCloud } from "@lucide/svelte";
-  import { m } from "$lib/paraglide/messages.js";
-  import { toasts } from "$lib/stores/toast";
+  import { m } from "#lib/paraglide/messages.js";
+  import { toasts } from "#lib/stores/toast.js";
 
   interface Props {
     label: string;

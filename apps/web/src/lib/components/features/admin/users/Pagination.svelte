@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { Button } from "$lib/components/primitives/ui/button";
-  import { m } from "$lib/paraglide/messages.js";
+  import { Button } from "#lib/components/primitives/ui/button/index.js";
+  import { m } from "#lib/paraglide/messages.js";
 
   interface Props {
     page: number;

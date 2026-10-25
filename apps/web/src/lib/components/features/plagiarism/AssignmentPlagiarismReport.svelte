@@ -43,8 +43,8 @@
 </script>
 
 <script lang="ts">
-  import { m } from "$lib/paraglide/messages.js";
-  import { cn } from "$lib/utils/css.js";
+  import { m } from "#lib/paraglide/messages.js";
+  import { cn } from "#lib/utils/css.js";
   import PlagiarismFlagPanel from "./PlagiarismFlagPanel.svelte";
   import PlagiarismPairTable from "./PlagiarismPairTable.svelte";
 

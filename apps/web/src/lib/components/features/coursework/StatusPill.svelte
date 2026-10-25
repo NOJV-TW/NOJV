@@ -9,8 +9,8 @@
 </script>
 
 <script lang="ts">
-  import { cn } from "$lib/utils/css.js";
-  import { m } from "$lib/paraglide/messages.js";
+  import { cn } from "#lib/utils/css.js";
+  import { m } from "#lib/paraglide/messages.js";
 
   const NEUTRAL_STYLE =
     "border-color: color-mix(in oklab, var(--foreground) 14%, transparent);";

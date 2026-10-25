@@ -9,7 +9,7 @@ import {
 import { callRoute } from "./_harness";
 
 vi.setConfig({ testTimeout: 30_000 });
-vi.mock("$lib/auth.server", () => ({
+vi.mock("#lib/auth.server.js", () => ({
   getAuth: () => ({
     api: {
       getSession: async ({ headers }: { headers: Headers }) => {
@@ -128,7 +128,11 @@ describe("problem posts preserve the parent problem's visibility", () => {
     ];
     for (const user of [outsider, inactiveAdmin]) {
       for (const request of requests) {
-        const response = await callRoute({ ...request, user });
+        const response = await callRoute({
+          ...request,
+          user,
+          headers: { origin: "http://localhost:5173" },
+        });
         expect(response.status, `${user.platformRole}: ${request.path}`).toBe(404);
         expect(await response.text()).not.toContain("Private solution body");
       }

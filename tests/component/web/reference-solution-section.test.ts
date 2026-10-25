@@ -3,33 +3,33 @@
 import { mount, unmount } from "svelte";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { m } from "$lib/paraglide/messages.js";
+import { m } from "#lib/paraglide/messages.js";
 
 const mocks = vi.hoisted(() => ({
   executeSubmission: vi.fn(),
-  invalidateAll: vi.fn(),
+  refreshAll: vi.fn(),
   toastError: vi.fn(),
   watch: vi.fn(),
   read: vi.fn(),
 }));
 
-vi.mock("$lib/services/submission-tracker", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("$lib/services/submission-tracker")>()),
+vi.mock("#lib/services/submission-tracker.js", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("#lib/services/submission-tracker.js")>()),
   watchSubmissionStates: mocks.watch,
   submissionRead: mocks.read,
 }));
-vi.mock("$app/navigation", () => ({ invalidateAll: mocks.invalidateAll }));
-vi.mock("$lib/services/submission-service", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("$lib/services/submission-service")>()),
+vi.mock("$app/navigation", () => ({ refreshAll: mocks.refreshAll }));
+vi.mock("#lib/services/submission-service.js", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("#lib/services/submission-service.js")>()),
   executeSubmission: mocks.executeSubmission,
 }));
-vi.mock("$lib/stores/toast", () => ({ toasts: { error: mocks.toastError } }));
-vi.mock("$lib/components/primitives/ui/MonacoScriptEditor.svelte", async () => ({
+vi.mock("#lib/stores/toast.js", () => ({ toasts: { error: mocks.toastError } }));
+vi.mock("#lib/components/primitives/ui/MonacoScriptEditor.svelte", async () => ({
   default: (await import("../../fixtures/web/empty-component.svelte")).default,
 }));
 
 const { default: ReferenceSolutionSection } =
-  await import("$lib/components/features/problem/reference/ReferenceSolutionSection.svelte");
+  await import("#lib/components/features/problem/reference/ReferenceSolutionSection.svelte");
 
 let target: HTMLDivElement;
 let component: ReturnType<typeof mount>;
@@ -74,7 +74,7 @@ describe("ReferenceSolutionSection", () => {
         resolveSubmission = resolve;
       }),
     );
-    mocks.invalidateAll.mockRejectedValue(new Error("refresh failed"));
+    mocks.refreshAll.mockRejectedValue(new Error("refresh failed"));
 
     const button = render();
     button.click();

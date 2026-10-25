@@ -12,14 +12,14 @@ import type { RequestEvent } from "@sveltejs/kit";
 import { message, superValidate } from "sveltekit-superforms/server";
 import { zod4 } from "sveltekit-superforms/adapters";
 
-import { getAuth } from "$lib/auth.server";
-import { isReservedUsername } from "$lib/utils/school";
-import { requireAuth } from "$lib/server/auth";
-import { isLinkProvider, wouldOrphanAccount } from "$lib/server/account-connections";
-import { handleSendVerificationAction } from "$lib/server/shared/school-verification";
-import { withRateLimit, withRateLimitActions } from "$lib/server/shared/action-handlers";
-import { forwardSetCookies } from "$lib/server/shared/auth-cookies";
-import type { FormMessage } from "$lib/types/form-message";
+import { getAuth } from "#lib/auth.server.js";
+import { isReservedUsername } from "#lib/utils/school.js";
+import { requireAuth } from "#lib/server/auth.js";
+import { isLinkProvider, wouldOrphanAccount } from "#lib/server/account-connections.js";
+import { handleSendVerificationAction } from "#lib/server/shared/school-verification.js";
+import { withRateLimit, withRateLimitActions } from "#lib/server/shared/action-handlers.js";
+import { forwardSetCookies } from "#lib/server/shared/auth-cookies.js";
+import type { FormMessage } from "#lib/types/form-message.js";
 
 import type { Actions, PageServerLoad } from "./$types";
 import { loadTwoFactor, twoFactorActions } from "./two-factor-actions";
@@ -109,7 +109,11 @@ export const actions = {
     });
     if (res.response.url) {
       forwardSetCookies(event, res.headers);
-      redirect(303, res.response.url);
+      redirect(303, res.response.url, {
+        external: [
+          provider === "github" ? "https://github.com" : "https://accounts.google.com",
+        ],
+      });
     }
     return fail(400, { error: "linkFailed" });
   }),
@@ -125,13 +129,18 @@ export const actions = {
     if (!isLinkProvider(provider) || !accountId) {
       return fail(400, { error: "unknownProvider" });
     }
-    const providerIds = (await listAccounts(event)).map((account) => account.providerId);
+    const accounts = await listAccounts(event);
+    const account = accounts.find(
+      (candidate) => candidate.providerId === provider && candidate.accountId === accountId,
+    );
+    if (!account) return fail(400, { error: "unlinkFailed" });
+    const providerIds = accounts.map((candidate) => candidate.providerId);
     if (wouldOrphanAccount(providerIds, provider)) {
       return fail(400, { error: "orphan" });
     }
     try {
       await getAuth().api.unlinkAccount({
-        body: { providerId: provider, accountId },
+        body: { accountId: account.id },
         headers: event.request.headers,
       });
     } catch {

@@ -1,8 +1,8 @@
 <script lang="ts">
   import { ArrowLeft } from "@lucide/svelte";
   import { afterNavigate } from "$app/navigation";
-  import { m } from "$lib/paraglide/messages.js";
-  import { cn } from "$lib/utils/css";
+  import { m } from "#lib/paraglide/messages.js";
+  import { cn } from "#lib/utils/css.js";
 
   interface Props {
     href: string;
@@ -13,7 +13,9 @@
   let { href, label, class: className }: Props = $props();
   let inAppHistory = $state(false);
 
-  afterNavigate(({ from }) => {
+  afterNavigate(({ from, shallow, type }) => {
+    if (shallow && type === "goto") return;
+
     inAppHistory = from !== null;
   });
 

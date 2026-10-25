@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { LatePenaltyRule } from "@nojv/core";
-  import { m } from "$lib/paraglide/messages.js";
-  import { formatDateTimeCompact } from "$lib/utils/datetime";
+  import { m } from "#lib/paraglide/messages.js";
+  import { formatDateTimeCompact } from "#lib/utils/datetime.js";
 
   let {
     dueAt,

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isExamPasswordSecurityRequest } from "$lib/server/exam-password-policy";
+import { isExamPasswordSecurityRequest } from "#lib/server/exam-password-policy.js";
 
 describe("temporary exam sign-in security boundary", () => {
   it.each([

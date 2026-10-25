@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { createSubmissionHistory } from "$lib/services/submission-history.svelte";
+  import { createSubmissionHistory } from "#lib/services/submission-history.svelte.js";
   let { query, initial }: { query: string; initial: { id: string; status: string }[] } =
     $props();
   const history = createSubmissionHistory(

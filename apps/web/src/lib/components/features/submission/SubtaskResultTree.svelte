@@ -2,10 +2,10 @@
   import type { SubtaskResultItem } from "@nojv/core";
   import { ChevronRight } from "@lucide/svelte";
   import { slide } from "svelte/transition";
-  import { Badge } from "$lib/components/primitives/ui/badge";
-  import { verdictBadgeVariant, formatVerdictLabel } from "$lib/utils/verdict-style";
-  import { m } from "$lib/paraglide/messages.js";
-  import { formatMemoryKb } from "$lib/utils/judge-output";
+  import { Badge } from "#lib/components/primitives/ui/badge/index.js";
+  import { verdictBadgeVariant, formatVerdictLabel } from "#lib/utils/verdict-style.js";
+  import { m } from "#lib/paraglide/messages.js";
+  import { formatMemoryKb } from "#lib/utils/judge-output.js";
 
   interface Props {
     subtaskResults: SubtaskResultItem[];

@@ -1,17 +1,16 @@
-import { json } from "@sveltejs/kit";
 import { z } from "zod";
 import { postListSortSchema, postSubmitSchema, problemPostTypeSchema } from "@nojv/core";
 
 import type { RequestHandler } from "./$types";
 
-import { requireApiAuth } from "$lib/server/auth";
+import { requireApiAuth } from "#lib/server/auth.js";
 import {
   apiHandler,
   writeApiHandler,
   assertJsonBodyWithinLimit,
   readJsonBody,
-} from "$lib/server/shared/api-handler";
-import { requireProblemPostAccess } from "$lib/server/post-access";
+} from "#lib/server/shared/api-handler.js";
+import { requireProblemPostAccess } from "#lib/server/post-access.js";
 import { postDomain } from "@nojv/application";
 
 const { createPost, listPostsPage } = postDomain;
@@ -30,7 +29,7 @@ const postCreateBodySchema = postSubmitSchema.extend({
 export const GET: RequestHandler = apiHandler(async (event) => {
   const actor = requireApiAuth(event);
   const { id } = event.params;
-  if (!id) return json({ message: "Missing problem ID." }, { status: 400 });
+  if (!id) return Response.json({ message: "Missing problem ID." }, { status: 400 });
 
   const query = listQuerySchema.parse(Object.fromEntries(event.url.searchParams));
 
@@ -45,7 +44,7 @@ export const GET: RequestHandler = apiHandler(async (event) => {
     sort: query.sort,
   });
 
-  return json(page);
+  return Response.json(page);
 });
 
 export const POST: RequestHandler = writeApiHandler(async (event) => {
@@ -53,7 +52,7 @@ export const POST: RequestHandler = writeApiHandler(async (event) => {
   const actor = requireApiAuth(event);
 
   const { id } = event.params;
-  if (!id) return json({ message: "Missing problem ID." }, { status: 400 });
+  if (!id) return Response.json({ message: "Missing problem ID." }, { status: 400 });
 
   const payload = postCreateBodySchema.parse(await readJsonBody(event));
 
@@ -64,5 +63,5 @@ export const POST: RequestHandler = writeApiHandler(async (event) => {
     content: payload.content,
   });
 
-  return json(post, { status: 201 });
+  return Response.json(post, { status: 201 });
 });

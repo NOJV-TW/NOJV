@@ -12,18 +12,18 @@ import {
 import { examDomain, submissionDomain } from "@nojv/application";
 
 import type { Actions, PageServerLoad, PageServerLoadEvent } from "./$types";
-import { requireAuth } from "$lib/server/auth";
-import { getClientIp } from "$lib/server/shared/client-ip";
-import { withAction } from "$lib/server/shared/action-handlers";
-import { classifyRequestError } from "$lib/server/shared/handle-action-error";
-import { handleLoad } from "$lib/server/shared/load-wrapper";
+import { requireAuth } from "#lib/server/auth.js";
+import { getClientIp } from "#lib/server/shared/client-ip.js";
+import { withAction } from "#lib/server/shared/action-handlers.js";
+import { classifyRequestError } from "#lib/server/shared/handle-action-error.js";
+import { handleLoad } from "#lib/server/shared/load-wrapper.js";
 import {
   serializePlagiarismFlags,
   serializePlagiarismReport,
-} from "$lib/server/shared/plagiarism-view";
-import { toDateTimeLocal, toIsoOrUndefined } from "$lib/server/shared/form-utils";
-import { buildExamResults, type ExamResults } from "$lib/server/results/exam";
-import type { FormMessage } from "$lib/types/form-message";
+} from "#lib/server/shared/plagiarism-view.js";
+import { toDateTimeLocal, toIsoOrUndefined } from "#lib/server/shared/form-utils.js";
+import { buildExamResults, type ExamResults } from "#lib/server/results/exam.js";
+import type { FormMessage } from "#lib/types/form-message.js";
 
 const { deleteExamDraft, getExamPageView, publishExam, updateExamRecord } = examDomain;
 

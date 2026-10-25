@@ -15,7 +15,7 @@ import {
   readEditorFontSize,
   readPanelWidth,
   submissionContextBadge,
-} from "$lib/components/features/problem/editors/editor-bindings";
+} from "#lib/components/features/problem/editors/editor-bindings.js";
 
 const PANEL_WIDTH_KEY = "nojv:editor:panelWidth";
 const FONT_SIZE_KEY = "nojv:editor:fontSize";

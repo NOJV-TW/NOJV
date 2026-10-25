@@ -1,13 +1,13 @@
 import { flushSync, mount, tick, unmount } from "svelte";
 import { afterEach, expect, it, vi } from "vitest";
-import { m } from "$lib/paraglide/messages.js";
-import UsersTable from "$lib/components/features/admin/users/UsersTable.svelte";
+import { m } from "#lib/paraglide/messages.js";
+import UsersTable from "#lib/components/features/admin/users/UsersTable.svelte";
 
 vi.mock("$app/forms", () => ({ enhance: () => ({ destroy() {} }) }));
-vi.mock("$lib/components/primitives/ui/select/select-content.svelte", async () => ({
+vi.mock("#lib/components/primitives/ui/select/select-content.svelte", async () => ({
   default: (await import("../../fixtures/web/select-content.svelte")).default,
 }));
-vi.mock("$lib/stores/toast", () => ({ toasts: { error: vi.fn(), success: vi.fn() } }));
+vi.mock("#lib/stores/toast.js", () => ({ toasts: { error: vi.fn(), success: vi.fn() } }));
 vi.mock("@lucide/svelte", async () => {
   const Empty = (await import("../../fixtures/web/empty-component.svelte")).default;
   return {

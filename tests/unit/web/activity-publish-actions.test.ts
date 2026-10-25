@@ -9,10 +9,10 @@ const mocks = vi.hoisted(() => ({
   updateContest: vi.fn(),
   publishContest: vi.fn(),
 }));
-vi.mock("$lib/server/shared/rate-limiter", () => ({
+vi.mock("#lib/server/shared/rate-limiter.js", () => ({
   consumeFormRateLimitInternal: () => Promise.resolve(null),
 }));
-vi.mock("$lib/server/logger", () => ({ createLogger: () => ({ error: vi.fn() }) }));
+vi.mock("#lib/server/logger.js", () => ({ createLogger: () => ({ error: vi.fn() }) }));
 vi.mock("sveltekit-superforms", async () => {
   const actual = await import("sveltekit-superforms/server");
   return {

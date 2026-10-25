@@ -2,10 +2,10 @@ import { error, redirect } from "@sveltejs/kit";
 
 import { examDomain, problemDomain } from "@nojv/application";
 
-import { requireAuth } from "$lib/server/auth";
-import { getClientIp } from "$lib/server/shared/client-ip";
-import { handleLoad } from "$lib/server/shared/load-wrapper";
-import { loadProblemSolveData } from "$lib/server/problem-solve";
+import { requireAuth } from "#lib/server/auth.js";
+import { getClientIp } from "#lib/server/shared/client-ip.js";
+import { handleLoad } from "#lib/server/shared/load-wrapper.js";
+import { loadProblemSolveData } from "#lib/server/problem-solve.js";
 
 import type { PageServerLoad, PageServerLoadEvent } from "./$types";
 

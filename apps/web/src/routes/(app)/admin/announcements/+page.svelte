@@ -1,19 +1,19 @@
 <script lang="ts">
   import { enhance } from "$app/forms";
   import { RadioGroup } from "bits-ui";
-  import AnnouncementViewDialog from "$lib/components/features/announcement/AnnouncementViewDialog.svelte";
-  import ImageDropZone from "$lib/components/primitives/ui/ImageDropZone.svelte";
-  import { Badge } from "$lib/components/primitives/ui/badge";
-  import { Button } from "$lib/components/primitives/ui/button";
-  import { Card } from "$lib/components/primitives/ui/card";
-  import PageContainer from "$lib/components/primitives/layout/PageContainer.svelte";
-  import PageHeader from "$lib/components/primitives/layout/PageHeader.svelte";
-  import EmptyState from "$lib/components/primitives/ui/EmptyState.svelte";
-  import FormField from "$lib/components/primitives/ui/FormField.svelte";
-  import { Input } from "$lib/components/primitives/ui/input";
-  import { m } from "$lib/paraglide/messages.js";
-  import { formatDate } from "$lib/utils/datetime";
-  import { serializeDateTimeFormData } from "$lib/utils/datetime-form";
+  import AnnouncementViewDialog from "#lib/components/features/announcement/AnnouncementViewDialog.svelte";
+  import ImageDropZone from "#lib/components/primitives/ui/ImageDropZone.svelte";
+  import { Badge } from "#lib/components/primitives/ui/badge/index.js";
+  import { Button } from "#lib/components/primitives/ui/button/index.js";
+  import { Card } from "#lib/components/primitives/ui/card/index.js";
+  import PageContainer from "#lib/components/primitives/layout/PageContainer.svelte";
+  import PageHeader from "#lib/components/primitives/layout/PageHeader.svelte";
+  import EmptyState from "#lib/components/primitives/ui/EmptyState.svelte";
+  import FormField from "#lib/components/primitives/ui/FormField.svelte";
+  import { Input } from "#lib/components/primitives/ui/input/index.js";
+  import { m } from "#lib/paraglide/messages.js";
+  import { formatDate } from "#lib/utils/datetime.js";
+  import { serializeDateTimeFormData } from "#lib/utils/datetime-form.js";
   import { markdownToPlainText } from "@nojv/core";
   import { Megaphone, Pencil, Pin, Plus, Send, Trash2 } from "@lucide/svelte";
 
@@ -97,7 +97,7 @@
         use:enhance={(event) => {
           if (event.formData) serializeDateTimeFormData(event.formData, ["expiresAt"]);
           return async ({ result, update }) => {
-            await update();
+            await update({ navigate: false });
             if (result.type === "success") closeCreateForm();
           };
         }}
@@ -205,7 +205,7 @@
                   if (event.formData) serializeDateTimeFormData(event.formData, ["expiresAt"]);
                   return async ({ update }) => {
                     editingId = null;
-                    await update();
+                    await update({ navigate: false });
                   };
                 }}
               >

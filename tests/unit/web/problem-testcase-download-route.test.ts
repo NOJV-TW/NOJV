@@ -16,13 +16,13 @@ vi.mock("@nojv/application", async (importOriginal) => {
     },
   };
 });
-vi.mock("$lib/server/auth", () => ({ requireApiAuth: mocks.requireApiAuth }));
-vi.mock("$lib/server/shared/rate-limiter", () => ({
+vi.mock("#lib/server/auth.js", () => ({ requireApiAuth: mocks.requireApiAuth }));
+vi.mock("#lib/server/shared/rate-limiter.js", () => ({
   apiRateLimiter: { consume: async () => "allowed" },
   writeApiRateLimiter: { consume: async () => "allowed" },
   registryTokenRateLimiter: { consume: async () => "allowed" },
 }));
-vi.mock("$lib/server/logger", () => ({ createLogger: () => ({ error: vi.fn() }) }));
+vi.mock("#lib/server/logger.js", () => ({ createLogger: () => ({ error: vi.fn() }) }));
 
 import { NotFoundError } from "@nojv/application";
 import { GET } from "../../../apps/web/src/routes/api/problems/[id]/testcases/download/+server";

@@ -26,23 +26,24 @@ vi.mock("@nojv/application", async (original) => ({
   hasAdminSessionMfa,
   getSuperAdminSecurityUser,
 }));
-vi.mock("$lib/auth.server", () => ({
+vi.mock("#lib/auth.server.js", () => ({
   getAuth: () => ({ api: { signInEmail } }),
 }));
-vi.mock("$lib/server/shared/rate-limiter", () => ({
+vi.mock("#lib/server/shared/rate-limiter.js", () => ({
   consumeFormRateLimitInternal: async () => null,
   signInRateLimiter: { consume: async () => "allowed" },
   otpSendRateLimiter: {},
   stepUpAttemptRateLimiter: {},
 }));
 
-vi.mock("$lib/server/admin-signin-state", () => ({ pendingRegularAdminSignIn }));
-vi.mock("$lib/server/super-admin-password-proof", async (original) => ({
-  ...(await original<typeof import("$lib/server/super-admin-password-proof")>()),
+vi.mock("#lib/server/admin-signin-state.js", () => ({ pendingRegularAdminSignIn }));
+vi.mock("#lib/server/super-admin-password-proof.js", async (original) => ({
+  ...(await original<typeof import("#lib/server/super-admin-password-proof.js")>()),
   readSuperAdminPasswordProof,
 }));
 
-const { actions, load } = await import("$lib/../routes/(auth)/admin-signin/+page.server");
+const { actions, load } =
+  await import("../../../apps/web/src/routes/(auth)/admin-signin/+page.server.js");
 
 function passwordEvent(): RequestEvent {
   const url = new URL("http://localhost/admin-signin?/password&returnTo=/admin");

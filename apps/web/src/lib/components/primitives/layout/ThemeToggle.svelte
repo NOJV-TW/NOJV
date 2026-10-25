@@ -1,15 +1,15 @@
 <script lang="ts">
   import SunIcon from "@lucide/svelte/icons/sun";
   import MoonIcon from "@lucide/svelte/icons/moon";
-  import { IconButton } from "$lib/components/primitives/ui/button/index.js";
-  import { m } from "$lib/paraglide/messages.js";
+  import { IconButton } from "#lib/components/primitives/ui/button/index.js";
+  import { m } from "#lib/paraglide/messages.js";
   import {
     persistThemeMode,
     readThemeMode,
     resolveIsDark,
     toggleThemeMode,
     type ThemeMode,
-  } from "$lib/stores/theme";
+  } from "#lib/stores/theme.js";
 
   let mode = $state<ThemeMode>("system");
   let isDark = $state(false);

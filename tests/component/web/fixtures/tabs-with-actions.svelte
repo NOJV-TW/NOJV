@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Tabs } from "$lib/components/primitives/ui/tabs";
+  import { Tabs } from "#lib/components/primitives/ui/tabs/index.js";
 
   let active = $state("submissions");
   let lastChanged = $state("");

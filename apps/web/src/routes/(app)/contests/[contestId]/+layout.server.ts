@@ -1,10 +1,10 @@
 import { error } from "@sveltejs/kit";
 
 import type { LayoutServerLoad, LayoutServerLoadEvent } from "./$types";
-import { m } from "$lib/paraglide/messages.js";
+import { m } from "#lib/paraglide/messages.js";
 import { contestDomain, proctoringDomain } from "@nojv/application";
-import { getActorContext } from "$lib/server/auth";
-import { handleLoad } from "$lib/server/shared/load-wrapper";
+import { getActorContext } from "#lib/server/auth.js";
+import { handleLoad } from "#lib/server/shared/load-wrapper.js";
 
 export const load: LayoutServerLoad = handleLoad(async (event: LayoutServerLoadEvent) => {
   const actor = getActorContext(event);

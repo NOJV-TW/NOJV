@@ -1,11 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("$app/environment", () => ({ browser: true }));
-vi.mock("$lib/paraglide/messages.js", () => ({ m: {} }));
-vi.mock("$lib/stores/notifications.svelte", () => ({
+vi.mock("$app/env", () => ({ browser: true }));
+vi.mock("#lib/paraglide/messages.js", () => ({ m: {} }));
+vi.mock("#lib/stores/notifications.svelte.js", () => ({
   notifications: { handleSseEvent: vi.fn() },
 }));
-vi.mock("$lib/stores/toast", () => ({
+vi.mock("#lib/stores/toast.js", () => ({
   toasts: { success: vi.fn(), info: vi.fn() },
 }));
 
@@ -44,7 +44,7 @@ describe("client SSE clarification channel lifecycle", () => {
 
   it("reference-counts duplicate channel leases and returns an idempotent disposer", async () => {
     const { connectSSE, disconnectSSE, subscribeClarificationChannel } =
-      await import("$lib/stores/sse");
+      await import("#lib/stores/sse.js");
 
     connectSSE();
     expect(FakeEventSource.instances.map((source) => source.url)).toEqual([

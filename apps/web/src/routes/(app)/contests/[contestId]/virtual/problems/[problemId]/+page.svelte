@@ -1,8 +1,8 @@
 <script lang="ts">
   import { goto } from "$app/navigation";
-  import ProblemSolveView from "$lib/components/features/problem/views/ProblemSolveView.svelte";
-  import { m } from "$lib/paraglide/messages.js";
-  import { serverNow } from "$lib/utils/datetime.js";
+  import ProblemSolveView from "#lib/components/features/problem/views/ProblemSolveView.svelte";
+  import { m } from "#lib/paraglide/messages.js";
+  import { serverNow } from "#lib/utils/datetime.js";
 
   let { data } = $props();
 

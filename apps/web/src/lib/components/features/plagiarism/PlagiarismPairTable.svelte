@@ -1,8 +1,8 @@
 <script lang="ts">
   import Eye from "@lucide/svelte/icons/eye";
-  import { m } from "$lib/paraglide/messages.js";
-  import { Button, LinkButton } from "$lib/components/primitives/ui/button";
-  import { cn } from "$lib/utils/css.js";
+  import { m } from "#lib/paraglide/messages.js";
+  import { Button, LinkButton } from "#lib/components/primitives/ui/button/index.js";
+  import { cn } from "#lib/utils/css.js";
   import type { PlagiarismReportPair } from "./AssignmentPlagiarismReport.svelte";
 
   interface Props {

@@ -1,15 +1,15 @@
-import { getWebEnv } from "$lib/server/env";
-import { subscribeSse } from "$lib/server/shared/sse-hub";
+import { getWebEnv } from "#lib/server/env.js";
+import { subscribeSse } from "#lib/server/shared/sse-hub.js";
 import {
   sseConnectionDuration,
   sseConnectionDroppedTotal,
   type SseCloseReason,
-} from "$lib/server/metrics";
+} from "#lib/server/metrics.js";
 import {
   acquireSseSlot,
   releaseSseSlot,
   type SseStreamType,
-} from "$lib/server/shared/sse-slot";
+} from "#lib/server/shared/sse-slot.js";
 
 const MAX_DURATION_MS = 3_500_000;
 const KEEPALIVE_MS = 30_000;

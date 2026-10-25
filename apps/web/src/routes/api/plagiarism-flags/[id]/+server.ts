@@ -1,17 +1,15 @@
-import { json } from "@sveltejs/kit";
-
 import type { RequestHandler } from "./$types";
 
-import { requireApiAuth } from "$lib/server/auth";
+import { requireApiAuth } from "#lib/server/auth.js";
 import { plagiarismDomain } from "@nojv/application";
-import { writeApiHandler } from "$lib/server/shared/api-handler";
+import { writeApiHandler } from "#lib/server/shared/api-handler.js";
 
 const { unflagPair } = plagiarismDomain;
 
 export const DELETE: RequestHandler = writeApiHandler(async (event) => {
   const actor = requireApiAuth(event);
   const id = event.params.id;
-  if (!id) return json({ message: "Missing flag id." }, { status: 400 });
+  if (!id) return Response.json({ message: "Missing flag id." }, { status: 400 });
 
   await unflagPair(actor, id);
   return new Response(null, { status: 204 });

@@ -2,7 +2,7 @@
 
 import { mount, tick, unmount } from "svelte";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import AssessmentHero from "$lib/components/features/coursework/AssessmentHero.svelte";
+import AssessmentHero from "#lib/components/features/coursework/AssessmentHero.svelte";
 
 let component: ReturnType<typeof mount> | undefined;
 let target: HTMLDivElement | undefined;

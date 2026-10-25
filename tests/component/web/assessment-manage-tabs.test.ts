@@ -1,7 +1,7 @@
 import { createRawSnippet, mount, tick, unmount } from "svelte";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { m } from "$lib/paraglide/messages.js";
-import AssessmentManageTabs from "$lib/components/features/coursework/AssessmentManageTabs.svelte";
+import { m } from "#lib/paraglide/messages.js";
+import AssessmentManageTabs from "#lib/components/features/coursework/AssessmentManageTabs.svelte";
 
 const mocks = vi.hoisted(() => ({ goto: vi.fn().mockResolvedValue(undefined) }));
 vi.mock("$app/navigation", () => ({ goto: mocks.goto }));
@@ -61,9 +61,8 @@ it.each(["assignment", "exam", "contest"] as const)(
     expect(target.querySelector('[role="tabpanel"]')?.textContent).toContain("Audit entries");
     links[1]!.click();
     expect(mocks.goto).toHaveBeenCalledWith(`/${kind}s/example?tab=plagiarism&view=compact`, {
-      keepFocus: true,
-      noScroll: true,
-      replaceState: true,
+      reset: false,
+      replace: true,
     });
 
     tabs[0]!.dispatchEvent(new KeyboardEvent("keydown", { key: "End", bubbles: true }));

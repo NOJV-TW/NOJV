@@ -1,8 +1,8 @@
 <script lang="ts">
   import { Pencil, Trash2 } from "@lucide/svelte";
   import { MAX_INLINE_TESTCASE_EDIT_BYTES } from "@nojv/core";
-  import { m } from "$lib/paraglide/messages.js";
-  import { formatBytes } from "$lib/utils/storage-budget-format";
+  import { m } from "#lib/paraglide/messages.js";
+  import { formatBytes } from "#lib/utils/storage-budget-format.js";
 
   interface TestcaseData {
     id: string;

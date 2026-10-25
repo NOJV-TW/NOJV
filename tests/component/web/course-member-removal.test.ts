@@ -1,16 +1,16 @@
 import { mount, tick, unmount } from "svelte";
 import { afterEach, expect, it, vi } from "vitest";
-import { m } from "$lib/paraglide/messages.js";
+import { m } from "#lib/paraglide/messages.js";
 import MembersPage from "../../../apps/web/src/routes/(app)/courses/[courseId]/members/+page.svelte";
 
 const mocks = vi.hoisted(() => ({ fetch: vi.fn(), refresh: vi.fn(), error: vi.fn() }));
-vi.mock("$app/navigation", () => ({ invalidateAll: mocks.refresh }));
+vi.mock("$app/navigation", () => ({ refreshAll: mocks.refresh }));
 vi.mock("$app/forms", () => ({
   deserialize: JSON.parse,
   enhance: () => ({ destroy() {} }),
 }));
-vi.mock("$lib/stores/toast", () => ({ toasts: { error: mocks.error } }));
-vi.mock("$lib/components/features/course/BulkHandleAddPanel.svelte", async () => ({
+vi.mock("#lib/stores/toast.js", () => ({ toasts: { error: mocks.error } }));
+vi.mock("#lib/components/features/course/BulkHandleAddPanel.svelte", async () => ({
   default: (await import("../../fixtures/web/empty-component.svelte")).default,
 }));
 vi.mock("@lucide/svelte", async () => {

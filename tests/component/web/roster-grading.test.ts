@@ -2,16 +2,16 @@
 
 import { mount, tick, unmount } from "svelte";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import ScoreOverrideForm from "$lib/components/features/score-override/ScoreOverrideForm.svelte";
-import FeedbackForm from "$lib/components/features/score-override/FeedbackForm.svelte";
-import AuditTimeline from "$lib/components/features/audit/AuditTimeline.svelte";
-import MatrixView from "$lib/components/features/course/submissions/MatrixView.svelte";
+import ScoreOverrideForm from "#lib/components/features/score-override/ScoreOverrideForm.svelte";
+import FeedbackForm from "#lib/components/features/score-override/FeedbackForm.svelte";
+import AuditTimeline from "#lib/components/features/audit/AuditTimeline.svelte";
+import MatrixView from "#lib/components/features/course/submissions/MatrixView.svelte";
 
-vi.mock("$lib/stores/toast", () => ({ toasts: { success: vi.fn(), error: vi.fn() } }));
-vi.mock("$lib/components/primitives/ui/button", async () => ({
+vi.mock("#lib/stores/toast.js", () => ({ toasts: { success: vi.fn(), error: vi.fn() } }));
+vi.mock("#lib/components/primitives/ui/button/index.js", async () => ({
   Button: (await import("../../fixtures/web/empty-component.svelte")).default,
 }));
-vi.mock("$lib/components/features/course/submissions/MatrixLegend.svelte", async () => ({
+vi.mock("#lib/components/features/course/submissions/MatrixLegend.svelte", async () => ({
   default: (await import("../../fixtures/web/empty-component.svelte")).default,
 }));
 

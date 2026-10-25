@@ -13,10 +13,10 @@ const mocks = vi.hoisted(() => ({
   updateExam: vi.fn(),
 }));
 vi.mock("sveltekit-superforms", () => import("sveltekit-superforms/server"));
-vi.mock("$lib/server/shared/rate-limiter", () => ({
+vi.mock("#lib/server/shared/rate-limiter.js", () => ({
   consumeFormRateLimitInternal: () => Promise.resolve(null),
 }));
-vi.mock("$lib/server/logger", () => ({ createLogger: () => ({ error: vi.fn() }) }));
+vi.mock("#lib/server/logger.js", () => ({ createLogger: () => ({ error: vi.fn() }) }));
 vi.mock("@nojv/application", async (original) => {
   const actual = await original<typeof Application>();
   return {
@@ -44,10 +44,13 @@ vi.mock("@nojv/application", async (original) => {
   };
 });
 
-import { load as layoutLoad } from "$lib/../routes/(app)/courses/[courseId]/+layout.server";
-import { actions, load } from "$lib/../routes/(app)/courses/[courseId]/problems/+page.server";
-import { actions as assignmentActions } from "$lib/../routes/(app)/assignments/[assignmentId]/+page.server";
-import { actions as examActions } from "$lib/../routes/(app)/exams/[examId]/+page.server";
+import { load as layoutLoad } from "../../../apps/web/src/routes/(app)/courses/[courseId]/+layout.server.js";
+import {
+  actions,
+  load,
+} from "../../../apps/web/src/routes/(app)/courses/[courseId]/problems/+page.server.js";
+import { actions as assignmentActions } from "../../../apps/web/src/routes/(app)/assignments/[assignmentId]/+page.server.js";
+import { actions as examActions } from "../../../apps/web/src/routes/(app)/exams/[examId]/+page.server.js";
 
 function event(fields: Record<string, string | string[]> = {}, platformRole = "student") {
   const url = new URL("http://localhost/courses/course_1/problems");

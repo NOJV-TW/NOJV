@@ -1,9 +1,9 @@
 <script lang="ts">
   import Download from "@lucide/svelte/icons/download";
-  import { m } from "$lib/paraglide/messages.js";
-  import { Button } from "$lib/components/primitives/ui/button";
-  import TestcaseSetCard from "$lib/components/features/problem/testcase/TestcaseSetCard.svelte";
-  import TestcaseZipUploader from "$lib/components/features/problem/testcase/TestcaseZipUploader.svelte";
+  import { m } from "#lib/paraglide/messages.js";
+  import { Button } from "#lib/components/primitives/ui/button/index.js";
+  import TestcaseSetCard from "#lib/components/features/problem/testcase/TestcaseSetCard.svelte";
+  import TestcaseZipUploader from "#lib/components/features/problem/testcase/TestcaseZipUploader.svelte";
 
   interface TestcaseData {
     id: string;

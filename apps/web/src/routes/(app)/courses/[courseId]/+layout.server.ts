@@ -1,7 +1,7 @@
 import type { LayoutServerLoad, LayoutServerLoadEvent } from "./$types";
 import { courseDomain, NotFoundError, ForbiddenError } from "@nojv/application";
-import { isCourseManager, isCourseMember, requireAuth } from "$lib/server/auth";
-import { handleLoad } from "$lib/server/shared/load-wrapper";
+import { isCourseManager, isCourseMember, requireAuth } from "#lib/server/auth.js";
+import { handleLoad } from "#lib/server/shared/load-wrapper.js";
 
 const { getCourseHeaderById } = courseDomain;
 

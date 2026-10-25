@@ -1,6 +1,6 @@
 <script lang="ts" generics="K extends string">
   import type { Snippet } from "svelte";
-  import { cn } from "$lib/utils/css.js";
+  import { cn } from "#lib/utils/css.js";
 
   interface FilterTab {
     key: K;

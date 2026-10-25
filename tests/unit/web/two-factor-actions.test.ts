@@ -57,22 +57,22 @@ vi.mock("@nojv/mailer", () => ({
   renderEmail: ({ heading, intro, outro }: Record<string, string>) => heading + intro + outro,
 }));
 
-vi.mock("$lib/auth.server", () => ({
+vi.mock("#lib/auth.server.js", () => ({
   getAuth: () => ({ api: { listPasskeys: mocks.listPasskeys } }),
 }));
 
-vi.mock("$lib/server/env", () => ({ getWebEnv: () => ({ NODE_ENV: "production" }) }));
-vi.mock("$lib/server/logger", () => ({
+vi.mock("#lib/server/env.js", () => ({ getWebEnv: () => ({ NODE_ENV: "production" }) }));
+vi.mock("#lib/server/logger.js", () => ({
   createLogger: () => ({ debug: vi.fn(), error: vi.fn(), info: vi.fn(), warn: vi.fn() }),
 }));
-vi.mock("$lib/server/shared/rate-limiter", () => ({
+vi.mock("#lib/server/shared/rate-limiter.js", () => ({
   otpSendRateLimiter: { consume: mocks.otpLimit },
   stepUpAttemptRateLimiter: { consume: mocks.stepUpLimit },
 }));
-vi.mock("$lib/server/step-up", () => ({
+vi.mock("#lib/server/step-up.js", () => ({
   verifyStepUpCode: mocks.verifyStepUp,
 }));
-vi.mock("$lib/server/totp-enrollment", () => ({
+vi.mock("#lib/server/totp-enrollment.js", () => ({
   confirmPendingTotp: mocks.confirmPendingTotp,
   generateNewBackupCodes: mocks.generateBackupCodes,
   startPendingTotp: mocks.startPendingTotp,
@@ -81,7 +81,7 @@ vi.mock("$lib/server/totp-enrollment", () => ({
 import {
   loadTwoFactor as load,
   twoFactorActions as actions,
-} from "$lib/../routes/(app)/settings/two-factor-actions";
+} from "../../../apps/web/src/routes/(app)/settings/two-factor-actions.js";
 
 const state = {
   hasPasskey: false,

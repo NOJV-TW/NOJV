@@ -1,6 +1,6 @@
 import { randomBytes } from "node:crypto";
 
-import { env } from "$env/dynamic/private";
+import * as env from "$app/env/private";
 import { z } from "zod";
 
 const devAuthSecret = (): string => randomBytes(32).toString("base64");
@@ -22,13 +22,11 @@ const webEnvSchema = z
 
     DATABASE_URL: z.url().default("postgresql://postgres:postgres@localhost:5432/nojv"),
     REDIS_URL: z.url().default("redis://localhost:6379"),
-
     ADVANCED_IMAGE_ALLOWED_REGISTRIES: z
       .string()
       .trim()
       .transform((val) => (val === "" ? DEFAULT_ADVANCED_IMAGE_REGISTRIES : val))
       .default(DEFAULT_ADVANCED_IMAGE_REGISTRIES),
-
     REGISTRY_PUBLIC_HOST: z.string().trim().default(""),
     REGISTRY_INTERNAL_URL: z.string().trim().default(""),
     REGISTRY_TOKEN_ISSUER: z.string().trim().default("nojv"),

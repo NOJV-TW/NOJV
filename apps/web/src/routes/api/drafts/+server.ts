@@ -1,4 +1,3 @@
-import { json } from "@sveltejs/kit";
 import {
   codeDraftSaveSchema,
   codeDraftScopeSchema,
@@ -8,14 +7,14 @@ import { codeDraftDomain } from "@nojv/application";
 
 import type { RequestHandler } from "./$types";
 
-import { requireApiAuth } from "$lib/server/auth";
-import { getClientIp } from "$lib/server/shared/client-ip";
+import { requireApiAuth } from "#lib/server/auth.js";
+import { getClientIp } from "#lib/server/shared/client-ip.js";
 import {
   assertJsonBodyWithinLimit,
   draftApiHandler,
   parseJsonContextParam,
   readJsonBody,
-} from "$lib/server/shared/api-handler";
+} from "#lib/server/shared/api-handler.js";
 
 export const GET: RequestHandler = draftApiHandler(async (event) => {
   const actor = requireApiAuth(event);
@@ -23,7 +22,7 @@ export const GET: RequestHandler = draftApiHandler(async (event) => {
     context: parseJsonContextParam(event.url.searchParams.get("context")),
     problemId: event.url.searchParams.get("problemId"),
   });
-  return json({
+  return Response.json({
     drafts: await codeDraftDomain.listCodeDrafts(actor, scope, getClientIp(event)),
   });
 });
@@ -32,5 +31,5 @@ export const PUT: RequestHandler = draftApiHandler(async (event) => {
   assertJsonBodyWithinLimit(event, MAX_SUBMISSION_BODY_BYTES);
   const actor = requireApiAuth(event);
   const draft = codeDraftSaveSchema.parse(await readJsonBody(event, MAX_SUBMISSION_BODY_BYTES));
-  return json(await codeDraftDomain.saveCodeDraft(actor, draft, getClientIp(event)));
+  return Response.json(await codeDraftDomain.saveCodeDraft(actor, draft, getClientIp(event)));
 });

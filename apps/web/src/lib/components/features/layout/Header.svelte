@@ -13,15 +13,15 @@
     Trophy,
   } from "@lucide/svelte";
   import type { Component } from "svelte";
-  import { m } from "$lib/paraglide/messages.js";
-  import { getLocale, setLocale, locales } from "$lib/paraglide/runtime.js";
-  import { cn } from "$lib/utils/css.js";
+  import { m } from "#lib/paraglide/messages.js";
+  import { getLocale, setLocale, locales } from "#lib/paraglide/runtime.js";
+  import { cn } from "#lib/utils/css.js";
   import UserAuthMenu from "../auth/UserMenu.svelte";
   import NotificationBell from "../notification/NotificationBell.svelte";
   import MobileNavDrawer from "./MobileNavDrawer.svelte";
-  import BrandLogo from "$lib/components/primitives/layout/BrandLogo.svelte";
-  import ThemeToggle from "$lib/components/primitives/layout/ThemeToggle.svelte";
-  import { IconButton } from "$lib/components/primitives/ui/button/index.js";
+  import BrandLogo from "#lib/components/primitives/layout/BrandLogo.svelte";
+  import ThemeToggle from "#lib/components/primitives/layout/ThemeToggle.svelte";
+  import { IconButton } from "#lib/components/primitives/ui/button/index.js";
 
   let { immersive = false }: { immersive?: boolean } = $props();
 

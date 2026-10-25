@@ -4,8 +4,8 @@
     formatVerdictLabel,
     verdictBadgeVariant,
     type VerdictBadgeVariant,
-  } from "$lib/utils/verdict-style";
-  import { formatMemoryKb } from "$lib/utils/judge-output";
+  } from "#lib/utils/verdict-style.js";
+  import { formatMemoryKb } from "#lib/utils/judge-output.js";
 
   interface Props {
     cases: CaseResult[];

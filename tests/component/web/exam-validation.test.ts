@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
 import { mount, tick, unmount } from "svelte";
 import { expect, it } from "vitest";
-import ActivityWeights from "$lib/components/features/course/ActivityWeights.svelte";
-import ProblemPicker from "$lib/components/features/course/exam/ProblemPicker.svelte";
+import ActivityWeights from "#lib/components/features/course/ActivityWeights.svelte";
+import ProblemPicker from "#lib/components/features/course/exam/ProblemPicker.svelte";
 
 it("exposes missing problems and allocation errors to the form scroll selector", async () => {
   const target = document.createElement("div");

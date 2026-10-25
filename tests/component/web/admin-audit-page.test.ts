@@ -43,8 +43,7 @@ it("flips the time order and restarts paging", () => {
   expect(target.querySelector("a")?.getAttribute("href")).toBe("?cursor=a50");
   header?.querySelector("button")?.click();
   expect(mocks.goto).toHaveBeenCalledWith("/admin/audit?order=asc", {
-    keepFocus: true,
-    noScroll: true,
+    reset: false,
   });
 });
 
@@ -54,5 +53,5 @@ it("keeps ascending order on the next page and returns to the default", () => {
   expect(header?.getAttribute("aria-sort")).toBe("ascending");
   expect(target.querySelector("a")?.getAttribute("href")).toBe("?cursor=a50&order=asc");
   header?.querySelector("button")?.click();
-  expect(mocks.goto).toHaveBeenCalledWith("/admin/audit", { keepFocus: true, noScroll: true });
+  expect(mocks.goto).toHaveBeenCalledWith("/admin/audit", { reset: false });
 });

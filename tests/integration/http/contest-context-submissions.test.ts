@@ -9,7 +9,7 @@ import {
 } from "../../fixtures/factories";
 import { callRoute } from "./_harness";
 
-vi.mock("$lib/auth.server", () => ({
+vi.mock("#lib/auth.server.js", () => ({
   getAuth: () => ({
     api: {
       getSession: async ({ headers }: { headers: Headers }) => {

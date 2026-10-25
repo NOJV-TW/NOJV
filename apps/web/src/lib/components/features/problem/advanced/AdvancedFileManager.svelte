@@ -1,6 +1,6 @@
 <script lang="ts">
   import X from "@lucide/svelte/icons/x";
-  import { m } from "$lib/paraglide/messages.js";
+  import { m } from "#lib/paraglide/messages.js";
   import type { StagedFile } from "./AdvancedUploader.svelte";
 
   interface Props {

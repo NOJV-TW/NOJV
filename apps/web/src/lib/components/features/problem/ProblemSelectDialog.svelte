@@ -6,11 +6,11 @@
 </script>
 
 <script lang="ts">
-  import * as Dialog from "$lib/components/primitives/ui/dialog";
-  import { m } from "$lib/paraglide/messages.js";
-  import { Button } from "$lib/components/primitives/ui/button";
-  import { cn } from "$lib/utils/css";
-  import { matchesProblemPickerSearch } from "$lib/utils/problem-picker";
+  import * as Dialog from "#lib/components/primitives/ui/dialog/index.js";
+  import { m } from "#lib/paraglide/messages.js";
+  import { Button } from "#lib/components/primitives/ui/button/index.js";
+  import { cn } from "#lib/utils/css.js";
+  import { matchesProblemPickerSearch } from "#lib/utils/problem-picker.js";
   import Check from "@lucide/svelte/icons/check";
   import Search from "@lucide/svelte/icons/search";
 

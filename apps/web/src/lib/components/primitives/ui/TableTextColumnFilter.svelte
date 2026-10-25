@@ -1,9 +1,9 @@
 <script lang="ts">
   import { ListFilter, X } from "@lucide/svelte";
   import { Popover } from "bits-ui";
-  import { Button } from "$lib/components/primitives/ui/button";
-  import { Input } from "$lib/components/primitives/ui/input";
-  import { m } from "$lib/paraglide/messages.js";
+  import { Button } from "#lib/components/primitives/ui/button/index.js";
+  import { Input } from "#lib/components/primitives/ui/input/index.js";
+  import { m } from "#lib/paraglide/messages.js";
 
   interface Props {
     label: string;

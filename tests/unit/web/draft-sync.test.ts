@@ -2,7 +2,7 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { createServerDraftSync, DRAFT_SYNC_INTERVAL_MS } from "$lib/services/draft-sync";
+import { createServerDraftSync, DRAFT_SYNC_INTERVAL_MS } from "#lib/services/draft-sync.js";
 
 const context = { type: "exam" as const, examId: "exam_1" };
 

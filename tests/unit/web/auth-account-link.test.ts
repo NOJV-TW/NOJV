@@ -59,7 +59,7 @@ vi.mock("@nojv/mailer", () => ({
   }),
   renderEmail: () => "<html></html>",
 }));
-vi.mock("$lib/server/env", () => ({
+vi.mock("#lib/server/env.js", () => ({
   getWebEnv: () => ({
     BETTER_AUTH_SECRET: "test-secret-at-least-32-characters",
     BETTER_AUTH_URL: "https://nojv.test",
@@ -70,14 +70,14 @@ vi.mock("$lib/server/env", () => ({
     GOOGLE_CLIENT_SECRET: "test-google-secret",
   }),
 }));
-vi.mock("$lib/server/shared/rate-limiter", () => ({
+vi.mock("#lib/server/shared/rate-limiter.js", () => ({
   consumeFormRateLimitInternal: vi.fn().mockResolvedValue(null),
 }));
-vi.mock("$lib/server/auth", () => ({ requireAuth: vi.fn() }));
-vi.mock("$lib/server/shared/school-verification", () => ({
+vi.mock("#lib/server/auth.js", () => ({ requireAuth: vi.fn() }));
+vi.mock("#lib/server/shared/school-verification.js", () => ({
   handleSendVerificationAction: vi.fn(),
 }));
-vi.mock("$lib/../routes/(app)/settings/two-factor-actions", () => ({
+vi.mock("../../../apps/web/src/routes/(app)/settings/two-factor-actions.js", () => ({
   loadTwoFactor: vi.fn().mockResolvedValue({}),
   twoFactorActions: {},
 }));
@@ -92,9 +92,9 @@ import {
   userDomain,
 } from "@nojv/application";
 import { prismaAdapterClient } from "@nojv/db";
-import { getAuth } from "$lib/auth.server";
-import { requireAuth } from "$lib/server/auth";
-import { actions, load } from "$lib/../routes/(app)/settings/+page.server";
+import { getAuth } from "#lib/auth.server.js";
+import { requireAuth } from "#lib/server/auth.js";
+import { actions, load } from "../../../apps/web/src/routes/(app)/settings/+page.server.js";
 
 let sessionCookie: string;
 let userId: string;
@@ -103,11 +103,14 @@ beforeAll(async () => {
   const auth = getAuth();
   const context = await auth.$context;
   vi.spyOn(context.logger, "error").mockImplementation(() => {});
-  const user = await context.internalAdapter.createUser({
-    name: "Account link test",
-    email: "link@example.com",
-    emailVerified: true,
-  });
+  const user = await context.internalAdapter.createUser(
+    {
+      name: "Account link test",
+      email: "link@example.com",
+      emailVerified: true,
+    },
+    { method: "email-password" },
+  );
   userId = user.id;
   await context.internalAdapter.createAccount({
     userId,
@@ -131,12 +134,14 @@ beforeAll(async () => {
     provider.validateAuthorizationCode = async () => ({ accessToken: "test-access-token" });
     provider.getUserInfo = async () => ({
       user: {
-        id: `linked-${provider.id}`,
         email: user.email,
         emailVerified: true,
         name: user.name,
       },
-      data: {},
+      data:
+        provider.id === "google"
+          ? { sub: `linked-${provider.id}` }
+          : { id: `linked-${provider.id}` },
     });
   }
 });
@@ -224,6 +229,52 @@ describe("unlinking one account of a provider", () => {
   });
 });
 
+describe("unlink account ownership", () => {
+  it.each([
+    ["github", "linked-google"],
+    ["google", "foreign-google"],
+  ])("rejects a mismatched or foreign %s account %s", async (provider, accountId) => {
+    const auth = getAuth();
+    const context = await auth.$context;
+    const foreignUser = await context.internalAdapter.createUser(
+      {
+        name: "Other account owner",
+        email: `${provider}@other.example`,
+        emailVerified: true,
+      },
+      { method: "admin" },
+    );
+    await context.internalAdapter.createAccount({
+      userId: foreignUser.id,
+      providerId: "google",
+      accountId: `foreign-${provider}`,
+    });
+    const headers = new Headers({ cookie: sessionCookie, origin: "https://nojv.test" });
+    const session = await auth.api.getSession({ headers });
+    const before = await context.internalAdapter.findAccounts(userId);
+    const foreignBefore = await context.internalAdapter.findAccounts(foreignUser.id);
+    const body = new FormData();
+    body.set("provider", provider);
+    body.set("accountId", accountId);
+    const event = {
+      locals: { user: session!.user, sessionUser: session!.user },
+      url: new URL("https://nojv.test/settings"),
+      request: new Request("https://nojv.test/settings?/unlink", {
+        method: "POST",
+        headers,
+        body,
+      }),
+    } as unknown as Parameters<typeof load>[0];
+
+    await expect(actions.unlink(event)).resolves.toMatchObject({
+      status: 400,
+      data: { error: "unlinkFailed" },
+    });
+    expect(await context.internalAdapter.findAccounts(userId)).toEqual(before);
+    expect(await context.internalAdapter.findAccounts(foreignUser.id)).toEqual(foreignBefore);
+  });
+});
+
 describe("sign-in with an unknown provider identity that shares an email", () => {
   it("does not implicitly link it to the existing account", async () => {
     state.cookies.clear();
@@ -232,12 +283,14 @@ describe("sign-in with an unknown provider identity that shares an email", () =>
     for (const provider of context.socialProviders) {
       provider.getUserInfo = async () => ({
         user: {
-          id: `stranger-${provider.id}`,
           email: "link@example.com",
           emailVerified: true,
           name: "Recycled mailbox",
         },
-        data: {},
+        data:
+          provider.id === "google"
+            ? { sub: `stranger-${provider.id}` }
+            : { id: `stranger-${provider.id}` },
       });
     }
     const before = (await context.internalAdapter.findAccounts(userId)).length;

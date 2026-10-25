@@ -1,8 +1,8 @@
 <script lang="ts">
   import Plus from "@lucide/svelte/icons/plus";
   import X from "@lucide/svelte/icons/x";
-  import { m } from "$lib/paraglide/messages.js";
-  import { inputClassName } from "$lib/utils/css";
+  import { m } from "#lib/paraglide/messages.js";
+  import { inputClassName } from "#lib/utils/css.js";
 
   interface Props {
     timeLimitMs: number;

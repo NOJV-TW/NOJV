@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 
-import { buildActivityModel, type ActivityEvent } from "$lib/utils/activity";
+import { buildActivityModel, type ActivityEvent } from "#lib/utils/activity.js";
 
 function ev(year: number, month: number, day: number, ac: boolean): ActivityEvent {
   return { at: new Date(year, month - 1, day, 12, 0, 0).toISOString(), ac };

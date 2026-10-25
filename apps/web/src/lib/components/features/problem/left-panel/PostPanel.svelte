@@ -2,12 +2,12 @@
   import { Lock } from "@lucide/svelte";
   import { postListResponseSchema, type PostListSort, type ProblemPostType } from "@nojv/core";
   import { page } from "$app/state";
-  import { m } from "$lib/paraglide/messages.js";
-  import EmptyState from "$lib/components/primitives/ui/EmptyState.svelte";
-  import PostListView from "$lib/components/features/posts/PostListView.svelte";
-  import PostArticleView from "$lib/components/features/posts/PostArticleView.svelte";
-  import PostForm from "$lib/components/features/posts/PostForm.svelte";
-  import type { PostListItem } from "$lib/components/features/posts/types";
+  import { m } from "#lib/paraglide/messages.js";
+  import EmptyState from "#lib/components/primitives/ui/EmptyState.svelte";
+  import PostListView from "#lib/components/features/posts/PostListView.svelte";
+  import PostArticleView from "#lib/components/features/posts/PostArticleView.svelte";
+  import PostForm from "#lib/components/features/posts/PostForm.svelte";
+  import type { PostListItem } from "#lib/components/features/posts/types.js";
 
   interface Props {
     problemId: string;

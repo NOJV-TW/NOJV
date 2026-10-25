@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { StagedFile } from "$lib/components/features/problem/advanced/AdvancedUploader.svelte";
+  import type { StagedFile } from "#lib/components/features/problem/advanced/AdvancedUploader.svelte";
   let { staged = $bindable<StagedFile | null>(null) } = $props();
 </script>
 

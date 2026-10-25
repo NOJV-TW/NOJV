@@ -1,8 +1,8 @@
 <script lang="ts">
   import { ListFilter, X } from "@lucide/svelte";
   import { Select as SelectPrimitive } from "bits-ui";
-  import * as Select from "$lib/components/primitives/ui/select";
-  import { m } from "$lib/paraglide/messages.js";
+  import * as Select from "#lib/components/primitives/ui/select/index.js";
+  import { m } from "#lib/paraglide/messages.js";
 
   interface Option {
     value: string;

@@ -1,11 +1,11 @@
 <script lang="ts">
-  import { m } from "$lib/paraglide/messages.js";
+  import { m } from "#lib/paraglide/messages.js";
   import MatrixView, {
     type MatrixViewData,
     type MatrixViewLabels,
-  } from "$lib/components/features/course/submissions/MatrixView.svelte";
-  import ScoreDistributionPanel from "$lib/components/features/results/ScoreDistributionPanel.svelte";
-  import GlassPanel from "$lib/components/primitives/visual/GlassPanel.svelte";
+  } from "#lib/components/features/course/submissions/MatrixView.svelte";
+  import ScoreDistributionPanel from "#lib/components/features/results/ScoreDistributionPanel.svelte";
+  import GlassPanel from "#lib/components/primitives/visual/GlassPanel.svelte";
 
   interface GradeStats {
     buckets: { label: string; count: number }[];

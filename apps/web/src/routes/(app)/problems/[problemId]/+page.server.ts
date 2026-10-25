@@ -10,8 +10,8 @@ const {
 } = problemDomain;
 const { canOperateOnSubmission, listProblemSubmissions } = submissionDomain;
 const { canViewPosts, resolveActiveContextForUser } = postDomain;
-import { requireAuth } from "$lib/server/auth";
-import { handleLoad } from "$lib/server/shared/load-wrapper";
+import { requireAuth } from "#lib/server/auth.js";
+import { handleLoad } from "#lib/server/shared/load-wrapper.js";
 
 export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent) => {
   event.depends("submission:data");

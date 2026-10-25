@@ -2,19 +2,24 @@
   import { ChevronFirst, ChevronLast, ChevronLeft, ChevronRight, Code2 } from "@lucide/svelte";
   import { languageLabel, languageSchema, submissionResultVerdicts } from "@nojv/core";
   import { goto } from "$app/navigation";
-  import { m } from "$lib/paraglide/messages.js";
-  import { createSubmissionHistory } from "$lib/services/submission-history.svelte";
-  import PageContainer from "$lib/components/primitives/layout/PageContainer.svelte";
-  import PageHeader from "$lib/components/primitives/layout/PageHeader.svelte";
-  import EmptyState from "$lib/components/primitives/ui/EmptyState.svelte";
-  import TableSelectColumnFilter from "$lib/components/primitives/ui/TableSelectColumnFilter.svelte";
-  import TableSortButton from "$lib/components/primitives/ui/TableSortButton.svelte";
-  import TableTextColumnFilter from "$lib/components/primitives/ui/TableTextColumnFilter.svelte";
-  import { Button } from "$lib/components/primitives/ui/button";
-  import { formatDateTime } from "$lib/utils/datetime";
-  import { ariaSort, sortDirection, toggleSort, type TableSort } from "$lib/utils/table-sort";
-  import { formatVerdictLabel } from "$lib/utils/verdict-style";
-  import VerdictBadge from "$lib/components/primitives/ui/VerdictBadge.svelte";
+  import { m } from "#lib/paraglide/messages.js";
+  import { createSubmissionHistory } from "#lib/services/submission-history.svelte.js";
+  import PageContainer from "#lib/components/primitives/layout/PageContainer.svelte";
+  import PageHeader from "#lib/components/primitives/layout/PageHeader.svelte";
+  import EmptyState from "#lib/components/primitives/ui/EmptyState.svelte";
+  import TableSelectColumnFilter from "#lib/components/primitives/ui/TableSelectColumnFilter.svelte";
+  import TableSortButton from "#lib/components/primitives/ui/TableSortButton.svelte";
+  import TableTextColumnFilter from "#lib/components/primitives/ui/TableTextColumnFilter.svelte";
+  import { Button } from "#lib/components/primitives/ui/button/index.js";
+  import { formatDateTime } from "#lib/utils/datetime.js";
+  import {
+    ariaSort,
+    sortDirection,
+    toggleSort,
+    type TableSort,
+  } from "#lib/utils/table-sort.js";
+  import { formatVerdictLabel } from "#lib/utils/verdict-style.js";
+  import VerdictBadge from "#lib/components/primitives/ui/VerdictBadge.svelte";
 
   let { data } = $props();
 

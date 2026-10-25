@@ -1,6 +1,6 @@
 <script lang="ts">
   import { settingsForm } from "./teacher-refresh-data";
-  import AssignmentSettingsTab from "$lib/components/features/course/assignment/AssignmentSettingsTab.svelte";
+  import AssignmentSettingsTab from "#lib/components/features/course/assignment/AssignmentSettingsTab.svelte";
   let context = $state("assignment-A");
   let form = $state(settingsForm("Original title"));
   export function refresh(id: string, title: string) {

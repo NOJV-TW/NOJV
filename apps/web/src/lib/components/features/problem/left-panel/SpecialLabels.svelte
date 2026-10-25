@@ -1,8 +1,8 @@
 <script lang="ts">
   import { MemoryStick, Timer } from "@lucide/svelte";
   import type { ProblemType } from "@nojv/core";
-  import { m } from "$lib/paraglide/messages.js";
-  import HelpTooltip from "$lib/components/primitives/ui/HelpTooltip.svelte";
+  import { m } from "#lib/paraglide/messages.js";
+  import HelpTooltip from "#lib/components/primitives/ui/HelpTooltip.svelte";
 
   interface Props {
     problemType: ProblemType;

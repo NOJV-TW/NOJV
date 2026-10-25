@@ -3,17 +3,17 @@
 import { mount, unmount } from "svelte";
 import { expect, it, vi } from "vitest";
 
-import { m } from "$lib/paraglide/messages.js";
-import type { PlagiarismPairDiffData } from "$lib/types/plagiarism-pair";
+import { m } from "#lib/paraglide/messages.js";
+import type { PlagiarismPairDiffData } from "#lib/types/plagiarism-pair.js";
 import Harness from "./fixtures/plagiarism-pair-diff-harness.svelte";
 
-vi.mock("$lib/utils/monaco-loader", () => ({
+vi.mock("#lib/utils/monaco-loader.js", () => ({
   loadMonaco: () => {
     throw new Error("chunk unavailable");
   },
 }));
 
-vi.mock("$lib/components/primitives/ui/button", async () => ({
+vi.mock("#lib/components/primitives/ui/button/index.js", async () => ({
   Button: (await import("./fixtures/component-button.svelte")).default,
 }));
 

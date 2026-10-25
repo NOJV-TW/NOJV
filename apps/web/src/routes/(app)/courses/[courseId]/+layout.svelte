@@ -1,10 +1,10 @@
 <script lang="ts">
   import type { Snippet } from "svelte";
   import { page } from "$app/state";
-  import CourseHero from "$lib/components/features/course/CourseHero.svelte";
-  import CourseTabBar from "$lib/components/features/course/CourseTabBar.svelte";
-  import type { CourseTabKey } from "$lib/components/features/course/CourseTabBar.svelte";
-  import { m } from "$lib/paraglide/messages.js";
+  import CourseHero from "#lib/components/features/course/CourseHero.svelte";
+  import CourseTabBar from "#lib/components/features/course/CourseTabBar.svelte";
+  import type { CourseTabKey } from "#lib/components/features/course/CourseTabBar.svelte";
+  import { m } from "#lib/paraglide/messages.js";
   import type { LayoutData } from "./$types";
 
   interface Props {

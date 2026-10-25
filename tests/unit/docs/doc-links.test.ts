@@ -1,4 +1,4 @@
-import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
+import { existsSync, globSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -53,7 +53,24 @@ function markdownFilesUnder(dir: string): string[] {
   return out;
 }
 
-const checkedDocs = [...rootDocs, ...docTrees.flatMap(markdownFilesUnder)];
+const agentGuides = globSync(
+  "{apps,packages,tests,infra,docs,scripts,tooling,.github}/**/AGENTS.md",
+  {
+    cwd: repoRoot,
+    exclude: [
+      "**/node_modules/**",
+      "**/dist/**",
+      "**/build/**",
+      "**/.svelte-kit/**",
+      "**/.turbo/**",
+      "**/coverage/**",
+    ],
+  },
+);
+
+const checkedDocs = [
+  ...new Set([...rootDocs, ...agentGuides, ...docTrees.flatMap(markdownFilesUnder)]),
+];
 
 function relativeLinks(text: string): string[] {
   const links: string[] = [];

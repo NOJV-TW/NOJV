@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { m } from "$lib/paraglide/messages.js";
+  import { m } from "#lib/paraglide/messages.js";
   import { goto } from "$app/navigation";
   import { page } from "$app/state";
   import {
@@ -15,15 +15,15 @@
     Tags,
     Trash2,
   } from "@lucide/svelte";
-  import { Button, LinkButton } from "$lib/components/primitives/ui/button";
-  import { Badge } from "$lib/components/primitives/ui/badge";
-  import { Card } from "$lib/components/primitives/ui/card";
-  import { Input } from "$lib/components/primitives/ui/input";
-  import EmptyState from "$lib/components/primitives/ui/EmptyState.svelte";
+  import { Button, LinkButton } from "#lib/components/primitives/ui/button/index.js";
+  import { Badge } from "#lib/components/primitives/ui/badge/index.js";
+  import { Card } from "#lib/components/primitives/ui/card/index.js";
+  import { Input } from "#lib/components/primitives/ui/input/index.js";
+  import EmptyState from "#lib/components/primitives/ui/EmptyState.svelte";
   import type { ProblemDifficulty, ProblemType, ProblemVisibility } from "@nojv/core";
-  import { difficultyClass, tagClass } from "$lib/utils/verdict-style";
-  import { formatProblemDisplayName } from "$lib/utils/format-problem-display-name";
-  import RejudgeDialog from "$lib/components/features/problem/admin/RejudgeDialog.svelte";
+  import { difficultyClass, tagClass } from "#lib/utils/verdict-style.js";
+  import { formatProblemDisplayName } from "#lib/utils/format-problem-display-name.js";
+  import RejudgeDialog from "#lib/components/features/problem/admin/RejudgeDialog.svelte";
   import {
     difficulties,
     filterProblems,
@@ -64,7 +64,7 @@
     showOwner = false,
   }: Props = $props();
 
-  let currentUrl = $derived(page.url);
+  let currentUrl = $derived(new URL(page.url.href));
   let sortDirection = $derived<"asc" | "desc">(
     currentUrl.searchParams.get("sort") === "desc" ? "desc" : "asc",
   );
@@ -86,7 +86,7 @@
     if (sortDirection === "asc") params.set("sort", "desc");
     else params.delete("sort");
     const qs = params.toString();
-    goto(qs ? `?${qs}` : "?", { keepFocus: true, noScroll: true });
+    goto(qs ? `?${qs}` : "?", { reset: false });
   }
 
   function toggleMineTag(tag: string) {

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { formatDateTimeCompact } from "$lib/utils/datetime";
+  import { formatDateTimeCompact } from "#lib/utils/datetime.js";
 
   interface Props {
     startIso: string;

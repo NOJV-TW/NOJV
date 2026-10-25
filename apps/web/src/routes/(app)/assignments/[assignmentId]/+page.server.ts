@@ -12,20 +12,20 @@ import {
 const updateProblemsPayloadSchema = activityGradingUpdateSchema;
 import { assignmentDomain } from "@nojv/application";
 
-import { requireAuth } from "$lib/server/auth";
-import { handleLoad } from "$lib/server/shared/load-wrapper";
+import { requireAuth } from "#lib/server/auth.js";
+import { handleLoad } from "#lib/server/shared/load-wrapper.js";
 import {
   serializePlagiarismFlags,
   serializePlagiarismReport,
-} from "$lib/server/shared/plagiarism-view";
-import { classifyRequestError } from "$lib/server/shared/handle-action-error";
-import { withAction } from "$lib/server/shared/action-handlers";
+} from "#lib/server/shared/plagiarism-view.js";
+import { classifyRequestError } from "#lib/server/shared/handle-action-error.js";
+import { withAction } from "#lib/server/shared/action-handlers.js";
 import {
   toDateTimeLocal,
   toIsoOrUndefined,
   tryParseJsonField,
-} from "$lib/server/shared/form-utils";
-import { buildAssignmentResults } from "$lib/server/results/assignment";
+} from "#lib/server/shared/form-utils.js";
+import { buildAssignmentResults } from "#lib/server/results/assignment.js";
 
 const {
   deleteAssignmentDraft,

@@ -1,6 +1,6 @@
 <script lang="ts">
   import { goto } from "$app/navigation";
-  import ProblemSolveView from "$lib/components/features/problem/views/ProblemSolveView.svelte";
+  import ProblemSolveView from "#lib/components/features/problem/views/ProblemSolveView.svelte";
 
   let { data } = $props();
 
@@ -19,7 +19,7 @@
       if (!window.location.pathname.startsWith(examPath)) {
         const fallback =
           data.siblingProblems[0]?.href ?? `${examPath}/problems/${data.problem.id}`;
-        goto(fallback, { replaceState: true });
+        goto(fallback, { replace: true });
       }
     };
 

@@ -65,7 +65,7 @@ vi.mock("@nojv/application", () => ({
   }),
 }));
 
-vi.mock("$lib/server/super-admin-password-proof", () => ({
+vi.mock("#lib/server/super-admin-password-proof.js", () => ({
   consumeSuperAdminPasswordProof: vi.fn(),
   passwordProofTicketFromCookieHeader: vi.fn(() => null),
   readSuperAdminPasswordProof: vi.fn(),
@@ -78,7 +78,7 @@ vi.mock("@nojv/db", () => ({
   },
 }));
 
-vi.mock("$lib/server/env", () => ({
+vi.mock("#lib/server/env.js", () => ({
   getWebEnv: () => ({
     BETTER_AUTH_SECRET: "test-secret-at-least-32-characters",
     BETTER_AUTH_URL: "https://nojv.test",
@@ -86,17 +86,17 @@ vi.mock("$lib/server/env", () => ({
   }),
 }));
 
-vi.mock("$lib/server/logger", () => ({
+vi.mock("#lib/server/logger.js", () => ({
   createLogger: () => ({ error: vi.fn(), info: vi.fn() }),
 }));
 
-import { getAuth } from "$lib/auth.server";
-import { getPasskeyRegistrationProof } from "$lib/server/passkey-request-proof";
+import { getAuth } from "#lib/auth.server.js";
+import { getPasskeyRegistrationProof } from "#lib/server/passkey-request-proof.js";
 import {
   consumeInternalFactorMutationAuthority,
   factorMutationPath,
   runInternalFactorMutation,
-} from "$lib/server/auth-factor-mutation";
+} from "#lib/server/auth-factor-mutation.js";
 
 interface PasskeyHookContext {
   body: { response: { id: string } } | { username?: string; displayUsername?: string };

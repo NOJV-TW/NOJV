@@ -1,7 +1,7 @@
 <script lang="ts">
   import { judgeEnvironment } from "@nojv/core";
-  import { m } from "$lib/paraglide/messages.js";
-  import { Card } from "$lib/components/primitives/ui/card";
+  import { m } from "#lib/paraglide/messages.js";
+  import { Card } from "#lib/components/primitives/ui/card/index.js";
 
   const languages = Object.values(judgeEnvironment.languages);
 </script>

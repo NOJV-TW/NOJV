@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { CPP_STANDARD_HEADER_INCLUDES } from "@nojv/core";
 import { WASM_OJ_LIBCXX_PCH_HEADER } from "../../../apps/web/node_modules/@wasm-oj/browser";
-import { m } from "$lib/paraglide/messages.js";
+import { m } from "#lib/paraglide/messages.js";
 
 import {
   browserLocalFiles,
@@ -10,7 +10,7 @@ import {
   mapBrowserLocalRunResult,
   runBrowserLocally,
   supportsBrowserLocalRun,
-} from "$lib/services/browser-local-run";
+} from "#lib/services/browser-local-run.js";
 
 type RunResult = Parameters<typeof mapBrowserLocalRunResult>[0];
 

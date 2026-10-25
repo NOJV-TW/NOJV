@@ -8,7 +8,7 @@ import {
   loadDraft,
   saveDraft,
   type DraftKey,
-} from "$lib/stores/code-draft";
+} from "#lib/stores/code-draft.js";
 
 const PROBLEM_ID = "prob_123";
 const LANGUAGE = "python";

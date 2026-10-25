@@ -1,7 +1,7 @@
 import { beforeEach, describe, it, expect, vi } from "vitest";
 
 const { loggerError } = vi.hoisted(() => ({ loggerError: vi.fn() }));
-vi.mock("$lib/server/logger", () => ({
+vi.mock("#lib/server/logger.js", () => ({
   createLogger: () => ({ error: loggerError }),
 }));
 beforeEach(() => loggerError.mockClear());
@@ -23,7 +23,7 @@ vi.mock("@nojv/core", async (importOriginal) => {
   };
 });
 
-vi.mock("$lib/server/shared/rate-limiter", () => ({
+vi.mock("#lib/server/shared/rate-limiter.js", () => ({
   consumeFormRateLimitInternal: vi.fn().mockResolvedValue(null),
   apiRateLimiter: { consume: vi.fn().mockResolvedValue("allowed") },
   writeApiRateLimiter: { consume: vi.fn().mockResolvedValue("allowed") },
@@ -39,8 +39,8 @@ import {
   NotFoundError,
   ForbiddenError,
 } from "@nojv/application";
-import { apiHandler, readJsonBody } from "$lib/server/shared/api-handler";
-import { handleLoad } from "$lib/server/shared/load-wrapper";
+import { apiHandler, readJsonBody } from "#lib/server/shared/api-handler.js";
+import { handleLoad } from "#lib/server/shared/load-wrapper.js";
 
 function requestEvent(body?: string): RequestEvent {
   return {
@@ -52,8 +52,8 @@ function requestEvent(body?: string): RequestEvent {
     locals: { requestId: "request_1", sessionUser: { id: "user_1" } },
   } as RequestEvent;
 }
-import { classifyError } from "$lib/server/shared/handle-action-error";
-import { withAction } from "$lib/server/shared/action-handlers";
+import { classifyError } from "#lib/server/shared/handle-action-error.js";
+import { withAction } from "#lib/server/shared/action-handlers.js";
 
 describe("classifyError", () => {
   it("classifies ZodError as validation", () => {

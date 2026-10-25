@@ -1,9 +1,9 @@
 <script lang="ts">
   import { page } from "$app/state";
-  import { m } from "$lib/paraglide/messages.js";
-  import OAuthButtons from "$lib/components/features/auth/OAuthButtons.svelte";
-  import ExamPasswordLogin from "$lib/components/features/auth/ExamPasswordLogin.svelte";
-  import { Card } from "$lib/components/primitives/ui/card";
+  import { m } from "#lib/paraglide/messages.js";
+  import OAuthButtons from "#lib/components/features/auth/OAuthButtons.svelte";
+  import ExamPasswordLogin from "#lib/components/features/auth/ExamPasswordLogin.svelte";
+  import { Card } from "#lib/components/primitives/ui/card/index.js";
 
   const errorText = $derived.by(() => {
     const code = page.url.searchParams.get("error");

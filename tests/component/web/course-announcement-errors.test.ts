@@ -1,9 +1,9 @@
 // @vitest-environment jsdom
 
-import type { ActionResult, SubmitFunction } from "@sveltejs/kit";
+import type { ActionResult, SubmitFunction } from "$app/forms";
 import { mount, tick, unmount } from "svelte";
 import { beforeEach, expect, it, vi } from "vitest";
-import { m } from "$lib/paraglide/messages.js";
+import { m } from "#lib/paraglide/messages.js";
 
 const mocks = vi.hoisted(() => ({
   forms: new Map<string, SubmitFunction>(),
@@ -15,7 +15,7 @@ vi.mock("$app/forms", () => ({
     return { destroy() {} };
   },
 }));
-vi.mock("$lib/stores/toast", () => ({ toasts: { error: mocks.toastError } }));
+vi.mock("#lib/stores/toast.js", () => ({ toasts: { error: mocks.toastError } }));
 vi.mock("@lucide/svelte", async () => {
   const Empty = (await import("../../fixtures/web/empty-component.svelte")).default;
   return {
@@ -31,14 +31,14 @@ vi.mock("@lucide/svelte", async () => {
     Trash2: Empty,
   };
 });
-vi.mock("$lib/components/primitives/ui/ImageDropZone.svelte", async () => ({
+vi.mock("#lib/components/primitives/ui/ImageDropZone.svelte", async () => ({
   default: (await import("../../fixtures/web/empty-component.svelte")).default,
 }));
-vi.mock("$lib/components/features/announcement/AnnouncementViewDialog.svelte", async () => ({
+vi.mock("#lib/components/features/announcement/AnnouncementViewDialog.svelte", async () => ({
   default: (await import("../../fixtures/web/empty-component.svelte")).default,
 }));
 
-import CourseAnnouncementDialog from "$lib/components/features/course/CourseAnnouncementDialog.svelte";
+import CourseAnnouncementDialog from "#lib/components/features/course/CourseAnnouncementDialog.svelte";
 import CoursePage from "../../../apps/web/src/routes/(app)/courses/[courseId]/+page.svelte";
 
 const announcement = {
@@ -51,6 +51,7 @@ const announcement = {
 };
 const failure: ActionResult = {
   type: "failure",
+  location: "http://localhost/courses/course1",
   status: 500,
   data: { error: "Internal server error." },
 };
@@ -95,7 +96,7 @@ it.each(["create", "edit"] as const)(
       expect(update).not.toHaveBeenCalled();
       const boundary = await respond(
         mode === "create" ? "?/createAnnouncement" : "?/updateAnnouncement",
-        { type: "error", status: 500, error: { message: "Server error" } },
+        { type: "error", status: 500, error: { status: 500, message: "Server error" } },
       );
       expect(boundary).toHaveBeenCalledOnce();
     } finally {
@@ -143,7 +144,7 @@ it.each(["togglePinAnnouncement", "deleteAnnouncement"])(
       const boundary = await respond(`?/${action}`, {
         type: "error",
         status: 500,
-        error: { message: "Server error" },
+        error: { status: 500, message: "Server error" },
       });
       expect(boundary).toHaveBeenCalledOnce();
     } finally {

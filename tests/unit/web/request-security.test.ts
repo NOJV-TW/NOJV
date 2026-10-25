@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { enforceCsrf, setSecurityHeaders } from "$lib/server/hooks/request-security";
+import { enforceCsrf, setSecurityHeaders } from "#lib/server/hooks/request-security.js";
 
 const ORIGIN = "https://nojv.tw";
 
@@ -36,6 +36,15 @@ function run(options: Parameters<typeof makeEvent>[0]): Response | null {
 }
 
 describe("enforceCsrf — page routes (parity with SvelteKit checkOrigin)", () => {
+  it("blocks a cross-origin page POST without a content type", () => {
+    const event = makeEvent({
+      method: "POST",
+      path: "/settings",
+      headers: { origin: "https://attacker.example", "content-type": "" },
+    });
+    expect(enforceCsrf(event, "/settings")?.status).toBe(403);
+  });
+
   it("blocks a cross-site form POST without an Origin header", () => {
     const res = run({
       path: "/problems/1",

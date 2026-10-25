@@ -9,12 +9,12 @@ import {
   type SubmissionRunCase,
 } from "@nojv/core";
 
-import { fetchWithCsrf } from "$lib/services/http";
+import { fetchWithCsrf } from "#lib/services/http.js";
 import {
   submissionRead,
   waitForSubmission,
   submissionSessionSignal,
-} from "$lib/services/submission-tracker";
+} from "#lib/services/submission-tracker.js";
 
 export interface SubmissionWorkspaceFile {
   path: string;

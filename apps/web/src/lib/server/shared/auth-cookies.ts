@@ -5,7 +5,11 @@ export function forwardSetCookies(event: RequestEvent, headers: Headers): void {
   for (const raw of headers.getSetCookie()) {
     for (const [name, attributes] of parseSetCookieHeader(raw)) {
       event.cookies.set(name, attributes.value, {
-        ...toCookieOptions(attributes),
+        ...Object.fromEntries(
+          Object.entries(toCookieOptions(attributes)).filter(
+            ([, value]) => value !== undefined,
+          ),
+        ),
         path: attributes.path ?? "/",
       });
     }

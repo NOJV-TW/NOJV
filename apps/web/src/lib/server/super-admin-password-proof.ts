@@ -8,7 +8,7 @@ import {
   type SuperAdminPasswordProof,
 } from "@nojv/application";
 
-import { getWebEnv } from "$lib/server/env";
+import { getWebEnv } from "#lib/server/env.js";
 
 export const SUPER_ADMIN_PASSWORD_PROOF_COOKIE = "nojv.super_admin_password";
 const PASSWORD_PROOF_TTL_SECONDS = 600;

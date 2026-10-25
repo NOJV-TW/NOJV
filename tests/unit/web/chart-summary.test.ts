@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { formatChartSummary } from "$lib/utils/chart-summary";
+import { formatChartSummary } from "#lib/utils/chart-summary.js";
 
 describe("formatChartSummary", () => {
   it("preserves caller-owned labels and values in reading order", () => {

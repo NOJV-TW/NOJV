@@ -1,7 +1,7 @@
 <script lang="ts">
-  import StepUpForm from "$lib/components/features/account/StepUpForm.svelte";
-  import * as Dialog from "$lib/components/primitives/ui/dialog";
-  import { m } from "$lib/paraglide/messages.js";
+  import StepUpForm from "#lib/components/features/account/StepUpForm.svelte";
+  import * as Dialog from "#lib/components/primitives/ui/dialog/index.js";
+  import { m } from "#lib/paraglide/messages.js";
 
   interface Props {
     open: boolean;

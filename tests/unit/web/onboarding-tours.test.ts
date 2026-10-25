@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { studentIntros } from "$lib/onboarding/student-tour";
-import { taIntros, teacherIntros } from "$lib/onboarding/teacher-tour";
+import { studentIntros } from "#lib/onboarding/student-tour.js";
+import { taIntros, teacherIntros } from "#lib/onboarding/teacher-tour.js";
 
 describe("tour registries", () => {
   it("teacher intro keys are prefixed and disjoint from student keys", () => {

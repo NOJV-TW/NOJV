@@ -1,6 +1,6 @@
 import type { AssessmentSettingsFormData } from "@nojv/core";
 import type { SuperValidated } from "sveltekit-superforms";
-import type { FormMessage } from "$lib/types/form-message";
+import type { FormMessage } from "#lib/types/form-message.js";
 export function settingsForm(
   title: string,
 ): SuperValidated<AssessmentSettingsFormData, FormMessage> {

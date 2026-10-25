@@ -1,14 +1,13 @@
-import { json } from "@sveltejs/kit";
 import type { RequestEvent } from "@sveltejs/kit";
 
 import type { RequestHandler } from "./$types";
 
-import { requireApiAuth } from "$lib/server/auth";
+import { requireApiAuth } from "#lib/server/auth.js";
 import {
   writeApiHandler,
   assertJsonBodyWithinLimit,
   readJsonBody,
-} from "$lib/server/shared/api-handler";
+} from "#lib/server/shared/api-handler.js";
 import { clarificationDomain, HttpError } from "@nojv/application";
 import { clarificationPatchSchema } from "@nojv/core";
 import type { ClarificationPatchInput } from "@nojv/core";
@@ -44,14 +43,14 @@ export const PATCH: RequestHandler = writeApiHandler(async (event) => {
 
   if (parsed.kind === "dismiss") {
     const updated = await clarificationDomain.dismiss(actor, id);
-    return json(updated);
+    return Response.json(updated);
   }
 
   const updated = await clarificationDomain.answer(actor, id, {
     answerText: parsed.answerText,
     isPublic: parsed.isPublic,
   });
-  return json(updated);
+  return Response.json(updated);
 });
 
 export const DELETE: RequestHandler = writeApiHandler(async (event) => {

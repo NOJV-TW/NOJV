@@ -7,7 +7,7 @@ vi.mock("@lucide/svelte", async () => ({
   ArrowUpDown: (await import("../../fixtures/web/arrow-up-down-icon.svelte")).default,
 }));
 
-import TableSortButton from "$lib/components/primitives/ui/TableSortButton.svelte";
+import TableSortButton from "#lib/components/primitives/ui/TableSortButton.svelte";
 
 it.each([
   { direction: null, icon: "up-down" },

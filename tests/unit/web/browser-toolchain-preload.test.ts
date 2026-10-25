@@ -2,7 +2,7 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import {
   browserToolchainPercent,
   preloadBrowserToolchain,
-} from "$lib/services/browser-local-run";
+} from "#lib/services/browser-local-run.js";
 
 type Progress = { loadedBytes: number; totalBytes: number };
 type PrefetchOptions = {

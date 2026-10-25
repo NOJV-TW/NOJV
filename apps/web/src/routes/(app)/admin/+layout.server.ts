@@ -1,6 +1,6 @@
 import { error } from "@sveltejs/kit";
 import type { LayoutServerLoad } from "./$types";
-import { requireAuth } from "$lib/server/auth";
+import { requireAuth } from "#lib/server/auth.js";
 
 export const load: LayoutServerLoad = (event) => {
   const actor = requireAuth(event);

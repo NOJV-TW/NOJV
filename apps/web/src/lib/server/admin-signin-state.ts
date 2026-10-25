@@ -1,7 +1,7 @@
 import { userDomain } from "@nojv/application";
 import { createAuthEndpoint } from "better-auth/api";
 
-import { getAuth } from "$lib/auth.server";
+import { getAuth } from "#lib/auth.server.js";
 
 const readPendingSignIn = createAuthEndpoint({ method: "GET" }, async (ctx) => {
   const cookie = ctx.context.createAuthCookie("two_factor");

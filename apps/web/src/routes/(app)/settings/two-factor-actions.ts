@@ -24,21 +24,21 @@ import { getMailer, renderEmail } from "@nojv/mailer";
 import { fail, redirect } from "@sveltejs/kit";
 import type { Actions, RequestEvent } from "@sveltejs/kit";
 
-import { getAuth } from "$lib/auth.server";
-import { requireAuth } from "$lib/server/auth";
-import { getWebEnv } from "$lib/server/env";
-import { createLogger } from "$lib/server/logger";
+import { getAuth } from "#lib/auth.server.js";
+import { requireAuth } from "#lib/server/auth.js";
+import { getWebEnv } from "#lib/server/env.js";
+import { createLogger } from "#lib/server/logger.js";
 import {
   otpSendRateLimiter,
   stepUpAttemptRateLimiter,
   type RateLimitResult,
-} from "$lib/server/shared/rate-limiter";
-import { verifyStepUpCode } from "$lib/server/step-up";
+} from "#lib/server/shared/rate-limiter.js";
+import { verifyStepUpCode } from "#lib/server/step-up.js";
 import {
   confirmPendingTotp,
   generateNewBackupCodes,
   startPendingTotp,
-} from "$lib/server/totp-enrollment";
+} from "#lib/server/totp-enrollment.js";
 
 const logger = createLogger("security-settings");
 

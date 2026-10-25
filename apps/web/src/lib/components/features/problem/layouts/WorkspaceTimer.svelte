@@ -1,7 +1,7 @@
 <script lang="ts">
   import { goto } from "$app/navigation";
-  import { m } from "$lib/paraglide/messages.js";
-  import { serverNow } from "$lib/utils/datetime.js";
+  import { m } from "#lib/paraglide/messages.js";
+  import { serverNow } from "#lib/utils/datetime.js";
   import type { ProblemWorkspaceTimer } from "./ProblemLeftPanel.svelte";
 
   let { timer }: { timer: ProblemWorkspaceTimer } = $props();

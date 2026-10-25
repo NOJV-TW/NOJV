@@ -5,7 +5,7 @@
     MAX_SUBMISSION_SOURCE_FILES,
     validateRequiredPaths,
   } from "@nojv/core";
-  import { m as messages } from "$lib/paraglide/messages.js";
+  import { m as messages } from "#lib/paraglide/messages.js";
 
   const MAX_FILE_MB = MAX_SUBMISSION_SOURCE_FILE_CHARS / 1_000_000;
   const MAX_BODY_MB = MAX_SUBMISSION_BODY_BYTES / (1024 * 1024);
@@ -160,7 +160,7 @@
 </script>
 
 <script lang="ts">
-  import { m } from "$lib/paraglide/messages.js";
+  import { m } from "#lib/paraglide/messages.js";
 
   interface Props {
     inputId: string;

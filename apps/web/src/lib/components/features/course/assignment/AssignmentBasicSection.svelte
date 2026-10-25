@@ -2,9 +2,9 @@
   import type { Writable } from "svelte/store";
   import type { ValidationErrors } from "sveltekit-superforms";
   import type { AssessmentSettingsFormData } from "@nojv/core";
-  import { inputClassName } from "$lib/utils/css";
+  import { inputClassName } from "#lib/utils/css.js";
   import LateSubmissionFields from "../LateSubmissionFields.svelte";
-  import { m } from "$lib/paraglide/messages.js";
+  import { m } from "#lib/paraglide/messages.js";
 
   interface Props {
     form: Writable<AssessmentSettingsFormData>;

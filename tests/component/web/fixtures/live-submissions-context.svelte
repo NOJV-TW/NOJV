@@ -1,6 +1,6 @@
 <script lang="ts">
   import { untrack } from "svelte";
-  import LiveSubmissionsFeed from "$lib/components/features/coursework/LiveSubmissionsFeed.svelte";
+  import LiveSubmissionsFeed from "#lib/components/features/coursework/LiveSubmissionsFeed.svelte";
   import type { ComponentProps } from "svelte";
   type FeedProps = ComponentProps<typeof LiveSubmissionsFeed>;
   let { initialRows, initialUrl }: { initialRows: FeedProps["rows"]; initialUrl: string } =

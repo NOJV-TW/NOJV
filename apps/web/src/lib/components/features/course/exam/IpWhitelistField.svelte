@@ -2,8 +2,8 @@
   import Upload from "@lucide/svelte/icons/upload";
   import { IP_WHITELIST_MAX_TEXT_LENGTH } from "@nojv/core";
 
-  import { Button } from "$lib/components/primitives/ui/button";
-  import { cn, inputClassName } from "$lib/utils/css";
+  import { Button } from "#lib/components/primitives/ui/button/index.js";
+  import { cn, inputClassName } from "#lib/utils/css.js";
 
   interface Props {
     id: string;

@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { ActivityProblem } from "@nojv/core";
-  import { m } from "$lib/paraglide/messages.js";
+  import { m } from "#lib/paraglide/messages.js";
 
   let {
     problems,

@@ -1,9 +1,9 @@
-import { dev } from "$app/environment";
+import { dev } from "$app/env";
 import { fail } from "@sveltejs/kit";
 import type { RequestEvent } from "@sveltejs/kit";
 import { RateLimiterRedis, RateLimiterMemory, RateLimiterRes } from "rate-limiter-flexible";
 import { createRateLimiterConnection } from "@nojv/redis";
-import { isValidUsername } from "$lib/utils";
+import { isValidUsername } from "#lib/utils/index.js";
 
 import { getClientIp } from "./client-ip";
 
@@ -63,6 +63,7 @@ function isOperationalRedisError(error: unknown): error is Error {
   ) {
     return true;
   }
+
   return (
     error.message === "Connection is closed." ||
     error.message === "Redis connection is not ready" ||

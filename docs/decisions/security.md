@@ -124,7 +124,7 @@ The DOMPurify hook rewrites remote `img src` to `/api/images/proxy` at render ti
 - Rule: never trust upstream Content-Type; require authentication and bound remote fetches before contacting the host. Raw remote Markdown links remain transient; permanent import is an author action.
 - Rule: third-party OAuth avatars render through the proxy too (`avatarSrc`); site-wide COEP `require-corp` blocks a direct load when the host sends no CORP header, as Google does, and CSP `img-src` no longer lists `*.googleusercontent.com`.
 - Rule: anonymous public-profile readers see initials for external avatars; owned uploaded avatars remain publicly readable.
-- Code: `apps/web/src/routes/api/images/proxy/+server.ts`, `packages/storage/src/images.ts`, `apps/web/svelte.config.js`, `apps/web/src/lib/utils/avatar-src.ts`
+- Code: `apps/web/src/routes/api/images/proxy/+server.ts`, `packages/storage/src/images.ts`, `apps/web/vite.config.ts`, `apps/web/src/lib/utils/avatar-src.ts`
 
 ### SEC-12 Graded testcase data never reaches non-staff
 
@@ -160,3 +160,16 @@ Run output is copied host-side by `safeCopyTree` (lstat first, drop symlinks and
 **Decided:** 2026-10, withdrawn 2026-10 · **Source:** [#641](https://github.com/NOJV-TW/NOJV/pull/641), [#645](https://github.com/NOJV-TW/NOJV/pull/645)
 
 Withdrawn 2026-10 (#645): Test no longer judges anything on the server (JDG-15). The rule kept private judge programs from becoming an oracle for client-supplied cases; judge programs are now readable by students, so the browser judges a student's interactive cases with the real interactor. Test still never receives non-sample testcase data (SEC-12).
+
+### SEC-16 Reject double-slash request paths before authentication
+
+**Decided:** 2026-10 · **Source:** [#659](https://github.com/NOJV-TW/NOJV/pull/659)
+
+The request hook returns 400 when the parsed pathname starts with `//`, before
+authentication or route resolution. This applies the upstream workaround for
+[SvelteKit enhanced-form open redirects](https://github.com/advisories/GHSA-pfhg-q3qv-9q6r)
+as defense in depth alongside the SvelteKit v3 package fix.
+
+- Rejected: deferring the v3 migration with two known advisories; allowing protocol-relative action paths; suppressing advisories to present a clean audit.
+- Rule: reject the path instead of redirecting it or stripping its leading slash.
+- Code: `apps/web/src/hooks.server.ts`, `tests/unit/web/health-probes.test.ts`

@@ -1,6 +1,6 @@
 import type { Session, User } from "better-auth";
 import type { SessionUser } from "@nojv/core";
-import type { ActorContext } from "$lib/server/auth";
+import type { ActorContext } from "#lib/server/auth.js";
 import type { VerifiedApiTokenContext, proctoringDomain } from "@nojv/application";
 
 declare global {

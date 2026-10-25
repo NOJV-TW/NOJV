@@ -1,10 +1,8 @@
-import { json } from "@sveltejs/kit";
-
 import type { RequestHandler } from "./$types";
 
-import { requireApiAuth } from "$lib/server/auth";
-import { apiHandler, writeApiHandler } from "$lib/server/shared/api-handler";
-import { assertCanManagePlagiarism } from "$lib/server/plagiarism-pair";
+import { requireApiAuth } from "#lib/server/auth.js";
+import { apiHandler, writeApiHandler } from "#lib/server/shared/api-handler.js";
+import { assertCanManagePlagiarism } from "#lib/server/plagiarism-pair.js";
 import { plagiarismDomain } from "@nojv/application";
 
 const {
@@ -18,7 +16,8 @@ export const POST: RequestHandler = writeApiHandler(async (event) => {
   const actor = requireApiAuth(event);
 
   const assignmentId = event.params.assignmentId;
-  if (!assignmentId) return json({ message: "Missing assignmentId." }, { status: 400 });
+  if (!assignmentId)
+    return Response.json({ message: "Missing assignmentId." }, { status: 400 });
   const type = event.url.searchParams.get("type");
 
   const resolved = await getPlagiarismTarget(assignmentId, type);
@@ -35,7 +34,7 @@ export const POST: RequestHandler = writeApiHandler(async (event) => {
 
   const pollUrl = new URL(event.url);
   pollUrl.search = type ? `?type=${encodeURIComponent(type)}` : "";
-  return json(
+  return Response.json(
     { targetId: target.id, status: "pending" },
     { status: 202, headers: { Location: pollUrl.pathname + pollUrl.search } },
   );
@@ -45,7 +44,8 @@ export const GET: RequestHandler = apiHandler(async (event) => {
   requireApiAuth(event);
 
   const assignmentId = event.params.assignmentId;
-  if (!assignmentId) return json({ message: "Missing assignmentId." }, { status: 400 });
+  if (!assignmentId)
+    return Response.json({ message: "Missing assignmentId." }, { status: 400 });
   const type = event.url.searchParams.get("type");
 
   const resolved = await getPlagiarismTarget(assignmentId, type);
@@ -53,5 +53,5 @@ export const GET: RequestHandler = apiHandler(async (event) => {
 
   const report = await findPlagiarismReport(resolved.target);
 
-  return json({ reports: report ? [report] : [] });
+  return Response.json({ reports: report ? [report] : [] });
 });

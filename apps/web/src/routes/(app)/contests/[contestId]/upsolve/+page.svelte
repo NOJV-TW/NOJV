@@ -1,11 +1,11 @@
 <script lang="ts">
   import { Dumbbell } from "@lucide/svelte";
-  import { m } from "$lib/paraglide/messages.js";
+  import { m } from "#lib/paraglide/messages.js";
   import type { contestDomain } from "@nojv/application";
-  import Crumbs from "$lib/components/primitives/visual/Crumbs.svelte";
-  import GlassPanel from "$lib/components/primitives/visual/GlassPanel.svelte";
-  import PageContainer from "$lib/components/primitives/layout/PageContainer.svelte";
-  import EmptyState from "$lib/components/primitives/ui/EmptyState.svelte";
+  import Crumbs from "#lib/components/primitives/visual/Crumbs.svelte";
+  import GlassPanel from "#lib/components/primitives/visual/GlassPanel.svelte";
+  import PageContainer from "#lib/components/primitives/layout/PageContainer.svelte";
+  import EmptyState from "#lib/components/primitives/ui/EmptyState.svelte";
 
   let { data } = $props();
   const view = $derived(data.view);

@@ -1,11 +1,11 @@
 <script lang="ts">
   import type { Snippet } from "svelte";
   import type { ProblemType } from "@nojv/core";
-  import { m } from "$lib/paraglide/messages.js";
+  import { m } from "#lib/paraglide/messages.js";
   import { Tooltip } from "bits-ui";
-  import { toasts } from "$lib/stores/toast";
-  import ConfirmDialog from "$lib/components/primitives/ui/ConfirmDialog.svelte";
-  import * as Dialog from "$lib/components/primitives/ui/dialog";
+  import { toasts } from "#lib/stores/toast.js";
+  import ConfirmDialog from "#lib/components/primitives/ui/ConfirmDialog.svelte";
+  import * as Dialog from "#lib/components/primitives/ui/dialog/index.js";
   import EditRail from "./EditRail.svelte";
 
   interface Props {

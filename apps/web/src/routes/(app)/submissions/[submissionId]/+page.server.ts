@@ -2,10 +2,10 @@ import { error } from "@sveltejs/kit";
 
 import type { PageServerLoad, PageServerLoadEvent } from "./$types";
 
-import { requireAuth } from "$lib/server/auth";
-import { handleLoad } from "$lib/server/shared/load-wrapper";
+import { requireAuth } from "#lib/server/auth.js";
+import { handleLoad } from "#lib/server/shared/load-wrapper.js";
 import { feedbackDomain, submissionDomain } from "@nojv/application";
-import { sanitizeSubmissionHistoryReturnTo } from "$lib/utils/submission-history";
+import { sanitizeSubmissionHistoryReturnTo } from "#lib/utils/submission-history.js";
 
 const { getSubmissionDetail } = submissionDomain;
 

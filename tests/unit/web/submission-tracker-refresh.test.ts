@@ -7,16 +7,16 @@ const mocks = vi.hoisted(() => ({
   event: vi.fn(),
   open: vi.fn(),
 }));
-vi.mock("$app/navigation", () => ({ invalidate: mocks.invalidate, invalidateAll: vi.fn() }));
-vi.mock("$lib/stores/sse", () => ({ onSSEEvent: mocks.event, onSSEOpen: mocks.open }));
-vi.mock("$lib/stores/toast", () => ({ toasts: { success: vi.fn(), info: vi.fn() } }));
+vi.mock("$app/navigation", () => ({ invalidate: mocks.invalidate, refreshAll: vi.fn() }));
+vi.mock("#lib/stores/sse.js", () => ({ onSSEEvent: mocks.event, onSSEOpen: mocks.open }));
+vi.mock("#lib/stores/toast.js", () => ({ toasts: { success: vi.fn(), info: vi.fn() } }));
 
 import { navigating } from "$app/state";
 import {
   startSubmissionTracking,
   stopSubmissionTracking,
   watchSubmissionStates,
-} from "$lib/services/submission-tracker";
+} from "#lib/services/submission-tracker.js";
 
 const pendingNavigation = navigating as { to: unknown };
 const operation = (

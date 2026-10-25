@@ -1,8 +1,8 @@
-import "$lib/server/otel"; // Must stay first for auto-instrumentation.
-import "$lib/server/domain-orchestration";
-import "$lib/server/mailer-startup";
-
-import { error, redirect, type Handle, type HandleServerError } from "@sveltejs/kit";
+import "#lib/server/otel.js"; // Must stay first for auto-instrumentation.
+import { error, redirect } from "@sveltejs/kit";
+import type { Handle, HandleServerError } from "@sveltejs/kit/hooks";
+import "#lib/server/domain-orchestration.js";
+import "#lib/server/mailer-startup.js";
 import type { SessionUser } from "@nojv/core";
 import {
   apiTokenDomain,
@@ -14,30 +14,30 @@ import {
   revokeAdminAccess,
 } from "@nojv/application";
 
-import { getAuth } from "$lib/auth.server";
-import { isExamPasswordSecurityRequest } from "$lib/server/exam-password-policy";
-import { createLogger } from "$lib/server/logger";
-import { m } from "$lib/paraglide/messages.js";
-import { paraglideMiddleware } from "$lib/paraglide/server.js";
+import { getAuth } from "#lib/auth.server.js";
+import { isExamPasswordSecurityRequest } from "#lib/server/exam-password-policy.js";
+import { createLogger } from "#lib/server/logger.js";
+import { m } from "#lib/paraglide/messages.js";
+import { paraglideMiddleware } from "#lib/paraglide/server.js";
 import {
   getActiveExamContext,
   isAllowedPathForExam,
   isExamForbiddenApiRequest,
   resolveExamGateDenial,
   type ActiveExamContext,
-} from "$lib/server/exam-lock";
-import { getWebEnv } from "$lib/server/env";
-import { healthProbeKind, isPublicSystemPath } from "$lib/server/health-probes";
-import { consumeStepUpHandoff } from "$lib/server/step-up-handoff";
+} from "#lib/server/exam-lock.js";
+import { getWebEnv } from "#lib/server/env.js";
+import { healthProbeKind, isPublicSystemPath } from "#lib/server/health-probes.js";
+import { consumeStepUpHandoff } from "#lib/server/step-up-handoff.js";
 import {
   apiRequestDuration,
   healthProbeDuration,
   statusClass,
   type ApiRequestLabels,
   type HealthProbeLabels,
-} from "$lib/server/metrics";
-import { classifyError, classifyRequestError } from "$lib/server/shared/handle-action-error";
-import { getClientIp } from "$lib/server/shared/client-ip";
+} from "#lib/server/metrics.js";
+import { classifyError, classifyRequestError } from "#lib/server/shared/handle-action-error.js";
+import { getClientIp } from "#lib/server/shared/client-ip.js";
 import {
   authRateLimiter,
   apiTokenAuthRateLimiter,
@@ -45,14 +45,14 @@ import {
   examSignInRateLimitKey,
   signInRateLimiter,
   type RateLimitResult,
-} from "$lib/server/shared/rate-limiter";
-import { readBodyWithinLimit } from "$lib/server/shared/api-handler";
+} from "#lib/server/shared/rate-limiter.js";
+import { readBodyWithinLimit } from "#lib/server/shared/api-handler.js";
 import {
   deriveRequestId,
   enforceCsrf,
   setSecurityHeaders,
-} from "$lib/server/hooks/request-security";
-import { isProfileExempt, stripLocalePrefix } from "$lib/server/hooks/route-paths";
+} from "#lib/server/hooks/request-security.js";
+import { isProfileExempt, stripLocalePrefix } from "#lib/server/hooks/route-paths.js";
 
 getWebEnv();
 
@@ -205,7 +205,7 @@ async function handleApiAuthRoute(
 
   if (event.request.body) {
     const body = await readBodyWithinLimit(event.request, 64 * 1024);
-    event.request = new Request(event.request, { body });
+    event = { ...event, request: new Request(event.request, { body }) };
   }
 
   await loadSession(event);
@@ -339,6 +339,7 @@ function enforceSuperAdminVerification(event: HandleEvent, cleanPath: string): R
 async function resolveRequestAdminAccess(event: HandleEvent): Promise<void> {
   const user = event.locals.sessionUser;
   const sessionId = event.locals.session?.id;
+
   event.locals.adminAccessActive =
     user?.platformRole === "admin" &&
     !!sessionId &&
@@ -491,6 +492,13 @@ const runHandle = async ({ event, resolve }: Parameters<Handle>[0]): Promise<Res
   event.locals.adminAccessActive = false;
   event.locals.examGate = null;
 
+  if (event.url.pathname.startsWith("//")) {
+    return new Response("Invalid request path", {
+      status: 400,
+      headers: { "x-request-id": event.locals.requestId },
+    });
+  }
+
   if (isPublicSystemPath(event.url.pathname)) {
     const response = await resolve(event);
     response.headers.set("x-request-id", event.locals.requestId);
@@ -542,10 +550,12 @@ const runHandle = async ({ event, resolve }: Parameters<Handle>[0]): Promise<Res
   }
 
   return paraglideMiddleware(event.request, async ({ request, locale }) => {
-    event.request = request;
-    const response = await resolve(event, {
-      transformPageChunk: ({ html }) => html.replace("%paraglide.lang%", locale),
-    });
+    const response = await resolve(
+      { ...event, request },
+      {
+        transformPageChunk: ({ html }) => html.replace("%paraglide.lang%", locale),
+      },
+    );
     if (event.locals.apiToken && response.status < 400) {
       await apiTokenDomain.recordApiTokenUse({
         ip: event.locals.apiToken.ip,
@@ -557,7 +567,9 @@ const runHandle = async ({ event, resolve }: Parameters<Handle>[0]): Promise<Res
   });
 };
 
-export const handleError: HandleServerError = ({ error, event, status, message }) => {
+export const handleError: HandleServerError = ({ error, event, kind }) => {
+  if (kind !== "unknown") return error;
+  const status = 500;
   const classified = classifyError(error);
   const requestId = event.locals.requestId;
 
@@ -572,17 +584,6 @@ export const handleError: HandleServerError = ({ error, event, status, message }
       url: event.url.pathname,
     });
     return { message: classified.message };
-  }
-
-  if (status < 500) {
-    errorLogger.warn("Client error", {
-      err: error instanceof Error ? error.message : String(error),
-      method: event.request.method,
-      requestId,
-      status,
-      url: event.url.pathname,
-    });
-    return { message };
   }
 
   errorLogger.error("Request failed", {

@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { formatVerdictLabel, verdictBadgeVariant, verdictTone } from "$lib/utils/verdict-style";
+import {
+  formatVerdictLabel,
+  verdictBadgeVariant,
+  verdictTone,
+} from "#lib/utils/verdict-style.js";
 
 describe("verdictBadgeVariant", () => {
   it("maps accepted to verdict-ac", () => {

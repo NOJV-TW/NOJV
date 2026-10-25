@@ -1,17 +1,17 @@
 // @vitest-environment jsdom
 
 import { afterEach, expect, it, vi } from "vitest";
-import { executeSubmission } from "$lib/services/submission-service";
+import { executeSubmission } from "#lib/services/submission-service.js";
 
 import {
   requestSubmissionRefresh,
   stopSubmissionTracking,
-} from "$lib/services/submission-tracker";
+} from "#lib/services/submission-tracker.js";
 vi.mock("$app/navigation", () => ({
-  invalidateAll: vi.fn().mockResolvedValue(undefined),
+  refreshAll: vi.fn().mockResolvedValue(undefined),
   invalidate: vi.fn().mockResolvedValue(undefined),
 }));
-vi.mock("$lib/stores/toast", () => ({ toasts: { success: vi.fn(), info: vi.fn() } }));
+vi.mock("#lib/stores/toast.js", () => ({ toasts: { success: vi.fn(), info: vi.fn() } }));
 const request = {
   context: { type: "practice" as const },
   language: "python" as const,

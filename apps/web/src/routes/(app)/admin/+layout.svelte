@@ -1,7 +1,7 @@
 <script lang="ts">
   import { page } from "$app/state";
-  import { m } from "$lib/paraglide/messages.js";
-  import PageContainer from "$lib/components/primitives/layout/PageContainer.svelte";
+  import { m } from "#lib/paraglide/messages.js";
+  import PageContainer from "#lib/components/primitives/layout/PageContainer.svelte";
 
   let { children } = $props();
 

@@ -30,20 +30,20 @@
   import type { ExamCredentialEntry } from "@nojv/core";
   import { Popover } from "bits-ui";
   import { enhance } from "$app/forms";
-  import { m } from "$lib/paraglide/messages.js";
-  import { Badge } from "$lib/components/primitives/ui/badge";
-  import { Button, IconButton } from "$lib/components/primitives/ui/button";
-  import TableSelectColumnFilter from "$lib/components/primitives/ui/TableSelectColumnFilter.svelte";
-  import TableSortButton from "$lib/components/primitives/ui/TableSortButton.svelte";
-  import TableTextColumnFilter from "$lib/components/primitives/ui/TableTextColumnFilter.svelte";
-  import { formatDateTime } from "$lib/utils/datetime";
+  import { m } from "#lib/paraglide/messages.js";
+  import { Badge } from "#lib/components/primitives/ui/badge/index.js";
+  import { Button, IconButton } from "#lib/components/primitives/ui/button/index.js";
+  import TableSelectColumnFilter from "#lib/components/primitives/ui/TableSelectColumnFilter.svelte";
+  import TableSortButton from "#lib/components/primitives/ui/TableSortButton.svelte";
+  import TableTextColumnFilter from "#lib/components/primitives/ui/TableTextColumnFilter.svelte";
+  import { formatDateTime } from "#lib/utils/datetime.js";
   import {
     ariaSort,
     sortDirection,
     sortRows,
     toggleSort,
     type TableSort,
-  } from "$lib/utils/table-sort";
+  } from "#lib/utils/table-sort.js";
 
   interface Props {
     roster: ExamCredentialEntry[];
@@ -338,7 +338,7 @@
                           failed = null;
                           return async ({ result, update }) => {
                             busy = null;
-                            if (result.type === "success") await update();
+                            if (result.type === "success") await update({ navigate: false });
                             else failed = row.userId;
                           };
                         }}
@@ -370,7 +370,13 @@
                   {#if row.userId}
                     <div class="flex gap-2">
                       {#if row.state !== "submitted" && (row.ipPin || row.violations.length > 0)}
-                        <form method="POST" action="?/resetStudentIpBinding" use:enhance>
+                        <form
+                          method="POST"
+                          action="?/resetStudentIpBinding"
+                          use:enhance={() =>
+                            ({ update }) =>
+                              update({ navigate: false })}
+                        >
                           <input type="hidden" name="targetUserId" value={row.userId} />
                           <Button type="submit" variant="outline" size="sm"
                             >{m.examProctoring_resetIpBinding()}</Button
@@ -378,7 +384,13 @@
                         </form>
                       {/if}
                       {#if pageLockEnabled && row.session}
-                        <form method="POST" action="?/releaseStudentSession" use:enhance>
+                        <form
+                          method="POST"
+                          action="?/releaseStudentSession"
+                          use:enhance={() =>
+                            ({ update }) =>
+                              update({ navigate: false })}
+                        >
                           <input type="hidden" name="targetUserId" value={row.userId} />
                           <Button type="submit" variant="outline" size="sm"
                             >{m.examProctoring_release()}</Button

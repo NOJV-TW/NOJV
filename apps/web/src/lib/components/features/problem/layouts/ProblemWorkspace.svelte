@@ -3,7 +3,7 @@
     watchProblemSubmissions,
     applySubmissionState,
     mergeSubmissionEntries,
-  } from "$lib/services/problem-submission";
+  } from "#lib/services/problem-submission.js";
   import { onDestroy, onMount, untrack } from "svelte";
   import { page } from "$app/state";
   import {
@@ -12,13 +12,13 @@
     type SubmissionContext,
     type SubmissionResult,
   } from "@nojv/core";
-  import { m } from "$lib/paraglide/messages.js";
-  import { draftContextFromSubmissionContext } from "$lib/stores/code-draft";
+  import { m } from "#lib/paraglide/messages.js";
+  import { draftContextFromSubmissionContext } from "#lib/stores/code-draft.js";
   import type {
     ProblemDetail,
     ProblemSubmissionEntry,
     ProblemTestcaseSetSummary,
-  } from "$lib/types";
+  } from "#lib/types/index.js";
   import ProblemEditor from "../editors/Editor.svelte";
   import {
     DEFAULT_PANEL_WIDTH,

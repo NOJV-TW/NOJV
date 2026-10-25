@@ -1,8 +1,8 @@
 import { fail, redirect } from "@sveltejs/kit";
 
 import { userDomain } from "@nojv/application";
-import { withAction } from "$lib/server/shared/action-handlers";
-import { classifyRequestError } from "$lib/server/shared/handle-action-error";
+import { withAction } from "#lib/server/shared/action-handlers.js";
+import { classifyRequestError } from "#lib/server/shared/handle-action-error.js";
 
 import type { Actions, PageServerLoad } from "./$types";
 

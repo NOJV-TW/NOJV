@@ -12,7 +12,7 @@
 
 ## 主要入口
 
-- `src/hooks.server.ts` — request pipeline；`$lib/server/otel` 的 import 必須維持第一行
+- `src/hooks.server.ts` — request pipeline；`#lib/server/otel.js` 的 import 必須維持第一行
 - `src/lib/auth.server.ts` — Better Auth 設定與 Prisma adapter
 - `src/lib/server/` — server-only 的 auth、transport wrappers、OpenAPI、storage、registry adapters
 - `src/lib/server/domain-orchestration.ts` — 啟動時把 application orchestration port 綁到 `@nojv/temporal`

@@ -5,13 +5,13 @@
     ProblemDetail,
     ProblemSubmissionEntry,
     ProblemTestcaseSetSummary,
-  } from "$lib/types";
-  import { m } from "$lib/paraglide/messages.js";
+  } from "#lib/types/index.js";
+  import { m } from "#lib/paraglide/messages.js";
   import ProblemDescriptionPanel from "../left-panel/ProblemDescriptionPanel.svelte";
   import SubmissionHistoryPanel from "../left-panel/SubmissionHistoryPanel.svelte";
   import PostPanel from "../left-panel/PostPanel.svelte";
   import WorkspaceTimer from "./WorkspaceTimer.svelte";
-  import BackLink from "$lib/components/primitives/layout/BackLink.svelte";
+  import BackLink from "#lib/components/primitives/layout/BackLink.svelte";
 
   type ProblemBackLinkType = "assignment" | "contest" | "exam" | "virtual" | "problems";
 

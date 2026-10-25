@@ -23,25 +23,25 @@ import {
 } from "@nojv/application";
 import { prismaAdapterClient as prisma } from "@nojv/db";
 import { escapeHtml, getMailer, renderEmail } from "@nojv/mailer";
-import { getWebEnv } from "$lib/server/env";
-import { examPasswordAuth } from "$lib/server/exam-password-auth";
+import { getWebEnv } from "#lib/server/env.js";
+import { examPasswordAuth } from "#lib/server/exam-password-auth.js";
 import {
   consumeInternalFactorMutationAuthority,
   factorMutationPath,
   type FactorMutationPath,
-} from "$lib/server/auth-factor-mutation";
+} from "#lib/server/auth-factor-mutation.js";
 import {
   getPasskeyAuthenticationProof,
   getPasskeyRegistrationProof,
   setPasskeyAuthenticationProof,
   setPasskeyRegistrationProof,
-} from "$lib/server/passkey-request-proof";
-import { STEP_UP_HANDOFF_COOKIE } from "$lib/server/step-up-handoff";
+} from "#lib/server/passkey-request-proof.js";
+import { STEP_UP_HANDOFF_COOKIE } from "#lib/server/step-up-handoff.js";
 import {
   consumeSuperAdminPasswordProof,
   passwordProofTicketFromCookieHeader,
   readSuperAdminPasswordProof,
-} from "$lib/server/super-admin-password-proof";
+} from "#lib/server/super-admin-password-proof.js";
 
 const internalFactorMutationPaths = new Set<FactorMutationPath>(
   Object.values(factorMutationPath),
@@ -294,7 +294,7 @@ function createAuth() {
             ctx.path !== "/passkey/list-user-passkeys" &&
             !(
               ctx.path === "/callback/:id" &&
-              (ctx.params.id === "google" || ctx.params.id === "github")
+              (ctx.params?.id === "google" || ctx.params?.id === "github")
             ) &&
             !ctx.path.startsWith("/sign-in/")
           ) {

@@ -1,5 +1,5 @@
-import { getLocale } from "$lib/paraglide/runtime.js";
-import { formatDate } from "$lib/utils/datetime";
+import { getLocale } from "#lib/paraglide/runtime.js";
+import { formatDate } from "#lib/utils/datetime.js";
 
 export function relativeTime(value: Date | string | number): string {
   const then = typeof value === "number" ? value : new Date(value).getTime();

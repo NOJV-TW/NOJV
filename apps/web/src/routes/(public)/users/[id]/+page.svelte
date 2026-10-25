@@ -3,19 +3,19 @@
   import { enhance } from "$app/forms";
   import { Check, EyeOff, LineChart, PieChart, Share2 } from "@lucide/svelte";
   import type { EChartsOption } from "echarts";
-  import { m } from "$lib/paraglide/messages.js";
-  import { Card } from "$lib/components/primitives/ui/card";
-  import { Button } from "$lib/components/primitives/ui/button";
-  import ToggleSwitch from "$lib/components/primitives/ui/ToggleSwitch.svelte";
-  import EChart from "$lib/components/primitives/charts/EChart.svelte";
-  import EmptyState from "$lib/components/primitives/ui/EmptyState.svelte";
-  import ActivityHeatmap from "$lib/components/features/dashboard/ActivityHeatmap.svelte";
-  import ProfileHeaderCard from "$lib/components/features/account/ProfileHeaderCard.svelte";
-  import { buildActivityModel } from "$lib/utils/activity";
-  import { difficultyClass } from "$lib/utils/verdict-style";
-  import { formatProblemDisplayName } from "$lib/utils/format-problem-display-name";
-  import { formatChartSummary } from "$lib/utils/chart-summary";
-  import { avatarSrc } from "$lib/utils/avatar-src";
+  import { m } from "#lib/paraglide/messages.js";
+  import { Card } from "#lib/components/primitives/ui/card/index.js";
+  import { Button } from "#lib/components/primitives/ui/button/index.js";
+  import ToggleSwitch from "#lib/components/primitives/ui/ToggleSwitch.svelte";
+  import EChart from "#lib/components/primitives/charts/EChart.svelte";
+  import EmptyState from "#lib/components/primitives/ui/EmptyState.svelte";
+  import ActivityHeatmap from "#lib/components/features/dashboard/ActivityHeatmap.svelte";
+  import ProfileHeaderCard from "#lib/components/features/account/ProfileHeaderCard.svelte";
+  import { buildActivityModel } from "#lib/utils/activity.js";
+  import { difficultyClass } from "#lib/utils/verdict-style.js";
+  import { formatProblemDisplayName } from "#lib/utils/format-problem-display-name.js";
+  import { formatChartSummary } from "#lib/utils/chart-summary.js";
+  import { avatarSrc } from "#lib/utils/avatar-src.js";
 
   let { data } = $props();
 

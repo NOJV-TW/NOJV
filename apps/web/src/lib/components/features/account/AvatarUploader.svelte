@@ -1,10 +1,10 @@
 <script lang="ts">
   import { Trash2 } from "@lucide/svelte";
-  import { invalidateAll } from "$app/navigation";
-  import { m } from "$lib/paraglide/messages.js";
-  import { toasts } from "$lib/stores/toast";
-  import { fetchWithCsrf } from "$lib/services/http";
-  import { avatarSrc } from "$lib/utils/avatar-src";
+  import { refreshAll } from "$app/navigation";
+  import { m } from "#lib/paraglide/messages.js";
+  import { toasts } from "#lib/stores/toast.js";
+  import { fetchWithCsrf } from "#lib/services/http.js";
+  import { avatarSrc } from "#lib/utils/avatar-src.js";
   import AvatarCropperDialog from "./AvatarCropperDialog.svelte";
 
   interface Props {
@@ -99,7 +99,7 @@
       toasts.success(m.account_avatar_uploadSuccess());
       dialogOpen = false;
       img = null;
-      await invalidateAll();
+      await refreshAll();
     } finally {
       busy = false;
     }
@@ -115,7 +115,7 @@
         return;
       }
       toasts.success(m.account_avatar_uploadSuccess());
-      await invalidateAll();
+      await refreshAll();
     } finally {
       busy = false;
     }

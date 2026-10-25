@@ -6,11 +6,11 @@ import {
   type SubmissionContext,
   type SubmissionRunCase,
 } from "@nojv/core";
-import type { ProblemDetail } from "$lib/types";
+import type { ProblemDetail } from "#lib/types/index.js";
 import type {
   SubmissionRequest,
   SubmissionWorkspaceFile,
-} from "$lib/services/submission-service";
+} from "#lib/services/submission-service.js";
 
 export const EDITOR_LANGUAGE_COOKIE = "nojv_editor_lang";
 const PANEL_WIDTH_STORAGE_KEY = "nojv:editor:panelWidth";

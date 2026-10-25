@@ -4,12 +4,11 @@ import {
   HttpError,
   hasTokenPageMfa,
 } from "@nojv/application";
-import { json } from "@sveltejs/kit";
 
 import type { RequestHandler } from "./$types";
 
-import { requireApiAuth } from "$lib/server/auth";
-import { apiHandler } from "$lib/server/shared/api-handler";
+import { requireApiAuth } from "#lib/server/auth.js";
+import { apiHandler } from "#lib/server/shared/api-handler.js";
 
 export const GET: RequestHandler = apiHandler(async (event) => {
   requireApiAuth(event);
@@ -20,9 +19,9 @@ export const GET: RequestHandler = apiHandler(async (event) => {
   }
 
   if (!(await getSecurityFactorState(sessionUser.id))?.hasSecurityFactor) {
-    return json({ setupRequired: true, verificationRequired: false });
+    return Response.json({ setupRequired: true, verificationRequired: false });
   }
 
   const unlocked = await hasTokenPageMfa(sessionId, securityGenerationProof(sessionUser));
-  return json({ setupRequired: false, verificationRequired: !unlocked });
+  return Response.json({ setupRequired: false, verificationRequired: !unlocked });
 });

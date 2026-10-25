@@ -2,11 +2,11 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 let mockedLocale = "en";
 
-vi.mock("$lib/paraglide/runtime.js", () => ({
+vi.mock("#lib/paraglide/runtime.js", () => ({
   getLocale: () => mockedLocale,
 }));
 
-vi.mock("$lib/paraglide/messages.js", () => ({
+vi.mock("#lib/paraglide/messages.js", () => ({
   m: {
     weekday_short_0: () => "Sun",
     weekday_short_1: () => "Mon",

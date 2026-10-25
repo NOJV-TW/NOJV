@@ -1,7 +1,7 @@
 import { compareStandard, submissionDraftSchema } from "@nojv/core";
 import { expect, it } from "vitest";
-import { projectRunCasesForRequest } from "$lib/components/features/problem/editors/editor-bindings";
-import { buildSubmissionBody } from "$lib/services/submission-service";
+import { projectRunCasesForRequest } from "#lib/components/features/problem/editors/editor-bindings.js";
+import { buildSubmissionBody } from "#lib/services/submission-service.js";
 
 it("preserves explicit empty expected answers through browser and server request assembly", () => {
   const cases = projectRunCasesForRequest([

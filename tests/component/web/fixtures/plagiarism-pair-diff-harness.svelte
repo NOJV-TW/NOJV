@@ -1,6 +1,6 @@
 <script lang="ts">
-  import PlagiarismPairDiff from "$lib/components/features/plagiarism/PlagiarismPairDiff.svelte";
-  import type { PlagiarismPairDiffData } from "$lib/types/plagiarism-pair";
+  import PlagiarismPairDiff from "#lib/components/features/plagiarism/PlagiarismPairDiff.svelte";
+  import type { PlagiarismPairDiffData } from "#lib/types/plagiarism-pair.js";
 
   interface Props {
     initialData: PlagiarismPairDiffData;

@@ -4,7 +4,7 @@ import {
   runBrowserChecker,
   runBrowserInteraction,
   runBrowserLocally,
-} from "$lib/services/browser-local-run";
+} from "#lib/services/browser-local-run.js";
 
 const engine = vi.hoisted(() => ({
   compile: vi.fn<(...args: unknown[]) => Promise<unknown>>().mockResolvedValue({

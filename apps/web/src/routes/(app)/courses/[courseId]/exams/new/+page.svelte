@@ -1,26 +1,26 @@
 <script lang="ts">
-  import ActivityWeights from "$lib/components/features/course/ActivityWeights.svelte";
+  import ActivityWeights from "#lib/components/features/course/ActivityWeights.svelte";
   import { untrack } from "svelte";
-  import { appSuperForm } from "$lib/utils/super-form";
+  import { appSuperForm } from "#lib/utils/super-form.js";
   import ChevronRight from "@lucide/svelte/icons/chevron-right";
   import Lock from "@lucide/svelte/icons/lock";
   import Link2 from "@lucide/svelte/icons/link-2";
   import Shield from "@lucide/svelte/icons/shield";
 
   import { supportedLanguages, type Language } from "@nojv/core";
-  import { Button } from "$lib/components/primitives/ui/button";
-  import FormError from "$lib/components/primitives/ui/FormError.svelte";
-  import ToggleSwitch from "$lib/components/primitives/ui/ToggleSwitch.svelte";
-  import PageContainer from "$lib/components/primitives/layout/PageContainer.svelte";
-  import LateSubmissionFields from "$lib/components/features/course/LateSubmissionFields.svelte";
-  import IpWhitelistField from "$lib/components/features/course/exam/IpWhitelistField.svelte";
-  import HelpTooltip from "$lib/components/primitives/ui/HelpTooltip.svelte";
-  import ProblemPicker from "$lib/components/features/course/exam/ProblemPicker.svelte";
-  import { inputClassName } from "$lib/utils/css";
-  import { toggleArrayItem } from "$lib/utils";
-  import { restoreDateTimeFields, serializeDateTimeFields } from "$lib/utils/datetime-form";
-  import { m } from "$lib/paraglide/messages.js";
-  import type { FormMessage } from "$lib/types/form-message";
+  import { Button } from "#lib/components/primitives/ui/button/index.js";
+  import FormError from "#lib/components/primitives/ui/FormError.svelte";
+  import ToggleSwitch from "#lib/components/primitives/ui/ToggleSwitch.svelte";
+  import PageContainer from "#lib/components/primitives/layout/PageContainer.svelte";
+  import LateSubmissionFields from "#lib/components/features/course/LateSubmissionFields.svelte";
+  import IpWhitelistField from "#lib/components/features/course/exam/IpWhitelistField.svelte";
+  import HelpTooltip from "#lib/components/primitives/ui/HelpTooltip.svelte";
+  import ProblemPicker from "#lib/components/features/course/exam/ProblemPicker.svelte";
+  import { inputClassName } from "#lib/utils/css.js";
+  import { toggleArrayItem } from "#lib/utils/index.js";
+  import { restoreDateTimeFields, serializeDateTimeFields } from "#lib/utils/datetime-form.js";
+  import { m } from "#lib/paraglide/messages.js";
+  import type { FormMessage } from "#lib/types/form-message.js";
   import type { PageData } from "./$types";
 
   let { data }: { data: PageData } = $props();

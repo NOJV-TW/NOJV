@@ -2,10 +2,13 @@ import type { PageServerLoad } from "./$types";
 
 import { courseDomain, listUpcomingAssessments } from "@nojv/application";
 import { DEFAULT_LOCALE } from "@nojv/core";
-import { getActorContext } from "$lib/server/auth";
+import { getActorContext } from "#lib/server/auth.js";
 
 const { listAnnouncements } = courseDomain;
-import { deriveAssignmentWindowState, windowStateColorClass } from "$lib/utils/coursework-path";
+import {
+  deriveAssignmentWindowState,
+  windowStateColorClass,
+} from "#lib/utils/coursework-path.js";
 
 interface AnnouncementTranslationRow {
   locale: string;

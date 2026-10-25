@@ -1,28 +1,28 @@
 <script lang="ts">
-  import { invalidateAll } from "$app/navigation";
+  import { refreshAll } from "$app/navigation";
   import { enhance } from "$app/forms";
   import { Pencil, Trash2 } from "@lucide/svelte";
   import { Tooltip } from "bits-ui";
-  import { Button } from "$lib/components/primitives/ui/button";
-  import * as Select from "$lib/components/primitives/ui/select";
-  import { m } from "$lib/paraglide/messages.js";
-  import { toasts } from "$lib/stores/toast";
-  import { submitFormAction } from "$lib/utils/actions";
-  import TableTextColumnFilter from "$lib/components/primitives/ui/TableTextColumnFilter.svelte";
-  import TableSelectColumnFilter from "$lib/components/primitives/ui/TableSelectColumnFilter.svelte";
-  import TableSortButton from "$lib/components/primitives/ui/TableSortButton.svelte";
-  import ConfirmDialog from "$lib/components/primitives/ui/ConfirmDialog.svelte";
-  import BulkHandleAddPanel from "$lib/components/features/course/BulkHandleAddPanel.svelte";
-  import PageContainer from "$lib/components/primitives/layout/PageContainer.svelte";
-  import { formatDate } from "$lib/utils/datetime";
-  import { avatarSrc } from "$lib/utils/avatar-src";
+  import { Button } from "#lib/components/primitives/ui/button/index.js";
+  import * as Select from "#lib/components/primitives/ui/select/index.js";
+  import { m } from "#lib/paraglide/messages.js";
+  import { toasts } from "#lib/stores/toast.js";
+  import { submitFormAction } from "#lib/utils/actions.js";
+  import TableTextColumnFilter from "#lib/components/primitives/ui/TableTextColumnFilter.svelte";
+  import TableSelectColumnFilter from "#lib/components/primitives/ui/TableSelectColumnFilter.svelte";
+  import TableSortButton from "#lib/components/primitives/ui/TableSortButton.svelte";
+  import ConfirmDialog from "#lib/components/primitives/ui/ConfirmDialog.svelte";
+  import BulkHandleAddPanel from "#lib/components/features/course/BulkHandleAddPanel.svelte";
+  import PageContainer from "#lib/components/primitives/layout/PageContainer.svelte";
+  import { formatDate } from "#lib/utils/datetime.js";
+  import { avatarSrc } from "#lib/utils/avatar-src.js";
   import {
     ariaSort,
     sortDirection,
     sortRows,
     toggleSort,
     type TableSort,
-  } from "$lib/utils/table-sort";
+  } from "#lib/utils/table-sort.js";
   import type { PageData } from "./$types";
 
   let { data }: { data: PageData } = $props();
@@ -69,7 +69,7 @@
     if (!target) return;
     try {
       await submitFormAction("?/remove", { membershipId: target.membershipId });
-      await invalidateAll();
+      await refreshAll();
     } catch (err) {
       toasts.error(err instanceof Error ? err.message : m.members_removeError());
     }
@@ -82,7 +82,7 @@
     roleDrafts[membershipId] = role;
     try {
       await submitFormAction("?/changeRole", { membershipId, role });
-      await invalidateAll();
+      await refreshAll();
       toasts.success(m.members_roleChangeSuccess());
     } catch (err) {
       toasts.error(err instanceof Error ? err.message : m.members_roleChangeError());
@@ -214,7 +214,7 @@
                               return async ({ result, update }) => {
                                 try {
                                   if (result.type === "success") {
-                                    await update({ reset: false });
+                                    await update({ reset: false, navigate: false });
                                     editingMembershipId = null;
                                     toasts.success(m.members_usernameCorrected());
                                   } else {

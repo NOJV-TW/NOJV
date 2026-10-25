@@ -9,24 +9,24 @@
   import { onMount } from "svelte";
   import { untrack } from "svelte";
   import type { SuperValidated } from "sveltekit-superforms";
-  import { appSuperForm } from "$lib/utils/super-form";
+  import { appSuperForm } from "#lib/utils/super-form.js";
 
   import { supportedLanguages, type Language } from "@nojv/core";
   import Send from "@lucide/svelte/icons/send";
   import Undo2 from "@lucide/svelte/icons/undo-2";
   import Trash2 from "@lucide/svelte/icons/trash-2";
-  import { Button } from "$lib/components/primitives/ui/button";
-  import FormError from "$lib/components/primitives/ui/FormError.svelte";
-  import { cn, inputClassName } from "$lib/utils/css";
+  import { Button } from "#lib/components/primitives/ui/button/index.js";
+  import FormError from "#lib/components/primitives/ui/FormError.svelte";
+  import { cn, inputClassName } from "#lib/utils/css.js";
   import {
     isoDateTimeToLocal,
     restoreDateTimeFields,
     serializeDateTimeFields,
-  } from "$lib/utils/datetime-form";
-  import { minutesToHHMM, hhmmToMinutes } from "$lib/utils/attempt-reset-time";
-  import { toggleArrayItem } from "$lib/utils";
-  import { m } from "$lib/paraglide/messages.js";
-  import type { FormMessage } from "$lib/types/form-message";
+  } from "#lib/utils/datetime-form.js";
+  import { minutesToHHMM, hhmmToMinutes } from "#lib/utils/attempt-reset-time.js";
+  import { toggleArrayItem } from "#lib/utils/index.js";
+  import { m } from "#lib/paraglide/messages.js";
+  import type { FormMessage } from "#lib/types/form-message.js";
   import AssignmentBasicSection from "./AssignmentBasicSection.svelte";
 
   interface Props {

@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { mount, unmount } from "svelte";
-import Footer from "$lib/components/primitives/layout/Footer.svelte";
+import Footer from "#lib/components/primitives/layout/Footer.svelte";
 import { describe, expect, it, vi } from "vitest";
 
 vi.mock("@lucide/svelte/icons/mail", async () => ({

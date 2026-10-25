@@ -1,6 +1,6 @@
 import { beforeAll, describe, expect, it } from "vitest";
 import { examDomain } from "@nojv/application";
-import { getAuth } from "$lib/auth.server";
+import { getAuth } from "#lib/auth.server.js";
 import {
   createTestCourse,
   createTestExam,
@@ -13,7 +13,7 @@ const authRoute = await import("../../../apps/web/src/routes/api/auth/[...path]/
 const password = "SyntheticExamPassword24";
 
 beforeAll(async () => {
-  await import("$lib/../hooks.server");
+  await import("../../../apps/web/src/hooks.server.js");
   await getAuth().$context;
 }, 30_000);
 

@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { m } from "$lib/paraglide/messages.js";
-  import ImageDropZone from "$lib/components/primitives/ui/ImageDropZone.svelte";
+  import { m } from "#lib/paraglide/messages.js";
+  import ImageDropZone from "#lib/components/primitives/ui/ImageDropZone.svelte";
 
   interface Props {
     editDescription: string;

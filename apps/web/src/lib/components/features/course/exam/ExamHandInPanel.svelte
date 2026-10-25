@@ -1,12 +1,12 @@
 <script lang="ts">
   import { enhance } from "$app/forms";
   import { Tooltip } from "bits-ui";
-  import { Button } from "$lib/components/primitives/ui/button";
-  import * as Dialog from "$lib/components/primitives/ui/dialog";
-  import GlassPanel from "$lib/components/primitives/visual/GlassPanel.svelte";
-  import { m } from "$lib/paraglide/messages.js";
-  import { getLocale } from "$lib/paraglide/runtime.js";
-  import { waitForPendingSubmissions } from "$lib/services/submission-service";
+  import { Button } from "#lib/components/primitives/ui/button/index.js";
+  import * as Dialog from "#lib/components/primitives/ui/dialog/index.js";
+  import GlassPanel from "#lib/components/primitives/visual/GlassPanel.svelte";
+  import { m } from "#lib/paraglide/messages.js";
+  import { getLocale } from "#lib/paraglide/runtime.js";
+  import { waitForPendingSubmissions } from "#lib/services/submission-service.js";
 
   let { examTitle, unsubmitted = [] }: { examTitle: string; unsubmitted?: string[] } = $props();
   let open = $state(false);
@@ -77,7 +77,7 @@
             submitting = false;
             if (result.type === "success" || result.type === "redirect") {
               open = false;
-              await update();
+              await update({ navigate: false });
             } else {
               error = m.examMode_submitEndFailed();
             }

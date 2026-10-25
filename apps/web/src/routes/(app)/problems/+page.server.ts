@@ -1,7 +1,7 @@
 import type { PageServerLoad } from "./$types";
 import { problemDomain } from "@nojv/application";
-import { getActorContext } from "$lib/server/auth";
-import { parseProblemListQuery } from "$lib/server/shared/problem-list-query";
+import { getActorContext } from "#lib/server/auth.js";
+import { parseProblemListQuery } from "#lib/server/shared/problem-list-query.js";
 
 const { listAdminProblems, listEditableProblems, listProblemCards } = problemDomain;
 

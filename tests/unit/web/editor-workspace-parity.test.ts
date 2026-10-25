@@ -4,11 +4,11 @@ import {
   buildSubmissionRequest,
   projectBrowserSubmission,
   type WorkspaceFile,
-} from "$lib/components/features/problem/editors/editor-bindings";
+} from "#lib/components/features/problem/editors/editor-bindings.js";
 import {
   buildSubmissionBody,
   submissionRequestValidationError,
-} from "$lib/services/submission-service";
+} from "#lib/services/submission-service.js";
 
 function file(
   language: Language,

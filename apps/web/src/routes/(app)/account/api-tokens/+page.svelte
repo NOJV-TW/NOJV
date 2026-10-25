@@ -1,14 +1,14 @@
 <script lang="ts">
   import { KeyRound, RotateCw, ShieldOff, Save } from "@lucide/svelte";
 
-  import { m } from "$lib/paraglide/messages.js";
-  import { formatDateTime } from "$lib/utils/datetime";
-  import PageContainer from "$lib/components/primitives/layout/PageContainer.svelte";
-  import Section from "$lib/components/primitives/ui/Section.svelte";
-  import { Badge } from "$lib/components/primitives/ui/badge";
-  import { Card } from "$lib/components/primitives/ui/card";
-  import CopyButton from "$lib/components/primitives/ui/CopyButton.svelte";
-  import ConfirmDialog from "$lib/components/primitives/ui/ConfirmDialog.svelte";
+  import { m } from "#lib/paraglide/messages.js";
+  import { formatDateTime } from "#lib/utils/datetime.js";
+  import PageContainer from "#lib/components/primitives/layout/PageContainer.svelte";
+  import Section from "#lib/components/primitives/ui/Section.svelte";
+  import { Badge } from "#lib/components/primitives/ui/badge/index.js";
+  import { Card } from "#lib/components/primitives/ui/card/index.js";
+  import CopyButton from "#lib/components/primitives/ui/CopyButton.svelte";
+  import ConfirmDialog from "#lib/components/primitives/ui/ConfirmDialog.svelte";
 
   import type { ActionData, PageData } from "./$types";
 

@@ -6,13 +6,13 @@ const mocks = vi.hoisted(() => ({
   canAuthor: vi.fn(),
   canCreateAdvanced: vi.fn(),
 }));
-vi.mock("$lib/server/shared/rate-limiter", () => ({
+vi.mock("#lib/server/shared/rate-limiter.js", () => ({
   apiRateLimiter: { consume: async () => "allowed" },
   writeApiRateLimiter: { consume: async () => "allowed" },
   registryTokenRateLimiter: { consume: async () => "allowed" },
 }));
-vi.mock("$lib/server/auth", async (original) => ({
-  ...(await original<typeof import("$lib/server/auth")>()),
+vi.mock("#lib/server/auth.js", async (original) => ({
+  ...(await original<typeof import("#lib/server/auth.js")>()),
   requireApiAuth: () => ({ userId: "teacher_1", platformRole: "teacher" }),
 }));
 vi.mock("@nojv/application", async (original) => ({
@@ -23,7 +23,7 @@ vi.mock("@nojv/application", async (original) => ({
     canCreateAdvancedProblems: mocks.canCreateAdvanced,
   },
 }));
-const { POST } = await import("$lib/../routes/api/problems/+server");
+const { POST } = await import("../../../apps/web/src/routes/api/problems/+server.js");
 
 function event(body: string): RequestEvent {
   return {

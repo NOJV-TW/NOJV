@@ -2,8 +2,8 @@ import { beforeEach, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({ permission: vi.fn(), listMembers: vi.fn() }));
 vi.mock("sveltekit-superforms", () => import("sveltekit-superforms/server"));
-vi.mock("$lib/server/auth", async (original) => ({
-  ...(await original<typeof import("$lib/server/auth")>()),
+vi.mock("#lib/server/auth.js", async (original) => ({
+  ...(await original<typeof import("#lib/server/auth.js")>()),
   getCoursePermissionRole: mocks.permission,
 }));
 vi.mock("@nojv/application", async (original) => {

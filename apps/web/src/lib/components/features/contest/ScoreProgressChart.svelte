@@ -107,9 +107,9 @@
 
 <script lang="ts">
   import { untrack } from "svelte";
-  import { m } from "$lib/paraglide/messages.js";
-  import * as Select from "$lib/components/primitives/ui/select";
-  import GlassPanel from "$lib/components/primitives/visual/GlassPanel.svelte";
+  import { m } from "#lib/paraglide/messages.js";
+  import * as Select from "#lib/components/primitives/ui/select/index.js";
+  import GlassPanel from "#lib/components/primitives/visual/GlassPanel.svelte";
 
   let {
     series,

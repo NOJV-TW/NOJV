@@ -1,15 +1,14 @@
-import { json } from "@sveltejs/kit";
 import type { RequestEvent } from "@sveltejs/kit";
 import { z } from "zod";
 
 import type { RequestHandler } from "./$types";
 
-import { requireApiAuth } from "$lib/server/auth";
+import { requireApiAuth } from "#lib/server/auth.js";
 import {
   writeApiHandler,
   assertJsonBodyWithinLimit,
   readJsonBody,
-} from "$lib/server/shared/api-handler";
+} from "#lib/server/shared/api-handler.js";
 import { scoreOverrideDomain, HttpError } from "@nojv/application";
 
 const patchSchema = z.object({
@@ -33,7 +32,7 @@ export const PATCH: RequestHandler = writeApiHandler(async (event) => {
     ...(raw.reason !== undefined ? { reason: raw.reason } : {}),
   };
   const updated = await scoreOverrideDomain.updateOverride(actor, id, patch);
-  return json(updated);
+  return Response.json(updated);
 });
 
 export const DELETE: RequestHandler = writeApiHandler(async (event) => {

@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 vi.mock("$app/forms", () => ({ deserialize: (text: string): unknown => JSON.parse(text) }));
 
-import { formlessResultMessage } from "$lib/utils/actions";
+import { formlessResultMessage } from "#lib/utils/actions.js";
 
 describe("formlessResultMessage", () => {
   it("surfaces a failure that carries no validation form", () => {

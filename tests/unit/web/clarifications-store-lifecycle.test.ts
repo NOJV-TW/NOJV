@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("$app/environment", () => ({ browser: true }));
-vi.mock("$lib/services/http", () => ({ fetchWithCsrf: vi.fn() }));
+vi.mock("$app/env", () => ({ browser: true }));
+vi.mock("#lib/services/http.js", () => ({ fetchWithCsrf: vi.fn() }));
 
 const snapshotItem = {
   id: "clarification-1",
@@ -37,7 +37,7 @@ describe("clarifications store snapshot lifecycle", () => {
       "fetch",
       vi.fn(() => response),
     );
-    const { createClarificationsStore } = await import("$lib/stores/clarifications.svelte");
+    const { createClarificationsStore } = await import("#lib/stores/clarifications.svelte.js");
     const store = createClarificationsStore("contest", "contest-1");
 
     const initializing = store.init();
@@ -67,7 +67,7 @@ describe("clarifications store snapshot lifecycle", () => {
       "fetch",
       vi.fn(() => response),
     );
-    const { createClarificationsStore } = await import("$lib/stores/clarifications.svelte");
+    const { createClarificationsStore } = await import("#lib/stores/clarifications.svelte.js");
     const store = createClarificationsStore("contest", "contest-1");
     const controller = new AbortController();
 

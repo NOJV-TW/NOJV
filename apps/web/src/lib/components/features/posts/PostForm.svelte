@@ -1,11 +1,11 @@
 <script lang="ts">
   import { untrack } from "svelte";
   import type { ProblemPostType } from "@nojv/core";
-  import { m } from "$lib/paraglide/messages.js";
-  import { Button } from "$lib/components/primitives/ui/button";
-  import ImageDropZone from "$lib/components/primitives/ui/ImageDropZone.svelte";
-  import { fetchWithCsrf } from "$lib/services/http";
-  import { toasts } from "$lib/stores/toast";
+  import { m } from "#lib/paraglide/messages.js";
+  import { Button } from "#lib/components/primitives/ui/button/index.js";
+  import ImageDropZone from "#lib/components/primitives/ui/ImageDropZone.svelte";
+  import { fetchWithCsrf } from "#lib/services/http.js";
+  import { toasts } from "#lib/stores/toast.js";
 
   interface Props {
     type: ProblemPostType;

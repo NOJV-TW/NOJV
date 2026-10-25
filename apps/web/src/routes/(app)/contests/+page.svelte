@@ -3,17 +3,17 @@
   import { goto } from "$app/navigation";
   import { page } from "$app/state";
   import { Plus } from "@lucide/svelte";
-  import { m } from "$lib/paraglide/messages.js";
-  import * as Dialog from "$lib/components/primitives/ui/dialog/index.js";
-  import { Button } from "$lib/components/primitives/ui/button/index.js";
-  import { Input } from "$lib/components/primitives/ui/input/index.js";
-  import PageContainer from "$lib/components/primitives/layout/PageContainer.svelte";
-  import PageHeader from "$lib/components/primitives/layout/PageHeader.svelte";
-  import FilterTabs from "$lib/components/primitives/visual/FilterTabs.svelte";
-  import ContestPoster from "$lib/components/features/contest/ContestPoster.svelte";
-  import ContestRowPast from "$lib/components/features/contest/ContestRowPast.svelte";
-  import AssessmentGroupHeading from "$lib/components/features/coursework/AssessmentGroupHeading.svelte";
-  import { contestStatusFor } from "$lib/components/features/contest/format";
+  import { m } from "#lib/paraglide/messages.js";
+  import * as Dialog from "#lib/components/primitives/ui/dialog/index.js";
+  import { Button } from "#lib/components/primitives/ui/button/index.js";
+  import { Input } from "#lib/components/primitives/ui/input/index.js";
+  import PageContainer from "#lib/components/primitives/layout/PageContainer.svelte";
+  import PageHeader from "#lib/components/primitives/layout/PageHeader.svelte";
+  import FilterTabs from "#lib/components/primitives/visual/FilterTabs.svelte";
+  import ContestPoster from "#lib/components/features/contest/ContestPoster.svelte";
+  import ContestRowPast from "#lib/components/features/contest/ContestRowPast.svelte";
+  import AssessmentGroupHeading from "#lib/components/features/coursework/AssessmentGroupHeading.svelte";
+  import { contestStatusFor } from "#lib/components/features/contest/format.js";
 
   let { data, form: actionData } = $props();
 
@@ -46,13 +46,12 @@
   const currentTab = $derived(page.url.searchParams.get("tab") ?? "all");
 
   function setTab(next: string) {
-    const url = new URL(page.url);
+    const url = new URL(page.url.href);
     if (next === "all") url.searchParams.delete("tab");
     else url.searchParams.set("tab", next);
     void goto(`?${url.searchParams.toString()}`, {
-      keepFocus: true,
-      replaceState: true,
-      noScroll: true,
+      reset: false,
+      replace: true,
     });
   }
 

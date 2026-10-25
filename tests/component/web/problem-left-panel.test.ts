@@ -9,20 +9,20 @@ vi.setConfig({ testTimeout: 15_000 });
 
 vi.mock("$app/forms", () => ({ deserialize: vi.fn() }));
 vi.mock("@lucide/svelte", () => ({ ArrowLeft: EmptyComponent }));
-vi.mock("$lib/components/features/problem/left-panel/ProblemDescriptionPanel.svelte", () => ({
+vi.mock("#lib/components/features/problem/left-panel/ProblemDescriptionPanel.svelte", () => ({
   default: EmptyComponent,
 }));
-vi.mock("$lib/components/features/problem/left-panel/SubmissionHistoryPanel.svelte", () => ({
+vi.mock("#lib/components/features/problem/left-panel/SubmissionHistoryPanel.svelte", () => ({
   default: EmptyComponent,
 }));
-vi.mock("$lib/components/features/problem/left-panel/PostPanel.svelte", () => ({
+vi.mock("#lib/components/features/problem/left-panel/PostPanel.svelte", () => ({
   default: EmptyComponent,
 }));
 
 describe("ProblemLeftPanel", () => {
   it("does not render a submission count beside the submissions tab", async () => {
     const { default: ProblemLeftPanel } =
-      await import("$lib/components/features/problem/layouts/ProblemLeftPanel.svelte");
+      await import("#lib/components/features/problem/layouts/ProblemLeftPanel.svelte");
     const target = document.createElement("div");
     document.body.append(target);
     const component = mount(ProblemLeftPanel, {

@@ -6,9 +6,9 @@ import { beforeAll, describe, expect, it } from "vitest";
 
 import { createTestUser, testPrisma } from "../../fixtures/factories";
 import { callRoute } from "./_harness";
-import { getAuth } from "$lib/auth.server";
-import { pendingRegularAdminSignIn } from "$lib/server/admin-signin-state";
-import { verifyStepUpCode } from "$lib/server/step-up";
+import { getAuth } from "#lib/auth.server.js";
+import { pendingRegularAdminSignIn } from "#lib/server/admin-signin-state.js";
+import { verifyStepUpCode } from "#lib/server/step-up.js";
 import {
   clearVerifiedSessionProofs,
   hasAdminSessionMfa,
@@ -18,10 +18,10 @@ import {
 import {
   factorMutationPath,
   runInternalFactorMutation,
-} from "$lib/server/auth-factor-mutation";
+} from "#lib/server/auth-factor-mutation.js";
 
 beforeAll(async () => {
-  await import("$lib/../hooks.server");
+  await import("../../../apps/web/src/hooks.server.js");
   await getAuth().$context;
 }, 30_000);
 

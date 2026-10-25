@@ -2,9 +2,9 @@
 
 import { mount, tick, unmount } from "svelte";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { m } from "$lib/paraglide/messages.js";
-import WorkspaceTimer from "$lib/components/features/problem/layouts/WorkspaceTimer.svelte";
-import { syncServerClock } from "$lib/utils/datetime.js";
+import { m } from "#lib/paraglide/messages.js";
+import WorkspaceTimer from "#lib/components/features/problem/layouts/WorkspaceTimer.svelte";
+import { syncServerClock } from "#lib/utils/datetime.js";
 
 const mocks = vi.hoisted(() => ({ goto: vi.fn() }));
 vi.mock("$app/navigation", () => ({ goto: mocks.goto }));

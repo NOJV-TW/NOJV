@@ -1,9 +1,9 @@
 import { ForbiddenError } from "@nojv/application";
 import { describe, expect, it } from "vitest";
 
-import { requirePlatformRole } from "$lib/server/auth";
+import { requirePlatformRole } from "#lib/server/auth.js";
 
-import type { ActorContext } from "$lib/server/auth";
+import type { ActorContext } from "#lib/server/auth.js";
 
 function makeActor(overrides: Partial<ActorContext> = {}): ActorContext {
   return {

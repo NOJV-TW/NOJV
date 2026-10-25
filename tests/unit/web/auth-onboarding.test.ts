@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { sessionUserSchema } from "@nojv/core";
 
-import { hasActorUsername } from "$lib/server/auth";
-import { isValidUsername } from "$lib/utils";
+import { hasActorUsername } from "#lib/server/auth.js";
+import { isValidUsername } from "#lib/utils/index.js";
 
 function fakeUser(overrides: Record<string, unknown> = {}) {
   return {

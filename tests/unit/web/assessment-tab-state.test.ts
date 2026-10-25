@@ -4,7 +4,7 @@ import {
   assessmentSubTabHref,
   parseAssessmentSubTab,
   assessmentPrimaryTab,
-} from "$lib/components/features/coursework/assessment-tab-state";
+} from "#lib/components/features/coursework/assessment-tab-state.js";
 
 describe("assessment tab state", () => {
   it.each(["assignment", "exam", "contest"] as const)(

@@ -3,8 +3,8 @@
 import { flushSync, mount, unmount } from "svelte";
 import { describe, expect, it } from "vitest";
 
-import SamplesEditor from "$lib/components/features/problem/statement/SamplesEditor.svelte";
-import { m } from "$lib/paraglide/messages.js";
+import SamplesEditor from "#lib/components/features/problem/statement/SamplesEditor.svelte";
+import { m } from "#lib/paraglide/messages.js";
 
 function mountEditor(judgeType: "interactive" | "standard") {
   const target = document.createElement("div");

@@ -1,7 +1,7 @@
 <script lang="ts">
   import { untrack } from "svelte";
   import type { SuperValidated } from "sveltekit-superforms";
-  import { appSuperForm } from "$lib/utils/super-form";
+  import { appSuperForm } from "#lib/utils/super-form.js";
   import type {
     JudgeType,
     ProblemBasicInfo,
@@ -9,15 +9,15 @@
     ProblemSample,
     ProblemVisibility,
   } from "@nojv/core";
-  import * as Select from "$lib/components/primitives/ui/select";
-  import { m } from "$lib/paraglide/messages.js";
-  import { inputClassName } from "$lib/utils/css";
-  import TagSelect from "$lib/components/primitives/ui/TagSelect.svelte";
-  import HelpTooltip from "$lib/components/primitives/ui/HelpTooltip.svelte";
-  import ImageDropZone from "$lib/components/primitives/ui/ImageDropZone.svelte";
-  import SamplesEditor from "$lib/components/features/problem/statement/SamplesEditor.svelte";
-  import ToggleSwitch from "$lib/components/primitives/ui/ToggleSwitch.svelte";
-  import type { FormMessage } from "$lib/types/form-message";
+  import * as Select from "#lib/components/primitives/ui/select/index.js";
+  import { m } from "#lib/paraglide/messages.js";
+  import { inputClassName } from "#lib/utils/css.js";
+  import TagSelect from "#lib/components/primitives/ui/TagSelect.svelte";
+  import HelpTooltip from "#lib/components/primitives/ui/HelpTooltip.svelte";
+  import ImageDropZone from "#lib/components/primitives/ui/ImageDropZone.svelte";
+  import SamplesEditor from "#lib/components/features/problem/statement/SamplesEditor.svelte";
+  import ToggleSwitch from "#lib/components/primitives/ui/ToggleSwitch.svelte";
+  import type { FormMessage } from "#lib/types/form-message.js";
 
   const textareaClassName = `${inputClassName} min-h-28 resize-y`;
 

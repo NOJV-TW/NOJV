@@ -4,7 +4,7 @@ import { mount, tick, unmount } from "svelte";
 import axe from "axe-core";
 import { describe, expect, it } from "vitest";
 
-import ToggleSwitch from "$lib/components/primitives/ui/ToggleSwitch.svelte";
+import ToggleSwitch from "#lib/components/primitives/ui/ToggleSwitch.svelte";
 
 describe("ToggleSwitch", () => {
   it("exposes a native label, switch semantics, description, and checkbox behavior", async () => {

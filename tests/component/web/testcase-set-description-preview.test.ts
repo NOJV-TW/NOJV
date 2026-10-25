@@ -4,7 +4,7 @@ import { mount, tick, unmount } from "svelte";
 import { describe, expect, it, vi } from "vitest";
 
 import EmptyComponent from "../../fixtures/web/empty-component.svelte";
-import { m } from "$lib/paraglide/messages.js";
+import { m } from "#lib/paraglide/messages.js";
 
 vi.mock("@lucide/svelte", () => ({
   Eye: EmptyComponent,
@@ -16,7 +16,7 @@ vi.mock("@lucide/svelte", () => ({
 describe("TestcaseSetEditForm", () => {
   it("previews the subtask description as rendered math", async () => {
     const { default: TestcaseSetEditForm } =
-      await import("$lib/components/features/problem/testcase/TestcaseSetEditForm.svelte");
+      await import("#lib/components/features/problem/testcase/TestcaseSetEditForm.svelte");
     const target = document.createElement("div");
     document.body.append(target);
     const component = mount(TestcaseSetEditForm, {

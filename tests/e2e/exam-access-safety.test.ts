@@ -169,6 +169,10 @@ test("teacher regenerates the exam password and student signs in through the new
       await studentRow
         .getByRole("button", { name: "Regenerate password", exact: true })
         .click();
+      await expect(teacherPage.locator("#exam-manage-tab-proctoring")).toHaveAttribute(
+        "aria-selected",
+        "true",
+      );
       await expect(passwordCode).toHaveText(/^[A-Za-z0-9]{8}$/);
       if (previous) await expect(passwordCode).not.toHaveText(previous);
       passwords.push((await passwordCode.textContent())!);

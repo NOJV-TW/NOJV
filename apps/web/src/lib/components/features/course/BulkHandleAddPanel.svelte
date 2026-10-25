@@ -1,12 +1,12 @@
 <script lang="ts">
   import { untrack } from "svelte";
   import { Check, UserPlus } from "@lucide/svelte";
-  import { appSuperForm } from "$lib/utils/super-form";
-  import { m } from "$lib/paraglide/messages.js";
-  import { Button } from "$lib/components/primitives/ui/button";
-  import FormError from "$lib/components/primitives/ui/FormError.svelte";
-  import HelpTooltip from "$lib/components/primitives/ui/HelpTooltip.svelte";
-  import type { FormMessage } from "$lib/types/form-message";
+  import { appSuperForm } from "#lib/utils/super-form.js";
+  import { m } from "#lib/paraglide/messages.js";
+  import { Button } from "#lib/components/primitives/ui/button/index.js";
+  import FormError from "#lib/components/primitives/ui/FormError.svelte";
+  import HelpTooltip from "#lib/components/primitives/ui/HelpTooltip.svelte";
+  import type { FormMessage } from "#lib/types/form-message.js";
   import type { SuperValidated } from "sveltekit-superforms";
 
   type BulkAddForm = {

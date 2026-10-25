@@ -1,7 +1,7 @@
 /** @vitest-environment jsdom */
 import { describe, expect, it } from "vitest";
 
-import { formatSmartTimestamp } from "$lib/utils/datetime";
+import { formatSmartTimestamp } from "#lib/utils/datetime.js";
 
 const now = new Date(2026, 5, 2, 15, 30);
 

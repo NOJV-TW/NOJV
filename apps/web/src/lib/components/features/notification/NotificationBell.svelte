@@ -2,9 +2,9 @@
   import BellIcon from "@lucide/svelte/icons/bell";
   import { fly } from "svelte/transition";
   import { cubicOut } from "svelte/easing";
-  import { m } from "$lib/paraglide/messages.js";
-  import { notifications } from "$lib/stores/notifications.svelte";
-  import { cn } from "$lib/utils/css.js";
+  import { m } from "#lib/paraglide/messages.js";
+  import { notifications } from "#lib/stores/notifications.svelte.js";
+  import { cn } from "#lib/utils/css.js";
   import NotificationDropdown from "./NotificationDropdown.svelte";
 
   let open = $state(false);

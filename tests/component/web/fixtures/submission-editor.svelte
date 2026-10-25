@@ -1,8 +1,8 @@
 <script lang="ts">
   import { untrack } from "svelte";
   import type { SubmissionContext, SubmissionResult } from "@nojv/core";
-  import type { ProblemDetail } from "$lib/types";
-  import { createEditorRunController } from "$lib/components/features/problem/editors/use-editor-run.svelte";
+  import type { ProblemDetail } from "#lib/types/index.js";
+  import { createEditorRunController } from "#lib/components/features/problem/editors/use-editor-run.svelte.js";
   let {
     problem,
     context,

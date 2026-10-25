@@ -5,7 +5,7 @@ import {
   isExamForbiddenApiRequest,
   resolveExamGateDenial,
   type ActiveExamContext,
-} from "$lib/server/exam-lock";
+} from "#lib/server/exam-lock.js";
 
 function makeCtx(overrides: Partial<ActiveExamContext> = {}): ActiveExamContext {
   return {

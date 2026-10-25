@@ -6,10 +6,10 @@ import type { SubmitFunction } from "@sveltejs/kit";
 import { problemBasicInfoSchema, type ProblemBasicInfo } from "@nojv/core";
 import { superValidate, type SuperValidated } from "sveltekit-superforms";
 import { zod4 } from "sveltekit-superforms/adapters";
-import type { FormMessage } from "$lib/types/form-message";
+import type { FormMessage } from "#lib/types/form-message.js";
 
 const mocks = vi.hoisted(() => ({ enhanced: new Map<HTMLFormElement, SubmitFunction>() }));
-vi.mock("$app/environment", () => ({
+vi.mock("$app/env", () => ({
   browser: true,
   dev: true,
   building: false,
@@ -18,7 +18,7 @@ vi.mock("$app/environment", () => ({
 vi.mock("$app/navigation", () => ({
   beforeNavigate: vi.fn(),
   afterNavigate: vi.fn(),
-  invalidateAll: vi.fn(),
+  refreshAll: vi.fn(),
   goto: vi.fn(),
 }));
 vi.mock("$app/forms", () => ({
@@ -45,7 +45,7 @@ vi.mock("@lucide/svelte", async (importOriginal) => {
   };
 });
 
-import BasicInfoTab from "$lib/components/features/problem/tabs/BasicInfoTab.svelte";
+import BasicInfoTab from "#lib/components/features/problem/tabs/BasicInfoTab.svelte";
 
 const formData: SuperValidated<ProblemBasicInfo, FormMessage> = {
   id: "basic-info",

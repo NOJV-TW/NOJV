@@ -149,8 +149,8 @@ describe("env schema baseline (no helm required)", () => {
       join(repoRoot, "apps/web/src/lib/components/primitives/layout/Footer.svelte"),
       "utf8",
     );
-    expect(footer).toContain('from "$env/dynamic/public"');
-    expect(footer).toContain("env.PUBLIC_APP_VERSION");
+    expect(footer).toContain('from "$app/env/public"');
+    expect(footer).toContain("PUBLIC_APP_VERSION");
     expect(footer).not.toContain("package.json");
   });
 
@@ -217,6 +217,8 @@ describeHelm("env schema ↔ chart deployment parity", () => {
     (valuesFile) => {
       const web = isolateDoc(renderChart(valuesFile), "Deployment", "nojv-web");
       expect(web).toContain('name: PUBLIC_APP_VERSION\n              value: "1.2.3"');
+      expect(web).toContain("name: PROTOCOL_HEADER\n              value: x-forwarded-proto");
+      expect(web).not.toMatch(/name: ORIGIN\s/);
     },
   );
 

@@ -1,9 +1,9 @@
 <script lang="ts">
   import { Bookmark } from "@lucide/svelte";
-  import { m } from "$lib/paraglide/messages.js";
-  import { fetchWithCsrf } from "$lib/services/http";
-  import { toasts } from "$lib/stores/toast";
-  import { cn } from "$lib/utils/css.js";
+  import { m } from "#lib/paraglide/messages.js";
+  import { fetchWithCsrf } from "#lib/services/http.js";
+  import { toasts } from "#lib/stores/toast.js";
+  import { cn } from "#lib/utils/css.js";
 
   interface Props {
     problemId: string;

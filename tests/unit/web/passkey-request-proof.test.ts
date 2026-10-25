@@ -7,7 +7,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 import {
   getPasskeyAuthenticationProof,
   setPasskeyAuthenticationProof,
-} from "$lib/server/passkey-request-proof";
+} from "#lib/server/passkey-request-proof.js";
 
 const inRequest = <T>(run: () => T) => runWithRequestState(new WeakMap(), run);
 

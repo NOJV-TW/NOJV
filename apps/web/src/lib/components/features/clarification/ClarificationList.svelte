@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { m } from "$lib/paraglide/messages.js";
-  import type { ClarificationsStore } from "$lib/stores/clarifications.svelte";
+  import { m } from "#lib/paraglide/messages.js";
+  import type { ClarificationsStore } from "#lib/stores/clarifications.svelte.js";
   import ClarificationItem from "./ClarificationItem.svelte";
 
   interface Props {

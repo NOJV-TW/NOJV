@@ -1,17 +1,17 @@
 <script lang="ts">
   import { Download } from "@lucide/svelte";
-  import { m } from "$lib/paraglide/messages.js";
-  import { Button } from "$lib/components/primitives/ui/button";
-  import PageContainer from "$lib/components/primitives/layout/PageContainer.svelte";
-  import TableSortButton from "$lib/components/primitives/ui/TableSortButton.svelte";
-  import TableTextColumnFilter from "$lib/components/primitives/ui/TableTextColumnFilter.svelte";
+  import { m } from "#lib/paraglide/messages.js";
+  import { Button } from "#lib/components/primitives/ui/button/index.js";
+  import PageContainer from "#lib/components/primitives/layout/PageContainer.svelte";
+  import TableSortButton from "#lib/components/primitives/ui/TableSortButton.svelte";
+  import TableTextColumnFilter from "#lib/components/primitives/ui/TableTextColumnFilter.svelte";
   import {
     ariaSort,
     sortDirection,
     sortRows,
     toggleSort,
     type TableSort,
-  } from "$lib/utils/table-sort";
+  } from "#lib/utils/table-sort.js";
   import type { PageData } from "./$types";
 
   let { data }: { data: PageData } = $props();

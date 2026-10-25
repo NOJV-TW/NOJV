@@ -3,14 +3,14 @@
 import { mount, unmount } from "svelte";
 import { expect, it, vi } from "vitest";
 
-import { m } from "$lib/paraglide/messages.js";
-import ClarificationTab from "$lib/components/features/clarification/ClarificationTab.svelte";
+import { m } from "#lib/paraglide/messages.js";
+import ClarificationTab from "#lib/components/features/clarification/ClarificationTab.svelte";
 
 const mocks = vi.hoisted(() => ({
   init: vi.fn().mockRejectedValue(new Error("network unavailable")),
 }));
 
-vi.mock("$lib/stores/clarifications.svelte", () => ({
+vi.mock("#lib/stores/clarifications.svelte.js", () => ({
   createClarificationsStore: () => ({
     items: [],
     unreadCount: 0,
@@ -20,16 +20,16 @@ vi.mock("$lib/stores/clarifications.svelte", () => ({
   }),
 }));
 
-vi.mock("$lib/stores/sse", () => ({
+vi.mock("#lib/stores/sse.js", () => ({
   onSSEEvent: () => vi.fn(),
   subscribeClarificationChannel: () => vi.fn(),
 }));
 
-vi.mock("$lib/components/features/clarification/ClarificationAskForm.svelte", async () => ({
+vi.mock("#lib/components/features/clarification/ClarificationAskForm.svelte", async () => ({
   default: (await import("../../fixtures/web/empty-component.svelte")).default,
 }));
 
-vi.mock("$lib/components/features/clarification/ClarificationList.svelte", async () => ({
+vi.mock("#lib/components/features/clarification/ClarificationList.svelte", async () => ({
   default: (await import("../../fixtures/web/empty-component.svelte")).default,
 }));
 

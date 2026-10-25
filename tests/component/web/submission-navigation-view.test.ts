@@ -1,43 +1,43 @@
 import {
   stopSubmissionTracking,
   requestSubmissionRefresh,
-} from "$lib/services/submission-tracker";
+} from "#lib/services/submission-tracker.js";
 import { mount, tick, unmount } from "svelte";
 import { expect, it, vi } from "vitest";
-import type { ProblemSubmissionEntry } from "$lib/types";
-import { m } from "$lib/paraglide/messages.js";
+import type { ProblemSubmissionEntry } from "#lib/types/index.js";
+import { m } from "#lib/paraglide/messages.js";
 import Harness from "./fixtures/submission-navigation-harness.svelte";
 
 const mocks = vi.hoisted(() => ({ refresh: vi.fn().mockResolvedValue(undefined) }));
 vi.mock("$app/forms", () => ({ enhance: vi.fn() }));
-vi.mock("$lib/components/primitives/ui/CodeBlock.svelte", async () => ({
+vi.mock("#lib/components/primitives/ui/CodeBlock.svelte", async () => ({
   default: (await import("../../fixtures/web/empty-component.svelte")).default,
 }));
-vi.mock("$lib/components/features/problem/layouts/WorkspaceTimer.svelte", async () => ({
+vi.mock("#lib/components/features/problem/layouts/WorkspaceTimer.svelte", async () => ({
   default: (await import("../../fixtures/web/empty-component.svelte")).default,
 }));
-vi.mock("$app/navigation", () => ({ invalidateAll: mocks.refresh, invalidate: mocks.refresh }));
-vi.mock("$lib/services/browser-local-run", () => ({}));
-vi.mock("$lib/stores/sse", () => ({ watchSubmissionVerdict: () => () => undefined }));
-vi.mock("$lib/stores/toast", () => ({
+vi.mock("$app/navigation", () => ({ refreshAll: mocks.refresh, invalidate: mocks.refresh }));
+vi.mock("#lib/services/browser-local-run.js", () => ({}));
+vi.mock("#lib/stores/sse.js", () => ({ watchSubmissionVerdict: () => () => undefined }));
+vi.mock("#lib/stores/toast.js", () => ({
   toasts: { error: vi.fn(), success: vi.fn(), info: vi.fn() },
 }));
-vi.mock("$lib/components/features/problem/editors/Editor.svelte", async () => ({
+vi.mock("#lib/components/features/problem/editors/Editor.svelte", async () => ({
   default: (await import("./fixtures/submission-editor.svelte")).default,
 }));
 vi.mock(
-  "$lib/components/features/problem/left-panel/ProblemDescriptionPanel.svelte",
+  "#lib/components/features/problem/left-panel/ProblemDescriptionPanel.svelte",
   async () => ({
     default: (await import("../../fixtures/web/empty-component.svelte")).default,
   }),
 );
-vi.mock("$lib/components/features/problem/left-panel/PostPanel.svelte", async () => ({
+vi.mock("#lib/components/features/problem/left-panel/PostPanel.svelte", async () => ({
   default: (await import("../../fixtures/web/empty-component.svelte")).default,
 }));
-vi.mock("$lib/components/features/problem/layouts/MobileWorkspaceBlocker.svelte", async () => ({
+vi.mock("#lib/components/features/problem/layouts/MobileWorkspaceBlocker.svelte", async () => ({
   default: (await import("../../fixtures/web/empty-component.svelte")).default,
 }));
-vi.mock("$lib/components/features/problem/advanced/AdvancedUploader.svelte", async () => ({
+vi.mock("#lib/components/features/problem/advanced/AdvancedUploader.svelte", async () => ({
   default: (await import("./fixtures/submission-uploader.svelte")).default,
 }));
 

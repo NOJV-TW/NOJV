@@ -22,7 +22,7 @@ const {
   listPublished: vi.fn(),
 }));
 
-vi.mock("$app/environment", () => ({
+vi.mock("$app/env", () => ({
   browser: false,
   dev: true,
   building: false,

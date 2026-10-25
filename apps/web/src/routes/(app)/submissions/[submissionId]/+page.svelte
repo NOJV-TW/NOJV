@@ -1,19 +1,19 @@
 <script lang="ts">
-  import SubmissionId from "$lib/components/features/submission/SubmissionId.svelte";
+  import SubmissionId from "#lib/components/features/submission/SubmissionId.svelte";
   import { Download } from "@lucide/svelte";
-  import { m } from "$lib/paraglide/messages.js";
-  import { watchSubmissionStates } from "$lib/services/submission-tracker";
-  import { formatDateTime } from "$lib/utils/datetime";
-  import { formatJudgeOutput, formatMemoryKb } from "$lib/utils/judge-output";
-  import { verdictTone } from "$lib/utils/verdict-style";
+  import { m } from "#lib/paraglide/messages.js";
+  import { watchSubmissionStates } from "#lib/services/submission-tracker.js";
+  import { formatDateTime } from "#lib/utils/datetime.js";
+  import { formatJudgeOutput, formatMemoryKb } from "#lib/utils/judge-output.js";
+  import { verdictTone } from "#lib/utils/verdict-style.js";
   import { languageLabel } from "@nojv/core";
-  import { formatProblemDisplayName } from "$lib/utils/format-problem-display-name";
-  import { flattenSourcesForDisplay } from "$lib/utils/submission-source-display";
-  import SubtaskResultTree from "$lib/components/features/submission/SubtaskResultTree.svelte";
-  import CopyButton from "$lib/components/primitives/ui/CopyButton.svelte";
-  import MonacoScriptEditor from "$lib/components/primitives/ui/MonacoScriptEditor.svelte";
-  import PageContainer from "$lib/components/primitives/layout/PageContainer.svelte";
-  import BackLink from "$lib/components/primitives/layout/BackLink.svelte";
+  import { formatProblemDisplayName } from "#lib/utils/format-problem-display-name.js";
+  import { flattenSourcesForDisplay } from "#lib/utils/submission-source-display.js";
+  import SubtaskResultTree from "#lib/components/features/submission/SubtaskResultTree.svelte";
+  import CopyButton from "#lib/components/primitives/ui/CopyButton.svelte";
+  import MonacoScriptEditor from "#lib/components/primitives/ui/MonacoScriptEditor.svelte";
+  import PageContainer from "#lib/components/primitives/layout/PageContainer.svelte";
+  import BackLink from "#lib/components/primitives/layout/BackLink.svelte";
 
   let { data } = $props();
 

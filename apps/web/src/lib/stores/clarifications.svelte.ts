@@ -1,7 +1,7 @@
-import { browser } from "$app/environment";
+import { browser } from "$app/env";
 import type { ClarificationSSEEvent } from "@nojv/core";
 
-import { fetchWithCsrf } from "$lib/services/http";
+import { fetchWithCsrf } from "#lib/services/http.js";
 
 export interface ClarificationItem {
   id: string;
@@ -127,6 +127,7 @@ export function createClarificationsStore(
       const body = (await r.json().catch(() => ({ message: "Ask failed" }))) as {
         message?: string;
       };
+
       throw new Error(body.message ?? "Ask failed");
     }
     const created = (await r.json().catch(() => null)) as ClarificationItem | null;

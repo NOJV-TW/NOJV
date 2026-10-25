@@ -1,11 +1,11 @@
 <script lang="ts">
   import { History } from "@lucide/svelte";
   import type { auditDomain } from "@nojv/application";
-  import { Badge } from "$lib/components/primitives/ui/badge";
-  import EmptyState from "$lib/components/primitives/ui/EmptyState.svelte";
-  import { m } from "$lib/paraglide/messages.js";
-  import { formatDateTime } from "$lib/utils/datetime";
-  import type { BadgeVariant } from "$lib/components/primitives/ui/badge";
+  import { Badge } from "#lib/components/primitives/ui/badge/index.js";
+  import EmptyState from "#lib/components/primitives/ui/EmptyState.svelte";
+  import { m } from "#lib/paraglide/messages.js";
+  import { formatDateTime } from "#lib/utils/datetime.js";
+  import type { BadgeVariant } from "#lib/components/primitives/ui/badge/index.js";
 
   type AuditEvent = auditDomain.AuditEvent;
 

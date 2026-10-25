@@ -1,13 +1,13 @@
 <script lang="ts">
   import { ListChecks, Lock, RotateCcw } from "@lucide/svelte";
   import type { ContestScoringMode } from "@nojv/core";
-  import { m } from "$lib/paraglide/messages.js";
-  import { contestModeUsesPoints } from "$lib/utils/contest-scoring";
-  import { problemLetter } from "$lib/components/features/contest/format";
-  import RejudgeDialog from "$lib/components/features/problem/admin/RejudgeDialog.svelte";
-  import GlassPanel from "$lib/components/primitives/visual/GlassPanel.svelte";
-  import { Button } from "$lib/components/primitives/ui/button";
-  import EmptyState from "$lib/components/primitives/ui/EmptyState.svelte";
+  import { m } from "#lib/paraglide/messages.js";
+  import { contestModeUsesPoints } from "#lib/utils/contest-scoring.js";
+  import { problemLetter } from "#lib/components/features/contest/format.js";
+  import RejudgeDialog from "#lib/components/features/problem/admin/RejudgeDialog.svelte";
+  import GlassPanel from "#lib/components/primitives/visual/GlassPanel.svelte";
+  import { Button } from "#lib/components/primitives/ui/button/index.js";
+  import EmptyState from "#lib/components/primitives/ui/EmptyState.svelte";
 
   interface ProblemSummary {
     id: string;

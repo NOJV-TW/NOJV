@@ -7,9 +7,9 @@
     getNojvThemeName,
     MONACO_CODE_EDITOR_OPTIONS,
     watchThemeChanges,
-  } from "$lib/utils/monaco-themes";
-  import { m } from "$lib/paraglide/messages.js";
-  import { Skeleton } from "$lib/components/primitives/ui/skeleton";
+  } from "#lib/utils/monaco-themes.js";
+  import { m } from "#lib/paraglide/messages.js";
+  import { Skeleton } from "#lib/components/primitives/ui/skeleton/index.js";
   import { acquireCompletionProviders } from "../editor-completions";
 
   interface Props {
@@ -46,7 +46,7 @@
 
     void (async () => {
       try {
-        const { loadMonaco } = await import("$lib/utils/monaco-loader");
+        const { loadMonaco } = await import("#lib/utils/monaco-loader.js");
         if (!active) return;
         const monaco = loadMonaco();
         monacoModule = monaco;

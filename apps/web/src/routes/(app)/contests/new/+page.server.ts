@@ -4,9 +4,9 @@ import { message, superValidate } from "sveltekit-superforms";
 import { zod4 } from "sveltekit-superforms/adapters";
 
 import type { Actions, PageServerLoad } from "./$types";
-import { requireAuth } from "$lib/server/auth";
-import { classifyRequestError } from "$lib/server/shared/handle-action-error";
-import { withAction } from "$lib/server/shared/action-handlers";
+import { requireAuth } from "#lib/server/auth.js";
+import { classifyRequestError } from "#lib/server/shared/handle-action-error.js";
+import { withAction } from "#lib/server/shared/action-handlers.js";
 import {
   canCreateCourse,
   contestDomain,

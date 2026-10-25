@@ -1,8 +1,8 @@
 <script lang="ts">
-  import { authClient } from "$lib/auth.client";
-  import { m } from "$lib/paraglide/messages.js";
-  import { Button } from "$lib/components/primitives/ui/button";
-  import ProviderIcon from "$lib/components/features/auth/ProviderIcon.svelte";
+  import { authClient } from "#lib/auth.client.js";
+  import { m } from "#lib/paraglide/messages.js";
+  import { Button } from "#lib/components/primitives/ui/button/index.js";
+  import ProviderIcon from "#lib/components/features/auth/ProviderIcon.svelte";
 
   let inFlightProvider = $state<"github" | "google" | null>(null);
 

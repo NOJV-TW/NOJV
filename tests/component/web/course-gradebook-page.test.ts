@@ -1,6 +1,6 @@
 import { mount, tick, unmount } from "svelte";
 import { afterEach, expect, it, vi } from "vitest";
-import { m } from "$lib/paraglide/messages.js";
+import { m } from "#lib/paraglide/messages.js";
 import GradesPage from "../../../apps/web/src/routes/(app)/courses/[courseId]/grades/+page.svelte";
 
 vi.mock("@lucide/svelte", async () => {

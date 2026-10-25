@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { problemTabHref } from "$lib/components/features/problem/views/problem-tab-href";
+import { problemTabHref } from "#lib/components/features/problem/views/problem-tab-href.js";
 
 describe("problemTabHref", () => {
   const currentUrl = new URL("https://nojv.tw/problems?tab=mine&q=graph&sort=desc");

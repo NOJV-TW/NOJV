@@ -9,8 +9,8 @@ import {
 } from "@nojv/application";
 import type { RequestEvent } from "@sveltejs/kit";
 
-import { getCoursePermissionRole, requireApiAuth } from "$lib/server/auth";
-import type { PlagiarismPairDiffData } from "$lib/types/plagiarism-pair";
+import { getCoursePermissionRole, requireApiAuth } from "#lib/server/auth.js";
+import type { PlagiarismPairDiffData } from "#lib/types/plagiarism-pair.js";
 
 const { buildPairKey, findPlagiarismReport, getPlagiarismSourceCode, listFlagsForContext } =
   plagiarismDomain;

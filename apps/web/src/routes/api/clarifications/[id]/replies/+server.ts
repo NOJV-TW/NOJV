@@ -1,14 +1,13 @@
-import { json } from "@sveltejs/kit";
 import type { RequestEvent } from "@sveltejs/kit";
 
 import type { RequestHandler } from "./$types";
 
-import { requireApiAuth } from "$lib/server/auth";
+import { requireApiAuth } from "#lib/server/auth.js";
 import {
   writeApiHandler,
   assertJsonBodyWithinLimit,
   readJsonBody,
-} from "$lib/server/shared/api-handler";
+} from "#lib/server/shared/api-handler.js";
 import { clarificationDomain, HttpError } from "@nojv/application";
 import { clarificationCannedReplySchema } from "@nojv/core";
 
@@ -33,5 +32,5 @@ export const POST: RequestHandler = writeApiHandler(async (event) => {
 
   const answerText = CANNED_TEMPLATES[body.templateKey];
   const updated = await clarificationDomain.answer(actor, id, { answerText, isPublic: true });
-  return json(updated);
+  return Response.json(updated);
 });

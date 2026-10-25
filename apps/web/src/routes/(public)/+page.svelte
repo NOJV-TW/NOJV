@@ -1,13 +1,13 @@
 <script lang="ts">
-  import { m } from "$lib/paraglide/messages.js";
+  import { m } from "#lib/paraglide/messages.js";
   import { page } from "$app/state";
   import { Megaphone, Calendar, Pin } from "@lucide/svelte";
-  import { Card } from "$lib/components/primitives/ui/card";
-  import { Badge } from "$lib/components/primitives/ui/badge";
-  import { Button } from "$lib/components/primitives/ui/button";
-  import EmptyState from "$lib/components/primitives/ui/EmptyState.svelte";
-  import AnnouncementViewDialog from "$lib/components/features/announcement/AnnouncementViewDialog.svelte";
-  import { formatDate } from "$lib/utils/datetime";
+  import { Card } from "#lib/components/primitives/ui/card/index.js";
+  import { Badge } from "#lib/components/primitives/ui/badge/index.js";
+  import { Button } from "#lib/components/primitives/ui/button/index.js";
+  import EmptyState from "#lib/components/primitives/ui/EmptyState.svelte";
+  import AnnouncementViewDialog from "#lib/components/features/announcement/AnnouncementViewDialog.svelte";
+  import { formatDate } from "#lib/utils/datetime.js";
   import { markdownToPlainText } from "@nojv/core";
 
   let { data } = $props();

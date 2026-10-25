@@ -1,15 +1,13 @@
-import { json } from "@sveltejs/kit";
-
 import type { RequestHandler } from "./$types";
 
-import { requireApiAuth } from "$lib/server/auth";
+import { requireApiAuth } from "#lib/server/auth.js";
 import {
   apiHandler,
   writeApiHandler,
   assertJsonBodyWithinLimit,
   parseContextQuery,
   readJsonBody,
-} from "$lib/server/shared/api-handler";
+} from "#lib/server/shared/api-handler.js";
 import { scoreOverrideDomain } from "@nojv/application";
 import {
   scoreOverrideContextSchema as contextSchema,
@@ -23,7 +21,7 @@ export const GET: RequestHandler = apiHandler(async (event) => {
   await scoreOverrideDomain.assertCanViewScoreOverrides(actor, context);
 
   const items = await scoreOverrideDomain.listByContext(context);
-  return json({ items });
+  return Response.json({ items });
 });
 
 export const POST: RequestHandler = writeApiHandler(async (event) => {
@@ -32,5 +30,5 @@ export const POST: RequestHandler = writeApiHandler(async (event) => {
   const body = scoreOverrideCreateSchema.parse(await readJsonBody(event));
 
   const row = await scoreOverrideDomain.createOverride(actor, body);
-  return json(row, { status: 201 });
+  return Response.json(row, { status: 201 });
 });

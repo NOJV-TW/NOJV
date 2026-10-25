@@ -11,22 +11,22 @@
   import { onMount } from "svelte";
   import { untrack } from "svelte";
   import type { SuperValidated } from "sveltekit-superforms";
-  import { appSuperForm } from "$lib/utils/super-form";
+  import { appSuperForm } from "#lib/utils/super-form.js";
   import Trash2 from "@lucide/svelte/icons/trash-2";
   import Send from "@lucide/svelte/icons/send";
 
-  import { Button } from "$lib/components/primitives/ui/button";
-  import FormError from "$lib/components/primitives/ui/FormError.svelte";
-  import { cn } from "$lib/utils/css";
+  import { Button } from "#lib/components/primitives/ui/button/index.js";
+  import FormError from "#lib/components/primitives/ui/FormError.svelte";
+  import { cn } from "#lib/utils/css.js";
   import {
     isoDateTimeToLocal,
     restoreDateTimeFields,
     serializeDateTimeFields,
-  } from "$lib/utils/datetime-form";
-  import { m } from "$lib/paraglide/messages.js";
-  import HelpTooltip from "$lib/components/primitives/ui/HelpTooltip.svelte";
-  import ToggleSwitch from "$lib/components/primitives/ui/ToggleSwitch.svelte";
-  import type { FormMessage } from "$lib/types/form-message";
+  } from "#lib/utils/datetime-form.js";
+  import { m } from "#lib/paraglide/messages.js";
+  import HelpTooltip from "#lib/components/primitives/ui/HelpTooltip.svelte";
+  import ToggleSwitch from "#lib/components/primitives/ui/ToggleSwitch.svelte";
+  import type { FormMessage } from "#lib/types/form-message.js";
   import ExamBasicSettings from "./settings/ExamBasicSettings.svelte";
   import ExamTimelineConfig from "./settings/ExamTimelineConfig.svelte";
   import ExamProblemConfig from "./settings/ExamProblemConfig.svelte";

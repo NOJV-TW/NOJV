@@ -6,20 +6,20 @@ const { apiConsume, fetchConsume, fetchRemoteImage } = vi.hoisted(() => ({
   fetchRemoteImage: vi.fn(),
 }));
 
-vi.mock("$lib/server/shared/rate-limiter", () => ({
+vi.mock("#lib/server/shared/rate-limiter.js", () => ({
   apiRateLimiter: { consume: apiConsume },
   writeApiRateLimiter: { consume: vi.fn() },
   registryTokenRateLimiter: { consume: vi.fn() },
   remoteAssetFetchRateLimiter: { consume: fetchConsume },
 }));
 
-vi.mock("$lib/server/remote-image", () => ({
+vi.mock("#lib/server/remote-image.js", () => ({
   RemoteImageError: class RemoteImageError extends Error {},
   fetchRemoteImage,
   normalizeRemoteImageUrl: (rawUrl: string) => new URL(rawUrl),
 }));
 
-const { GET } = await import("$lib/../routes/api/images/proxy/+server");
+const { GET } = await import("../../../apps/web/src/routes/api/images/proxy/+server.js");
 
 const PNG = Buffer.from([
   0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00, 0x0d,

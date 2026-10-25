@@ -17,21 +17,20 @@
 
 <script lang="ts">
   import { tick, untrack } from "svelte";
-  import type { SubmitFunction } from "@sveltejs/kit";
-  import { enhance } from "$app/forms";
+  import { enhance, type SubmitFunction } from "$app/forms";
   import { Ban, CircleCheck, Trash2, UserCog, X } from "@lucide/svelte";
-  import * as Select from "$lib/components/primitives/ui/select";
-  import { Badge } from "$lib/components/primitives/ui/badge";
-  import { isReservedUsername } from "$lib/utils/school";
-  import { Button } from "$lib/components/primitives/ui/button";
-  import ConfirmDialog from "$lib/components/primitives/ui/ConfirmDialog.svelte";
-  import TableSelectColumnFilter from "$lib/components/primitives/ui/TableSelectColumnFilter.svelte";
-  import TableSortButton from "$lib/components/primitives/ui/TableSortButton.svelte";
-  import TableTextColumnFilter from "$lib/components/primitives/ui/TableTextColumnFilter.svelte";
-  import { m } from "$lib/paraglide/messages.js";
-  import { toasts } from "$lib/stores/toast";
-  import { formatDate } from "$lib/utils/datetime";
-  import { ariaSort } from "$lib/utils/table-sort";
+  import * as Select from "#lib/components/primitives/ui/select/index.js";
+  import { Badge } from "#lib/components/primitives/ui/badge/index.js";
+  import { isReservedUsername } from "#lib/utils/school.js";
+  import { Button } from "#lib/components/primitives/ui/button/index.js";
+  import ConfirmDialog from "#lib/components/primitives/ui/ConfirmDialog.svelte";
+  import TableSelectColumnFilter from "#lib/components/primitives/ui/TableSelectColumnFilter.svelte";
+  import TableSortButton from "#lib/components/primitives/ui/TableSortButton.svelte";
+  import TableTextColumnFilter from "#lib/components/primitives/ui/TableTextColumnFilter.svelte";
+  import { m } from "#lib/paraglide/messages.js";
+  import { toasts } from "#lib/stores/toast.js";
+  import { formatDate } from "#lib/utils/datetime.js";
+  import { ariaSort } from "#lib/utils/table-sort.js";
 
   interface Props {
     users: UsersTableUser[];
@@ -191,7 +190,7 @@
           toasts.success(
             m.admin_usersRoleUpdateSuccess({ username: name, to: roleLabel(targetRole) }),
           );
-          await update();
+          await update({ navigate: false });
         } else if (result.type === "failure") {
           formElement.reset();
           const err =
@@ -199,7 +198,7 @@
             m.admin_usersRoleUpdateFailed();
           toasts.error(err);
         } else {
-          await update();
+          await update({ navigate: false });
         }
       };
     };
@@ -216,7 +215,7 @@
               ? m.admin_usersAdvancedGrantSuccess({ username: name })
               : m.admin_usersAdvancedRevokeSuccess({ username: name }),
           );
-          await update();
+          await update({ navigate: false });
         } else if (result.type === "failure") {
           formElement.reset();
           const err =
@@ -224,7 +223,7 @@
             m.admin_usersAdvancedUpdateFailed();
           toasts.error(err);
         } else {
-          await update();
+          await update({ navigate: false });
         }
       };
     };
@@ -241,24 +240,20 @@
     selected = allSelected ? new Set() : new Set(selectableUsers.map((u) => u.id));
   }
 
-  function bulkResult(successMessage: (count: number) => string) {
-    return async ({
-      result,
-      update,
-    }: {
-      result: { type: string; data?: Record<string, unknown> };
-      update: () => Promise<void>;
-    }) => {
+  function bulkResult(
+    successMessage: (count: number) => string,
+  ): Exclude<Awaited<ReturnType<SubmitFunction>>, void> {
+    return async ({ result, update }) => {
       if (result.type === "success") {
         const affected = Number(result.data?.affected ?? 0);
         toasts.success(successMessage(affected));
-        await update();
+        await update({ navigate: false });
       } else if (result.type === "failure") {
         const err =
           (result.data as { error?: string } | undefined)?.error ?? m.admin_usersBulkFailed();
         toasts.error(err);
       } else {
-        await update();
+        await update({ navigate: false });
       }
     };
   }
@@ -340,6 +335,7 @@
           {m.admin_usersBulkDelete()}
         </Button>
       </form>
+
       <Button variant="ghost" size="sm" onclick={() => (selected = new Set())}>
         <X aria-hidden="true" class="h-3.5 w-3.5" />
         {m.admin_usersBulkClear()}
@@ -605,14 +601,14 @@
                             ? m.admin_usersDisableSuccess({ username: name })
                             : m.admin_usersEnableSuccess({ username: name }),
                         );
-                        await update();
+                        await update({ navigate: false });
                       } else if (result.type === "failure") {
                         const err =
                           (result.data as { error?: string } | undefined)?.error ??
                           m.admin_usersDisableFailed();
                         toasts.error(err);
                       } else {
-                        await update();
+                        await update({ navigate: false });
                       }
                     };
                   }}
@@ -640,14 +636,14 @@
                     return async ({ result, update }) => {
                       if (result.type === "success") {
                         toasts.success(m.admin_usersDeleteSuccess({ username: name }));
-                        await update();
+                        await update({ navigate: false });
                       } else if (result.type === "failure") {
                         const err =
                           (result.data as { error?: string } | undefined)?.error ??
                           m.admin_usersDeleteFailed();
                         toasts.error(err);
                       } else {
-                        await update();
+                        await update({ navigate: false });
                       }
                     };
                   }}

@@ -1,9 +1,9 @@
 <script lang="ts">
   import type { Snippet } from "svelte";
   import { goto } from "$app/navigation";
-  import { m } from "$lib/paraglide/messages.js";
-  import { cn } from "$lib/utils/css";
-  import { Tabs } from "$lib/components/primitives/ui/tabs";
+  import { m } from "#lib/paraglide/messages.js";
+  import { cn } from "#lib/utils/css.js";
+  import { Tabs } from "#lib/components/primitives/ui/tabs/index.js";
   import {
     assessmentPrimaryTab,
     assessmentSubTabHref,
@@ -54,7 +54,7 @@
   function selectTab(next: AssessmentSubTab): void {
     const nextUrl = assessmentSubTabHref(url, next);
     if (nextUrl === `${url.pathname}${url.search}${url.hash}`) return;
-    void goto(nextUrl, { keepFocus: true, noScroll: true, replaceState: true });
+    void goto(nextUrl, { reset: false, replace: true });
   }
 </script>
 

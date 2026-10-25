@@ -5,14 +5,14 @@ import {
   openDraft,
   sealDraft,
   type DraftContext,
-} from "$lib/stores/code-draft";
+} from "#lib/stores/code-draft.js";
 import {
   pickInitialWorkspaceIndex,
   seedWorkspaceDrafts,
   workspaceDraftKey,
   type WorkspaceFile,
 } from "./editor-bindings";
-import type { ServerDraftSync } from "$lib/services/draft-sync";
+import type { ServerDraftSync } from "#lib/services/draft-sync.js";
 
 interface WorkspaceFilesControllerArgs {
   problemId: string;

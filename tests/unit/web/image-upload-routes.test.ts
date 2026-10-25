@@ -7,23 +7,25 @@ const mocks = vi.hoisted(() => ({
   uploadProblemImage: vi.fn(),
   uploadUserContentImage: vi.fn(),
 }));
-vi.mock("$lib/server/auth", () => ({ requireApiAuth: mocks.requireApiAuth }));
+vi.mock("#lib/server/auth.js", () => ({ requireApiAuth: mocks.requireApiAuth }));
 vi.mock("@nojv/application", () => ({
   problemDomain: { assertProblemEditAccess: mocks.assertProblemEditAccess },
 }));
-vi.mock("$lib/server/shared/api-handler", () => ({
+vi.mock("#lib/server/shared/api-handler.js", () => ({
   writeApiHandler: (handler: unknown) => handler,
 }));
-vi.mock("$lib/server/image-upload", () => ({ readImageUpload: mocks.readImageUpload }));
-vi.mock("$lib/server/storage/problem-image", () => ({
+vi.mock("#lib/server/image-upload.js", () => ({ readImageUpload: mocks.readImageUpload }));
+vi.mock("#lib/server/storage/problem-image.js", () => ({
   uploadProblemImage: mocks.uploadProblemImage,
 }));
-vi.mock("$lib/server/storage/user-content-image", () => ({
+vi.mock("#lib/server/storage/user-content-image.js", () => ({
   uploadUserContentImage: mocks.uploadUserContentImage,
 }));
 
-const { POST: problemUpload } = await import("$lib/../routes/api/problems/[id]/images/+server");
-const { POST: userUpload } = await import("$lib/../routes/api/uploads/image/+server");
+const { POST: problemUpload } =
+  await import("../../../apps/web/src/routes/api/problems/[id]/images/+server.js");
+const { POST: userUpload } =
+  await import("../../../apps/web/src/routes/api/uploads/image/+server.js");
 const actor = { userId: "author", platformRole: "student", username: "author" };
 const problemEvent = { params: { id: "problem" } } as unknown as Parameters<
   typeof problemUpload

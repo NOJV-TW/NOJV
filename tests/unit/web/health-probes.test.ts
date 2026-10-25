@@ -1,7 +1,7 @@
 import type { RequestEvent } from "@sveltejs/kit";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
-import { handleLoad } from "$lib/server/shared/load-wrapper";
+import { handleLoad } from "#lib/server/shared/load-wrapper.js";
 
 const {
   apiRequestRecord,
@@ -25,26 +25,26 @@ const {
   verifyApiTokenForRoute: vi.fn(),
 }));
 
-vi.mock("$lib/server/otel", () => ({}));
-vi.mock("$lib/server/domain-orchestration", () => ({}));
-vi.mock("$lib/server/mailer-startup", () => ({}));
-vi.mock("$lib/server/logger", () => ({
+vi.mock("#lib/server/otel.js", () => ({}));
+vi.mock("#lib/server/domain-orchestration.js", () => ({}));
+vi.mock("#lib/server/mailer-startup.js", () => ({}));
+vi.mock("#lib/server/logger.js", () => ({
   createLogger: () => ({ error: loggerError, warn: vi.fn(), info: vi.fn() }),
 }));
-vi.mock("$lib/auth.server", () => ({ getAuth }));
-vi.mock("$lib/server/env", () => ({
+vi.mock("#lib/auth.server.js", () => ({ getAuth }));
+vi.mock("#lib/server/env.js", () => ({
   getWebEnv: () => ({ NODE_ENV: "test" }),
 }));
-vi.mock("$lib/server/shared/rate-limiter", () => ({
+vi.mock("#lib/server/shared/rate-limiter.js", () => ({
   authRateLimiter: { consume: authRateLimitConsume },
   signInRateLimiter: { consume: signInRateLimitConsume },
 }));
-vi.mock("$lib/paraglide/server.js", () => ({
+vi.mock("#lib/paraglide/server.js", () => ({
   paraglideMiddleware: vi.fn(() => {
     throw new Error("paraglide must not run for health probes");
   }),
 }));
-vi.mock("$lib/server/metrics", () => ({
+vi.mock("#lib/server/metrics.js", () => ({
   apiRequestDuration: { record: apiRequestRecord },
   healthProbeDuration: { record: healthProbeRecord },
   statusClass: (status: number) => `${String(Math.floor(status / 100))}xx`,
@@ -117,6 +117,12 @@ beforeEach(() => {
 });
 
 describe("unexpected server errors", () => {
+  it.each(["app", "framework"] as const)("preserves safe %s errors", async (kind) => {
+    const error = { status: 403, message: "Access denied" };
+    expect(await handleError({ kind, error, event: routeEvent("/private") })).toEqual(error);
+    expect(loggerError).not.toHaveBeenCalled();
+  });
+
   it("logs persisted-data validation failures without exposing schema details", async () => {
     const event = routeEvent("/submissions/private-id");
     event.locals.requestId = "failed-load-request";
@@ -130,8 +136,7 @@ describe("unexpected server errors", () => {
     const result = await handleError({
       error: parsed.error,
       event,
-      status: 500,
-      message: "Internal Error",
+      kind: "unknown",
     });
 
     expect(result).toEqual({ message: "Internal server error." });
@@ -278,4 +283,25 @@ describe("health probe hook boundary", () => {
     });
     expect(apiRequestRecord).not.toHaveBeenCalled();
   });
+});
+
+describe("ambiguous request path guard", () => {
+  it.each(["GET", "POST"])(
+    "rejects %s double-slash paths before auth or route resolution",
+    async (method) => {
+      const event = routeEvent("http://localhost:5173//attacker.example/login");
+      event.request = new Request(event.url, { method });
+      const resolve = vi.fn().mockResolvedValue(new Response("resolved"));
+
+      const response = await handle({ event, resolve });
+
+      expect(event.url.origin).toBe("http://localhost:5173");
+      expect(event.url.pathname).toBe("//attacker.example/login");
+      expect(response.status).toBe(400);
+      expect(response.headers.get("location")).toBeNull();
+      expect(response.headers.get("x-content-type-options")).toBe("nosniff");
+      expect(getAuth).not.toHaveBeenCalled();
+      expect(resolve).not.toHaveBeenCalled();
+    },
+  );
 });

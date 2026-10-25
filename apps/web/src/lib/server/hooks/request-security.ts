@@ -1,4 +1,4 @@
-import type { Handle } from "@sveltejs/kit";
+import type { Handle } from "@sveltejs/kit/hooks";
 import { apiTokenDomain } from "@nojv/application";
 
 type HandleEvent = Parameters<Handle>[0]["event"];
@@ -34,7 +34,7 @@ const FORM_CONTENT_TYPES = new Set([
 function isFormContentType(request: Request): boolean {
   const type =
     request.headers.get("content-type")?.split(";", 1)[0]?.trim().toLowerCase() ?? "";
-  return FORM_CONTENT_TYPES.has(type);
+  return !type || FORM_CONTENT_TYPES.has(type);
 }
 
 function csrfForbidden(requestId: string): Response {

@@ -1,12 +1,12 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { page } from "$app/state";
-  import { goto, invalidateAll } from "$app/navigation";
-  import { m } from "$lib/paraglide/messages.js";
-  import { authClient } from "$lib/auth.client";
-  import StepUpDialog from "$lib/components/features/account/StepUpDialog.svelte";
-  import { fetchWithCsrf } from "$lib/services/http";
-  import { avatarSrc } from "$lib/utils/avatar-src";
+  import { goto, refreshAll } from "$app/navigation";
+  import { m } from "#lib/paraglide/messages.js";
+  import { authClient } from "#lib/auth.client.js";
+  import StepUpDialog from "#lib/components/features/account/StepUpDialog.svelte";
+  import { fetchWithCsrf } from "#lib/services/http.js";
+  import { avatarSrc } from "#lib/utils/avatar-src.js";
   import ChevronRightIcon from "@lucide/svelte/icons/chevron-right";
   import SettingsIcon from "@lucide/svelte/icons/settings";
   import LogOutIcon from "@lucide/svelte/icons/log-out";
@@ -97,7 +97,7 @@
         return;
       }
       if (result.active !== active) return;
-      await invalidateAll();
+      await refreshAll();
       if (active) {
         await goto("/admin");
       } else if (page.url.pathname.startsWith("/admin")) {
@@ -112,7 +112,7 @@
   async function handleSignOut() {
     await authClient.signOut();
     open = false;
-    await invalidateAll();
+    await refreshAll();
     await goto("/");
   }
 </script>

@@ -1,10 +1,10 @@
 <script lang="ts">
   import { BookOpen, ChevronUp, MessageSquare, MessagesSquare } from "@lucide/svelte";
   import type { PostListSort, ProblemPostType } from "@nojv/core";
-  import { m } from "$lib/paraglide/messages.js";
-  import EmptyState from "$lib/components/primitives/ui/EmptyState.svelte";
-  import { Button } from "$lib/components/primitives/ui/button";
-  import { relativeTime } from "$lib/utils/relative-time";
+  import { m } from "#lib/paraglide/messages.js";
+  import EmptyState from "#lib/components/primitives/ui/EmptyState.svelte";
+  import { Button } from "#lib/components/primitives/ui/button/index.js";
+  import { relativeTime } from "#lib/utils/relative-time.js";
   import type { PostListItem } from "./types";
 
   interface Props {

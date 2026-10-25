@@ -1,7 +1,7 @@
 <script lang="ts">
   import Plus from "@lucide/svelte/icons/plus";
   import type { WorkspaceFile } from "./WorkspaceFileEditor.svelte";
-  import { m } from "$lib/paraglide/messages.js";
+  import { m } from "#lib/paraglide/messages.js";
 
   interface Props {
     files: WorkspaceFile[];

@@ -1,8 +1,8 @@
 <script lang="ts">
-  import { m } from "$lib/paraglide/messages.js";
-  import AssessmentGradesTab from "$lib/components/features/coursework/AssessmentGradesTab.svelte";
+  import { m } from "#lib/paraglide/messages.js";
+  import AssessmentGradesTab from "#lib/components/features/coursework/AssessmentGradesTab.svelte";
   import type { contestDomain } from "@nojv/application";
-  import type { ContestResults } from "$lib/server/results/contest";
+  import type { ContestResults } from "#lib/server/results/contest.js";
 
   interface Props {
     data: ContestResults;

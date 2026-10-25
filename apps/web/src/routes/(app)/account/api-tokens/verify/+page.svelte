@@ -1,9 +1,9 @@
 <script lang="ts">
-  import StepUpForm from "$lib/components/features/account/StepUpForm.svelte";
-  import { m } from "$lib/paraglide/messages.js";
-  import { Card } from "$lib/components/primitives/ui/card";
-  import Section from "$lib/components/primitives/ui/Section.svelte";
-  import PageContainer from "$lib/components/primitives/layout/PageContainer.svelte";
+  import StepUpForm from "#lib/components/features/account/StepUpForm.svelte";
+  import { m } from "#lib/paraglide/messages.js";
+  import { Card } from "#lib/components/primitives/ui/card/index.js";
+  import Section from "#lib/components/primitives/ui/Section.svelte";
+  import PageContainer from "#lib/components/primitives/layout/PageContainer.svelte";
   import type { ActionData, PageData } from "./$types";
 
   let { data, form }: { data: PageData; form: ActionData } = $props();

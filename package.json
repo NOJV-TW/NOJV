@@ -50,13 +50,13 @@
     "test:integration:storage": "vitest run --project storage-conformance"
   },
   "devDependencies": {
-    "@better-auth/core": "1.7.6",
+    "@better-auth/core": "1.7.12",
     "@kubernetes/client-node": "^2.0.0",
     "@nojv/eslint-config": "workspace:*",
     "@nojv/prettier-config": "workspace:*",
     "@playwright/test": "catalog:",
     "@prisma/adapter-pg": "catalog:",
-    "@sveltejs/kit": "^2.70.3",
+    "@sveltejs/kit": "^3.1.0",
     "@sveltejs/vite-plugin-svelte": "^7.3.0",
     "@temporalio/activity": "catalog:",
     "@temporalio/client": "catalog:",

@@ -3,17 +3,17 @@
 import { mount, tick, unmount } from "svelte";
 import { afterEach, expect, it, vi } from "vitest";
 import type { JudgeType } from "@nojv/core";
-import type { ProblemDetail } from "$lib/types";
+import type { ProblemDetail } from "#lib/types/index.js";
 
-import { m } from "$lib/paraglide/messages.js";
+import { m } from "#lib/paraglide/messages.js";
 
-vi.mock("$lib/utils/actions", () => ({ submitFormAction: vi.fn() }));
-vi.mock("$lib/components/primitives/ui/MonacoScriptEditor.svelte", async () => ({
+vi.mock("#lib/utils/actions.js", () => ({ submitFormAction: vi.fn() }));
+vi.mock("#lib/components/primitives/ui/MonacoScriptEditor.svelte", async () => ({
   default: (await import("../../fixtures/web/empty-component.svelte")).default,
 }));
 
 const { default: JudgeTab } =
-  await import("$lib/components/features/problem/tabs/JudgeTab.svelte");
+  await import("#lib/components/features/problem/tabs/JudgeTab.svelte");
 
 let target: HTMLDivElement | undefined;
 let component: ReturnType<typeof mount> | undefined;

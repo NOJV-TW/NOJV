@@ -9,8 +9,8 @@ import {
 import { fail, redirect } from "@sveltejs/kit";
 import type { Actions, RequestEvent } from "@sveltejs/kit";
 
-import { requireAuth } from "$lib/server/auth";
-import { withRateLimit } from "$lib/server/shared/action-handlers";
+import { requireAuth } from "#lib/server/auth.js";
+import { withRateLimit } from "#lib/server/shared/action-handlers.js";
 
 async function requireTokenMutationStepUp(event: RequestEvent): Promise<void> {
   const actor = requireAuth(event);

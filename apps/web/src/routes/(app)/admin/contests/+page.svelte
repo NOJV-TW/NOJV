@@ -2,11 +2,11 @@
   import { Plus, Trophy } from "@lucide/svelte";
 
   import type { PageData } from "./$types";
-  import { m } from "$lib/paraglide/messages.js";
-  import AssessmentRow from "$lib/components/features/coursework/AssessmentRow.svelte";
-  import { Button } from "$lib/components/primitives/ui/button";
-  import EmptyState from "$lib/components/primitives/ui/EmptyState.svelte";
-  import PageContainer from "$lib/components/primitives/layout/PageContainer.svelte";
+  import { m } from "#lib/paraglide/messages.js";
+  import AssessmentRow from "#lib/components/features/coursework/AssessmentRow.svelte";
+  import { Button } from "#lib/components/primitives/ui/button/index.js";
+  import EmptyState from "#lib/components/primitives/ui/EmptyState.svelte";
+  import PageContainer from "#lib/components/primitives/layout/PageContainer.svelte";
 
   let { data }: { data: PageData } = $props();
 

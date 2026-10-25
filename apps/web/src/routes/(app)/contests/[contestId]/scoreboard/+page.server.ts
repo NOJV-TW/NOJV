@@ -2,10 +2,10 @@ import { fail, redirect } from "@sveltejs/kit";
 
 import type { Actions, PageServerLoad } from "./$types";
 
-import { getActorContext, requireAuth } from "$lib/server/auth";
-import { withRateLimit } from "$lib/server/shared/action-handlers";
-import { handleLoad } from "$lib/server/shared/load-wrapper";
-import { contestNotStarted } from "$lib/utils/scoreboard";
+import { getActorContext, requireAuth } from "#lib/server/auth.js";
+import { withRateLimit } from "#lib/server/shared/action-handlers.js";
+import { handleLoad } from "#lib/server/shared/load-wrapper.js";
+import { contestNotStarted } from "#lib/utils/scoreboard.js";
 import { contestDomain } from "@nojv/application";
 
 const {

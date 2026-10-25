@@ -1,12 +1,12 @@
 <script lang="ts">
   import { MemoryStick, Timer } from "@lucide/svelte";
-  import type { ProblemDetail, ProblemTestcaseSetSummary } from "$lib/types";
-  import { difficultyClass, tagClass } from "$lib/utils/verdict-style";
-  import { m } from "$lib/paraglide/messages.js";
-  import { formatProblemDisplayName } from "$lib/utils/format-problem-display-name";
-  import { minutesToHHMM } from "$lib/utils/attempt-reset-time";
-  import MarkdownRenderer from "$lib/components/primitives/layout/MarkdownRenderer.svelte";
-  import CopyButton from "$lib/components/primitives/ui/CopyButton.svelte";
+  import type { ProblemDetail, ProblemTestcaseSetSummary } from "#lib/types/index.js";
+  import { difficultyClass, tagClass } from "#lib/utils/verdict-style.js";
+  import { m } from "#lib/paraglide/messages.js";
+  import { formatProblemDisplayName } from "#lib/utils/format-problem-display-name.js";
+  import { minutesToHHMM } from "#lib/utils/attempt-reset-time.js";
+  import MarkdownRenderer from "#lib/components/primitives/layout/MarkdownRenderer.svelte";
+  import CopyButton from "#lib/components/primitives/ui/CopyButton.svelte";
   import BookmarkButton from "../listings/BookmarkButton.svelte";
   import SpecialLabels from "./SpecialLabels.svelte";
 

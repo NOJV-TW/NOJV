@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onDestroy, untrack } from "svelte";
-  import { invalidateAll } from "$app/navigation";
+  import { refreshAll } from "$app/navigation";
   import {
     isSubmissionPending,
     languageSchema,
@@ -8,23 +8,23 @@
     type SubmissionResult,
     type SubmissionOperation,
   } from "@nojv/core";
-  import { m } from "$lib/paraglide/messages.js";
-  import MonacoScriptEditor from "$lib/components/primitives/ui/MonacoScriptEditor.svelte";
-  import CodeBlock from "$lib/components/primitives/ui/CodeBlock.svelte";
-  import CaseResultGrid from "$lib/components/features/submission/CaseResultGrid.svelte";
+  import { m } from "#lib/paraglide/messages.js";
+  import MonacoScriptEditor from "#lib/components/primitives/ui/MonacoScriptEditor.svelte";
+  import CodeBlock from "#lib/components/primitives/ui/CodeBlock.svelte";
+  import CaseResultGrid from "#lib/components/features/submission/CaseResultGrid.svelte";
   import {
     buildSubmissionRequest,
     workspaceDraftKey,
     type WorkspaceFile,
-  } from "$lib/components/features/problem/editors/editor-bindings";
+  } from "#lib/components/features/problem/editors/editor-bindings.js";
   import {
     watchSubmissionStates,
     getSubmissionState,
     submissionRead,
-  } from "$lib/services/submission-tracker";
-  import { executeSubmission } from "$lib/services/submission-service";
-  import { formatJudgeOutput } from "$lib/utils/judge-output";
-  import { toasts } from "$lib/stores/toast";
+  } from "#lib/services/submission-tracker.js";
+  import { executeSubmission } from "#lib/services/submission-service.js";
+  import { formatJudgeOutput } from "#lib/utils/judge-output.js";
+  import { toasts } from "#lib/stores/toast.js";
 
   interface SourceFile {
     path: string;
@@ -244,7 +244,7 @@
       isSubmitting = false;
     }
     try {
-      await invalidateAll();
+      await refreshAll();
     } catch {
       toasts.error(m.admin_referenceRefreshFailed());
     }

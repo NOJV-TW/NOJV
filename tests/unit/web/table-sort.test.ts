@@ -6,7 +6,7 @@ import {
   sortRows,
   toggleSort,
   type TableSort,
-} from "$lib/utils/table-sort";
+} from "#lib/utils/table-sort.js";
 
 describe("table sort", () => {
   it("flips the active column and starts a new column descending", () => {

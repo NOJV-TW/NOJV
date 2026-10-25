@@ -1,12 +1,12 @@
 <script lang="ts">
   import type { PageData } from "./$types";
   import { goto } from "$app/navigation";
-  import { m } from "$lib/paraglide/messages.js";
-  import { formatDateTime } from "$lib/utils/datetime";
-  import { ariaSort } from "$lib/utils/table-sort";
-  import { Badge } from "$lib/components/primitives/ui/badge";
-  import TableSortButton from "$lib/components/primitives/ui/TableSortButton.svelte";
-  import PageContainer from "$lib/components/primitives/layout/PageContainer.svelte";
+  import { m } from "#lib/paraglide/messages.js";
+  import { formatDateTime } from "#lib/utils/datetime.js";
+  import { ariaSort } from "#lib/utils/table-sort.js";
+  import { Badge } from "#lib/components/primitives/ui/badge/index.js";
+  import TableSortButton from "#lib/components/primitives/ui/TableSortButton.svelte";
+  import PageContainer from "#lib/components/primitives/layout/PageContainer.svelte";
 
   type AuditAction = PageData["entries"][number]["action"];
 
@@ -50,8 +50,7 @@
 
   function toggleOrder() {
     goto(data.order === "desc" ? "/admin/audit?order=asc" : "/admin/audit", {
-      keepFocus: true,
-      noScroll: true,
+      reset: false,
     });
   }
 </script>

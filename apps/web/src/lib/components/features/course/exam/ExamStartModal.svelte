@@ -1,9 +1,9 @@
 <script lang="ts">
   import { enhance } from "$app/forms";
   import { AlertTriangle } from "@lucide/svelte";
-  import { m } from "$lib/paraglide/messages.js";
-  import { Button } from "$lib/components/primitives/ui/button";
-  import * as Dialog from "$lib/components/primitives/ui/dialog";
+  import { m } from "#lib/paraglide/messages.js";
+  import { Button } from "#lib/components/primitives/ui/button/index.js";
+  import * as Dialog from "#lib/components/primitives/ui/dialog/index.js";
 
   interface Props {
     open: boolean;
@@ -122,7 +122,7 @@
           errorMessage = null;
           submitting = true;
           return async ({ result, update }) => {
-            await update();
+            await update({ navigate: false });
             if (result.type === "success") {
               onOpenChange(false);
             } else if (result.type === "failure") {

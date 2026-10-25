@@ -19,7 +19,7 @@
   },
   "dependencies": {
     "marked": "^18.0.14",
-    "nodemailer": "^10.0.0",
+    "nodemailer": "10.1.4",
     "zod": "catalog:"
   },
   "devDependencies": {

@@ -1,10 +1,10 @@
 <script lang="ts">
   import { untrack } from "svelte";
   import type { Snippet } from "svelte";
-  import { m } from "$lib/paraglide/messages.js";
-  import { cn } from "$lib/utils/css.js";
-  import GlassPanel from "$lib/components/primitives/visual/GlassPanel.svelte";
-  import DotGrid from "$lib/components/primitives/visual/DotGrid.svelte";
+  import { m } from "#lib/paraglide/messages.js";
+  import { cn } from "#lib/utils/css.js";
+  import GlassPanel from "#lib/components/primitives/visual/GlassPanel.svelte";
+  import DotGrid from "#lib/components/primitives/visual/DotGrid.svelte";
   import { typeAccentVar } from "./type-accent.js";
   import type { CourseworkKind } from "./StatusPill.svelte";
 

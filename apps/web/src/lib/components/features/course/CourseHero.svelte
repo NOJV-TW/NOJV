@@ -8,9 +8,9 @@
 </script>
 
 <script lang="ts">
-  import { m } from "$lib/paraglide/messages.js";
-  import PageHero from "$lib/components/primitives/layout/PageHero.svelte";
-  import TeacherBadge from "$lib/components/features/course/TeacherBadge.svelte";
+  import { m } from "#lib/paraglide/messages.js";
+  import PageHero from "#lib/components/primitives/layout/PageHero.svelte";
+  import TeacherBadge from "#lib/components/features/course/TeacherBadge.svelte";
 
   interface Props {
     course: CourseHeroCourse;

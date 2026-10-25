@@ -1,14 +1,14 @@
 <script lang="ts">
   import type * as Monaco from "monaco-editor";
   import { onMount } from "svelte";
-  import { m } from "$lib/paraglide/messages.js";
-  import { getMonacoLanguage } from "$lib/utils/monaco-languages";
+  import { m } from "#lib/paraglide/messages.js";
+  import { getMonacoLanguage } from "#lib/utils/monaco-languages.js";
   import {
     defineNojvThemes,
     getNojvThemeName,
     MONACO_CODE_EDITOR_OPTIONS,
     watchThemeChanges,
-  } from "$lib/utils/monaco-themes";
+  } from "#lib/utils/monaco-themes.js";
 
   interface Props {
     value: string;
@@ -39,7 +39,7 @@
 
     void (async () => {
       try {
-        const { loadMonaco } = await import("$lib/utils/monaco-loader");
+        const { loadMonaco } = await import("#lib/utils/monaco-loader.js");
         if (!active) return;
         const monaco = loadMonaco();
         monacoModule = monaco;

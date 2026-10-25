@@ -1,10 +1,10 @@
 <script lang="ts">
   import { enhance } from "$app/forms";
-  import { invalidateAll } from "$app/navigation";
-  import { authClient } from "$lib/auth.client";
-  import * as Dialog from "$lib/components/primitives/ui/dialog";
-  import { m } from "$lib/paraglide/messages.js";
-  import { toasts } from "$lib/stores/toast";
+  import { refreshAll } from "$app/navigation";
+  import { authClient } from "#lib/auth.client.js";
+  import * as Dialog from "#lib/components/primitives/ui/dialog/index.js";
+  import { m } from "#lib/paraglide/messages.js";
+  import { toasts } from "#lib/stores/toast.js";
 
   interface Props {
     open: boolean;
@@ -27,7 +27,7 @@
         return;
       }
       toasts.success(m.account_passkey_addSuccess());
-      await invalidateAll();
+      await refreshAll();
     } catch {
       error = m.account_passkey_addError();
     } finally {
@@ -66,7 +66,7 @@
                     return;
                   }
                   toasts.success(m.account_passkey_removeSuccess());
-                  await invalidateAll();
+                  await refreshAll();
                 };
               }}
             >

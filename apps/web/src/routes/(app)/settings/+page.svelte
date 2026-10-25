@@ -1,9 +1,8 @@
 <script lang="ts">
   import { untrack } from "svelte";
-  import { enhance } from "$app/forms";
+  import { enhance, type SubmitFunction } from "$app/forms";
   import { page } from "$app/state";
-  import type { SubmitFunction } from "@sveltejs/kit";
-  import { m } from "$lib/paraglide/messages.js";
+  import { m } from "#lib/paraglide/messages.js";
   import {
     Bell,
     ChevronRight,
@@ -14,22 +13,22 @@
     ShieldCheck,
     Trash2,
   } from "@lucide/svelte";
-  import { replayStudentTour } from "$lib/onboarding/student-tour";
-  import { replayTeacherTour } from "$lib/onboarding/teacher-tour";
-  import NotificationPreferencesDialog from "$lib/components/features/account/NotificationPreferencesDialog.svelte";
-  import TwoFactorDialog from "$lib/components/features/account/TwoFactorDialog.svelte";
-  import SecuritySettingsUnlockDialog from "$lib/components/features/account/SecuritySettingsUnlockDialog.svelte";
-  import PasskeyDialog from "$lib/components/features/account/PasskeyDialog.svelte";
-  import SchoolVerificationSection from "$lib/components/features/auth/SchoolVerification.svelte";
-  import ProviderIcon from "$lib/components/features/auth/ProviderIcon.svelte";
-  import Section from "$lib/components/primitives/ui/Section.svelte";
-  import PageContainer from "$lib/components/primitives/layout/PageContainer.svelte";
-  import { Card } from "$lib/components/primitives/ui/card";
-  import { Badge } from "$lib/components/primitives/ui/badge";
-  import { Input } from "$lib/components/primitives/ui/input";
-  import * as Dialog from "$lib/components/primitives/ui/dialog";
-  import { Button, buttonVariants } from "$lib/components/primitives/ui/button";
-  import { toasts } from "$lib/stores/toast";
+  import { replayStudentTour } from "#lib/onboarding/student-tour.js";
+  import { replayTeacherTour } from "#lib/onboarding/teacher-tour.js";
+  import NotificationPreferencesDialog from "#lib/components/features/account/NotificationPreferencesDialog.svelte";
+  import TwoFactorDialog from "#lib/components/features/account/TwoFactorDialog.svelte";
+  import SecuritySettingsUnlockDialog from "#lib/components/features/account/SecuritySettingsUnlockDialog.svelte";
+  import PasskeyDialog from "#lib/components/features/account/PasskeyDialog.svelte";
+  import SchoolVerificationSection from "#lib/components/features/auth/SchoolVerification.svelte";
+  import ProviderIcon from "#lib/components/features/auth/ProviderIcon.svelte";
+  import Section from "#lib/components/primitives/ui/Section.svelte";
+  import PageContainer from "#lib/components/primitives/layout/PageContainer.svelte";
+  import { Card } from "#lib/components/primitives/ui/card/index.js";
+  import { Badge } from "#lib/components/primitives/ui/badge/index.js";
+  import { Input } from "#lib/components/primitives/ui/input/index.js";
+  import * as Dialog from "#lib/components/primitives/ui/dialog/index.js";
+  import { Button, buttonVariants } from "#lib/components/primitives/ui/button/index.js";
+  import { toasts } from "#lib/stores/toast.js";
   import type { PageData } from "./$types";
 
   let { data }: { data: PageData } = $props();
@@ -60,7 +59,7 @@
         securityEmailOpen = false;
         securityEmailValue = "";
       }
-      await update({ reset: false });
+      await update({ reset: false, navigate: false });
     };
   };
 
@@ -139,7 +138,7 @@
             m.account_connections_unlinked({ provider: providerLabel[provider] ?? provider }),
           );
         }
-        await update();
+        await update({ navigate: false });
       };
     };
   }
@@ -189,7 +188,7 @@
         return;
       }
       deleteOpen = false;
-      await update();
+      await update({ navigate: false });
     };
   };
 
@@ -334,9 +333,9 @@
             {#if data.securitySettingsUnlocked}
               <Badge variant="success" size="sm">{m.account_loginSecurity_unlocked()}</Badge>
             {:else}
-              <button type="button" class={methodBtnClass} onclick={() => (unlockOpen = true)}>
-                {m.account_loginSecurity_unlock()}
-              </button>
+              <button type="button" class={methodBtnClass} onclick={() => (unlockOpen = true)}
+                >{m.account_loginSecurity_unlock()}</button
+              >
             {/if}
           </div>
 

@@ -3,8 +3,8 @@
 import { mount, tick, unmount } from "svelte";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { m } from "$lib/paraglide/messages.js";
-import type { PlagiarismPairDiffData } from "$lib/types/plagiarism-pair";
+import { m } from "#lib/paraglide/messages.js";
+import type { PlagiarismPairDiffData } from "#lib/types/plagiarism-pair.js";
 import Harness from "./fixtures/plagiarism-pair-diff-harness.svelte";
 
 const monaco = vi.hoisted(() => {
@@ -26,11 +26,11 @@ const monaco = vi.hoisted(() => {
   };
 });
 
-vi.mock("$lib/utils/monaco-loader", () => ({
+vi.mock("#lib/utils/monaco-loader.js", () => ({
   loadMonaco: () => monaco.module,
 }));
 
-vi.mock("$lib/components/primitives/ui/button", async () => ({
+vi.mock("#lib/components/primitives/ui/button/index.js", async () => ({
   Button: (await import("./fixtures/component-button.svelte")).default,
 }));
 

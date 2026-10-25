@@ -4,14 +4,14 @@ import { flushSync, mount, unmount } from "svelte";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { supportedLanguages, type Language } from "@nojv/core";
 
-import { m } from "$lib/paraglide/messages.js";
+import { m } from "#lib/paraglide/messages.js";
 
-vi.mock("$lib/components/primitives/ui/MonacoScriptEditor.svelte", async () => ({
+vi.mock("#lib/components/primitives/ui/MonacoScriptEditor.svelte", async () => ({
   default: (await import("../../fixtures/web/empty-component.svelte")).default,
 }));
 
 const { default: WorkspaceSection } =
-  await import("$lib/components/features/problem/sections/WorkspaceSection.svelte");
+  await import("#lib/components/features/problem/sections/WorkspaceSection.svelte");
 
 type Snapshot = {
   runtime: { timeLimitMs: number; memoryLimitMb: number; env: Record<string, string> };

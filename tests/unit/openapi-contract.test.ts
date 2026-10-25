@@ -6,9 +6,9 @@ import { describe, expect, it } from "vitest";
 
 import { listApiTokenRouteRules } from "@nojv/application";
 
-import { internalOpenApiDocument } from "$lib/server/openapi/internal-document";
-import { baseOpenApiDocument } from "$lib/server/openapi/base-document";
-import { tokenOpenApiDocument } from "$lib/server/openapi/token-document";
+import { internalOpenApiDocument } from "#lib/server/openapi/internal-document.js";
+import { baseOpenApiDocument } from "#lib/server/openapi/base-document.js";
+import { tokenOpenApiDocument } from "#lib/server/openapi/token-document.js";
 import { GET as servePublicOpenApi } from "../../apps/web/src/routes/api/openapi.public.json/+server";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));

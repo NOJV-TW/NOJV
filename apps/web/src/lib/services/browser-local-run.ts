@@ -40,8 +40,8 @@ import { browserSource as javaSource } from "@wasm-oj/toolchain-java";
 import { browserSource as javascriptSource } from "@wasm-oj/toolchain-javascript";
 import { browserSource as pythonSource } from "@wasm-oj/toolchain-python";
 import { browserSource as rustSource } from "@wasm-oj/toolchain-rust";
-import { m } from "$lib/paraglide/messages.js";
-import { formatJudgeOutput } from "$lib/utils/judge-output";
+import { m } from "#lib/paraglide/messages.js";
+import { formatJudgeOutput } from "#lib/utils/judge-output.js";
 import type { SubmissionRequest } from "./submission-service";
 
 const BROWSER_TOOLCHAIN_BASE_URL = "/wasm-oj/toolchains/";

@@ -1,4 +1,4 @@
-import { m } from "$lib/paraglide/messages.js";
+import { m } from "#lib/paraglide/messages.js";
 import type { ProblemDifficulty, ProblemType } from "@nojv/core";
 
 export type Difficulty = "all" | ProblemDifficulty;

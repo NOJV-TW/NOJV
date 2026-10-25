@@ -1,6 +1,6 @@
 import type { ContestScoringMode } from "@nojv/core";
 
-import { m } from "$lib/paraglide/messages.js";
+import { m } from "#lib/paraglide/messages.js";
 
 export interface ContestScoringOption {
   value: ContestScoringMode;

@@ -22,20 +22,20 @@ import { getMailer, renderEmail } from "@nojv/mailer";
 import { fail, redirect } from "@sveltejs/kit";
 import type { RequestEvent } from "@sveltejs/kit";
 
-import { getAuth } from "$lib/auth.server";
-import { pendingRegularAdminSignIn } from "$lib/server/admin-signin-state";
-import { getWebEnv } from "$lib/server/env";
-import { createLogger } from "$lib/server/logger";
-import { getClientIp } from "$lib/server/shared/client-ip";
-import { withRateLimitActions } from "$lib/server/shared/action-handlers";
-import { forwardSetCookies } from "$lib/server/shared/auth-cookies";
-import { signInRateLimiter, otpSendRateLimiter } from "$lib/server/shared/rate-limiter";
+import { getAuth } from "#lib/auth.server.js";
+import { pendingRegularAdminSignIn } from "#lib/server/admin-signin-state.js";
+import { getWebEnv } from "#lib/server/env.js";
+import { createLogger } from "#lib/server/logger.js";
+import { getClientIp } from "#lib/server/shared/client-ip.js";
+import { withRateLimitActions } from "#lib/server/shared/action-handlers.js";
+import { forwardSetCookies } from "#lib/server/shared/auth-cookies.js";
+import { signInRateLimiter, otpSendRateLimiter } from "#lib/server/shared/rate-limiter.js";
 import {
   clearSuperAdminPasswordProof,
   issueSuperAdminPasswordProof,
   readSuperAdminPasswordProof,
   SUPER_ADMIN_PASSWORD_PROOF_COOKIE,
-} from "$lib/server/super-admin-password-proof";
+} from "#lib/server/super-admin-password-proof.js";
 import { twoFactorActions } from "../../(app)/settings/two-factor-actions";
 
 import type { Actions, PageServerLoad } from "./$types";

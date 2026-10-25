@@ -1,4 +1,4 @@
-import { json, error, isRedirect } from "@sveltejs/kit";
+import { error, isRedirect } from "@sveltejs/kit";
 import type { RequestEvent } from "@sveltejs/kit";
 import { ZodError, type ZodType } from "zod";
 import { HttpError } from "@nojv/application";
@@ -96,7 +96,7 @@ export function parseContextQuery<T>(url: URL, schema: ZodType<T>): T {
 
 function errorResponse(error: unknown, event: RequestEvent): Response {
   const classified = classifyRequestError(error, event);
-  return json(
+  return Response.json(
     {
       message: classified.message,
       ...(error instanceof ZodError ? { issues: error.issues } : {}),
@@ -114,10 +114,10 @@ function wrapHandler(handler: ApiHandler, rateLimiter: RateLimiterLike): ApiHand
   return async (event) => {
     const rateLimit = await rateLimiter.consume(resolveRateLimitKey(event));
     if (rateLimit === "limited") {
-      return json({ message: "Too many requests" }, { status: 429 });
+      return Response.json({ message: "Too many requests" }, { status: 429 });
     }
     if (rateLimit === "unavailable") {
-      return json({ message: "Rate limiter unavailable" }, { status: 503 });
+      return Response.json({ message: "Rate limiter unavailable" }, { status: 503 });
     }
 
     try {
