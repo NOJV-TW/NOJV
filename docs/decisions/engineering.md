@@ -4,7 +4,7 @@ Durable decisions for code layering, test strategy, documentation and review pra
 
 ### ENG-01 Living docs have one purpose each and describe only shipped behavior
 
-**Decided:** 2026-04 · **Source:** [2026-04-07-documentation-restructure](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-04-07-documentation-restructure.md)
+**Decided:** 2026-04 · **Source:** [#659](https://github.com/NOJV-TW/NOJV/pull/659), [2026-04-07-documentation-restructure](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-04-07-documentation-restructure.md)
 
 Each doc owns one topic and other docs link to it instead of repeating it; docs describe what has shipped, in English. `AGENTS.md` is the navigational entrypoint; `SECURITY.md` holds handling rules and `THREAT_MODEL.md` the attack-surface analysis. Auth had been described three times and some docs described aspirations.
 
