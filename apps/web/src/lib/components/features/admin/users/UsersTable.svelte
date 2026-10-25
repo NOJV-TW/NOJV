@@ -240,14 +240,10 @@
     selected = allSelected ? new Set() : new Set(selectableUsers.map((u) => u.id));
   }
 
-  function bulkResult(successMessage: (count: number) => string) {
-    return async ({
-      result,
-      update,
-    }: {
-      result: { type: string; data?: Record<string, unknown> };
-      update: () => Promise<void>;
-    }) => {
+  function bulkResult(
+    successMessage: (count: number) => string,
+  ): Exclude<Awaited<ReturnType<SubmitFunction>>, void> {
+    return async ({ result, update }) => {
       if (result.type === "success") {
         const affected = Number(result.data?.affected ?? 0);
         toasts.success(successMessage(affected));

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { enhance } from "$app/forms";
+  import { enhance, type SubmitFunction } from "$app/forms";
   import { Database, Trash2 } from "@lucide/svelte";
   import { Button } from "#lib/components/primitives/ui/button/index.js";
   import { Card } from "#lib/components/primitives/ui/card/index.js";
@@ -79,14 +79,11 @@
     form?.requestSubmit();
   }
 
-  function deleteResult(repo: string, tag: string) {
-    return async ({
-      result,
-      update,
-    }: {
-      result: { type: string; data?: Record<string, unknown> };
-      update: () => Promise<void>;
-    }) => {
+  function deleteResult(
+    repo: string,
+    tag: string,
+  ): Exclude<Awaited<ReturnType<SubmitFunction>>, void> {
+    return async ({ result, update }) => {
       if (result.type === "success") {
         toasts.success(m.admin_registry_deleteSuccess({ repo, tag }));
         await update({ navigate: false });
@@ -101,14 +98,8 @@
     };
   }
 
-  function gcResult() {
-    return async ({
-      result,
-      update,
-    }: {
-      result: { type: string; data?: Record<string, unknown> };
-      update: () => Promise<void>;
-    }) => {
+  function gcResult(): Exclude<Awaited<ReturnType<SubmitFunction>>, void> {
+    return async ({ result, update }) => {
       if (result.type === "success") {
         if ((result.data as { alreadyRunning?: boolean } | undefined)?.alreadyRunning) {
           toasts.info(m.admin_registry_gcAlreadyRunning());
