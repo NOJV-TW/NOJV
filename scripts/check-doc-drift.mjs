@@ -8,7 +8,29 @@ const repoRoot = resolve(here, "..");
 
 const BANNED = [/packages\/domain\b/, /@nojv\/domain\b/];
 
-const files = ["AGENTS.md", "README.md", ...globSync("docs/**/*.md", { cwd: repoRoot })];
+const agentGuides = globSync(
+  "{apps,packages,tests,infra,docs,scripts,tooling,.github}/**/AGENTS.md",
+  {
+    cwd: repoRoot,
+    exclude: [
+      "**/node_modules/**",
+      "**/dist/**",
+      "**/build/**",
+      "**/.svelte-kit/**",
+      "**/.turbo/**",
+      "**/coverage/**",
+    ],
+  },
+);
+
+const files = [
+  ...new Set([
+    "AGENTS.md",
+    "README.md",
+    ...agentGuides,
+    ...globSync("docs/**/*.md", { cwd: repoRoot }),
+  ]),
+];
 
 const staleDomainReferences = [];
 for (const rel of files) {

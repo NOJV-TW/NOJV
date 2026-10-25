@@ -8,9 +8,12 @@ Durable decisions for code layering, test strategy, documentation and review pra
 
 Each doc owns one topic and other docs link to it instead of repeating it; docs describe what has shipped, in English. `AGENTS.md` is the navigational entrypoint; `SECURITY.md` holds handling rules and `THREAT_MODEL.md` the attack-surface analysis. Auth had been described three times and some docs described aspirations.
 
-- Rejected: a second agent entrypoint file alongside `AGENTS.md` (duplicates navigation).
+- Rejected: a second agent entrypoint file alongside `AGENTS.md` (duplicates navigation); copying complete rules into every scoped guide.
+- Rule: nested `AGENTS.md` files supplement ancestor instructions at meaningful responsibility boundaries. Root rules remain cross-cutting; local guides link to the owning README and living documents.
+- Rule: [authoring standards](../README.md#authoring-standards) govern all repository Markdown. Brief linked summaries are allowed; complete contracts have one owner.
+- References: [GitLab agent documentation guidance](https://docs.gitlab.com/development/documentation/ai-instruction-files-documentation/), [GitLab style guide](https://docs.gitlab.com/development/documentation/styleguide/), [Django document types](https://docs.djangoproject.com/en/5.2/internals/contributing/writing-documentation/), [Python style guide](https://devguide.python.org/documentation/style-guide/).
 - Rule: update the owning living doc in the same change as the behavior.
-- Rule: do not duplicate content across docs; link instead.
+- Rule: do not maintain duplicate complete contracts across docs; use brief linked summaries where they help the reader.
 - Code: `AGENTS.md`, `docs/README.md`, `tests/unit/docs/doc-links.test.ts`
 
 ### ENG-02 Strict top-down layers with business logic in `@nojv/application`, enforced by lint

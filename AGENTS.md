@@ -2,6 +2,20 @@
 
 This file is the agent entrypoint for this repository. Read it first, then follow the linked living documents instead of treating `README.md` as the full source of truth.
 
+## Scoped instructions
+
+Before editing a file, read this guide and every `AGENTS.md` on the path to that
+file. Local guides supplement ancestor rules for their subtree. For a change
+spanning source, tests and documentation, read the guides for each affected tree.
+
+- Apps: [web](apps/web/AGENTS.md), [worker](apps/worker/AGENTS.md), [sandbox runner](apps/sandbox-runner/AGENTS.md).
+- [Shared packages](packages/AGENTS.md), with additional guides for [application](packages/application/AGENTS.md) and [database](packages/db/AGENTS.md).
+- [Tests](tests/AGENTS.md), [infrastructure](infra/AGENTS.md), [documentation](docs/AGENTS.md).
+
+Keep cross-cutting rules here and local instructions at the nearest meaningful
+responsibility boundary. Add a guide only for distinct working rules; do not
+copy ancestor instructions or turn every source directory into an entrypoint.
+
 ## Start by task
 
 Read the first matching row, then inspect the owning app or package guide and
@@ -43,9 +57,11 @@ source. Do not read every architecture document for a routine change.
 
 ## Doc Authoring Rules
 
-- Living docs (`architecture/`, `operations/`, `product/`, `features/`, `runbooks/`) describe current behavior only; no history, dated narratives, or "previously". Rationale belongs in `docs/decisions/`.
-- Each doc has ONE purpose (see table above). Don't duplicate content across docs — link instead.
-- If a topic doesn't fit any existing doc, extend the closest one rather than creating a new untracked doc.
+Follow the [authoring standards](docs/README.md#authoring-standards) for all
+repository Markdown, including app/package READMEs and agent guides outside
+`docs/`. Full contracts have one owning document; brief linked summaries are
+allowed. Update the owning document in the same change as behavior or boundary
+changes.
 
 ## Quick Reference
 
