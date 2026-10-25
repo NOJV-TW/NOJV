@@ -104,6 +104,7 @@ COPY --from=builder --chown=appuser:nodejs /build/packages/redis/package.json ./
 COPY --from=prod-deps --chown=appuser:nodejs /build/packages/redis/node_modules/ ./packages/redis/node_modules/
 COPY --from=builder --chown=appuser:nodejs /build/packages/storage/dist/ ./packages/storage/dist/
 COPY --from=builder --chown=appuser:nodejs /build/packages/storage/package.json ./packages/storage/package.json
+COPY --from=prod-deps --chown=appuser:nodejs /build/packages/storage/node_modules/ ./packages/storage/node_modules/
 COPY --from=builder --chown=appuser:nodejs /build/packages/mailer/dist/ ./packages/mailer/dist/
 COPY --from=builder --chown=appuser:nodejs /build/packages/mailer/package.json ./packages/mailer/package.json
 COPY --from=prod-deps --chown=appuser:nodejs /build/packages/mailer/node_modules/ ./packages/mailer/node_modules/
@@ -126,6 +127,9 @@ ENV BODY_SIZE_LIMIT=67108864
 EXPOSE 3000
 
 USER appuser
+
+RUN NODE_ENV=test MAILER_MODE=sink APP_BASE_URL=http://localhost:3000 \
+  node --input-type=module -e "await import('./build/handler.js'); process.exit(0)"
 
 HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
   CMD node -e "fetch('http://localhost:3000/api/livez').then(r=>{if(!r.ok)throw 1}).catch(()=>process.exit(1))"
