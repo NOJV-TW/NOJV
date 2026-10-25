@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { acquireCompletionProviders } from "$lib/components/features/problem/editor-completions";
+import { acquireCompletionProviders } from "#lib/components/features/problem/editor-completions/index.js";
 
 describe("editor completion provider lifecycle", () => {
   it("shares one provider set and disposes it after the final lease", () => {

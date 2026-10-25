@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("$app/forms", () => ({ deserialize: (text: string): unknown => JSON.parse(text) }));
 
-const { postProblemAction, submitFormAction } = await import("$lib/utils/actions");
+const { postProblemAction, submitFormAction } = await import("#lib/utils/actions.js");
 
 function respondWith(result: Record<string, unknown>) {
   const fetchMock = vi.fn(async () => new Response(JSON.stringify(result), { status: 200 }));

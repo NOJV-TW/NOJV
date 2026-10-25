@@ -7,7 +7,7 @@
     type Language,
     type ProblemType,
   } from "@nojv/core";
-  import type { ProblemDetail } from "$lib/types";
+  import type { ProblemDetail } from "#lib/types/index.js";
 
   interface Props {
     value: Language;

@@ -6,7 +6,7 @@ import {
   usernameClient,
 } from "better-auth/client/plugins";
 
-import type { getAuth } from "$lib/auth.server";
+import type { getAuth } from "#lib/auth.server.js";
 
 export const authClient = createAuthClient({
   plugins: [

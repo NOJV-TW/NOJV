@@ -121,7 +121,7 @@ for 10 s on top of the scoreboard result and takes no lease.
   `maxRetriesPerRequest: 1`); the first consumer awaits readiness. Operational
   Redis errors return `unavailable` (HTTP 503) except `apiRateLimiter`, which
   falls back to an in-process limiter (DAT-12).
-- Development (`$app/environment` `dev`): in-memory limiters with 1000× points.
+- Development (`$app/env` `dev`): in-memory limiters with 1000× points.
 
 Submit cooldowns are not in Redis: `enforceSubmitCooldown`
 (`packages/application/src/shared/submit-cooldown.ts`) checks the latest

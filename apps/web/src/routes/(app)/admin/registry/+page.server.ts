@@ -1,15 +1,15 @@
 import { error, fail } from "@sveltejs/kit";
 import type { Actions, PageServerLoad } from "./$types";
-import { requireAuth } from "$lib/server/auth";
-import { withAction } from "$lib/server/shared/action-handlers";
-import { readString } from "$lib/server/shared/form-utils";
+import { requireAuth } from "#lib/server/auth.js";
+import { withAction } from "#lib/server/shared/action-handlers.js";
+import { readString } from "#lib/server/shared/form-utils.js";
 import {
   deleteManifest,
   getManifestDigestAndSize,
   isRegistryConfigured,
   listRepositories,
   listTags,
-} from "$lib/server/registry";
+} from "#lib/server/registry.js";
 import { auditDomain, registryDomain } from "@nojv/application";
 
 const REPO_NAME = /^[a-z0-9]+(?:[._-][a-z0-9]+)*(?:\/[a-z0-9]+(?:[._-][a-z0-9]+)*)*$/;

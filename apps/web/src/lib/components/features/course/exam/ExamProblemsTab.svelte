@@ -19,14 +19,14 @@
   import Save from "@lucide/svelte/icons/save";
   import Trash2 from "@lucide/svelte/icons/trash-2";
 
-  import RejudgeDialog from "$lib/components/features/problem/admin/RejudgeDialog.svelte";
+  import RejudgeDialog from "#lib/components/features/problem/admin/RejudgeDialog.svelte";
   import ProblemSelectDialog, {
     type CandidateProblem as PickerCandidate,
-  } from "$lib/components/features/problem/ProblemSelectDialog.svelte";
-  import { Button } from "$lib/components/primitives/ui/button";
-  import { cn } from "$lib/utils/css";
-  import { moveItem } from "$lib/utils/reorder";
-  import { m } from "$lib/paraglide/messages.js";
+  } from "#lib/components/features/problem/ProblemSelectDialog.svelte";
+  import { Button } from "#lib/components/primitives/ui/button/index.js";
+  import { cn } from "#lib/utils/css.js";
+  import { moveItem } from "#lib/utils/reorder.js";
+  import { m } from "#lib/paraglide/messages.js";
   import type { ActionData } from "../../../../../routes/(app)/exams/[examId]/$types";
 
   interface Props {
@@ -86,7 +86,8 @@
       JSON.stringify(detail.problems.map(({ id, points }) => ({ id, points }))),
   );
 
-  beforeNavigate(({ cancel }) => {
+  beforeNavigate(({ cancel, shallow, type }) => {
+    if (shallow && type === "goto") return;
     if (hasChanges && !confirm(m.admin_unsavedChangesMessage())) cancel();
   });
 
@@ -265,9 +266,8 @@
                     title={m.rejudge_problem_admin_button()}
                     class="hover:bg-transparent"
                     onclick={() => (rejudgeProblemId = problem.id)}
+                    ><RotateCcw class="size-4" aria-hidden="true" /></Button
                   >
-                    <RotateCcw class="size-4" aria-hidden="true" />
-                  </Button>
                 {/if}
                 <Button
                   href={`/exams/${detail.id}/problems/${problem.id}`}
@@ -302,9 +302,8 @@
                     title={m.rejudge_problem_admin_button()}
                     class="hover:bg-transparent"
                     onclick={() => (rejudgeProblemId = problem.id)}
+                    ><RotateCcw class="size-4" aria-hidden="true" /></Button
                   >
-                    <RotateCcw class="size-4" aria-hidden="true" />
-                  </Button>
                 {/if}
                 <Button
                   href={`/exams/${detail.id}/problems/${problem.id}`}

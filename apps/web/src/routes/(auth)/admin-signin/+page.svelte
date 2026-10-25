@@ -3,13 +3,13 @@
   import { untrack } from "svelte";
   import { enhance } from "$app/forms";
   import { page } from "$app/state";
-  import { authClient } from "$lib/auth.client";
-  import { Badge } from "$lib/components/primitives/ui/badge";
-  import { Button } from "$lib/components/primitives/ui/button";
-  import { Card } from "$lib/components/primitives/ui/card";
-  import { Input } from "$lib/components/primitives/ui/input";
-  import FormField from "$lib/components/primitives/ui/FormField.svelte";
-  import { m } from "$lib/paraglide/messages.js";
+  import { authClient } from "#lib/auth.client.js";
+  import { Badge } from "#lib/components/primitives/ui/badge/index.js";
+  import { Button } from "#lib/components/primitives/ui/button/index.js";
+  import { Card } from "#lib/components/primitives/ui/card/index.js";
+  import { Input } from "#lib/components/primitives/ui/input/index.js";
+  import FormField from "#lib/components/primitives/ui/FormField.svelte";
+  import { m } from "#lib/paraglide/messages.js";
   import type { ActionData, PageData } from "./$types";
 
   type Phase = PageData["phase"] | "totp-setup";

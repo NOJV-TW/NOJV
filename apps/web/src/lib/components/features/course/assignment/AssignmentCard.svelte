@@ -6,10 +6,10 @@
 
 <script lang="ts">
   import { onMount } from "svelte";
-  import { m } from "$lib/paraglide/messages.js";
-  import Countdown from "$lib/components/primitives/visual/Countdown.svelte";
-  import AssessmentRow from "$lib/components/features/coursework/AssessmentRow.svelte";
-  import { diffMs, fmtCountdown, serverNow } from "$lib/utils/datetime";
+  import { m } from "#lib/paraglide/messages.js";
+  import Countdown from "#lib/components/primitives/visual/Countdown.svelte";
+  import AssessmentRow from "#lib/components/features/coursework/AssessmentRow.svelte";
+  import { diffMs, fmtCountdown, serverNow } from "#lib/utils/datetime.js";
 
   interface Props {
     assignment: AssignmentRow;

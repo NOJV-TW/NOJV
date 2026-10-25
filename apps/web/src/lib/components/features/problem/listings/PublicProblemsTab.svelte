@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { m } from "$lib/paraglide/messages.js";
+  import { m } from "#lib/paraglide/messages.js";
   import { goto } from "$app/navigation";
   import { page } from "$app/state";
   import {
@@ -11,12 +11,12 @@
     Search,
     XCircle,
   } from "@lucide/svelte";
-  import { Button } from "$lib/components/primitives/ui/button";
-  import { Card } from "$lib/components/primitives/ui/card";
-  import * as Dialog from "$lib/components/primitives/ui/dialog";
-  import EmptyState from "$lib/components/primitives/ui/EmptyState.svelte";
-  import { difficultyClass, tagClass } from "$lib/utils/verdict-style";
-  import { formatProblemDisplayName } from "$lib/utils/format-problem-display-name";
+  import { Button } from "#lib/components/primitives/ui/button/index.js";
+  import { Card } from "#lib/components/primitives/ui/card/index.js";
+  import * as Dialog from "#lib/components/primitives/ui/dialog/index.js";
+  import EmptyState from "#lib/components/primitives/ui/EmptyState.svelte";
+  import { difficultyClass, tagClass } from "#lib/utils/verdict-style.js";
+  import { formatProblemDisplayName } from "#lib/utils/format-problem-display-name.js";
   import type { problemDomain } from "@nojv/application";
   import {
     formatAcceptanceRate,
@@ -25,8 +25,8 @@
   } from "../problem-display";
   import ProblemFilterSidebar from "./ProblemFilterSidebar.svelte";
   import BookmarkButton from "./BookmarkButton.svelte";
-  import { fetchWithCsrf } from "$lib/services/http";
-  import { toasts } from "$lib/stores/toast";
+  import { fetchWithCsrf } from "#lib/services/http.js";
+  import { toasts } from "#lib/stores/toast.js";
 
   interface Props {
     publicResult: problemDomain.ProblemListResult;
@@ -39,7 +39,7 @@
 
   type ProblemCard = problemDomain.ProblemListResult["problems"][number];
 
-  let currentUrl = $derived(page.url);
+  let currentUrl = $derived(new URL(page.url.href));
   let hasActiveFilters = $derived(
     [...currentUrl.searchParams.keys()].some((k) =>
       ["q", "difficulty", "status", "types", "judge", "tags"].includes(k),
@@ -136,7 +136,7 @@
       params.delete(key);
     }
     const qs = params.toString();
-    void goto(qs ? `?${qs}` : "?", { keepFocus: true, noScroll: true });
+    void goto(qs ? `?${qs}` : "?", { reset: false });
   }
 </script>
 

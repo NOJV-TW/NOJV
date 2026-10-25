@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { avatarSrc } from "$lib/utils/avatar-src";
+import { avatarSrc } from "#lib/utils/avatar-src.js";
 
 describe("avatarSrc", () => {
   it("serves third-party avatars through the same-origin image proxy", () => {

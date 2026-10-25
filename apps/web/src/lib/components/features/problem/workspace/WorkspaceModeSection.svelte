@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { ProblemType } from "@nojv/core";
-  import { m } from "$lib/paraglide/messages.js";
+  import { m } from "#lib/paraglide/messages.js";
 
   export type WorkspaceMode = Exclude<ProblemType, "special_env">;
 

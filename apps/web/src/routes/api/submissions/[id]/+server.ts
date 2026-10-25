@@ -1,12 +1,11 @@
-import { json } from "@sveltejs/kit";
 import type { RequestHandler } from "./$types";
-import { requireApiAuth } from "$lib/server/auth";
-import { apiHandler } from "$lib/server/shared/api-handler";
+import { requireApiAuth } from "#lib/server/auth.js";
+import { apiHandler } from "#lib/server/shared/api-handler.js";
 import { submissionDomain } from "@nojv/application";
 
 export const GET: RequestHandler = apiHandler(async (event) => {
   const actor = requireApiAuth(event);
   const { id } = event.params;
-  if (!id) return json({ message: "Missing submission id." }, { status: 400 });
-  return json(await submissionDomain.getSubmissionOperation(actor, id, true));
+  if (!id) return Response.json({ message: "Missing submission id." }, { status: 400 });
+  return Response.json(await submissionDomain.getSubmissionOperation(actor, id, true));
 });

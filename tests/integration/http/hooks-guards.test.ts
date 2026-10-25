@@ -1,7 +1,7 @@
 import type { RequestHandler } from "@sveltejs/kit";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { RateLimiterMemory, RateLimiterRes } from "rate-limiter-flexible";
-import { examSignInRateLimiter } from "$lib/server/shared/rate-limiter";
+import { examSignInRateLimiter } from "#lib/server/shared/rate-limiter.js";
 
 import { createTestProblem, createTestUser, testPrisma } from "../../fixtures/factories";
 import { callRoute } from "./_harness";
@@ -24,9 +24,9 @@ const {
   verifyTokenSpy: vi.fn(),
 }));
 
-vi.mock("$lib/server/shared/rate-limiter", async () => {
-  const actual = await vi.importActual<typeof import("$lib/server/shared/rate-limiter")>(
-    "$lib/server/shared/rate-limiter",
+vi.mock("#lib/server/shared/rate-limiter.js", async () => {
+  const actual = await vi.importActual<typeof import("#lib/server/shared/rate-limiter.js")>(
+    "#lib/server/shared/rate-limiter.js",
   );
   return {
     ...actual,
@@ -48,7 +48,7 @@ vi.mock("@nojv/application", async () => {
   };
 });
 
-vi.mock("$lib/auth.server", () => ({
+vi.mock("#lib/auth.server.js", () => ({
   getAuth: () => ({
     api: {
       signOut: signOutSpy,
@@ -73,7 +73,7 @@ vi.mock("$lib/auth.server", () => ({
   }),
 }));
 
-vi.mock("$lib/server/env", () => ({
+vi.mock("#lib/server/env.js", () => ({
   getWebEnv: () => ({ NODE_ENV: "development" }),
 }));
 
@@ -530,7 +530,7 @@ describe("hooks.server guard chain (request-layer redirects)", () => {
       securityGenerationProof,
     } = await import("@nojv/application");
     const { getRedis, keys } = await import("@nojv/redis");
-    const { STEP_UP_HANDOFF_COOKIE } = await import("$lib/server/step-up-handoff");
+    const { STEP_UP_HANDOFF_COOKIE } = await import("#lib/server/step-up-handoff.js");
     const user = await createTestUser({
       username: "admin_handoff",
       platformRole: "admin",

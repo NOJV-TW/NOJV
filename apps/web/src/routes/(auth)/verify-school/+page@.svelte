@@ -1,8 +1,8 @@
 <script lang="ts">
   import { enhance } from "$app/forms";
-  import { m } from "$lib/paraglide/messages.js";
-  import { Card } from "$lib/components/primitives/ui/card";
-  import { Button } from "$lib/components/primitives/ui/button";
+  import { m } from "#lib/paraglide/messages.js";
+  import { Card } from "#lib/components/primitives/ui/card/index.js";
+  import { Button } from "#lib/components/primitives/ui/button/index.js";
   import { CheckCircle2, XCircle, GraduationCap } from "@lucide/svelte";
 
   let { data, form } = $props();

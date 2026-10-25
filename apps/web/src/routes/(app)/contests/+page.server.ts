@@ -1,10 +1,10 @@
 import { fail, redirect } from "@sveltejs/kit";
 
 import type { Actions, PageServerLoad } from "./$types";
-import { m } from "$lib/paraglide/messages.js";
-import { getActorContext, requireAuth } from "$lib/server/auth";
-import { withAction } from "$lib/server/shared/action-handlers";
-import { readString } from "$lib/server/shared/form-utils";
+import { m } from "#lib/paraglide/messages.js";
+import { getActorContext, requireAuth } from "#lib/server/auth.js";
+import { withAction } from "#lib/server/shared/action-handlers.js";
+import { readString } from "#lib/server/shared/form-utils.js";
 import { canCreateCourse, contestDomain, NotFoundError } from "@nojv/application";
 
 const { joinContestByCode, listContestsForUser } = contestDomain;

@@ -13,7 +13,7 @@ import {
   type SecurityGenerationProof,
 } from "@nojv/application";
 
-import { getWebEnv } from "$lib/server/env";
+import { getWebEnv } from "#lib/server/env.js";
 
 interface PendingTotp {
   backupCodes: string;

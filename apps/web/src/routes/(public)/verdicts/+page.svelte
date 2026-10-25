@@ -1,8 +1,8 @@
 <script lang="ts">
-  import { m } from "$lib/paraglide/messages.js";
-  import PageContainer from "$lib/components/primitives/layout/PageContainer.svelte";
-  import { Card } from "$lib/components/primitives/ui/card";
-  import { verdictTone } from "$lib/utils/verdict-style";
+  import { m } from "#lib/paraglide/messages.js";
+  import PageContainer from "#lib/components/primitives/layout/PageContainer.svelte";
+  import { Card } from "#lib/components/primitives/ui/card/index.js";
+  import { verdictTone } from "#lib/utils/verdict-style.js";
 
   const verdicts = [
     ["AC", () => m.verdicts_ac()],

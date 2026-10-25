@@ -1,8 +1,8 @@
 import { beforeEach, expect, it, vi } from "vitest";
 import type { JudgeType, Language } from "@nojv/core";
-import { m } from "$lib/paraglide/messages.js";
-import type { PreparedJudgeProgram } from "$lib/services/judge-program";
-import type { ProblemDetail } from "$lib/types";
+import { m } from "#lib/paraglide/messages.js";
+import type { PreparedJudgeProgram } from "#lib/services/judge-program.js";
+import type { ProblemDetail } from "#lib/types/index.js";
 
 const mocks = vi.hoisted(() => ({
   execute: vi.fn(),
@@ -14,12 +14,12 @@ const mocks = vi.hoisted(() => ({
   interact: vi.fn(),
   toast: vi.fn(),
 }));
-vi.mock("$lib/services/submission-service", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("$lib/services/submission-service")>()),
+vi.mock("#lib/services/submission-service.js", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("#lib/services/submission-service.js")>()),
   executeSubmission: mocks.execute,
 }));
-vi.mock("$lib/services/browser-local-run", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("$lib/services/browser-local-run")>()),
+vi.mock("#lib/services/browser-local-run.js", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("#lib/services/browser-local-run.js")>()),
   runBrowserLocally: mocks.run,
   preloadBrowserToolchain: mocks.preload,
   compileBrowserLocally: mocks.compile,
@@ -27,8 +27,8 @@ vi.mock("$lib/services/browser-local-run", async (importOriginal) => ({
   runBrowserChecker: mocks.check,
   runBrowserInteraction: mocks.interact,
 }));
-vi.mock("$lib/stores/toast", () => ({ toasts: { error: mocks.toast } }));
-import { createEditorRunController } from "$lib/components/features/problem/editors/use-editor-run.svelte";
+vi.mock("#lib/stores/toast.js", () => ({ toasts: { error: mocks.toast } }));
+import { createEditorRunController } from "#lib/components/features/problem/editors/use-editor-run.svelte.js";
 
 beforeEach(() => {
   vi.clearAllMocks();

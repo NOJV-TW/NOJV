@@ -1,16 +1,14 @@
-import { json } from "@sveltejs/kit";
-
 import type { RequestHandler } from "./$types";
 
-import { requireApiAuth } from "$lib/server/auth";
-import { writeApiHandler } from "$lib/server/shared/api-handler";
+import { requireApiAuth } from "#lib/server/auth.js";
+import { writeApiHandler } from "#lib/server/shared/api-handler.js";
 import { problemDomain, ForbiddenError, NotFoundError } from "@nojv/application";
 
 export const DELETE: RequestHandler = writeApiHandler(async (event) => {
   const actor = requireApiAuth(event);
 
   const { id } = event.params;
-  if (!id) return json({ message: "Missing problem id." }, { status: 400 });
+  if (!id) return Response.json({ message: "Missing problem id." }, { status: 400 });
 
   await problemDomain.assertProblemEditAccess(actor, id);
 

@@ -121,6 +121,7 @@ Durable decisions for NOJV, grouped by area. Each entry records what was decided
 - WEB-06 Activity heatmap, streak and trend are bucketed client-side in local time
 - WEB-07 Public profiles are opt-in and hidden ones 404
 - WEB-08 Admin mode routes content navigation to the global admin lists
+- WEB-09 SvelteKit v3 uses native imports and runtime proxy origin
 
 ## [Product and UI](product-ui.md)
 

@@ -2,12 +2,12 @@
   import Plus from "@lucide/svelte/icons/plus";
   import X from "@lucide/svelte/icons/x";
   import { MAX_RUN_CASES, type JudgeType, type SubmissionRunCase } from "@nojv/core";
-  import { m } from "$lib/paraglide/messages.js";
-  import type { TestRunResult } from "$lib/types";
-  import { formatVerdictLabel, verdictTone } from "$lib/utils/verdict-style";
-  import { formatJudgeOutput } from "$lib/utils/judge-output";
-  import { Badge } from "$lib/components/primitives/ui/badge";
-  import MarkdownRenderer from "$lib/components/primitives/layout/MarkdownRenderer.svelte";
+  import { m } from "#lib/paraglide/messages.js";
+  import type { TestRunResult } from "#lib/types/index.js";
+  import { formatVerdictLabel, verdictTone } from "#lib/utils/verdict-style.js";
+  import { formatJudgeOutput } from "#lib/utils/judge-output.js";
+  import { Badge } from "#lib/components/primitives/ui/badge/index.js";
+  import MarkdownRenderer from "#lib/components/primitives/layout/MarkdownRenderer.svelte";
 
   interface Props {
     runCases: SubmissionRunCase[];

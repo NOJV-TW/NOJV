@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { m } from "$lib/paraglide/messages.js";
-  import { notifications } from "$lib/stores/notifications.svelte";
+  import { m } from "#lib/paraglide/messages.js";
+  import { notifications } from "#lib/stores/notifications.svelte.js";
   import NotificationItem from "./NotificationItem.svelte";
 </script>
 

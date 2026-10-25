@@ -1,14 +1,12 @@
-import { json } from "@sveltejs/kit";
-
 import type { RequestHandler } from "./$types";
 
-import { requireApiAuth } from "$lib/server/auth";
+import { requireApiAuth } from "#lib/server/auth.js";
 import {
   apiHandler,
   writeApiHandler,
   assertJsonBodyWithinLimit,
   readJsonBody,
-} from "$lib/server/shared/api-handler";
+} from "#lib/server/shared/api-handler.js";
 import { notificationDomain } from "@nojv/application";
 import { notificationMarkAllReadSchema } from "@nojv/core";
 
@@ -22,7 +20,7 @@ export const GET: RequestHandler = apiHandler(async (event) => {
     notificationDomain.countUnread(actor.userId),
   ]);
 
-  return json({ items, unreadCount });
+  return Response.json({ items, unreadCount });
 });
 
 export const PATCH: RequestHandler = writeApiHandler(async (event) => {
@@ -30,7 +28,7 @@ export const PATCH: RequestHandler = writeApiHandler(async (event) => {
   const actor = requireApiAuth(event);
   notificationMarkAllReadSchema.parse(await readJsonBody(event));
   const updated = await notificationDomain.markAllAsRead(actor.userId);
-  return json({ updated });
+  return Response.json({ updated });
 });
 
 export const DELETE: RequestHandler = writeApiHandler(async (event) => {
@@ -38,7 +36,7 @@ export const DELETE: RequestHandler = writeApiHandler(async (event) => {
   const actor = requireApiAuth(event);
   const status = event.url.searchParams.get("status");
   if (status !== "read") {
-    return json(
+    return Response.json(
       { message: "DELETE /api/notifications requires ?status=read." },
       { status: 400 },
     );

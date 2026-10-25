@@ -1,7 +1,7 @@
 <script lang="ts">
   import { ArrowDown, ArrowUp, ArrowUpDown } from "@lucide/svelte";
-  import { cn } from "$lib/utils/css.js";
-  import type { SortDirection } from "$lib/utils/table-sort";
+  import { cn } from "#lib/utils/css.js";
+  import type { SortDirection } from "#lib/utils/table-sort.js";
 
   interface Props {
     label: string;

@@ -1,9 +1,9 @@
 import { mount, tick, unmount } from "svelte";
 import { afterEach, expect, it } from "vitest";
 import { MAX_RUN_CASES } from "@nojv/core";
-import { m } from "$lib/paraglide/messages.js";
-import type { TestCaseView, TestRunResult } from "$lib/types";
-import Panel from "$lib/components/features/problem/editors/EditorBottomPanel.svelte";
+import { m } from "#lib/paraglide/messages.js";
+import type { TestCaseView, TestRunResult } from "#lib/types/index.js";
+import Panel from "#lib/components/features/problem/editors/EditorBottomPanel.svelte";
 
 let component: ReturnType<typeof mount> | undefined;
 let target: HTMLDivElement;

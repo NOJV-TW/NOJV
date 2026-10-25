@@ -1,7 +1,7 @@
 import { superForm, type FormOptions, type SuperValidated } from "sveltekit-superforms";
 
-import type { FormMessage } from "$lib/types/form-message";
-import { formlessResultMessage } from "$lib/utils/actions";
+import type { FormMessage } from "#lib/types/form-message.js";
+import { formlessResultMessage } from "#lib/utils/actions.js";
 
 export function appSuperForm<T extends Record<string, unknown>>(
   form: SuperValidated<T, FormMessage>,

@@ -11,15 +11,15 @@
     Trash2,
   } from "@lucide/svelte";
   import { enhance } from "$app/forms";
-  import { m } from "$lib/paraglide/messages.js";
-  import { toasts } from "$lib/stores/toast";
-  import { Badge } from "$lib/components/primitives/ui/badge";
-  import { Button } from "$lib/components/primitives/ui/button";
-  import ConfirmDialog from "$lib/components/primitives/ui/ConfirmDialog.svelte";
-  import CourseAnnouncementDialog from "$lib/components/features/course/CourseAnnouncementDialog.svelte";
-  import AnnouncementViewDialog from "$lib/components/features/announcement/AnnouncementViewDialog.svelte";
-  import PageContainer from "$lib/components/primitives/layout/PageContainer.svelte";
-  import { formatDate, formatTimeRangeCompact } from "$lib/utils/datetime";
+  import { m } from "#lib/paraglide/messages.js";
+  import { toasts } from "#lib/stores/toast.js";
+  import { Badge } from "#lib/components/primitives/ui/badge/index.js";
+  import { Button } from "#lib/components/primitives/ui/button/index.js";
+  import ConfirmDialog from "#lib/components/primitives/ui/ConfirmDialog.svelte";
+  import CourseAnnouncementDialog from "#lib/components/features/course/CourseAnnouncementDialog.svelte";
+  import AnnouncementViewDialog from "#lib/components/features/announcement/AnnouncementViewDialog.svelte";
+  import PageContainer from "#lib/components/primitives/layout/PageContainer.svelte";
+  import { formatDate, formatTimeRangeCompact } from "#lib/utils/datetime.js";
   import { markdownToPlainText } from "@nojv/core";
   import type { PageData } from "./$types";
 

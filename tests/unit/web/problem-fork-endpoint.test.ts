@@ -6,15 +6,15 @@ const mocks = vi.hoisted(() => ({
   requireApiAuth: vi.fn(),
 }));
 
-vi.mock("$lib/server/auth", () => ({ requireApiAuth: mocks.requireApiAuth }));
-vi.mock("$lib/server/shared/api-handler", () => ({
+vi.mock("#lib/server/auth.js", () => ({ requireApiAuth: mocks.requireApiAuth }));
+vi.mock("#lib/server/shared/api-handler.js", () => ({
   writeApiHandler: (handler: (event: RequestEvent) => Promise<Response>) => handler,
 }));
 vi.mock("@nojv/application", () => ({
   problemDomain: { forkProblemRecord: mocks.forkProblemRecord },
 }));
 
-const { POST } = await import("$lib/../routes/api/problems/[id]/fork/+server");
+const { POST } = await import("../../../apps/web/src/routes/api/problems/[id]/fork/+server.js");
 
 beforeEach(() => {
   vi.clearAllMocks();

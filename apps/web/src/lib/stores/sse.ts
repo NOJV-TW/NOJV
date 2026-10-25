@@ -1,12 +1,12 @@
-import { browser } from "$app/environment";
+import { browser } from "$app/env";
 import {
   SSE_NOTIFICATION,
   SSE_SUBMISSION_VERDICT,
   sseEventSchema,
   type SSEEvent,
 } from "@nojv/core";
-import { m } from "$lib/paraglide/messages.js";
-import { formatVerdictLabel } from "$lib/utils/verdict-style";
+import { m } from "#lib/paraglide/messages.js";
+import { formatVerdictLabel } from "#lib/utils/verdict-style.js";
 import { notifications } from "./notifications.svelte";
 import { toasts } from "./toast";
 

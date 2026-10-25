@@ -8,10 +8,10 @@ import {
 } from "@nojv/application";
 
 import type { LayoutServerLoad, LayoutServerLoadEvent } from "./$types";
-import { m } from "$lib/paraglide/messages.js";
-import { isCourseManager, requireAuth } from "$lib/server/auth";
-import { getClientIp } from "$lib/server/shared/client-ip";
-import { handleLoad } from "$lib/server/shared/load-wrapper";
+import { m } from "#lib/paraglide/messages.js";
+import { isCourseManager, requireAuth } from "#lib/server/auth.js";
+import { getClientIp } from "#lib/server/shared/client-ip.js";
+import { handleLoad } from "#lib/server/shared/load-wrapper.js";
 
 const { getCourseHeaderById } = courseDomain;
 

@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import { deriveAssignmentWindowState, windowStateColorClass } from "$lib/utils/coursework-path";
+import {
+  deriveAssignmentWindowState,
+  windowStateColorClass,
+} from "#lib/utils/coursework-path.js";
 
 describe("deriveAssignmentWindowState", () => {
   const base = {

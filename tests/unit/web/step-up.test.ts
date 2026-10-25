@@ -79,11 +79,11 @@ vi.mock("@nojv/db", () => ({
   userRepo: { securityGenerationMatches: generationMatchesMock },
 }));
 
-vi.mock("$lib/auth.server", () => ({
+vi.mock("#lib/auth.server.js", () => ({
   getAuth: () => ({ api: { verifyTOTP: verifyTotpMock } }),
 }));
 
-import { verifyStepUpCode, verifyTotpStepUp } from "$lib/server/step-up";
+import { verifyStepUpCode, verifyTotpStepUp } from "#lib/server/step-up.js";
 import {
   consumeStepUpHandoffTicket,
   createStepUpHandoffTicket,

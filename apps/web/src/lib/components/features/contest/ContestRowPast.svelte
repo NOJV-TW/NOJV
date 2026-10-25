@@ -1,6 +1,6 @@
 <script lang="ts">
-  import AssessmentRow from "$lib/components/features/coursework/AssessmentRow.svelte";
-  import { m } from "$lib/paraglide/messages.js";
+  import AssessmentRow from "#lib/components/features/coursework/AssessmentRow.svelte";
+  import { m } from "#lib/paraglide/messages.js";
 
   interface Props {
     href: string;

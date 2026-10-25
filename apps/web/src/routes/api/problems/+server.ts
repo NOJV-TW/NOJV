@@ -1,15 +1,15 @@
-import { json, error } from "@sveltejs/kit";
+import { error } from "@sveltejs/kit";
 import type { RequestHandler } from "./$types";
 import { z } from "zod";
 import type { ProblemType } from "@nojv/core";
-import { requireApiAuth } from "$lib/server/auth";
+import { requireApiAuth } from "#lib/server/auth.js";
 import {
   apiHandler,
   writeApiHandler,
   assertJsonBodyWithinLimit,
   readJsonBody,
-} from "$lib/server/shared/api-handler";
-import { parseProblemListQuery } from "$lib/server/shared/problem-list-query";
+} from "#lib/server/shared/api-handler.js";
+import { parseProblemListQuery } from "#lib/server/shared/problem-list-query.js";
 import { problemDomain } from "@nojv/application";
 
 const { createProblemRecord, listProblemCards } = problemDomain;
@@ -20,7 +20,7 @@ const createProblemRequestSchema = z.strictObject({
 export const GET: RequestHandler = apiHandler(async (event) => {
   const params = parseProblemListQuery(event.url);
   const result = await listProblemCards({ ...params, userId: event.locals.user?.id ?? null });
-  return json(result);
+  return Response.json(result);
 });
 
 export const POST: RequestHandler = writeApiHandler(async (event) => {
@@ -57,5 +57,8 @@ export const POST: RequestHandler = writeApiHandler(async (event) => {
     adminMayPublish: false,
   });
 
-  return json({ id: result.id, mode: type === "special_env" ? "advanced" : "standard" });
+  return Response.json({
+    id: result.id,
+    mode: type === "special_env" ? "advanced" : "standard",
+  });
 });

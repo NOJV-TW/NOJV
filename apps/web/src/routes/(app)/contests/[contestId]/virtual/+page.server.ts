@@ -1,9 +1,9 @@
 import { contestDomain, virtualContestDomain } from "@nojv/application";
 
 import type { Actions, PageServerLoad, PageServerLoadEvent } from "./$types";
-import { requireAuth } from "$lib/server/auth";
-import { withAction } from "$lib/server/shared/action-handlers";
-import { handleLoad } from "$lib/server/shared/load-wrapper";
+import { requireAuth } from "#lib/server/auth.js";
+import { withAction } from "#lib/server/shared/action-handlers.js";
+import { handleLoad } from "#lib/server/shared/load-wrapper.js";
 
 const { getContestDetail } = contestDomain;
 const { startVirtualContest, getVirtualContestForUser, getVirtualContestScoreboard } =

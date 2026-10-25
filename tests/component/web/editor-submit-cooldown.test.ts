@@ -3,8 +3,8 @@
 import { mount, tick, unmount } from "svelte";
 import { describe, expect, it, vi } from "vitest";
 
-import EditorActionBar from "$lib/components/features/problem/editors/EditorActionBar.svelte";
-import { m } from "$lib/paraglide/messages.js";
+import EditorActionBar from "#lib/components/features/problem/editors/EditorActionBar.svelte";
+import { m } from "#lib/paraglide/messages.js";
 
 describe("EditorActionBar submit cooldown", () => {
   it("disables submit, counts down and explains the wait", async () => {

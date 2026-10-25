@@ -1,12 +1,12 @@
 <script lang="ts">
   import { untrack } from "svelte";
-  import { appSuperForm } from "$lib/utils/super-form";
-  import { m } from "$lib/paraglide/messages.js";
-  import Section from "$lib/components/primitives/ui/Section.svelte";
-  import PageContainer from "$lib/components/primitives/layout/PageContainer.svelte";
-  import { Card } from "$lib/components/primitives/ui/card";
-  import { toasts } from "$lib/stores/toast";
-  import type { FormMessage } from "$lib/types/form-message";
+  import { appSuperForm } from "#lib/utils/super-form.js";
+  import { m } from "#lib/paraglide/messages.js";
+  import Section from "#lib/components/primitives/ui/Section.svelte";
+  import PageContainer from "#lib/components/primitives/layout/PageContainer.svelte";
+  import { Card } from "#lib/components/primitives/ui/card/index.js";
+  import { toasts } from "#lib/stores/toast.js";
+  import type { FormMessage } from "#lib/types/form-message.js";
   import type { PageData } from "./$types";
 
   let { data }: { data: PageData } = $props();

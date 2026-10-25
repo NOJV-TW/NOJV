@@ -1,14 +1,14 @@
 import { error, redirect } from "@sveltejs/kit";
 
 import type { PageServerLoad, PageServerLoadEvent } from "./$types";
-import { m } from "$lib/paraglide/messages.js";
+import { m } from "#lib/paraglide/messages.js";
 import { contestDomain, problemDomain, submissionDomain } from "@nojv/application";
 
 const { getContestWorkspaceData, listContestProblemSiblings } = contestDomain;
 const { getProblemPageData, getProblemTestcaseSetSummaries } = problemDomain;
 const { canOperateOnSubmission, listProblemSubmissions } = submissionDomain;
-import { requireAuth } from "$lib/server/auth";
-import { handleLoad } from "$lib/server/shared/load-wrapper";
+import { requireAuth } from "#lib/server/auth.js";
+import { handleLoad } from "#lib/server/shared/load-wrapper.js";
 
 export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent) => {
   event.depends("submission:data");

@@ -1,12 +1,12 @@
 <script lang="ts">
   import { Flag, Trash2 } from "@lucide/svelte";
   import type { ProblemPostType } from "@nojv/core";
-  import { m } from "$lib/paraglide/messages.js";
-  import { Button } from "$lib/components/primitives/ui/button";
-  import ConfirmDialog from "$lib/components/primitives/ui/ConfirmDialog.svelte";
-  import { fetchWithCsrf } from "$lib/services/http";
-  import { toasts } from "$lib/stores/toast";
-  import { relativeTime } from "$lib/utils/relative-time";
+  import { m } from "#lib/paraglide/messages.js";
+  import { Button } from "#lib/components/primitives/ui/button/index.js";
+  import ConfirmDialog from "#lib/components/primitives/ui/ConfirmDialog.svelte";
+  import { fetchWithCsrf } from "#lib/services/http.js";
+  import { toasts } from "#lib/stores/toast.js";
+  import { relativeTime } from "#lib/utils/relative-time.js";
   import ReportDialog from "./ReportDialog.svelte";
   import type { PostCommentEntry } from "./types";
 

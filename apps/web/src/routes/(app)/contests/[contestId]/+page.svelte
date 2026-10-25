@@ -3,37 +3,37 @@
   import { goto } from "$app/navigation";
   import { page } from "$app/state";
   import { enhance } from "$app/forms";
-  import { m } from "$lib/paraglide/messages.js";
-  import { toasts } from "$lib/stores/toast";
-  import { Button } from "$lib/components/primitives/ui/button";
-  import ClarificationTab from "$lib/components/features/clarification/ClarificationTab.svelte";
-  import Crumbs from "$lib/components/primitives/visual/Crumbs.svelte";
-  import Countdown from "$lib/components/primitives/visual/Countdown.svelte";
-  import GlassPanel from "$lib/components/primitives/visual/GlassPanel.svelte";
-  import StatRail from "$lib/components/primitives/visual/StatRail.svelte";
-  import StatTile from "$lib/components/primitives/visual/StatTile.svelte";
-  import PageContainer from "$lib/components/primitives/layout/PageContainer.svelte";
-  import AssessmentHero from "$lib/components/features/coursework/AssessmentHero.svelte";
-  import AssessmentManageTabs from "$lib/components/features/coursework/AssessmentManageTabs.svelte";
-  import { parseAssessmentSubTab } from "$lib/components/features/coursework/assessment-tab-state";
-  import HeroSchedule from "$lib/components/features/coursework/HeroSchedule.svelte";
-  import LiveSubmissionsFeed from "$lib/components/features/coursework/LiveSubmissionsFeed.svelte";
-  import StatusPill from "$lib/components/features/coursework/StatusPill.svelte";
-  import SubmissionHistoryActions from "$lib/components/features/coursework/SubmissionHistoryActions.svelte";
-  import AssignmentPlagiarismReport from "$lib/components/features/plagiarism/AssignmentPlagiarismReport.svelte";
-  import AuditTimeline from "$lib/components/features/audit/AuditTimeline.svelte";
-  import ContestProblemsTab from "$lib/components/features/contest/ContestProblemsTab.svelte";
-  import ContestResultsTab from "$lib/components/features/contest/ContestResultsTab.svelte";
+  import { m } from "#lib/paraglide/messages.js";
+  import { toasts } from "#lib/stores/toast.js";
+  import { Button } from "#lib/components/primitives/ui/button/index.js";
+  import ClarificationTab from "#lib/components/features/clarification/ClarificationTab.svelte";
+  import Crumbs from "#lib/components/primitives/visual/Crumbs.svelte";
+  import Countdown from "#lib/components/primitives/visual/Countdown.svelte";
+  import GlassPanel from "#lib/components/primitives/visual/GlassPanel.svelte";
+  import StatRail from "#lib/components/primitives/visual/StatRail.svelte";
+  import StatTile from "#lib/components/primitives/visual/StatTile.svelte";
+  import PageContainer from "#lib/components/primitives/layout/PageContainer.svelte";
+  import AssessmentHero from "#lib/components/features/coursework/AssessmentHero.svelte";
+  import AssessmentManageTabs from "#lib/components/features/coursework/AssessmentManageTabs.svelte";
+  import { parseAssessmentSubTab } from "#lib/components/features/coursework/assessment-tab-state.js";
+  import HeroSchedule from "#lib/components/features/coursework/HeroSchedule.svelte";
+  import LiveSubmissionsFeed from "#lib/components/features/coursework/LiveSubmissionsFeed.svelte";
+  import StatusPill from "#lib/components/features/coursework/StatusPill.svelte";
+  import SubmissionHistoryActions from "#lib/components/features/coursework/SubmissionHistoryActions.svelte";
+  import AssignmentPlagiarismReport from "#lib/components/features/plagiarism/AssignmentPlagiarismReport.svelte";
+  import AuditTimeline from "#lib/components/features/audit/AuditTimeline.svelte";
+  import ContestProblemsTab from "#lib/components/features/contest/ContestProblemsTab.svelte";
+  import ContestResultsTab from "#lib/components/features/contest/ContestResultsTab.svelte";
   import ContestSettingsTab, {
     type ContestLiveStatus,
-  } from "$lib/components/features/contest/ContestSettingsTab.svelte";
+  } from "#lib/components/features/contest/ContestSettingsTab.svelte";
   import {
     contestStatusFor,
     durationMinutes,
     problemLetter,
-  } from "$lib/components/features/contest/format";
-  import { contestScoringLabel } from "$lib/utils/contest-scoring";
-  import { fmtDate, serverNow } from "$lib/utils/datetime.js";
+  } from "#lib/components/features/contest/format.js";
+  import { contestScoringLabel } from "#lib/utils/contest-scoring.js";
+  import { fmtDate, serverNow } from "#lib/utils/datetime.js";
 
   let { data } = $props();
   let contest = $derived(data.contest);
@@ -214,7 +214,7 @@
     <AssessmentManageTabs
       kind="contest"
       value={activeSubTab}
-      url={page.url}
+      url={new URL(page.url.href)}
       canViewClarifications={data.clarification.canView}
     >
       {#snippet actions()}

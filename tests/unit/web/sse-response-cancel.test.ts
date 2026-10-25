@@ -7,13 +7,13 @@ const mocks = vi.hoisted(() => ({
   release: vi.fn(),
 }));
 
-vi.mock("$lib/server/env", () => ({ getWebEnv: () => ({ REDIS_URL: "redis://test" }) }));
-vi.mock("$lib/server/shared/sse-hub", () => ({ subscribeSse: () => mocks.unsubscribe }));
-vi.mock("$lib/server/shared/sse-slot", () => ({
+vi.mock("#lib/server/env.js", () => ({ getWebEnv: () => ({ REDIS_URL: "redis://test" }) }));
+vi.mock("#lib/server/shared/sse-hub.js", () => ({ subscribeSse: () => mocks.unsubscribe }));
+vi.mock("#lib/server/shared/sse-slot.js", () => ({
   acquireSseSlot: () => true,
   releaseSseSlot: mocks.release,
 }));
-vi.mock("$lib/server/metrics", () => ({
+vi.mock("#lib/server/metrics.js", () => ({
   sseConnectionDuration: { record: mocks.record },
   sseConnectionDroppedTotal: { add: mocks.dropped },
 }));

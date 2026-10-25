@@ -1,4 +1,4 @@
-import { isHttpError, isRedirect, redirect, type RequestEvent } from "@sveltejs/kit";
+import { isHttpError, isRedirect, type RequestEvent } from "@sveltejs/kit";
 import type { ErrorStatus } from "sveltekit-superforms";
 import { ZodError } from "zod";
 import { ServiceUnavailableError, HttpError } from "@nojv/application";
@@ -42,7 +42,8 @@ export function classifyRequestError(
   error: unknown,
   event: Pick<RequestEvent, "request" | "url" | "locals">,
 ): ClassifiedError {
-  if (isRedirect(error)) redirect(error.status, error.location);
+  // eslint-disable-next-line @typescript-eslint/only-throw-error -- Preserve the framework redirect and its validated external destination.
+  if (isRedirect(error)) throw error;
   const classified = classifyError(error);
   if (classified.status >= 500) {
     logger.error("Request failed", {

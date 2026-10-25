@@ -2,7 +2,7 @@
 
 import { mount, unmount } from "svelte";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { m } from "$lib/paraglide/messages.js";
+import { m } from "#lib/paraglide/messages.js";
 
 const { page } = vi.hoisted(() => ({
   page: {
@@ -24,13 +24,13 @@ const { page } = vi.hoisted(() => ({
   },
 }));
 vi.mock("$app/state", () => ({ page }));
-vi.mock("$lib/auth.client", () => ({
+vi.mock("#lib/auth.client.js", () => ({
   authClient: { signOut: vi.fn(), passkey: { listUserPasskeys: vi.fn() } },
 }));
-vi.mock("$lib/components/features/account/StepUpDialog.svelte", async () => ({
+vi.mock("#lib/components/features/account/StepUpDialog.svelte", async () => ({
   default: (await import("../../fixtures/web/empty-component.svelte")).default,
 }));
-import UserMenu from "$lib/components/features/auth/UserMenu.svelte";
+import UserMenu from "#lib/components/features/auth/UserMenu.svelte";
 
 let target: HTMLDivElement;
 let component: ReturnType<typeof mount>;

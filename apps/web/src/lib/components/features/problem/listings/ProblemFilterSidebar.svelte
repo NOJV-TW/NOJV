@@ -8,14 +8,14 @@
   } from "@lucide/svelte";
   import { goto } from "$app/navigation";
   import { page } from "$app/state";
-  import { m } from "$lib/paraglide/messages.js";
+  import { m } from "#lib/paraglide/messages.js";
   import { problemTypes, judgeTypes } from "@nojv/core";
   import type { problemDomain } from "@nojv/application";
-  import { Input } from "$lib/components/primitives/ui/input";
+  import { Input } from "#lib/components/primitives/ui/input/index.js";
   import FilterChips, {
     type FilterChipOption,
-  } from "$lib/components/primitives/ui/FilterChips.svelte";
-  import { cn } from "$lib/utils/css.js";
+  } from "#lib/components/primitives/ui/FilterChips.svelte";
+  import { cn } from "#lib/utils/css.js";
   import { difficulties, renderProblemType, renderJudgeMethod } from "../problem-display";
 
   interface Props {
@@ -25,7 +25,7 @@
 
   let { publicResult, loggedIn }: Props = $props();
 
-  let currentUrl = $derived(page.url);
+  let currentUrl = $derived(new URL(page.url.href));
   let search = $derived(currentUrl.searchParams.get("q") ?? "");
   let difficulty = $derived(currentUrl.searchParams.get("difficulty") || "all");
   let status = $derived(currentUrl.searchParams.get("status") ?? "all");
@@ -65,7 +65,7 @@
     }
     params.delete("page");
     const qs = params.toString();
-    void goto(qs ? `?${qs}` : "?", { keepFocus: true, noScroll: true });
+    void goto(qs ? `?${qs}` : "?", { reset: false });
   }
 
   function toggleInSet(current: Set<string>, value: string, key: string) {
@@ -83,7 +83,7 @@
   }
 
   function reset() {
-    void goto("?", { keepFocus: true, noScroll: true });
+    void goto("?", { reset: false });
   }
 
   let statusOptions = $derived<FilterChipOption[]>([

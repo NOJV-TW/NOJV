@@ -3,7 +3,7 @@ import {
   compileBrowserJudgeProgram,
   compileBrowserLocally,
   runBrowserCases,
-} from "$lib/services/browser-local-run";
+} from "#lib/services/browser-local-run.js";
 
 type Deferred = { resolve: (value: unknown) => void; reject: (error: unknown) => void };
 

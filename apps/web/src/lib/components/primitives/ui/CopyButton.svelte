@@ -1,8 +1,8 @@
 <script lang="ts">
   import { onDestroy } from "svelte";
   import { Copy, Check } from "@lucide/svelte";
-  import { m } from "$lib/paraglide/messages.js";
-  import { cn } from "$lib/utils/css.js";
+  import { m } from "#lib/paraglide/messages.js";
+  import { cn } from "#lib/utils/css.js";
 
   interface Props {
     text: string;

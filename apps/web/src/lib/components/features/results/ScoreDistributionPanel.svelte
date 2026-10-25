@@ -6,8 +6,8 @@
 </script>
 
 <script lang="ts">
-  import { m } from "$lib/paraglide/messages.js";
-  import GlassPanel from "$lib/components/primitives/visual/GlassPanel.svelte";
+  import { m } from "#lib/paraglide/messages.js";
+  import GlassPanel from "#lib/components/primitives/visual/GlassPanel.svelte";
 
   interface Props {
     buckets: DistributionBucket[];

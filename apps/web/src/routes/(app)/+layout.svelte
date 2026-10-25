@@ -1,18 +1,20 @@
 <script lang="ts">
   import { onMount, onDestroy } from "svelte";
-  import { startSubmissionTracking } from "$lib/services/submission-tracker";
+  import { startSubmissionTracking } from "#lib/services/submission-tracker.js";
   import { page } from "$app/state";
   import { afterNavigate } from "$app/navigation";
-  import Header from "$lib/components/features/layout/Header.svelte";
-  import Footer from "$lib/components/primitives/layout/Footer.svelte";
-  import { m } from "$lib/paraglide/messages.js";
-  import { notifications } from "$lib/stores/notifications.svelte";
-  import { connectSSE, disconnectSSE } from "$lib/stores/sse";
-  import { onTourNavigate } from "$lib/onboarding/engine";
-  import { studentRegistry } from "$lib/onboarding/student-tour";
-  import { teacherIntros } from "$lib/onboarding/teacher-tour";
+  import Header from "#lib/components/features/layout/Header.svelte";
+  import Footer from "#lib/components/primitives/layout/Footer.svelte";
+  import { m } from "#lib/paraglide/messages.js";
+  import { notifications } from "#lib/stores/notifications.svelte.js";
+  import { connectSSE, disconnectSSE } from "#lib/stores/sse.js";
+  import { onTourNavigate } from "#lib/onboarding/engine.js";
+  import { studentRegistry } from "#lib/onboarding/student-tour.js";
+  import { teacherIntros } from "#lib/onboarding/teacher-tour.js";
 
-  afterNavigate(() => {
+  afterNavigate(({ shallow, type }) => {
+    if (shallow && type === "goto") return;
+
     const sessionUser = page.data.user;
     if (!sessionUser) return;
     if (sessionUser.platformRole === "teacher") {
@@ -54,10 +56,11 @@
   <a
     href="#main-content"
     class="sr-only z-[var(--z-toast)] rounded-md bg-primary px-4 py-2 text-primary-foreground shadow-modal focus:not-sr-only focus:absolute focus:left-4 focus:top-4"
+    >{m.a11y_skipToContent()}</a
   >
-    {m.a11y_skipToContent()}
-  </a>
+
   <Header {immersive} />
+
   <div
     class="mx-auto flex w-full max-w-screen-2xl flex-col px-4 sm:px-6 lg:px-8 {immersive
       ? 'min-h-0 flex-1 pb-4'

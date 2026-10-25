@@ -31,15 +31,15 @@ const {
   formLimitMock: vi.fn(),
 }));
 
-vi.mock("$lib/server/shared/rate-limiter", () => ({
+vi.mock("#lib/server/shared/rate-limiter.js", () => ({
   apiRateLimiter: { consume: apiConsumeMock },
   consumeFormRateLimitInternal: formLimitMock,
   stepUpAttemptRateLimiter: { consume: stepUpConsumeMock },
 }));
 
-vi.mock("$lib/server/step-up", async () => {
+vi.mock("#lib/server/step-up.js", async () => {
   const actual =
-    await vi.importActual<typeof import("$lib/server/step-up")>("$lib/server/step-up");
+    await vi.importActual<typeof import("#lib/server/step-up.js")>("#lib/server/step-up.js");
   return {
     ...actual,
     verifyStepUpCode: verifyStepUpCodeMock,
@@ -68,9 +68,12 @@ vi.mock("@nojv/application", async () => {
   };
 });
 
-import { actions, load } from "$lib/../routes/(app)/account/api-tokens/+page.server";
-import { actions as verifyActions } from "$lib/../routes/(app)/account/api-tokens/verify/+page.server";
-import { GET as apiTokenAccess } from "$lib/../routes/api/api-token-access/+server";
+import {
+  actions,
+  load,
+} from "../../../apps/web/src/routes/(app)/account/api-tokens/+page.server.js";
+import { actions as verifyActions } from "../../../apps/web/src/routes/(app)/account/api-tokens/verify/+page.server.js";
+import { GET as apiTokenAccess } from "../../../apps/web/src/routes/api/api-token-access/+server.js";
 
 function makeEvent(body?: FormData): RequestEvent {
   return {

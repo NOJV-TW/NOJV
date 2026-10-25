@@ -1,9 +1,9 @@
 <script lang="ts">
   import { untrack } from "svelte";
-  import { invalidateAll } from "$app/navigation";
+  import { refreshAll } from "$app/navigation";
   import { ChevronDown, ChevronRight, Pencil, Trash2 } from "@lucide/svelte";
-  import { m } from "$lib/paraglide/messages.js";
-  import { fetchTestcaseContent, postProblemAction } from "$lib/utils/actions";
+  import { m } from "#lib/paraglide/messages.js";
+  import { fetchTestcaseContent, postProblemAction } from "#lib/utils/actions.js";
   import TestcaseRow from "./TestcaseRow.svelte";
   import TestcaseSetEditForm from "./TestcaseSetEditForm.svelte";
 
@@ -59,7 +59,7 @@
     try {
       await postProblemAction(problemId, actionName, fields);
       onSuccess();
-      await invalidateAll();
+      await refreshAll();
     } catch (e) {
       actionError = e instanceof Error ? e.message : m.admin_saveFailed();
     } finally {

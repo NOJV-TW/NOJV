@@ -1,10 +1,10 @@
 <script lang="ts">
-  import { m } from "$lib/paraglide/messages.js";
-  import * as Dialog from "$lib/components/primitives/ui/dialog";
-  import { Badge } from "$lib/components/primitives/ui/badge";
-  import MarkdownRenderer from "$lib/components/primitives/layout/MarkdownRenderer.svelte";
-  import { formatDateTimeCompact } from "$lib/utils/datetime";
-  import { relativeTime } from "$lib/utils/relative-time";
+  import { m } from "#lib/paraglide/messages.js";
+  import * as Dialog from "#lib/components/primitives/ui/dialog/index.js";
+  import { Badge } from "#lib/components/primitives/ui/badge/index.js";
+  import MarkdownRenderer from "#lib/components/primitives/layout/MarkdownRenderer.svelte";
+  import { formatDateTimeCompact } from "#lib/utils/datetime.js";
+  import { relativeTime } from "#lib/utils/relative-time.js";
 
   interface AnnouncementView {
     title: string;

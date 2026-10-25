@@ -4,14 +4,14 @@ import { mount, unmount } from "svelte";
 import { describe, expect, it, vi } from "vitest";
 
 import EmptyComponent from "../../fixtures/web/empty-component.svelte";
-import { m } from "$lib/paraglide/messages.js";
+import { m } from "#lib/paraglide/messages.js";
 
 vi.mock("@lucide/svelte", () => ({ ChevronRight: EmptyComponent }));
 
 describe("SubtaskResultTree", () => {
   it("shows only the score at the top right of the subtask list", async () => {
     const { default: SubtaskResultTree } =
-      await import("$lib/components/features/submission/SubtaskResultTree.svelte");
+      await import("#lib/components/features/submission/SubtaskResultTree.svelte");
     const target = document.createElement("div");
     document.body.append(target);
     const component = mount(SubtaskResultTree, {
@@ -43,7 +43,7 @@ describe("SubtaskResultTree", () => {
 
   it("marks a 0-point subtask by its verdict instead of its score", async () => {
     const { default: SubtaskResultTree } =
-      await import("$lib/components/features/submission/SubtaskResultTree.svelte");
+      await import("#lib/components/features/submission/SubtaskResultTree.svelte");
     const target = document.createElement("div");
     document.body.append(target);
     const subtask = (testcaseSetId: string, passed: boolean) => ({

@@ -35,8 +35,8 @@
 </script>
 
 <script lang="ts">
-  import { m } from "$lib/paraglide/messages.js";
-  import AssessmentGradesTab from "$lib/components/features/coursework/AssessmentGradesTab.svelte";
+  import { m } from "#lib/paraglide/messages.js";
+  import AssessmentGradesTab from "#lib/components/features/coursework/AssessmentGradesTab.svelte";
   import type { examDomain } from "@nojv/application";
 
   interface Props {

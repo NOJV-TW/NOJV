@@ -1,8 +1,8 @@
 <script lang="ts">
   import type { Snippet } from "svelte";
   import type { LatePenaltyRule } from "@nojv/core";
-  import { m } from "$lib/paraglide/messages.js";
-  import { inputClassName } from "$lib/utils/css";
+  import { m } from "#lib/paraglide/messages.js";
+  import { inputClassName } from "#lib/utils/css.js";
   import LatePenaltyRuleBuilder from "./LatePenaltyRuleBuilder.svelte";
 
   interface Props {

@@ -1,10 +1,10 @@
 <script lang="ts">
   import { enhance } from "$app/forms";
-  import { invalidateAll } from "$app/navigation";
-  import { authClient } from "$lib/auth.client";
-  import * as Dialog from "$lib/components/primitives/ui/dialog";
-  import { m } from "$lib/paraglide/messages.js";
-  import { toasts } from "$lib/stores/toast";
+  import { refreshAll } from "$app/navigation";
+  import { authClient } from "#lib/auth.client.js";
+  import * as Dialog from "#lib/components/primitives/ui/dialog/index.js";
+  import { m } from "#lib/paraglide/messages.js";
+  import { toasts } from "#lib/stores/toast.js";
 
   interface Props {
     open: boolean;
@@ -37,7 +37,7 @@
   }
 
   async function finish() {
-    await invalidateAll();
+    await refreshAll();
     open = false;
     onUnlocked();
   }

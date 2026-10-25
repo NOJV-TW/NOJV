@@ -1,11 +1,11 @@
 <script lang="ts">
   import type { Language, SubmissionContext } from "@nojv/core";
-  import { m } from "$lib/paraglide/messages.js";
+  import { m } from "#lib/paraglide/messages.js";
   import type {
     ProblemDetail,
     ProblemSubmissionEntry,
     ProblemTestcaseSetSummary,
-  } from "$lib/types";
+  } from "#lib/types/index.js";
   import AdvancedModeWorkspace from "../advanced/AdvancedModeWorkspace.svelte";
   import MobileWorkspaceBlocker from "../layouts/MobileWorkspaceBlocker.svelte";
   import ProblemSwitcherDrawer from "../layouts/ProblemSwitcherDrawer.svelte";

@@ -1,9 +1,9 @@
-import { error, json } from "@sveltejs/kit";
+import { error } from "@sveltejs/kit";
 
 import type { RequestHandler } from "./$types";
 
-import { requireApiAuth } from "$lib/server/auth";
-import { apiHandler, writeApiHandler } from "$lib/server/shared/api-handler";
+import { requireApiAuth } from "#lib/server/auth.js";
+import { apiHandler, writeApiHandler } from "#lib/server/shared/api-handler.js";
 import { problemDomain } from "@nojv/application";
 
 const MAX_UPLOAD_BYTES = 60 * 1024 * 1024;
@@ -28,7 +28,7 @@ export const POST: RequestHandler = writeApiHandler(async (event) => {
 
   const result = await problemDomain.importBundle(actor, problemId, Buffer.from(arr));
 
-  return json(result);
+  return Response.json(result);
 });
 
 export const GET: RequestHandler = apiHandler(async (event) => {

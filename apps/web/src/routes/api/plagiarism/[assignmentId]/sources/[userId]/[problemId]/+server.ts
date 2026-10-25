@@ -1,10 +1,8 @@
-import { json } from "@sveltejs/kit";
-
 import type { RequestHandler } from "./$types";
 
-import { requireApiAuth } from "$lib/server/auth";
-import { apiHandler } from "$lib/server/shared/api-handler";
-import { assertCanManagePlagiarism } from "$lib/server/plagiarism-pair";
+import { requireApiAuth } from "#lib/server/auth.js";
+import { apiHandler } from "#lib/server/shared/api-handler.js";
+import { assertCanManagePlagiarism } from "#lib/server/plagiarism-pair.js";
 import { plagiarismDomain } from "@nojv/application";
 
 const { getPlagiarismTarget, getPlagiarismSourceCode } = plagiarismDomain;
@@ -14,7 +12,10 @@ export const GET: RequestHandler = apiHandler(async (event) => {
 
   const { assignmentId, userId, problemId } = event.params;
   if (!assignmentId || !userId || !problemId) {
-    return json({ message: "Missing assignmentId, userId, or problemId." }, { status: 400 });
+    return Response.json(
+      { message: "Missing assignmentId, userId, or problemId." },
+      { status: 400 },
+    );
   }
   const type = event.url.searchParams.get("type");
 
@@ -26,5 +27,8 @@ export const GET: RequestHandler = apiHandler(async (event) => {
   );
 
   const source = await getPlagiarismSourceCode(resolved.target, userId, problemId);
-  return json({ files: source?.files ?? null, submissionId: source?.submissionId ?? null });
+  return Response.json({
+    files: source?.files ?? null,
+    submissionId: source?.submissionId ?? null,
+  });
 });

@@ -2,7 +2,7 @@ import JSZip from "jszip";
 import { describe, expect, it } from "vitest";
 
 const { buildScaffoldZip, scaffoldEntryNames, scaffoldZipFilename } =
-  await import("$lib/server/advanced-scaffold");
+  await import("#lib/server/advanced-scaffold/index.js");
 
 const EXPECTED_ENTRIES = [
   "README.md",

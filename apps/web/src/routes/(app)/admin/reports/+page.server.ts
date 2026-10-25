@@ -1,8 +1,8 @@
 import { error, fail, type RequestEvent } from "@sveltejs/kit";
 import type { Actions, PageServerLoad } from "./$types";
-import { requireAuth } from "$lib/server/auth";
-import { withAction } from "$lib/server/shared/action-handlers";
-import { readString } from "$lib/server/shared/form-utils";
+import { requireAuth } from "#lib/server/auth.js";
+import { withAction } from "#lib/server/shared/action-handlers.js";
+import { readString } from "#lib/server/shared/form-utils.js";
 import { auditDomain, postDomain } from "@nojv/application";
 
 const { listContentReports, resolveContentReport } = postDomain;

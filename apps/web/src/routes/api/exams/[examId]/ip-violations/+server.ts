@@ -1,9 +1,7 @@
-import { json } from "@sveltejs/kit";
-
 import type { RequestHandler } from "./$types";
 
-import { requireApiAuth } from "$lib/server/auth";
-import { apiHandler } from "$lib/server/shared/api-handler";
+import { requireApiAuth } from "#lib/server/auth.js";
+import { apiHandler } from "#lib/server/shared/api-handler.js";
 import { listExamIpViolationsForActor } from "@nojv/application";
 
 export const GET: RequestHandler = apiHandler(async (event) => {
@@ -11,10 +9,10 @@ export const GET: RequestHandler = apiHandler(async (event) => {
 
   const examId = event.params.examId;
   if (!examId) {
-    return json({ message: "examId required" }, { status: 400 });
+    return Response.json({ message: "examId required" }, { status: 400 });
   }
 
   const violations = await listExamIpViolationsForActor(actor, examId);
 
-  return json({ violations });
+  return Response.json({ violations });
 });

@@ -19,7 +19,7 @@ const { verifyRegistryLogin, registryTokenConsume, signInConsume } = vi.hoisted(
   signInConsume: vi.fn(),
 }));
 
-vi.mock("$lib/server/shared/rate-limiter", () => ({
+vi.mock("#lib/server/shared/rate-limiter.js", () => ({
   apiRateLimiter: { consume: vi.fn().mockResolvedValue("allowed") },
   writeApiRateLimiter: { consume: vi.fn().mockResolvedValue("allowed") },
   registryTokenRateLimiter: { consume: registryTokenConsume },
@@ -38,7 +38,7 @@ vi.mock("@nojv/application", async (importOriginal) => {
 });
 
 const { signRegistryToken, isRegistryTokenConfigured } =
-  await import("$lib/server/registry-token");
+  await import("#lib/server/registry-token.js");
 const { GET, POST } = await import("../../../apps/web/src/routes/api/registry/token/+server");
 const { decodeProtectedHeader, jwtVerify } = await import("jose");
 

@@ -1,15 +1,15 @@
 <script lang="ts">
   import { deserialize } from "$app/forms";
-  import { goto, invalidateAll } from "$app/navigation";
-  import { m } from "$lib/paraglide/messages.js";
-  import { authClient } from "$lib/auth.client";
+  import { goto, refreshAll } from "$app/navigation";
+  import { m } from "#lib/paraglide/messages.js";
+  import { authClient } from "#lib/auth.client.js";
   import { actionErrorSchema } from "@nojv/core";
-  import { USERNAME_INPUT_PATTERN, isValidUsername } from "$lib/utils";
-  import { isReservedUsername } from "$lib/utils/school";
-  import { Button } from "$lib/components/primitives/ui/button";
-  import { Card } from "$lib/components/primitives/ui/card";
-  import { Input } from "$lib/components/primitives/ui/input";
-  import FormField from "$lib/components/primitives/ui/FormField.svelte";
+  import { USERNAME_INPUT_PATTERN, isValidUsername } from "#lib/utils/index.js";
+  import { isReservedUsername } from "#lib/utils/school.js";
+  import { Button } from "#lib/components/primitives/ui/button/index.js";
+  import { Card } from "#lib/components/primitives/ui/card/index.js";
+  import { Input } from "#lib/components/primitives/ui/input/index.js";
+  import FormField from "#lib/components/primitives/ui/FormField.svelte";
 
   let error = $state("");
   let loading = $state(false);
@@ -62,13 +62,13 @@
       loading = false;
     }
 
-    await invalidateAll();
+    await refreshAll();
     await goto("/dashboard");
   }
 
   async function handleSignOut() {
     await authClient.signOut();
-    await invalidateAll();
+    await refreshAll();
     await goto("/");
   }
 </script>

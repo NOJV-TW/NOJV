@@ -7,13 +7,13 @@ const theme = vi.hoisted(() => ({
   watch: vi.fn(),
 }));
 
-vi.mock("$lib/utils/monaco-themes", () => ({
+vi.mock("#lib/utils/monaco-themes.js", () => ({
   defineNojvThemes: theme.define,
   getNojvThemeName: vi.fn(() => "nojv-light"),
   watchThemeChanges: theme.watch,
 }));
 
-import { createPlagiarismDiffLifecycle } from "$lib/components/features/plagiarism/plagiarism-diff-lifecycle";
+import { createPlagiarismDiffLifecycle } from "#lib/components/features/plagiarism/plagiarism-diff-lifecycle.js";
 
 function deferred<T>() {
   let resolve!: (value: T) => void;

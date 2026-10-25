@@ -1,5 +1,5 @@
 import { deserialize } from "$app/forms";
-import { m } from "$lib/paraglide/messages.js";
+import { m } from "#lib/paraglide/messages.js";
 
 function actionFailureMessage(result: ReturnType<typeof deserialize>): string {
   if (result.type === "failure" && typeof result.data?.error === "string") {

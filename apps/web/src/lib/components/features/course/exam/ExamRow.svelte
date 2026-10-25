@@ -21,9 +21,9 @@
 </script>
 
 <script lang="ts">
-  import { m } from "$lib/paraglide/messages.js";
-  import Countdown from "$lib/components/primitives/visual/Countdown.svelte";
-  import AssessmentRow from "$lib/components/features/coursework/AssessmentRow.svelte";
+  import { m } from "#lib/paraglide/messages.js";
+  import Countdown from "#lib/components/primitives/visual/Countdown.svelte";
+  import AssessmentRow from "#lib/components/features/coursework/AssessmentRow.svelte";
 
   interface Props {
     exam: ExamRowData;

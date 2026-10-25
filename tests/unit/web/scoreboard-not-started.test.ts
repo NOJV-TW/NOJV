@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 
 import { describe, expect, it } from "vitest";
 
-import { contestNotStarted } from "$lib/utils/scoreboard";
+import { contestNotStarted } from "#lib/utils/scoreboard.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const messagesDir = path.resolve(__dirname, "../../../apps/web/messages");

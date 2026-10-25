@@ -2,12 +2,12 @@
   import { enhance } from "$app/forms";
   import { goto } from "$app/navigation";
 
-  import { authClient } from "$lib/auth.client";
-  import { Button } from "$lib/components/primitives/ui/button";
-  import FormField from "$lib/components/primitives/ui/FormField.svelte";
-  import { Input } from "$lib/components/primitives/ui/input";
-  import { m } from "$lib/paraglide/messages.js";
-  import { fetchWithCsrf } from "$lib/services/http";
+  import { authClient } from "#lib/auth.client.js";
+  import { Button } from "#lib/components/primitives/ui/button/index.js";
+  import FormField from "#lib/components/primitives/ui/FormField.svelte";
+  import { Input } from "#lib/components/primitives/ui/input/index.js";
+  import { m } from "#lib/paraglide/messages.js";
+  import { fetchWithCsrf } from "#lib/services/http.js";
 
   interface Props {
     purpose: "admin-mode" | "api-tokens";

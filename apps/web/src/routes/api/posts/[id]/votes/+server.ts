@@ -1,15 +1,14 @@
-import { json } from "@sveltejs/kit";
 import type { RequestEvent } from "@sveltejs/kit";
 import { postVoteSchema } from "@nojv/core";
 
 import type { RequestHandler } from "./$types";
 
-import { requireApiAuth } from "$lib/server/auth";
+import { requireApiAuth } from "#lib/server/auth.js";
 import {
   writeApiHandler,
   assertJsonBodyWithinLimit,
   readJsonBody,
-} from "$lib/server/shared/api-handler";
+} from "#lib/server/shared/api-handler.js";
 import { postDomain, HttpError } from "@nojv/application";
 
 const { castPostVote } = postDomain;
@@ -27,5 +26,5 @@ export const POST: RequestHandler = writeApiHandler(async (event) => {
   const payload = postVoteSchema.parse(await readJsonBody(event));
 
   const result = await castPostVote(actor, id, payload.value);
-  return json(result);
+  return Response.json(result);
 });

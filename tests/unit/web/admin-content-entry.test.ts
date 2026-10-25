@@ -23,10 +23,19 @@ vi.mock("@nojv/application", async (importOriginal) => {
 });
 
 const routes = [
-  ["courses", (await import("$lib/../routes/(app)/courses/+page.server")).load],
-  ["assignments", (await import("$lib/../routes/(app)/assignments/+page.server")).load],
-  ["exams", (await import("$lib/../routes/(app)/exams/+page.server")).load],
-  ["contests", (await import("$lib/../routes/(app)/contests/+page.server")).load],
+  [
+    "courses",
+    (await import("../../../apps/web/src/routes/(app)/courses/+page.server.js")).load,
+  ],
+  [
+    "assignments",
+    (await import("../../../apps/web/src/routes/(app)/assignments/+page.server.js")).load,
+  ],
+  ["exams", (await import("../../../apps/web/src/routes/(app)/exams/+page.server.js")).load],
+  [
+    "contests",
+    (await import("../../../apps/web/src/routes/(app)/contests/+page.server.js")).load,
+  ],
 ] as const;
 
 function eventFor(path: string, active: boolean) {

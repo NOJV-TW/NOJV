@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { buildAssignmentResults } from "$lib/server/results/assignment";
-import { buildExamResults } from "$lib/server/results/exam";
+import { buildAssignmentResults } from "#lib/server/results/assignment.js";
+import { buildExamResults } from "#lib/server/results/exam.js";
 
 import { buildScoreStats } from "../../../packages/application/src/shared/score-stats";
 

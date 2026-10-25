@@ -1,10 +1,10 @@
-import { json, error } from "@sveltejs/kit";
+import { error } from "@sveltejs/kit";
 import type { RequestHandler } from "./$types";
 
-import { requireApiAuth } from "$lib/server/auth";
-import { readFormData, writeApiHandler } from "$lib/server/shared/api-handler";
-import { detectImageMime } from "$lib/server/shared/file-validation";
-import { deleteAvatar, MAX_AVATAR_BYTES, uploadAvatar } from "$lib/server/storage/avatar";
+import { requireApiAuth } from "#lib/server/auth.js";
+import { readFormData, writeApiHandler } from "#lib/server/shared/api-handler.js";
+import { detectImageMime } from "#lib/server/shared/file-validation.js";
+import { deleteAvatar, MAX_AVATAR_BYTES, uploadAvatar } from "#lib/server/storage/avatar.js";
 
 export const PUT: RequestHandler = writeApiHandler(async (event) => {
   const actor = requireApiAuth(event);
@@ -30,7 +30,7 @@ export const PUT: RequestHandler = writeApiHandler(async (event) => {
   }
   const { url } = await uploadAvatar(actor, buffer);
 
-  return json({ image: url });
+  return Response.json({ image: url });
 });
 
 export const DELETE: RequestHandler = writeApiHandler(async (event) => {

@@ -1,14 +1,14 @@
-import { m } from "$lib/paraglide/messages.js";
+import { m } from "#lib/paraglide/messages.js";
 import {
   buildDraftKey,
   clearDraft,
   loadDraft,
   saveDraft,
   type DraftContext,
-} from "$lib/stores/code-draft";
-import { createDraftAutosaveQueue, type DraftSnapshot } from "$lib/stores/draft-autosave";
-import { toasts } from "$lib/stores/toast";
-import type { ServerDraftSync } from "$lib/services/draft-sync";
+} from "#lib/stores/code-draft.js";
+import { createDraftAutosaveQueue, type DraftSnapshot } from "#lib/stores/draft-autosave.js";
+import { toasts } from "#lib/stores/toast.js";
+import type { ServerDraftSync } from "#lib/services/draft-sync.js";
 import type { Language } from "@nojv/core";
 
 interface DraftControllerArgs {

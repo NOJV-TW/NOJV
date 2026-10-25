@@ -5,14 +5,14 @@ import {
   languageSchema,
 } from "@nojv/core";
 import { submissionDomain, HttpError } from "@nojv/application";
-import { error, json } from "@sveltejs/kit";
+import { error } from "@sveltejs/kit";
 import { z } from "zod";
 
 import type { RequestHandler } from "./$types";
 
-import { requireApiAuth } from "$lib/server/auth";
-import { apiHandler, writeApiHandler, readJsonBody } from "$lib/server/shared/api-handler";
-import { getClientIp } from "$lib/server/shared/client-ip";
+import { requireApiAuth } from "#lib/server/auth.js";
+import { apiHandler, writeApiHandler, readJsonBody } from "#lib/server/shared/api-handler.js";
+import { getClientIp } from "#lib/server/shared/client-ip.js";
 
 const SUBMISSIONS_PAGE_SIZE = 50;
 const contextQuerySchema = z.object({
@@ -46,7 +46,7 @@ export const GET: RequestHandler = apiHandler(async (event) => {
     }
     const context = submissionDraftSchema.shape.context.parse(contextInput);
     const cursor = event.url.searchParams.get("cursor")?.trim();
-    return json(
+    return Response.json(
       await submissionDomain.listWorkspaceSubmissions({
         actor,
         problemId,
@@ -78,14 +78,14 @@ export const GET: RequestHandler = apiHandler(async (event) => {
   const contextId = event.url.searchParams.get("id");
   if (contextType !== null || contextId !== null) {
     const context = contextQuerySchema.parse({ context: contextType, id: contextId });
-    return json(
+    return Response.json(
       await submissionDomain.listContextSubmissionsPaged({
         ...options,
         context: { type: context.context, id: context.id },
       }),
     );
   }
-  return json(await submissionDomain.listUserSubmissions(options));
+  return Response.json(await submissionDomain.listUserSubmissions(options));
 });
 
 function submitRejectionBody(err: HttpError): { code: string; retryAfterSec?: number } {
@@ -123,7 +123,7 @@ export const POST: RequestHandler = writeApiHandler(async (event) => {
       actor,
       getClientIp(event),
     );
-    return json(
+    return Response.json(
       {
         cooldownSec: submission.cooldownSec,
         pollUrl: `/api/submissions/${submission.id}`,
@@ -134,7 +134,7 @@ export const POST: RequestHandler = writeApiHandler(async (event) => {
     );
   } catch (err) {
     if (err instanceof HttpError && err.status >= 400 && err.status < 500) {
-      return json(
+      return Response.json(
         { message: err.message, ...submitRejectionBody(err) },
         { status: err.status },
       );

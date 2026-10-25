@@ -2,9 +2,9 @@ import { error, fail, type RequestEvent } from "@sveltejs/kit";
 import { DEFAULT_LOCALE, announcementAudienceSchema } from "@nojv/core";
 import type { AnnouncementAudience } from "@nojv/core";
 import type { Actions, PageServerLoad } from "./$types";
-import { requireAuth } from "$lib/server/auth";
-import { withAction } from "$lib/server/shared/action-handlers";
-import { readCheckbox, readString } from "$lib/server/shared/form-utils";
+import { requireAuth } from "#lib/server/auth.js";
+import { withAction } from "#lib/server/shared/action-handlers.js";
+import { readCheckbox, readString } from "#lib/server/shared/form-utils.js";
 import { announcementDomain, auditDomain } from "@nojv/application";
 
 function requireAdmin(event: RequestEvent) {

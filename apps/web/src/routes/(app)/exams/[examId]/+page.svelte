@@ -1,37 +1,37 @@
 <script lang="ts">
   import { page } from "$app/state";
-  import { m } from "$lib/paraglide/messages.js";
-  import { cn } from "$lib/utils/css.js";
+  import { m } from "#lib/paraglide/messages.js";
+  import { cn } from "#lib/utils/css.js";
   import { ChevronRight, Monitor, Pencil } from "@lucide/svelte";
-  import Crumbs from "$lib/components/primitives/visual/Crumbs.svelte";
-  import AssessmentHero from "$lib/components/features/coursework/AssessmentHero.svelte";
-  import LateSubmissionSummary from "$lib/components/features/course/LateSubmissionSummary.svelte";
-  import HeroSchedule from "$lib/components/features/coursework/HeroSchedule.svelte";
-  import StatRail from "$lib/components/primitives/visual/StatRail.svelte";
-  import StatTile from "$lib/components/primitives/visual/StatTile.svelte";
-  import StatusPill from "$lib/components/features/coursework/StatusPill.svelte";
-  import Countdown from "$lib/components/primitives/visual/Countdown.svelte";
-  import GlassPanel from "$lib/components/primitives/visual/GlassPanel.svelte";
-  import DifficultyTick from "$lib/components/primitives/visual/DifficultyTick.svelte";
-  import LiveSubmissionsFeed from "$lib/components/features/coursework/LiveSubmissionsFeed.svelte";
-  import SubmissionHistoryActions from "$lib/components/features/coursework/SubmissionHistoryActions.svelte";
-  import ExamSettingsTab from "$lib/components/features/course/exam/ExamSettingsTab.svelte";
-  import ExamProblemsTab from "$lib/components/features/course/exam/ExamProblemsTab.svelte";
-  import ExamProctoringTab from "$lib/components/features/course/exam/ExamProctoringTab.svelte";
-  import ExamResultsTab from "$lib/components/features/course/exam/ExamResultsTab.svelte";
-  import ExamHandInPanel from "$lib/components/features/course/exam/ExamHandInPanel.svelte";
-  import ExamStartModal from "$lib/components/features/course/exam/ExamStartModal.svelte";
-  import AssignmentPlagiarismReport from "$lib/components/features/plagiarism/AssignmentPlagiarismReport.svelte";
-  import AuditTimeline from "$lib/components/features/audit/AuditTimeline.svelte";
-  import ScoreOverrideDrawer from "$lib/components/features/score-override/ScoreOverrideDrawer.svelte";
-  import ClarificationTab from "$lib/components/features/clarification/ClarificationTab.svelte";
-  import PageContainer from "$lib/components/primitives/layout/PageContainer.svelte";
-  import AssessmentManageTabs from "$lib/components/features/coursework/AssessmentManageTabs.svelte";
+  import Crumbs from "#lib/components/primitives/visual/Crumbs.svelte";
+  import AssessmentHero from "#lib/components/features/coursework/AssessmentHero.svelte";
+  import LateSubmissionSummary from "#lib/components/features/course/LateSubmissionSummary.svelte";
+  import HeroSchedule from "#lib/components/features/coursework/HeroSchedule.svelte";
+  import StatRail from "#lib/components/primitives/visual/StatRail.svelte";
+  import StatTile from "#lib/components/primitives/visual/StatTile.svelte";
+  import StatusPill from "#lib/components/features/coursework/StatusPill.svelte";
+  import Countdown from "#lib/components/primitives/visual/Countdown.svelte";
+  import GlassPanel from "#lib/components/primitives/visual/GlassPanel.svelte";
+  import DifficultyTick from "#lib/components/primitives/visual/DifficultyTick.svelte";
+  import LiveSubmissionsFeed from "#lib/components/features/coursework/LiveSubmissionsFeed.svelte";
+  import SubmissionHistoryActions from "#lib/components/features/coursework/SubmissionHistoryActions.svelte";
+  import ExamSettingsTab from "#lib/components/features/course/exam/ExamSettingsTab.svelte";
+  import ExamProblemsTab from "#lib/components/features/course/exam/ExamProblemsTab.svelte";
+  import ExamProctoringTab from "#lib/components/features/course/exam/ExamProctoringTab.svelte";
+  import ExamResultsTab from "#lib/components/features/course/exam/ExamResultsTab.svelte";
+  import ExamHandInPanel from "#lib/components/features/course/exam/ExamHandInPanel.svelte";
+  import ExamStartModal from "#lib/components/features/course/exam/ExamStartModal.svelte";
+  import AssignmentPlagiarismReport from "#lib/components/features/plagiarism/AssignmentPlagiarismReport.svelte";
+  import AuditTimeline from "#lib/components/features/audit/AuditTimeline.svelte";
+  import ScoreOverrideDrawer from "#lib/components/features/score-override/ScoreOverrideDrawer.svelte";
+  import ClarificationTab from "#lib/components/features/clarification/ClarificationTab.svelte";
+  import PageContainer from "#lib/components/primitives/layout/PageContainer.svelte";
+  import AssessmentManageTabs from "#lib/components/features/coursework/AssessmentManageTabs.svelte";
   import {
     assessmentSubTabHref,
     parseAssessmentSubTab,
-  } from "$lib/components/features/coursework/assessment-tab-state";
-  import { fmtDate, serverNow } from "$lib/utils/datetime.js";
+  } from "#lib/components/features/coursework/assessment-tab-state.js";
+  import { fmtDate, serverNow } from "#lib/utils/datetime.js";
   import type { ActionData, PageData } from "./$types";
 
   let { data, form }: { data: PageData; form: ActionData } = $props();
@@ -568,7 +568,7 @@
         </div>
         {#if writable}
           <a
-            href={assessmentSubTabHref(page.url, "settings")}
+            href={assessmentSubTabHref(new URL(page.url.href), "settings")}
             class="inline-flex size-7 items-center justify-center rounded-md bg-transparent text-muted-foreground transition-colors hover:bg-transparent hover:text-foreground"
             aria-label={m.examDetail_managerEditButton()}
             title={m.examDetail_managerEditButton()}
@@ -601,7 +601,7 @@
     <AssessmentManageTabs
       kind="exam"
       value={activeSubTabKey}
-      url={page.url}
+      url={new URL(page.url.href)}
       canViewClarifications={data.clarification.canView}
     >
       {#snippet actions()}

@@ -2,8 +2,8 @@
 
 import { mount, tick, unmount } from "svelte";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { m } from "$lib/paraglide/messages.js";
-import { syncServerClock } from "$lib/utils/datetime.js";
+import { m } from "#lib/paraglide/messages.js";
+import { syncServerClock } from "#lib/utils/datetime.js";
 import ExamPage from "../../../apps/web/src/routes/(app)/exams/[examId]/+page.svelte";
 
 vi.mock("$app/forms", () => ({ enhance: () => ({ destroy() {} }) }));

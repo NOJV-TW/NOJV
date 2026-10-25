@@ -7,18 +7,16 @@ import {
   testPrisma,
 } from "../../fixtures/factories";
 import { examDomain } from "@nojv/application";
-import { getAuth } from "$lib/auth.server";
+import { getAuth } from "#lib/auth.server.js";
 
-vi.mock("$env/dynamic/private", async (importOriginal) => {
+vi.mock("$app/env/private", async (importOriginal) => {
   const original =
     await importOriginal<typeof import("../../setup/stubs/env-dynamic-private")>();
   return {
-    env: {
-      ...original.env,
-      BETTER_AUTH_URL: "http://localhost:5173",
-      GOOGLE_CLIENT_ID: "integration-google-client",
-      GOOGLE_CLIENT_SECRET: "integration-google-secret",
-    },
+    ...original,
+    BETTER_AUTH_URL: "http://localhost:5173",
+    GOOGLE_CLIENT_ID: "integration-google-client",
+    GOOGLE_CLIENT_SECRET: "integration-google-secret",
   };
 });
 
@@ -33,8 +31,12 @@ beforeAll(async () => {
     accessToken: "integration-google-token",
   });
   vi.spyOn(google, "getUserInfo").mockImplementation(async () => ({
-    user: googleUser,
-    data: {},
+    user: {
+      name: googleUser.name,
+      email: googleUser.email,
+      emailVerified: googleUser.emailVerified,
+    },
+    data: { sub: googleUser.id },
   }));
 }, 30_000);
 

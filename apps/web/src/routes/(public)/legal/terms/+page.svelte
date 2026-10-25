@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { m } from "$lib/paraglide/messages.js";
-  import MarkdownRenderer from "$lib/components/primitives/layout/MarkdownRenderer.svelte";
+  import { m } from "#lib/paraglide/messages.js";
+  import MarkdownRenderer from "#lib/components/primitives/layout/MarkdownRenderer.svelte";
 </script>
 
 <svelte:head>

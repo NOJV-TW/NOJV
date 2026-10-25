@@ -2,7 +2,7 @@
 
 import { mount, unmount } from "svelte";
 import { describe, expect, it, vi } from "vitest";
-import { m } from "$lib/paraglide/messages.js";
+import { m } from "#lib/paraglide/messages.js";
 
 vi.mock("@lucide/svelte", async () => {
   const Empty = (await import("../../fixtures/web/empty-component.svelte")).default;
@@ -18,7 +18,7 @@ vi.mock("@lucide/svelte", async () => {
 describe("AssessmentRow", () => {
   it("keeps the status available to assistive technology when its icon is hidden", async () => {
     const { default: AssessmentRow } =
-      await import("$lib/components/features/coursework/AssessmentRow.svelte");
+      await import("#lib/components/features/coursework/AssessmentRow.svelte");
     const target = document.createElement("div");
     document.body.append(target);
     const component = mount(AssessmentRow, {

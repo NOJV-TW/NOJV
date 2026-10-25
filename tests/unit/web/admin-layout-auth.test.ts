@@ -2,8 +2,8 @@ import { describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({ requireAuth: vi.fn() }));
 
-vi.mock("$lib/server/auth", () => ({ requireAuth: mocks.requireAuth }));
-const { load } = await import("$lib/../routes/(app)/admin/+layout.server");
+vi.mock("#lib/server/auth.js", () => ({ requireAuth: mocks.requireAuth }));
+const { load } = await import("../../../apps/web/src/routes/(app)/admin/+layout.server.js");
 
 describe("Admin layout authorization", () => {
   it("rejects ordinary users", () => {

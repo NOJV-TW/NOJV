@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { securityGenerationProof } from "@nojv/application";
 import { getRedis, keys } from "@nojv/redis";
 
-import { confirmPendingTotp, startPendingTotp } from "$lib/server/totp-enrollment";
+import { confirmPendingTotp, startPendingTotp } from "#lib/server/totp-enrollment.js";
 import { currentTotp } from "../../e2e/_two-factor";
 import { createTestUser, testPrisma } from "../../fixtures/factories";
 

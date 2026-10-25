@@ -14,16 +14,16 @@
     Users,
     Workflow,
   } from "@lucide/svelte";
-  import EChart from "$lib/components/primitives/charts/EChart.svelte";
+  import EChart from "#lib/components/primitives/charts/EChart.svelte";
   import type { EChartsOption } from "echarts";
-  import PageContainer from "$lib/components/primitives/layout/PageContainer.svelte";
-  import StatCard from "$lib/components/primitives/ui/StatCard.svelte";
-  import { Card } from "$lib/components/primitives/ui/card";
-  import { Badge } from "$lib/components/primitives/ui/badge";
-  import { m } from "$lib/paraglide/messages.js";
-  import { formatDateTime } from "$lib/utils/datetime";
-  import { formatProblemDisplayName } from "$lib/utils/format-problem-display-name";
-  import { formatChartSummary } from "$lib/utils/chart-summary";
+  import PageContainer from "#lib/components/primitives/layout/PageContainer.svelte";
+  import StatCard from "#lib/components/primitives/ui/StatCard.svelte";
+  import { Card } from "#lib/components/primitives/ui/card/index.js";
+  import { Badge } from "#lib/components/primitives/ui/badge/index.js";
+  import { m } from "#lib/paraglide/messages.js";
+  import { formatDateTime } from "#lib/utils/datetime.js";
+  import { formatProblemDisplayName } from "#lib/utils/format-problem-display-name.js";
+  import { formatChartSummary } from "#lib/utils/chart-summary.js";
   import type { PageData } from "./$types";
 
   let { data }: { data: PageData } = $props();

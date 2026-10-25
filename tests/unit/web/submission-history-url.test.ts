@@ -4,7 +4,7 @@ import {
   parseSubmissionHistoryFilters,
   sanitizeSubmissionHistoryReturnTo,
   submissionHistoryReturnTo,
-} from "$lib/utils/submission-history";
+} from "#lib/utils/submission-history.js";
 
 describe("submission history URL state", () => {
   it("ignores malformed return URLs without failing the detail page", () => {

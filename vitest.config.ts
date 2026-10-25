@@ -1,7 +1,7 @@
 import { createRequire } from "node:module";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { svelte } from "@sveltejs/vite-plugin-svelte";
+import { svelte, vitePreprocess } from "@sveltejs/vite-plugin-svelte";
 import { defineConfig } from "vitest/config";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -15,7 +15,7 @@ const requireFromTemporal = createRequire(
 );
 
 const sharedAliases = {
-  $lib: path.resolve(__dirname, "apps/web/src/lib"),
+  "#lib": path.resolve(__dirname, "apps/web/src/lib"),
   nodemailer: requireFromMailer.resolve("nodemailer"),
   "@aws-sdk/client-s3": requireFromStorage.resolve("@aws-sdk/client-s3"),
   jose: requireFromWeb.resolve("jose"),
@@ -35,23 +35,20 @@ const sharedAliases = {
   "@nojv/storage": path.resolve(__dirname, "packages/storage/src/index.ts"),
   "@nojv/mailer": path.resolve(__dirname, "packages/mailer/src/index.ts"),
   "@nojv/sandbox-docker": path.resolve(__dirname, "packages/sandbox-docker/src/index.ts"),
-  "$env/dynamic/private": path.resolve(__dirname, "tests/setup/stubs/env-dynamic-private.ts"),
-  "$env/dynamic/public": path.resolve(__dirname, "tests/setup/stubs/env-dynamic-public.ts"),
-  "$app/environment": path.resolve(__dirname, "tests/setup/stubs/app-environment.ts"),
+  "$app/env/private": path.resolve(__dirname, "tests/setup/stubs/env-dynamic-private.ts"),
+  "$app/env/public": path.resolve(__dirname, "tests/setup/stubs/env-dynamic-public.ts"),
+  "$app/env": path.resolve(__dirname, "tests/setup/stubs/app-environment.ts"),
   "$app/navigation": path.resolve(__dirname, "tests/setup/stubs/app-navigation.ts"),
+  "$app/server": path.resolve(__dirname, "tests/setup/stubs/app-server.ts"),
   "$app/state": path.resolve(__dirname, "tests/setup/stubs/app-state.ts"),
 };
 
 const componentAliases = [
   {
-    find: "$app/stores",
-    replacement: path.resolve(__dirname, "tests/component/web/fixtures/app-stores.ts"),
-  },
-  {
     find: "$app/forms",
     replacement: path.join(
       path.dirname(requireFromWeb.resolve("@sveltejs/kit/package.json")),
-      "src/runtime/app/forms.js",
+      "src/runtime/app/forms/index.js",
     ),
   },
   {
@@ -77,7 +74,7 @@ const componentAliases = [
 ];
 
 function svelteTestPlugin() {
-  return svelte({ configFile: path.resolve(__dirname, "apps/web/svelte.config.js") });
+  return svelte({ configFile: false, preprocess: vitePreprocess() });
 }
 
 export default defineConfig({
@@ -116,6 +113,7 @@ export default defineConfig({
         resolve: { alias: sharedAliases, dedupe: ["@sveltejs/kit"] },
         test: {
           name: "unit",
+          server: { deps: { inline: ["sveltekit-superforms"] } },
           include: ["tests/unit/**/*.test.ts"],
           globalSetup: ["tests/setup/nojv-exec.ts"],
           environment: "node",
@@ -130,7 +128,9 @@ export default defineConfig({
         },
         test: {
           name: "component",
-          server: { deps: { inline: ["bits-ui", "runed", "svelte-toolbelt"] } },
+          server: {
+            deps: { inline: ["bits-ui", "runed", "svelte-toolbelt", "sveltekit-superforms"] },
+          },
           include: ["tests/component/**/*.test.ts"],
           environment: "jsdom",
         },
@@ -158,6 +158,7 @@ export default defineConfig({
         resolve: { alias: sharedAliases, dedupe: ["@sveltejs/kit"] },
         test: {
           name: "integration",
+          server: { deps: { inline: ["sveltekit-superforms"] } },
           include: ["tests/integration/**/*.test.ts"],
           exclude: [
             "tests/integration/k8s/**/*.test.ts",

@@ -2,8 +2,8 @@
 
 import { mount, unmount } from "svelte";
 import { expect, it, vi } from "vitest";
-import MonacoScriptEditor from "$lib/components/primitives/ui/MonacoScriptEditor.svelte";
-import { MONACO_CODE_EDITOR_OPTIONS } from "$lib/utils/monaco-themes";
+import MonacoScriptEditor from "#lib/components/primitives/ui/MonacoScriptEditor.svelte";
+import { MONACO_CODE_EDITOR_OPTIONS } from "#lib/utils/monaco-themes.js";
 
 const monaco = vi.hoisted(() => {
   const editor = {
@@ -23,7 +23,7 @@ const monaco = vi.hoisted(() => {
   };
 });
 
-vi.mock("$lib/utils/monaco-loader", () => ({ loadMonaco: () => monaco }));
+vi.mock("#lib/utils/monaco-loader.js", () => ({ loadMonaco: () => monaco }));
 
 it("uses the workspace editor settings in read-only mode and follows the theme", async () => {
   const target = document.createElement("div");

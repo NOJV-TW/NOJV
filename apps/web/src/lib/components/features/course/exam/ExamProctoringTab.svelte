@@ -30,20 +30,20 @@
   import type { ExamCredentialEntry } from "@nojv/core";
   import { Popover } from "bits-ui";
   import { enhance } from "$app/forms";
-  import { m } from "$lib/paraglide/messages.js";
-  import { Badge } from "$lib/components/primitives/ui/badge";
-  import { Button, IconButton } from "$lib/components/primitives/ui/button";
-  import TableSelectColumnFilter from "$lib/components/primitives/ui/TableSelectColumnFilter.svelte";
-  import TableSortButton from "$lib/components/primitives/ui/TableSortButton.svelte";
-  import TableTextColumnFilter from "$lib/components/primitives/ui/TableTextColumnFilter.svelte";
-  import { formatDateTime } from "$lib/utils/datetime";
+  import { m } from "#lib/paraglide/messages.js";
+  import { Badge } from "#lib/components/primitives/ui/badge/index.js";
+  import { Button, IconButton } from "#lib/components/primitives/ui/button/index.js";
+  import TableSelectColumnFilter from "#lib/components/primitives/ui/TableSelectColumnFilter.svelte";
+  import TableSortButton from "#lib/components/primitives/ui/TableSortButton.svelte";
+  import TableTextColumnFilter from "#lib/components/primitives/ui/TableTextColumnFilter.svelte";
+  import { formatDateTime } from "#lib/utils/datetime.js";
   import {
     ariaSort,
     sortDirection,
     sortRows,
     toggleSort,
     type TableSort,
-  } from "$lib/utils/table-sort";
+  } from "#lib/utils/table-sort.js";
 
   interface Props {
     roster: ExamCredentialEntry[];

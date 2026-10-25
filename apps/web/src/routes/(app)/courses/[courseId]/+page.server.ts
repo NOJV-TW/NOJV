@@ -2,10 +2,10 @@ import { fail } from "@sveltejs/kit";
 import { announcementDomain, assertCourseManager, courseDomain } from "@nojv/application";
 
 import type { Actions, PageServerLoad, PageServerLoadEvent } from "./$types";
-import { requireAuth } from "$lib/server/auth";
-import { readCheckbox, readString } from "$lib/server/shared/form-utils";
-import { handleLoad } from "$lib/server/shared/load-wrapper";
-import { withAction } from "$lib/server/shared/action-handlers";
+import { requireAuth } from "#lib/server/auth.js";
+import { readCheckbox, readString } from "#lib/server/shared/form-utils.js";
+import { handleLoad } from "#lib/server/shared/load-wrapper.js";
+import { withAction } from "#lib/server/shared/action-handlers.js";
 
 const {
   listRecentAnnouncementsForCourse,

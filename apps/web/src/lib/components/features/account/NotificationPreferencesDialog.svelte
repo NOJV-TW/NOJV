@@ -1,14 +1,14 @@
 <script lang="ts">
   import { untrack } from "svelte";
-  import { invalidateAll } from "$app/navigation";
+  import { refreshAll } from "$app/navigation";
   import type { SuperValidated } from "sveltekit-superforms";
-  import { appSuperForm } from "$lib/utils/super-form";
+  import { appSuperForm } from "#lib/utils/super-form.js";
   import type { NotificationPreferences } from "@nojv/core";
-  import * as Dialog from "$lib/components/primitives/ui/dialog";
-  import ToggleSwitch from "$lib/components/primitives/ui/ToggleSwitch.svelte";
-  import { m } from "$lib/paraglide/messages.js";
-  import { toasts } from "$lib/stores/toast";
-  import type { FormMessage } from "$lib/types/form-message";
+  import * as Dialog from "#lib/components/primitives/ui/dialog/index.js";
+  import ToggleSwitch from "#lib/components/primitives/ui/ToggleSwitch.svelte";
+  import { m } from "#lib/paraglide/messages.js";
+  import { toasts } from "#lib/stores/toast.js";
+  import type { FormMessage } from "#lib/types/form-message.js";
 
   interface Props {
     open: boolean;
@@ -26,7 +26,7 @@
       onUpdated({ form }) {
         if (form.message?.kind === "success") {
           toasts.success(m.account_notifications_saved());
-          void invalidateAll();
+          void refreshAll();
           open = false;
         } else if (!form.valid) {
           toasts.error(m.account_notifications_saveFailed());

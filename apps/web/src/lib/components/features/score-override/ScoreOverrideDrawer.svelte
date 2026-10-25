@@ -1,8 +1,8 @@
 <script lang="ts">
-  import { invalidateAll } from "$app/navigation";
-  import * as Dialog from "$lib/components/primitives/ui/dialog";
-  import { Button } from "$lib/components/primitives/ui/button";
-  import { m } from "$lib/paraglide/messages.js";
+  import { refreshAll } from "$app/navigation";
+  import * as Dialog from "#lib/components/primitives/ui/dialog/index.js";
+  import { Button } from "#lib/components/primitives/ui/button/index.js";
+  import { m } from "#lib/paraglide/messages.js";
   import ScoreOverrideForm, {
     type OverrideRow,
     type ProblemOption,
@@ -11,7 +11,7 @@
   import ScoreOverrideList, { type OverrideListRow } from "./ScoreOverrideList.svelte";
   import FeedbackForm, { type FeedbackRow } from "./FeedbackForm.svelte";
   import FeedbackList, { type FeedbackListRow } from "./FeedbackList.svelte";
-  import { SkeletonTable } from "$lib/components/primitives/ui/skeleton";
+  import { SkeletonTable } from "#lib/components/primitives/ui/skeleton/index.js";
 
   interface Props {
     open: boolean;
@@ -147,7 +147,7 @@
             onedit={(r) => (editTarget = r)}
             ondelete={() => {
               void reload();
-              void invalidateAll();
+              void refreshAll();
             }}
           />
         {/if}
@@ -177,7 +177,7 @@
             onsuccess={() => {
               editTarget = null;
               void reload();
-              void invalidateAll();
+              void refreshAll();
             }}
             oncancel={editTarget ? () => (editTarget = null) : undefined}
           />
@@ -206,7 +206,7 @@
             onedit={(r) => (feedbackEditTarget = r)}
             ondelete={() => {
               void reloadFeedback();
-              void invalidateAll();
+              void refreshAll();
             }}
           />
         {/if}
@@ -244,7 +244,7 @@
             onsuccess={() => {
               feedbackEditTarget = null;
               void reloadFeedback();
-              void invalidateAll();
+              void refreshAll();
             }}
             oncancel={feedbackEditTarget ? () => (feedbackEditTarget = null) : undefined}
           />

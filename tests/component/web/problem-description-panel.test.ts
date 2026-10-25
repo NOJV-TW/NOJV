@@ -4,17 +4,17 @@ import { mount, unmount } from "svelte";
 import { describe, expect, it, vi } from "vitest";
 
 import EmptyComponent from "../../fixtures/web/empty-component.svelte";
-import ProblemDescriptionPanel from "$lib/components/features/problem/left-panel/ProblemDescriptionPanel.svelte";
-import { m } from "$lib/paraglide/messages.js";
+import ProblemDescriptionPanel from "#lib/components/features/problem/left-panel/ProblemDescriptionPanel.svelte";
+import { m } from "#lib/paraglide/messages.js";
 
 vi.mock("@lucide/svelte", () => ({ MemoryStick: EmptyComponent, Timer: EmptyComponent }));
-vi.mock("$lib/components/features/problem/left-panel/SpecialLabels.svelte", () => ({
+vi.mock("#lib/components/features/problem/left-panel/SpecialLabels.svelte", () => ({
   default: EmptyComponent,
 }));
-vi.mock("$lib/components/features/problem/listings/BookmarkButton.svelte", () => ({
+vi.mock("#lib/components/features/problem/listings/BookmarkButton.svelte", () => ({
   default: EmptyComponent,
 }));
-vi.mock("$lib/components/primitives/ui/CopyButton.svelte", () => ({
+vi.mock("#lib/components/primitives/ui/CopyButton.svelte", () => ({
   default: EmptyComponent,
 }));
 

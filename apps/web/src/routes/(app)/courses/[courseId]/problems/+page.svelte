@@ -6,12 +6,12 @@
   import Plus from "@lucide/svelte/icons/plus";
   import Search from "@lucide/svelte/icons/search";
   import Trash2 from "@lucide/svelte/icons/trash-2";
-  import { m } from "$lib/paraglide/messages.js";
-  import { Button } from "$lib/components/primitives/ui/button";
-  import PageContainer from "$lib/components/primitives/layout/PageContainer.svelte";
+  import { m } from "#lib/paraglide/messages.js";
+  import { Button } from "#lib/components/primitives/ui/button/index.js";
+  import PageContainer from "#lib/components/primitives/layout/PageContainer.svelte";
   import ProblemSelectDialog, {
     type CandidateProblem,
-  } from "$lib/components/features/problem/ProblemSelectDialog.svelte";
+  } from "#lib/components/features/problem/ProblemSelectDialog.svelte";
   import type { ActionData, PageData } from "./$types";
 
   let { data, form }: { data: PageData; form: ActionData } = $props();

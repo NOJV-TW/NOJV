@@ -1,5 +1,5 @@
-import { browser } from "$app/environment";
-import { syncServerClock } from "$lib/utils/datetime.js";
+import { browser } from "$app/env";
+import { syncServerClock } from "#lib/utils/datetime.js";
 import type { LayoutLoad } from "./$types";
 
 export const load: LayoutLoad = ({ data }) => {

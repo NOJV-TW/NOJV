@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { m } from "$lib/paraglide/messages.js";
-  import { diffMs, fmtCountdown, serverNow } from "$lib/utils/datetime.js";
+  import { m } from "#lib/paraglide/messages.js";
+  import { diffMs, fmtCountdown, serverNow } from "#lib/utils/datetime.js";
 
   interface Props {
     iso: string;

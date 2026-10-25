@@ -1,11 +1,11 @@
 <script lang="ts">
   import "../app.css";
-  import { m } from "$lib/paraglide/messages.js";
-  import ToastProvider from "$lib/components/primitives/ui/ToastProvider.svelte";
+  import { m } from "#lib/paraglide/messages.js";
+  import ToastProvider from "#lib/components/primitives/ui/ToastProvider.svelte";
   import { onNavigate } from "$app/navigation";
   import { navigating } from "$app/state";
   import { onMount } from "svelte";
-  import { initializeGoogleAnalytics } from "$lib/analytics";
+  import { initializeGoogleAnalytics } from "#lib/analytics.js";
 
   let { children } = $props();
 
@@ -25,6 +25,8 @@
   });
 
   onNavigate((navigation) => {
+    if (navigation.shallow && navigation.type === "goto") return;
+
     if (
       !document.startViewTransition ||
       navigation.to?.route.id === navigation.from?.route.id

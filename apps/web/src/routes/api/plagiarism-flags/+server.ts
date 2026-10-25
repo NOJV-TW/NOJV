@@ -1,15 +1,13 @@
-import { json } from "@sveltejs/kit";
-
 import type { RequestHandler } from "./$types";
 
-import { requireApiAuth } from "$lib/server/auth";
+import { requireApiAuth } from "#lib/server/auth.js";
 import { plagiarismDomain } from "@nojv/application";
 import { plagiarismFlagCreateSchema } from "@nojv/core";
 import {
   writeApiHandler,
   assertJsonBodyWithinLimit,
   readJsonBody,
-} from "$lib/server/shared/api-handler";
+} from "#lib/server/shared/api-handler.js";
 
 const { flagPair, buildPairKey } = plagiarismDomain;
 
@@ -28,5 +26,5 @@ export const POST: RequestHandler = writeApiHandler(async (event) => {
     note: parsed.note ?? null,
   });
 
-  return json({ flag });
+  return Response.json({ flag });
 });

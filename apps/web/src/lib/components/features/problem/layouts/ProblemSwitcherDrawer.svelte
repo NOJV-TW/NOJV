@@ -2,8 +2,8 @@
   import { fade, fly } from "svelte/transition";
   import { cubicOut } from "svelte/easing";
 
-  import { m } from "$lib/paraglide/messages.js";
-  import { trapFocus } from "$lib/utils/focus-trap";
+  import { m } from "#lib/paraglide/messages.js";
+  import { trapFocus } from "#lib/utils/focus-trap.js";
   import type { ProblemSolveSibling } from "../views/ProblemSolveView.svelte";
 
   interface Props {

@@ -1,4 +1,4 @@
-import { requireAuth } from "$lib/server/auth";
+import { requireAuth } from "#lib/server/auth.js";
 import { platformDomain, userDomain } from "@nojv/application";
 
 import type { PageServerLoad } from "./$types";

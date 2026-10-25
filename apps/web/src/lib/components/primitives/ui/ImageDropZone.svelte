@@ -1,8 +1,8 @@
 <script lang="ts">
   import { Eye, ImagePlus, Link, Pencil } from "@lucide/svelte";
-  import { m } from "$lib/paraglide/messages.js";
-  import MarkdownRenderer from "$lib/components/primitives/layout/MarkdownRenderer.svelte";
-  import { readImageUploadUrl } from "$lib/utils/image-upload-response";
+  import { m } from "#lib/paraglide/messages.js";
+  import MarkdownRenderer from "#lib/components/primitives/layout/MarkdownRenderer.svelte";
+  import { readImageUploadUrl } from "#lib/utils/image-upload-response.js";
 
   let {
     problemId,

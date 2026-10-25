@@ -4,7 +4,7 @@ import {
   defineNojvThemes,
   getNojvThemeName,
   watchThemeChanges,
-} from "$lib/utils/monaco-themes";
+} from "#lib/utils/monaco-themes.js";
 
 export interface PlagiarismDiffSources {
   original: string;

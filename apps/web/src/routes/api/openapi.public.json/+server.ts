@@ -1,8 +1,7 @@
-import { json } from "@sveltejs/kit";
 import type { RequestHandler } from "./$types";
 
-import { tokenOpenApiDocument } from "$lib/server/openapi/token-document";
+import { tokenOpenApiDocument } from "#lib/server/openapi/token-document.js";
 
 export const GET: RequestHandler = ({ url }) => {
-  return json({ ...tokenOpenApiDocument, servers: [{ url: url.origin }] });
+  return Response.json({ ...tokenOpenApiDocument, servers: [{ url: url.origin }] });
 };

@@ -1,17 +1,16 @@
-import { json } from "@sveltejs/kit";
 import type { RequestEvent } from "@sveltejs/kit";
 import { postCommentSubmitSchema } from "@nojv/core";
 
 import type { RequestHandler } from "./$types";
 
-import { requireApiAuth } from "$lib/server/auth";
+import { requireApiAuth } from "#lib/server/auth.js";
 import {
   apiHandler,
   writeApiHandler,
   assertJsonBodyWithinLimit,
   readJsonBody,
-} from "$lib/server/shared/api-handler";
-import { requireViewablePost } from "$lib/server/post-access";
+} from "#lib/server/shared/api-handler.js";
+import { requireViewablePost } from "#lib/server/post-access.js";
 import { postDomain, HttpError } from "@nojv/application";
 
 const { addComment, listComments } = postDomain;
@@ -28,7 +27,7 @@ export const GET: RequestHandler = apiHandler(async (event) => {
 
   await requireViewablePost(id, actor);
   const comments = await listComments(id);
-  return json(comments);
+  return Response.json(comments);
 });
 
 export const POST: RequestHandler = writeApiHandler(async (event) => {
@@ -42,5 +41,5 @@ export const POST: RequestHandler = writeApiHandler(async (event) => {
     parentId: payload.parentId ?? null,
   });
 
-  return json(comment, { status: 201 });
+  return Response.json(comment, { status: 201 });
 });

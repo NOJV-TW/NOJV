@@ -2,10 +2,10 @@
 
 import { mount, tick, unmount } from "svelte";
 import { afterEach, expect, it, vi } from "vitest";
-import type { ProblemDetail } from "$lib/types";
-import { m } from "$lib/paraglide/messages.js";
+import type { ProblemDetail } from "#lib/types/index.js";
+import { m } from "#lib/paraglide/messages.js";
 
-type Prepared = import("$lib/services/judge-program").PreparedJudgeProgram;
+type Prepared = import("#lib/services/judge-program.js").PreparedJudgeProgram;
 
 const mocks = vi.hoisted(() => ({
   prepare: vi.fn<(request: { signal: AbortSignal }) => Promise<Prepared>>(),
@@ -13,16 +13,16 @@ const mocks = vi.hoisted(() => ({
   runCases: vi.fn(),
   check: vi.fn(),
 }));
-vi.mock("$lib/services/browser-local-run", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("$lib/services/browser-local-run")>()),
+vi.mock("#lib/services/browser-local-run.js", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("#lib/services/browser-local-run.js")>()),
   prewarmBrowserLocalEngine: () => Promise.resolve(),
   preloadBrowserToolchain: () => Promise.resolve(),
   compileBrowserLocally: mocks.compile,
   runBrowserCases: mocks.runCases,
   runBrowserChecker: mocks.check,
 }));
-vi.mock("$lib/services/judge-program", () => ({ prepareJudgeProgram: mocks.prepare }));
-vi.mock("$lib/components/features/problem/editors/use-draft.svelte", () => ({
+vi.mock("#lib/services/judge-program.js", () => ({ prepareJudgeProgram: mocks.prepare }));
+vi.mock("#lib/components/features/problem/editors/use-draft.svelte.js", () => ({
   createDraftController: () => ({
     save: vi.fn(),
     hydrate: vi.fn(),
@@ -30,22 +30,22 @@ vi.mock("$lib/components/features/problem/editors/use-draft.svelte", () => ({
     dispose: vi.fn(),
   }),
 }));
-vi.mock("$lib/components/features/problem/editors/EditorTopBar.svelte", async () => ({
+vi.mock("#lib/components/features/problem/editors/EditorTopBar.svelte", async () => ({
   default: (await import("./fixtures/editor-top-bar-stub.svelte")).default,
 }));
-vi.mock("$lib/components/features/problem/editors/EditorCore.svelte", async () => ({
+vi.mock("#lib/components/features/problem/editors/EditorCore.svelte", async () => ({
   default: (await import("../../fixtures/web/empty-component.svelte")).default,
 }));
-vi.mock("$lib/components/features/problem/editors/StudentProblemView.svelte", async () => ({
+vi.mock("#lib/components/features/problem/editors/StudentProblemView.svelte", async () => ({
   default: (await import("../../fixtures/web/empty-component.svelte")).default,
 }));
-vi.mock("$lib/components/features/problem/editors/EditorResizeHandle.svelte", async () => ({
+vi.mock("#lib/components/features/problem/editors/EditorResizeHandle.svelte", async () => ({
   default: (await import("../../fixtures/web/empty-component.svelte")).default,
 }));
-vi.mock("$lib/components/primitives/ui/ConfirmDialog.svelte", async () => ({
+vi.mock("#lib/components/primitives/ui/ConfirmDialog.svelte", async () => ({
   default: (await import("../../fixtures/web/empty-component.svelte")).default,
 }));
-import Editor from "$lib/components/features/problem/editors/Editor.svelte";
+import Editor from "#lib/components/features/problem/editors/Editor.svelte";
 
 let component: ReturnType<typeof mount> | undefined;
 let target: HTMLDivElement;

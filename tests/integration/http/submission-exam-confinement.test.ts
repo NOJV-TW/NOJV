@@ -20,7 +20,7 @@ import {
 } from "../../fixtures/factories";
 import { callRoute } from "./_harness";
 
-vi.mock("$lib/auth.server", () => ({
+vi.mock("#lib/auth.server.js", () => ({
   getAuth: () => ({
     api: {
       getSession: async ({ headers }: { headers: Headers }) => {
@@ -39,7 +39,7 @@ vi.mock("$lib/auth.server", () => ({
   }),
 }));
 
-vi.mock("$lib/server/env", () => ({
+vi.mock("#lib/server/env.js", () => ({
   getWebEnv: () => ({ NODE_ENV: "development" }),
 }));
 

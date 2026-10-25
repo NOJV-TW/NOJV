@@ -1,9 +1,9 @@
 <script lang="ts">
   import type { SuperForm } from "sveltekit-superforms";
   import type { ExamSettingsForm } from "@nojv/core";
-  import type { FormMessage } from "$lib/types/form-message";
-  import { inputClassName } from "$lib/utils/css";
-  import { m } from "$lib/paraglide/messages.js";
+  import type { FormMessage } from "#lib/types/form-message.js";
+  import { inputClassName } from "#lib/utils/css.js";
+  import { m } from "#lib/paraglide/messages.js";
 
   type Sf = SuperForm<ExamSettingsForm, FormMessage>;
 

@@ -9,10 +9,10 @@ import {
   securityGenerationProof,
 } from "@nojv/application";
 
-import { requireAuth } from "$lib/server/auth";
-import { verifyStepUpCode } from "$lib/server/step-up";
-import { withRateLimit } from "$lib/server/shared/action-handlers";
-import { stepUpAttemptRateLimiter } from "$lib/server/shared/rate-limiter";
+import { requireAuth } from "#lib/server/auth.js";
+import { verifyStepUpCode } from "#lib/server/step-up.js";
+import { withRateLimit } from "#lib/server/shared/action-handlers.js";
+import { stepUpAttemptRateLimiter } from "#lib/server/shared/rate-limiter.js";
 
 const ADMIN_MODE_PURPOSE = "admin-mode";
 const DEFAULT_DESTINATION = "/account/api-tokens";

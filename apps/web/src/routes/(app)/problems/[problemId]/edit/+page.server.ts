@@ -18,18 +18,18 @@ import { message, superValidate } from "sveltekit-superforms";
 import { zod4 } from "sveltekit-superforms/adapters";
 import { z } from "zod";
 import type { Actions, PageServerLoad, PageServerLoadEvent } from "./$types";
-import { requireAuth, type CompletedActorContext } from "$lib/server/auth";
-import { withAction } from "$lib/server/shared/action-handlers";
-import { classifyRequestError } from "$lib/server/shared/handle-action-error";
-import { handleLoad } from "$lib/server/shared/load-wrapper";
-import { parseJsonField, readStringField } from "$lib/server/shared/form-utils";
+import { requireAuth, type CompletedActorContext } from "#lib/server/auth.js";
+import { withAction } from "#lib/server/shared/action-handlers.js";
+import { classifyRequestError } from "#lib/server/shared/handle-action-error.js";
+import { handleLoad } from "#lib/server/shared/load-wrapper.js";
+import { parseJsonField, readStringField } from "#lib/server/shared/form-utils.js";
 import {
   allowedImageRegistries,
   buildAdvancedConfigFromInput,
   createAdvancedImageConfigInputSchema,
-} from "$lib/server/advanced-image-config";
-import { getWebEnv } from "$lib/server/env";
-import type { FormMessage } from "$lib/types/form-message";
+} from "#lib/server/advanced-image-config.js";
+import { getWebEnv } from "#lib/server/env.js";
+import type { FormMessage } from "#lib/types/form-message.js";
 import { problemDomain, registryDomain } from "@nojv/application";
 
 const {

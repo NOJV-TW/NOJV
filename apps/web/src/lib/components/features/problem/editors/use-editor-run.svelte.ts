@@ -7,14 +7,14 @@ import type {
   SubmissionRunCase,
 } from "@nojv/core";
 import type { BuildArtifact } from "@wasm-oj/browser";
-import { m } from "$lib/paraglide/messages.js";
+import { m } from "#lib/paraglide/messages.js";
 import {
   submissionRequestValidationError,
   SubmissionRequestError,
   type SubmissionRequest,
-} from "$lib/services/submission-service";
-import { submitProblem } from "$lib/services/problem-submission";
-import { toasts } from "$lib/stores/toast";
+} from "#lib/services/submission-service.js";
+import { submitProblem } from "#lib/services/problem-submission.js";
+import { toasts } from "#lib/stores/toast.js";
 import {
   browserCaseResult,
   browserLocalErrorResult,
@@ -27,9 +27,9 @@ import {
   runBrowserInteraction,
   runBrowserLocally,
   supportsBrowserLocalRun,
-} from "$lib/services/browser-local-run";
-import type { PreparedJudgeProgram } from "$lib/services/judge-program";
-import type { ProblemDetail, TestCaseView, TestRunResult } from "$lib/types";
+} from "#lib/services/browser-local-run.js";
+import type { PreparedJudgeProgram } from "#lib/services/judge-program.js";
+import type { ProblemDetail, TestCaseView, TestRunResult } from "#lib/types/index.js";
 import {
   buildSubmissionRequest,
   projectRunCasesForRequest,

@@ -1,17 +1,16 @@
-import { json } from "@sveltejs/kit";
 import type { RequestEvent } from "@sveltejs/kit";
 import { postUpdateSchema } from "@nojv/core";
 
 import type { RequestHandler } from "./$types";
 
-import { requireApiAuth } from "$lib/server/auth";
+import { requireApiAuth } from "#lib/server/auth.js";
 import {
   apiHandler,
   writeApiHandler,
   assertJsonBodyWithinLimit,
   readJsonBody,
-} from "$lib/server/shared/api-handler";
-import { requireViewablePost } from "$lib/server/post-access";
+} from "#lib/server/shared/api-handler.js";
+import { requireViewablePost } from "#lib/server/post-access.js";
 import { postDomain, HttpError } from "@nojv/application";
 
 const { updatePost, softDeletePost } = postDomain;
@@ -27,7 +26,7 @@ export const GET: RequestHandler = apiHandler(async (event) => {
   const id = requireId(event);
 
   const post = await requireViewablePost(id, actor);
-  return json(post);
+  return Response.json(post);
 });
 
 export const PATCH: RequestHandler = writeApiHandler(async (event) => {
@@ -41,7 +40,7 @@ export const PATCH: RequestHandler = writeApiHandler(async (event) => {
   if (payload.content !== undefined) input.content = payload.content;
 
   const updated = await updatePost(actor, id, input);
-  return json(updated);
+  return Response.json(updated);
 });
 
 export const DELETE: RequestHandler = writeApiHandler(async (event) => {

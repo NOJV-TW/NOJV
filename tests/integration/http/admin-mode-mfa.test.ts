@@ -14,7 +14,7 @@ import { getRedis, keys } from "@nojv/redis";
 import { createTestUser, testPrisma } from "../../fixtures/factories";
 import { callRoute } from "./_harness";
 
-vi.mock("$lib/auth.server", () => ({
+vi.mock("#lib/auth.server.js", () => ({
   getAuth: () => ({
     api: {
       getSession: async ({ headers }: { headers: Headers }) => {
@@ -31,7 +31,7 @@ vi.mock("$lib/auth.server", () => ({
 }));
 
 const sessionId = "test-session";
-const adminModeRoute = await import("$lib/../routes/api/admin-mode/+server");
+const adminModeRoute = await import("../../../apps/web/src/routes/api/admin-mode/+server.js");
 const inspectAccess: RequestHandler = (event) =>
   new Response(JSON.stringify({ active: event.locals.adminAccessActive }));
 
@@ -190,7 +190,7 @@ describe("admin access", () => {
 
   it("rejects a verification handoff created before a role-generation change", async () => {
     const { userDomain } = await import("@nojv/application");
-    const { STEP_UP_HANDOFF_COOKIE } = await import("$lib/server/step-up-handoff");
+    const { STEP_UP_HANDOFF_COOKIE } = await import("#lib/server/step-up-handoff.js");
     const user = await createTestUser({ platformRole: "admin" });
     const ticket = await createStepUpHandoffTicket(await currentProof(user.id));
     await userDomain.updateUserRole(true, user.id, "teacher");

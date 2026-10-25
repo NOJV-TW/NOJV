@@ -1,6 +1,6 @@
 <script lang="ts">
   import { supportedLanguages, type Language } from "@nojv/core";
-  import { m } from "$lib/paraglide/messages.js";
+  import { m } from "#lib/paraglide/messages.js";
   import type { WorkspaceMode } from "./WorkspaceModeSection.svelte";
 
   interface Props {

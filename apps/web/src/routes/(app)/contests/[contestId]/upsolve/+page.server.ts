@@ -1,6 +1,6 @@
 import type { PageServerLoad, PageServerLoadEvent } from "./$types";
-import { requireAuth } from "$lib/server/auth";
-import { handleLoad } from "$lib/server/shared/load-wrapper";
+import { requireAuth } from "#lib/server/auth.js";
+import { handleLoad } from "#lib/server/shared/load-wrapper.js";
 import { contestDomain } from "@nojv/application";
 
 const { getUpsolveView } = contestDomain;

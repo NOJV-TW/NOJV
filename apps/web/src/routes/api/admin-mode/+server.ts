@@ -5,12 +5,11 @@ import {
   grantAdminMode,
 } from "@nojv/application";
 import { adminModeRequestSchema } from "@nojv/core";
-import { json } from "@sveltejs/kit";
 
 import type { RequestHandler } from "./$types";
 
-import { requireApiAuth } from "$lib/server/auth";
-import { writeApiHandler, readJsonBody } from "$lib/server/shared/api-handler";
+import { requireApiAuth } from "#lib/server/auth.js";
+import { writeApiHandler, readJsonBody } from "#lib/server/shared/api-handler.js";
 
 export const POST: RequestHandler = writeApiHandler(async (event) => {
   requireApiAuth(event);
@@ -26,13 +25,13 @@ export const POST: RequestHandler = writeApiHandler(async (event) => {
   }
   if (!active) {
     await exitAdminMode(sessionId);
-    return json({ active: false });
+    return Response.json({ active: false });
   }
   if (sessionUser.platformRole !== "admin") {
     throw new HttpError("Admin mode is not available for this account.", 403);
   }
   if (!(await grantAdminMode(sessionId, adminAccessPrincipal(sessionUser)))) {
-    return json({ active: false, verificationRequired: true });
+    return Response.json({ active: false, verificationRequired: true });
   }
-  return json({ active: true });
+  return Response.json({ active: true });
 });

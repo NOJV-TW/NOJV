@@ -3,11 +3,11 @@
 import { mount, tick, unmount } from "svelte";
 import { writable } from "svelte/store";
 import { assessmentSettingsFormSchema } from "@nojv/core";
-import AssignmentBasicSection from "$lib/components/features/course/assignment/AssignmentBasicSection.svelte";
+import AssignmentBasicSection from "#lib/components/features/course/assignment/AssignmentBasicSection.svelte";
 import axe from "axe-core";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { m } from "$lib/paraglide/messages.js";
-import LateSubmissionFields from "$lib/components/features/course/LateSubmissionFields.svelte";
+import { m } from "#lib/paraglide/messages.js";
+import LateSubmissionFields from "#lib/components/features/course/LateSubmissionFields.svelte";
 
 let target: HTMLDivElement;
 let component: ReturnType<typeof mount>;

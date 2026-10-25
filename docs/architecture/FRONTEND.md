@@ -13,7 +13,20 @@
 - `apps/web/src/lib/services/` — client submission tracker, draft sync, `fetchWithCsrf`, browser-local run, judge-program preparation
 - `apps/web/src/lib/stores/` — toast, SSE, notifications, clarifications, theme, code drafts
 - `apps/web/src/lib/components/{primitives,features/<domain>}/` — domain-agnostic vs domain UI
-- `apps/web/svelte.config.js` — CSP, CSRF origin setting; `apps/web/messages/{en,zh-TW}.json` — UI strings
+- `apps/web/vite.config.ts` — CSP, CSRF origin setting; `apps/web/messages/{en,zh-TW}.json` — UI strings
+
+## Framework configuration
+
+SvelteKit v3 and adapter-node v6 are configured in `apps/web/vite.config.ts`.
+Internal imports use the native `#lib/*` package imports with explicit extensions.
+`src/env.ts` declares runtime environment exports; the existing server Zod schema
+validates private settings. Navigation uses `refreshAll`, `reset` and `replace`;
+unknown return destinations use full browser navigation. Expected framework errors
+retain their safe status/message, while unexpected server errors are sanitized.
+
+The Helm web deployment sets `PROTOCOL_HEADER=x-forwarded-proto`; the trusted
+TLS-terminating proxy must overwrite that header and preserve Host. The image has
+no build-time origin, so one artifact can run at each environment's public address.
 
 ## Route groups
 
@@ -115,12 +128,12 @@ The HTTP API reference is the OpenAPI document (`/api/openapi.public.json`, `/ap
 
 ## Request pipeline
 
-`handle` in `hooks.server.ts` runs in this order; importing `$lib/server/otel` must stay first.
+`handle` in `hooks.server.ts` runs in this order; importing `#lib/server/otel` must stay first.
 
 1. Assign `x-request-id` (valid incoming id or UUID). Reject a parsed pathname starting with `//` with 400 before authentication or route resolution (SEC-16). `/api/livez`, `/api/readyz`, `/api/release` resolve immediately.
 2. Strip a `/zh-TW` path prefix for path-based checks.
 3. Bearer API token: only routes allowed by `apiTokenDomain.findApiTokenRouteRule`, else 403 (SEC-07).
-4. CSRF (`enforceCsrf`): for non-GET/HEAD/OPTIONS, form content types must be same-origin (Origin required); `/api/**` additionally rejects a foreign Origin and, outside `/api/auth`, requires `X-Requested-With: fetch` (`fetchWithCsrf` sets it). Token-authenticated allowed routes and `/api/registry/token` are exempt. SvelteKit's own origin check is disabled in `svelte.config.js` for the registry endpoint.
+4. CSRF (`enforceCsrf`): for non-GET/HEAD/OPTIONS, form content types must be same-origin (Origin required); `/api/**` additionally rejects a foreign Origin and, outside `/api/auth`, requires `X-Requested-With: fetch` (`fetchWithCsrf` sets it). Token-authenticated allowed routes and `/api/registry/token` are exempt. SvelteKit's own origin check is disabled in `vite.config.ts` for the registry endpoint.
 5. `/api/auth/**`: auth rate limit; password and exam-password sign-in limits; then resolve.
 6. Load the session; exam-password sessions cannot manage account security.
 7. Consume step-up handoff; disabled accounts are signed out (`/signin?error=account-disabled`); users without a username go to `/complete-profile`.

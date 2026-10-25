@@ -5,7 +5,7 @@ import {
   JSON_BODY_LIMIT_BYTES,
   readJsonBody,
   readFormData,
-} from "$lib/server/shared/api-handler";
+} from "#lib/server/shared/api-handler.js";
 
 function eventWithContentLength(value: string | null) {
   return {

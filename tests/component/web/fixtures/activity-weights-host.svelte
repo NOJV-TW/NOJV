@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { ActivityProblem } from "@nojv/core";
-  import ActivityWeights from "$lib/components/features/course/ActivityWeights.svelte";
+  import ActivityWeights from "#lib/components/features/course/ActivityWeights.svelte";
 
   let problems = $state<ActivityProblem[]>([]);
 

@@ -5,11 +5,11 @@ import {
   type SecurityGenerationProof,
 } from "@nojv/application";
 
-import { getAuth } from "$lib/auth.server";
+import { getAuth } from "#lib/auth.server.js";
 import {
   factorMutationPath,
   runInternalFactorMutation,
-} from "$lib/server/auth-factor-mutation";
+} from "#lib/server/auth-factor-mutation.js";
 
 export async function verifyTotpStepUp(code: string, headers: Headers): Promise<boolean> {
   try {

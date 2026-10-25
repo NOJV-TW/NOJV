@@ -1,7 +1,7 @@
 import type { ProblemPostType } from "@nojv/core";
 import { postDomain, NotFoundError } from "@nojv/application";
 
-import { type CompletedActorContext } from "$lib/server/auth";
+import { type CompletedActorContext } from "#lib/server/auth.js";
 
 const { assertCanInteractWithPosts, getPostById } = postDomain;
 

@@ -1,7 +1,7 @@
 <script lang="ts">
-  import * as Dialog from "$lib/components/primitives/ui/dialog";
-  import { Button, buttonVariants } from "$lib/components/primitives/ui/button";
-  import { m } from "$lib/paraglide/messages.js";
+  import * as Dialog from "#lib/components/primitives/ui/dialog/index.js";
+  import { Button, buttonVariants } from "#lib/components/primitives/ui/button/index.js";
+  import { m } from "#lib/paraglide/messages.js";
 
   interface Props {
     open: boolean;

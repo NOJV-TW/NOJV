@@ -26,11 +26,11 @@ import {
 } from "@nojv/application";
 
 import type { Actions, PageServerLoad, PageServerLoadEvent, RequestEvent } from "./$types";
-import { getCoursePermissionRole, requireAuth } from "$lib/server/auth";
-import { classifyRequestError } from "$lib/server/shared/handle-action-error";
-import { withAction } from "$lib/server/shared/action-handlers";
-import { handleLoad } from "$lib/server/shared/load-wrapper";
-import type { FormMessage } from "$lib/types/form-message";
+import { getCoursePermissionRole, requireAuth } from "#lib/server/auth.js";
+import { classifyRequestError } from "#lib/server/shared/handle-action-error.js";
+import { withAction } from "#lib/server/shared/action-handlers.js";
+import { handleLoad } from "#lib/server/shared/load-wrapper.js";
+import type { FormMessage } from "#lib/types/form-message.js";
 
 const { createExamRecord } = examDomain;
 const { listCourseProblemPickerGroups } = courseDomain;

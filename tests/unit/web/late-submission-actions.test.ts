@@ -5,12 +5,12 @@ const mocks = vi.hoisted(() => ({
   updateExam: vi.fn(),
   updateAssignment: vi.fn(),
 }));
-vi.mock("$lib/server/shared/rate-limiter", () => ({
+vi.mock("#lib/server/shared/rate-limiter.js", () => ({
   consumeFormRateLimitInternal: async () => null,
 }));
-vi.mock("$lib/server/logger", () => ({ createLogger: () => ({ error: vi.fn() }) }));
-vi.mock("$lib/server/auth", async (original) => ({
-  ...(await original<typeof import("$lib/server/auth")>()),
+vi.mock("#lib/server/logger.js", () => ({ createLogger: () => ({ error: vi.fn() }) }));
+vi.mock("#lib/server/auth.js", async (original) => ({
+  ...(await original<typeof import("#lib/server/auth.js")>()),
   getCoursePermissionRole: async () => "teacher",
 }));
 vi.mock("sveltekit-superforms", async () => {

@@ -10,7 +10,7 @@
   import { untrack } from "svelte";
   import ActivityWeights from "../ActivityWeights.svelte";
   import { deserialize } from "$app/forms";
-  import { beforeNavigate, invalidateAll } from "$app/navigation";
+  import { beforeNavigate, refreshAll } from "$app/navigation";
   import GripVertical from "@lucide/svelte/icons/grip-vertical";
   import Eye from "@lucide/svelte/icons/eye";
   import Plus from "@lucide/svelte/icons/plus";
@@ -19,14 +19,14 @@
   import Trash2 from "@lucide/svelte/icons/trash-2";
   import { problemLetter } from "@nojv/core";
 
-  import { m } from "$lib/paraglide/messages.js";
-  import RejudgeDialog from "$lib/components/features/problem/admin/RejudgeDialog.svelte";
+  import { m } from "#lib/paraglide/messages.js";
+  import RejudgeDialog from "#lib/components/features/problem/admin/RejudgeDialog.svelte";
   import ProblemSelectDialog, {
     type CandidateProblem as PickerCandidate,
-  } from "$lib/components/features/problem/ProblemSelectDialog.svelte";
-  import { Button } from "$lib/components/primitives/ui/button";
-  import { cn } from "$lib/utils/css";
-  import { moveItem } from "$lib/utils/reorder";
+  } from "#lib/components/features/problem/ProblemSelectDialog.svelte";
+  import { Button } from "#lib/components/primitives/ui/button/index.js";
+  import { cn } from "#lib/utils/css.js";
+  import { moveItem } from "#lib/utils/reorder.js";
 
   interface Props {
     problems: ProblemsTabProblem[];
@@ -99,7 +99,8 @@
       JSON.stringify(problems.map(({ problemId, points }) => ({ problemId, points }))),
   );
 
-  beforeNavigate(({ cancel }) => {
+  beforeNavigate(({ cancel, shallow, type }) => {
+    if (shallow && type === "goto") return;
     if (hasChanges && !confirm(m.admin_unsavedChangesMessage())) cancel();
   });
 
@@ -185,7 +186,7 @@
           : `Save failed (${res.status})`;
       return;
     }
-    await invalidateAll();
+    await refreshAll();
   }
 
   function closeRejudgeDialog(open: boolean) {
@@ -283,9 +284,8 @@
               title={m.rejudge_problem_admin_button()}
               class="hover:bg-transparent"
               onclick={() => (rejudgeProblemId = problem.problemId)}
+              ><RotateCcw class="size-4" aria-hidden="true" /></Button
             >
-              <RotateCcw class="size-4" aria-hidden="true" />
-            </Button>
           {/if}
         </div>
       {/each}
@@ -352,9 +352,8 @@
                   title={m.rejudge_problem_admin_button()}
                   class="hover:bg-transparent"
                   onclick={() => (rejudgeProblemId = row.problemId)}
+                  ><RotateCcw class="size-4" aria-hidden="true" /></Button
                 >
-                  <RotateCcw class="size-4" aria-hidden="true" />
-                </Button>
               {/if}
               <Button
                 href={`/assignments/${assignmentId}/problems/${row.problemId}`}

@@ -1,8 +1,8 @@
 <script lang="ts">
   import X from "@lucide/svelte/icons/x";
   import type { JudgeType } from "@nojv/core";
-  import { inputClassName, monoTextareaClassName } from "$lib/utils/css";
-  import { m } from "$lib/paraglide/messages.js";
+  import { inputClassName, monoTextareaClassName } from "#lib/utils/css.js";
+  import { m } from "#lib/paraglide/messages.js";
 
   interface Sample {
     input: string;

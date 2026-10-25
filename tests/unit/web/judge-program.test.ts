@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { prepareJudgeProgram } from "$lib/services/judge-program";
+import { prepareJudgeProgram } from "#lib/services/judge-program.js";
 
 type CompileInput = {
   language: string;
@@ -27,8 +27,8 @@ vi.mock("../../../apps/web/node_modules/@wasm-oj/browser", async (importOriginal
   ...(await importOriginal<typeof import("../../../apps/web/node_modules/@wasm-oj/browser")>()),
   createBrowserEngine: vi.fn().mockResolvedValue(fakes.engine),
 }));
-vi.mock("$lib/services/browser-local-run", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("$lib/services/browser-local-run")>()),
+vi.mock("#lib/services/browser-local-run.js", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("#lib/services/browser-local-run.js")>()),
   preloadBrowserToolchain: fakes.preload,
 }));
 

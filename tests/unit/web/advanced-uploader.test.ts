@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { MAX_SUBMISSION_SOURCE_FILE_CHARS } from "@nojv/core";
-import { stageUploadedFile } from "$lib/components/features/problem/advanced/AdvancedUploader.svelte";
+import { stageUploadedFile } from "#lib/components/features/problem/advanced/AdvancedUploader.svelte";
 
 describe("AdvancedUploader submission limits", () => {
   it("accepts the server's exact per-file limit", async () => {

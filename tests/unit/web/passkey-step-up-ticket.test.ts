@@ -21,7 +21,7 @@ vi.mock("@nojv/application", () => ({
   unlockSecuritySettings: unlockSecuritySettingsMock,
 }));
 
-import { consumeStepUpHandoff, STEP_UP_HANDOFF_COOKIE } from "$lib/server/step-up-handoff";
+import { consumeStepUpHandoff, STEP_UP_HANDOFF_COOKIE } from "#lib/server/step-up-handoff.js";
 
 function event(input?: {
   cookie?: string;

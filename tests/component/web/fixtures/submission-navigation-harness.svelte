@@ -1,6 +1,6 @@
 <script lang="ts">
-  import type { ProblemDetail, ProblemSubmissionEntry } from "$lib/types";
-  import ProblemSolveView from "$lib/components/features/problem/views/ProblemSolveView.svelte";
+  import type { ProblemDetail, ProblemSubmissionEntry } from "#lib/types/index.js";
+  import ProblemSolveView from "#lib/components/features/problem/views/ProblemSolveView.svelte";
   let {
     load,
     advanced = false,

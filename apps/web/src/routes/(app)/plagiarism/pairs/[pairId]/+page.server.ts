@@ -10,9 +10,9 @@ import {
   type plagiarismDomain,
 } from "@nojv/application";
 
-import { isCourseManager, requireAuth, type CompletedActorContext } from "$lib/server/auth";
-import { handleLoad } from "$lib/server/shared/load-wrapper";
-import { loadPlagiarismPair } from "$lib/server/plagiarism-pair";
+import { isCourseManager, requireAuth, type CompletedActorContext } from "#lib/server/auth.js";
+import { handleLoad } from "#lib/server/shared/load-wrapper.js";
+import { loadPlagiarismPair } from "#lib/server/plagiarism-pair.js";
 
 const { getCourseHeaderById } = courseDomain;
 const { getContestDetail } = contestDomain;

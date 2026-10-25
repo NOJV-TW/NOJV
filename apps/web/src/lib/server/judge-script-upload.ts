@@ -1,8 +1,8 @@
-import { error, json, type RequestEvent } from "@sveltejs/kit";
+import { error, type RequestEvent } from "@sveltejs/kit";
 import { problemDomain } from "@nojv/application";
 import { judgeScriptLanguageSchema } from "@nojv/core";
 
-import { requireApiAuth } from "$lib/server/auth";
+import { requireApiAuth } from "#lib/server/auth.js";
 
 const MAX_SIZE = 5 * 1024 * 1024;
 
@@ -42,5 +42,5 @@ export async function uploadJudgeScript(
     language: language.data,
   });
 
-  return json({ id: result.id });
+  return Response.json({ id: result.id });
 }

@@ -6,15 +6,16 @@ const { claimOnboardingTour, requireApiAuth } = vi.hoisted(() => ({
   requireApiAuth: vi.fn(),
 }));
 
-vi.mock("$lib/server/auth", () => ({ requireApiAuth }));
-vi.mock("$lib/server/shared/api-handler", () => ({
+vi.mock("#lib/server/auth.js", () => ({ requireApiAuth }));
+vi.mock("#lib/server/shared/api-handler.js", () => ({
   writeApiHandler: (handler: (event: RequestEvent) => Promise<Response>) => handler,
 }));
 vi.mock("@nojv/application", () => ({
   userDomain: { claimOnboardingTour },
 }));
 
-const { POST } = await import("$lib/../routes/api/account/onboarding-tour/+server");
+const { POST } =
+  await import("../../../apps/web/src/routes/api/account/onboarding-tour/+server.js");
 
 function eventFor(platformRole: "admin" | "student" | "teacher") {
   return {

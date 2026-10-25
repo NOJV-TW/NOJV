@@ -3,11 +3,11 @@
   import {
     createClarificationsStore,
     type ClarificationsStore,
-  } from "$lib/stores/clarifications.svelte";
-  import { onSSEEvent, subscribeClarificationChannel } from "$lib/stores/sse";
+  } from "#lib/stores/clarifications.svelte.js";
+  import { onSSEEvent, subscribeClarificationChannel } from "#lib/stores/sse.js";
   import ClarificationAskForm from "./ClarificationAskForm.svelte";
   import ClarificationList from "./ClarificationList.svelte";
-  import { m } from "$lib/paraglide/messages.js";
+  import { m } from "#lib/paraglide/messages.js";
 
   interface Props {
     contextType: "contest" | "exam" | "assignment";

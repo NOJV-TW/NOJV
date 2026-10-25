@@ -13,7 +13,7 @@ vi.mock("$app/state", () => ({
   page: { data: { user: { id: "user-1" } }, url: new URL("http://localhost/") },
 }));
 
-vi.mock("$lib/components/features/announcement/AnnouncementViewDialog.svelte", async () => ({
+vi.mock("#lib/components/features/announcement/AnnouncementViewDialog.svelte", async () => ({
   default: (await import("../../fixtures/web/empty-component.svelte")).default,
 }));
 

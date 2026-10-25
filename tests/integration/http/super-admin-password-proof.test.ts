@@ -7,7 +7,7 @@ import {
   issueSuperAdminPasswordProof,
   readSuperAdminPasswordProof,
   SUPER_ADMIN_PASSWORD_PROOF_COOKIE,
-} from "$lib/server/super-admin-password-proof";
+} from "#lib/server/super-admin-password-proof.js";
 import { createTestUser, testPrisma } from "../../fixtures/factories";
 
 function cookieJar() {

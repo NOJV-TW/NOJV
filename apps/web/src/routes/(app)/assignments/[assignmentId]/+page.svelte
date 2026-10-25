@@ -1,32 +1,32 @@
 <script lang="ts">
   import { page } from "$app/state";
   import { ChevronRight, Info } from "@lucide/svelte";
-  import { m } from "$lib/paraglide/messages.js";
-  import { cn } from "$lib/utils/css.js";
-  import { formatDateTimeCompact } from "$lib/utils/datetime";
-  import AssignmentProblemsTab from "$lib/components/features/course/assignment/AssignmentProblemsTab.svelte";
-  import AssignmentResultsTab from "$lib/components/features/course/assignment/AssignmentResultsTab.svelte";
-  import LiveSubmissionsFeed from "$lib/components/features/coursework/LiveSubmissionsFeed.svelte";
-  import SubmissionHistoryActions from "$lib/components/features/coursework/SubmissionHistoryActions.svelte";
-  import AssignmentPlagiarismReport from "$lib/components/features/plagiarism/AssignmentPlagiarismReport.svelte";
-  import AssignmentSettingsTab from "$lib/components/features/course/assignment/AssignmentSettingsTab.svelte";
-  import AuditTimeline from "$lib/components/features/audit/AuditTimeline.svelte";
-  import AssessmentManageTabs from "$lib/components/features/coursework/AssessmentManageTabs.svelte";
-  import { parseAssessmentSubTab } from "$lib/components/features/coursework/assessment-tab-state";
-  import PageContainer from "$lib/components/primitives/layout/PageContainer.svelte";
-  import ScoreOverrideDrawer from "$lib/components/features/score-override/ScoreOverrideDrawer.svelte";
-  import ClarificationTab from "$lib/components/features/clarification/ClarificationTab.svelte";
-  import Crumbs from "$lib/components/primitives/visual/Crumbs.svelte";
-  import GlassPanel from "$lib/components/primitives/visual/GlassPanel.svelte";
-  import AssessmentHero from "$lib/components/features/coursework/AssessmentHero.svelte";
-  import LateSubmissionSummary from "$lib/components/features/course/LateSubmissionSummary.svelte";
-  import HeroSchedule from "$lib/components/features/coursework/HeroSchedule.svelte";
-  import StatRail from "$lib/components/primitives/visual/StatRail.svelte";
-  import StatTile from "$lib/components/primitives/visual/StatTile.svelte";
-  import StatusPill from "$lib/components/features/coursework/StatusPill.svelte";
-  import Countdown from "$lib/components/primitives/visual/Countdown.svelte";
-  import DifficultyTick from "$lib/components/primitives/visual/DifficultyTick.svelte";
-  import { deriveAssignmentLiveStatus } from "$lib/utils/assignment-status";
+  import { m } from "#lib/paraglide/messages.js";
+  import { cn } from "#lib/utils/css.js";
+  import { formatDateTimeCompact } from "#lib/utils/datetime.js";
+  import AssignmentProblemsTab from "#lib/components/features/course/assignment/AssignmentProblemsTab.svelte";
+  import AssignmentResultsTab from "#lib/components/features/course/assignment/AssignmentResultsTab.svelte";
+  import LiveSubmissionsFeed from "#lib/components/features/coursework/LiveSubmissionsFeed.svelte";
+  import SubmissionHistoryActions from "#lib/components/features/coursework/SubmissionHistoryActions.svelte";
+  import AssignmentPlagiarismReport from "#lib/components/features/plagiarism/AssignmentPlagiarismReport.svelte";
+  import AssignmentSettingsTab from "#lib/components/features/course/assignment/AssignmentSettingsTab.svelte";
+  import AuditTimeline from "#lib/components/features/audit/AuditTimeline.svelte";
+  import AssessmentManageTabs from "#lib/components/features/coursework/AssessmentManageTabs.svelte";
+  import { parseAssessmentSubTab } from "#lib/components/features/coursework/assessment-tab-state.js";
+  import PageContainer from "#lib/components/primitives/layout/PageContainer.svelte";
+  import ScoreOverrideDrawer from "#lib/components/features/score-override/ScoreOverrideDrawer.svelte";
+  import ClarificationTab from "#lib/components/features/clarification/ClarificationTab.svelte";
+  import Crumbs from "#lib/components/primitives/visual/Crumbs.svelte";
+  import GlassPanel from "#lib/components/primitives/visual/GlassPanel.svelte";
+  import AssessmentHero from "#lib/components/features/coursework/AssessmentHero.svelte";
+  import LateSubmissionSummary from "#lib/components/features/course/LateSubmissionSummary.svelte";
+  import HeroSchedule from "#lib/components/features/coursework/HeroSchedule.svelte";
+  import StatRail from "#lib/components/primitives/visual/StatRail.svelte";
+  import StatTile from "#lib/components/primitives/visual/StatTile.svelte";
+  import StatusPill from "#lib/components/features/coursework/StatusPill.svelte";
+  import Countdown from "#lib/components/primitives/visual/Countdown.svelte";
+  import DifficultyTick from "#lib/components/primitives/visual/DifficultyTick.svelte";
+  import { deriveAssignmentLiveStatus } from "#lib/utils/assignment-status.js";
   import { languageLabel } from "@nojv/core";
   import type { PageData } from "./$types";
 
@@ -423,7 +423,7 @@
     <AssessmentManageTabs
       kind="assignment"
       value={activeSubTab}
-      url={page.url}
+      url={new URL(page.url.href)}
       canViewClarifications={clarificationEnabled}
     >
       {#snippet actions()}

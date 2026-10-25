@@ -23,10 +23,10 @@
 
 <script lang="ts">
   import { untrack } from "svelte";
-  import { Button } from "$lib/components/primitives/ui/button";
-  import { Input } from "$lib/components/primitives/ui/input";
-  import { m } from "$lib/paraglide/messages.js";
-  import { toasts } from "$lib/stores/toast";
+  import { Button } from "#lib/components/primitives/ui/button/index.js";
+  import { Input } from "#lib/components/primitives/ui/input/index.js";
+  import { m } from "#lib/paraglide/messages.js";
+  import { toasts } from "#lib/stores/toast.js";
 
   interface Props {
     mode: "create" | "edit";

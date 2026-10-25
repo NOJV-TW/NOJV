@@ -1,7 +1,7 @@
 <script lang="ts">
   import Mail from "@lucide/svelte/icons/mail";
-  import { env } from "$env/dynamic/public";
-  import { m } from "$lib/paraglide/messages.js";
+  import { PUBLIC_APP_VERSION } from "$app/env/public";
+  import { m } from "#lib/paraglide/messages.js";
   import GithubMark from "./GithubMark.svelte";
   import DiscordMark from "./DiscordMark.svelte";
 
@@ -12,7 +12,7 @@
   let { repoUrl = "https://github.com/NOJV-TW/NOJV" }: Props = $props();
 
   const year = new Date().getFullYear();
-  const releaseVersion = env.PUBLIC_APP_VERSION;
+  const releaseVersion = PUBLIC_APP_VERSION;
 </script>
 
 <footer
@@ -25,6 +25,7 @@
       <span class="font-mono">{m.footer_version({ version: releaseVersion })}</span>
     {/if}
   </p>
+
   <nav class="flex flex-wrap items-center gap-x-6 gap-y-2">
     <a class="transition-colors duration-fast ease-out-soft hover:text-foreground" href="/about"
       >{m.footer_about()}</a
@@ -33,13 +34,16 @@
       class="transition-colors duration-fast ease-out-soft hover:text-foreground"
       href="/environment">{m.footer_environment()}</a
     >
+
     <a
       class="transition-colors duration-fast ease-out-soft hover:text-foreground"
       href="/verdicts">{m.footer_verdicts()}</a
     >
+
     <a class="transition-colors duration-fast ease-out-soft hover:text-foreground" href="/docs"
       >{m.footer_apiDocs()}</a
     >
+
     <a
       class="inline-flex items-center gap-1.5 transition-colors duration-fast ease-out-soft hover:text-foreground"
       href="mailto:nojv.tw@gmail.com"

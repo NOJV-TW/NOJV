@@ -2,9 +2,9 @@ import { error } from "@sveltejs/kit";
 import type { RequestHandler } from "./$types";
 
 import { problemDomain } from "@nojv/application";
-import { requireApiAuth } from "$lib/server/auth";
-import { apiHandler } from "$lib/server/shared/api-handler";
-import { buildScaffoldZip, scaffoldZipFilename } from "$lib/server/advanced-scaffold";
+import { requireApiAuth } from "#lib/server/auth.js";
+import { apiHandler } from "#lib/server/shared/api-handler.js";
+import { buildScaffoldZip, scaffoldZipFilename } from "#lib/server/advanced-scaffold/index.js";
 
 export const GET: RequestHandler = apiHandler(async (event) => {
   const actor = requireApiAuth(event);

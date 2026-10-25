@@ -2,7 +2,7 @@
 
 import { mount, tick, unmount } from "svelte";
 import { expect, it, vi } from "vitest";
-import { m } from "$lib/paraglide/messages.js";
+import { m } from "#lib/paraglide/messages.js";
 
 vi.mock("$app/forms", () => ({ enhance: () => ({ destroy() {} }) }));
 vi.mock("@lucide/svelte", async () => {

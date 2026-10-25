@@ -1,16 +1,14 @@
-import { json } from "@sveltejs/kit";
-
 import type { RequestHandler } from "./$types";
 
-import { requireApiAuth } from "$lib/server/auth";
-import { writeApiHandler } from "$lib/server/shared/api-handler";
+import { requireApiAuth } from "#lib/server/auth.js";
+import { writeApiHandler } from "#lib/server/shared/api-handler.js";
 import { submissionDomain, NotFoundError } from "@nojv/application";
 
 export const POST: RequestHandler = writeApiHandler(async (event) => {
   const actor = requireApiAuth(event);
 
   const { id } = event.params;
-  if (!id) return json({ message: "Missing submission id." }, { status: 400 });
+  if (!id) return Response.json({ message: "Missing submission id." }, { status: 400 });
 
   const submission = await submissionDomain.getSubmissionById(id);
   if (!submission) throw new NotFoundError("Submission not found.");
@@ -24,5 +22,5 @@ export const POST: RequestHandler = writeApiHandler(async (event) => {
     actor,
   );
 
-  return json({ workflowId, status: "queued" }, { status: 202 });
+  return Response.json({ workflowId, status: "queued" }, { status: 202 });
 });

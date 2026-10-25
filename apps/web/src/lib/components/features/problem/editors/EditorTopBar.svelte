@@ -1,8 +1,8 @@
 <script lang="ts">
   import { Maximize2, Minimize2, RotateCcw } from "@lucide/svelte";
   import type { Language, ProblemType, SubmissionContext } from "@nojv/core";
-  import type { ProblemDetail } from "$lib/types";
-  import { m } from "$lib/paraglide/messages.js";
+  import type { ProblemDetail } from "#lib/types/index.js";
+  import { m } from "#lib/paraglide/messages.js";
   import LanguageSelector from "./LanguageSelector.svelte";
   import { EDITOR_FONT_SIZES, submissionContextBadge } from "./editor-bindings";
 

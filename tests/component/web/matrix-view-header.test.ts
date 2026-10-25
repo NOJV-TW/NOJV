@@ -2,8 +2,8 @@
 
 import { mount, tick, unmount } from "svelte";
 import { describe, expect, it, vi } from "vitest";
-import { m } from "$lib/paraglide/messages.js";
-import MatrixView from "$lib/components/features/course/submissions/MatrixView.svelte";
+import { m } from "#lib/paraglide/messages.js";
+import MatrixView from "#lib/components/features/course/submissions/MatrixView.svelte";
 
 vi.mock("@lucide/svelte", async () => {
   const Empty = (await import("../../fixtures/web/empty-component.svelte")).default;
@@ -19,10 +19,10 @@ vi.mock("@lucide/svelte", async () => {
   };
 });
 
-vi.mock("$lib/components/features/course/submissions/MatrixLegend.svelte", async () => ({
+vi.mock("#lib/components/features/course/submissions/MatrixLegend.svelte", async () => ({
   default: (await import("../../fixtures/web/empty-component.svelte")).default,
 }));
-vi.mock("$lib/components/primitives/ui/button", async () => ({
+vi.mock("#lib/components/primitives/ui/button/index.js", async () => ({
   Button: (await import("../../fixtures/web/empty-component.svelte")).default,
 }));
 

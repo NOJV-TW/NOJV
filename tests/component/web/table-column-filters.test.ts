@@ -1,8 +1,8 @@
 import { mount, tick, unmount } from "svelte";
 import { expect, it, vi } from "vitest";
-import TableSelectColumnFilter from "$lib/components/primitives/ui/TableSelectColumnFilter.svelte";
-import TableTextColumnFilter from "$lib/components/primitives/ui/TableTextColumnFilter.svelte";
-import { m } from "$lib/paraglide/messages.js";
+import TableSelectColumnFilter from "#lib/components/primitives/ui/TableSelectColumnFilter.svelte";
+import TableTextColumnFilter from "#lib/components/primitives/ui/TableTextColumnFilter.svelte";
+import { m } from "#lib/paraglide/messages.js";
 
 function clearButton(target: HTMLElement, label: string) {
   return target.querySelector<HTMLButtonElement>(

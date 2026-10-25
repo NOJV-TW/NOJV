@@ -2,15 +2,15 @@
   import { untrack } from "svelte";
   import { applyAction, enhance as kitEnhance } from "$app/forms";
   import { Copy, Info, Save, Settings, Trash2 } from "@lucide/svelte";
-  import { appSuperForm } from "$lib/utils/super-form";
-  import { m } from "$lib/paraglide/messages.js";
-  import * as Dialog from "$lib/components/primitives/ui/dialog/index.js";
-  import { Button } from "$lib/components/primitives/ui/button";
-  import FormError from "$lib/components/primitives/ui/FormError.svelte";
-  import PageContainer from "$lib/components/primitives/layout/PageContainer.svelte";
-  import { toasts } from "$lib/stores/toast";
-  import { inputClassName } from "$lib/utils/css";
-  import type { FormMessage } from "$lib/types/form-message";
+  import { appSuperForm } from "#lib/utils/super-form.js";
+  import { m } from "#lib/paraglide/messages.js";
+  import * as Dialog from "#lib/components/primitives/ui/dialog/index.js";
+  import { Button } from "#lib/components/primitives/ui/button/index.js";
+  import FormError from "#lib/components/primitives/ui/FormError.svelte";
+  import PageContainer from "#lib/components/primitives/layout/PageContainer.svelte";
+  import { toasts } from "#lib/stores/toast.js";
+  import { inputClassName } from "#lib/utils/css.js";
+  import type { FormMessage } from "#lib/types/form-message.js";
   import type { ActionData, PageData } from "./$types";
 
   let { data, form }: { data: PageData; form: ActionData } = $props();

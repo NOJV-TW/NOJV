@@ -2,9 +2,9 @@
 
 import { mount, unmount, tick } from "svelte";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { stopSubmissionTracking } from "$lib/services/submission-tracker";
-import { m } from "$lib/paraglide/messages.js";
-import RejudgeDialog from "$lib/components/features/problem/admin/RejudgeDialog.svelte";
+import { stopSubmissionTracking } from "#lib/services/submission-tracker.js";
+import { m } from "#lib/paraglide/messages.js";
+import RejudgeDialog from "#lib/components/features/problem/admin/RejudgeDialog.svelte";
 
 const mocks = vi.hoisted(() => ({
   fetch: vi.fn(),
@@ -12,8 +12,8 @@ const mocks = vi.hoisted(() => ({
   toastError: vi.fn(),
   refresh: vi.fn().mockResolvedValue(undefined),
 }));
-vi.mock("$app/navigation", () => ({ invalidateAll: mocks.refresh, invalidate: mocks.refresh }));
-vi.mock("$lib/stores/toast", () => ({
+vi.mock("$app/navigation", () => ({ refreshAll: mocks.refresh, invalidate: mocks.refresh }));
+vi.mock("#lib/stores/toast.js", () => ({
   toasts: { success: mocks.toastSuccess, error: mocks.toastError },
 }));
 

@@ -1,12 +1,12 @@
-import { error, json, type RequestEvent } from "@sveltejs/kit";
+import { error, type RequestEvent } from "@sveltejs/kit";
 import type { RequestHandler } from "./$types";
 
 import { registryDomain } from "@nojv/application";
-import { getWebEnv } from "$lib/server/env";
-import { readFormData, registryTokenApiHandler } from "$lib/server/shared/api-handler";
-import { getClientIp } from "$lib/server/shared/client-ip";
-import { signInRateLimiter } from "$lib/server/shared/rate-limiter";
-import { isRegistryTokenConfigured, signRegistryToken } from "$lib/server/registry-token";
+import { getWebEnv } from "#lib/server/env.js";
+import { readFormData, registryTokenApiHandler } from "#lib/server/shared/api-handler.js";
+import { getClientIp } from "#lib/server/shared/client-ip.js";
+import { signInRateLimiter } from "#lib/server/shared/rate-limiter.js";
+import { isRegistryTokenConfigured, signRegistryToken } from "#lib/server/registry-token.js";
 
 const JUDGE_PULL_USER = "judge-pull";
 
@@ -96,7 +96,7 @@ async function issueToken(
   const access = registryDomain.authorizeRegistryAccess(principal, requested);
 
   const response = await signRegistryToken(tokenSubject(principal), service, access);
-  return json(response, {
+  return Response.json(response, {
     headers: { "cache-control": "no-store" },
   });
 }

@@ -1,5 +1,5 @@
 import { expect, it, vi } from "vitest";
-import type { PreparedJudgeProgram } from "$lib/services/judge-program";
+import type { PreparedJudgeProgram } from "#lib/services/judge-program.js";
 
 const engine = vi.hoisted(() => {
   let answerLate: (() => void) | undefined;
@@ -29,8 +29,8 @@ vi.mock("../../../apps/web/node_modules/@wasm-oj/browser", async (importOriginal
   createBrowserEngine: vi.fn().mockResolvedValue(engine),
   prefetchBrowserToolchain: vi.fn().mockResolvedValue(undefined),
 }));
-vi.mock("$lib/stores/toast", () => ({ toasts: { error: toast } }));
-import { createEditorRunController } from "$lib/components/features/problem/editors/use-editor-run.svelte";
+vi.mock("#lib/stores/toast.js", () => ({ toasts: { error: toast } }));
+import { createEditorRunController } from "#lib/components/features/problem/editors/use-editor-run.svelte.js";
 
 const checkerReady = {
   ok: true,

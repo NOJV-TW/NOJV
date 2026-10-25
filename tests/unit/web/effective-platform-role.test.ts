@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { resolveEffectivePlatformRole } from "$lib/server/auth";
+import { resolveEffectivePlatformRole } from "#lib/server/auth.js";
 
 describe("resolveEffectivePlatformRole", () => {
   it("keeps a de-elevated admin at student until they toggle admin mode", () => {

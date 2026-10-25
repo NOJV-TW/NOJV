@@ -1,6 +1,6 @@
 <script lang="ts">
-  import CopyButton from "$lib/components/primitives/ui/CopyButton.svelte";
-  import { m } from "$lib/paraglide/messages.js";
+  import CopyButton from "#lib/components/primitives/ui/CopyButton.svelte";
+  import { m } from "#lib/paraglide/messages.js";
 
   let { id }: { id: string } = $props();
 </script>

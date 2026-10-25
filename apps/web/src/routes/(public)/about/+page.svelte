@@ -1,9 +1,9 @@
 <script lang="ts">
   import { Mail, MessageSquare, Star } from "@lucide/svelte";
-  import { m } from "$lib/paraglide/messages.js";
-  import { Card } from "$lib/components/primitives/ui/card";
-  import { Button } from "$lib/components/primitives/ui/button";
-  import GithubMark from "$lib/components/primitives/layout/GithubMark.svelte";
+  import { m } from "#lib/paraglide/messages.js";
+  import { Card } from "#lib/components/primitives/ui/card/index.js";
+  import { Button } from "#lib/components/primitives/ui/button/index.js";
+  import GithubMark from "#lib/components/primitives/layout/GithubMark.svelte";
 
   let { data } = $props();
 

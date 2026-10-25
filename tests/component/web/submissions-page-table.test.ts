@@ -2,7 +2,7 @@
 
 import { mount, tick, unmount } from "svelte";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { m } from "$lib/paraglide/messages.js";
+import { m } from "#lib/paraglide/messages.js";
 
 vi.setConfig({ testTimeout: 15_000 });
 
@@ -10,9 +10,9 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-const mocks = vi.hoisted(() => ({ goto: vi.fn(), invalidateAll: vi.fn() }));
+const mocks = vi.hoisted(() => ({ goto: vi.fn(), refreshAll: vi.fn() }));
 
-vi.mock("$lib/components/primitives/ui/select/select-content.svelte", async () => ({
+vi.mock("#lib/components/primitives/ui/select/select-content.svelte", async () => ({
   default: (await import("../../fixtures/web/select-content.svelte")).default,
 }));
 
@@ -34,7 +34,7 @@ vi.mock("@lucide/svelte", async () => {
   };
 });
 
-vi.mock("$lib/services/submission-tracker", () => ({
+vi.mock("#lib/services/submission-tracker.js", () => ({
   watchSubmissionStates: () => () => undefined,
   isNewerSubmission: () => true,
   submissionRead: async (url: string) => (await fetch(url)).json(),
@@ -46,14 +46,14 @@ vi.mock("$lib/services/submission-tracker", () => ({
     return () => controller.abort();
   },
 }));
-vi.mock("$lib/stores/sse", () => ({ watchSubmissionVerdict: () => () => undefined }));
-vi.mock("$lib/components/primitives/ui/EmptyState.svelte", async () => ({
+vi.mock("#lib/stores/sse.js", () => ({ watchSubmissionVerdict: () => () => undefined }));
+vi.mock("#lib/components/primitives/ui/EmptyState.svelte", async () => ({
   default: (await import("../../fixtures/web/empty-component.svelte")).default,
 }));
 vi.mock("$app/navigation", () => ({
   goto: mocks.goto,
-  invalidateAll: mocks.invalidateAll,
-  invalidate: mocks.invalidateAll,
+  refreshAll: mocks.refreshAll,
+  invalidate: mocks.refreshAll,
 }));
 
 describe("submissions page", () => {

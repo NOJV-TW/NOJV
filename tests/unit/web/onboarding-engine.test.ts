@@ -9,7 +9,7 @@ const { getItem, removeItem, setItem } = vi.hoisted(() => ({
   setItem: vi.fn(),
 }));
 
-vi.mock("$lib/paraglide/messages.js", () => ({
+vi.mock("#lib/paraglide/messages.js", () => ({
   m: {
     tour_done: () => "Done",
     tour_next: () => "Next",
@@ -17,7 +17,7 @@ vi.mock("$lib/paraglide/messages.js", () => ({
   },
 }));
 
-const { replayTour, startAutomaticTour } = await import("$lib/onboarding/engine");
+const { replayTour, startAutomaticTour } = await import("#lib/onboarding/engine.js");
 
 const intro = {
   key: "welcome",

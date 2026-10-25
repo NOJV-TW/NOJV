@@ -1,8 +1,8 @@
 import type { RequestHandler } from "./$types";
-import { getActorContext, hasActorUsername } from "$lib/server/auth";
+import { getActorContext, hasActorUsername } from "#lib/server/auth.js";
 import { keys } from "@nojv/redis";
 import { contestDomain } from "@nojv/application";
-import { createSseResponse } from "$lib/server/shared/sse-response";
+import { createSseResponse } from "#lib/server/shared/sse-response.js";
 
 export const GET: RequestHandler = async (event) => {
   const actor = getActorContext(event);

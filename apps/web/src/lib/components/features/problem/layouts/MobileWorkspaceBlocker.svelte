@@ -1,11 +1,11 @@
 <script lang="ts">
   import { Monitor, BookOpen, X } from "@lucide/svelte";
   import { onMount } from "svelte";
-  import { m } from "$lib/paraglide/messages.js";
-  import type { ProblemDetail } from "$lib/types";
-  import { buttonVariants } from "$lib/components/primitives/ui/button";
-  import * as Dialog from "$lib/components/primitives/ui/dialog";
-  import MarkdownRenderer from "$lib/components/primitives/layout/MarkdownRenderer.svelte";
+  import { m } from "#lib/paraglide/messages.js";
+  import type { ProblemDetail } from "#lib/types/index.js";
+  import { buttonVariants } from "#lib/components/primitives/ui/button/index.js";
+  import * as Dialog from "#lib/components/primitives/ui/dialog/index.js";
+  import MarkdownRenderer from "#lib/components/primitives/layout/MarkdownRenderer.svelte";
 
   interface Props {
     problem: ProblemDetail;

@@ -1,14 +1,14 @@
 <script lang="ts">
   import Trash2 from "@lucide/svelte/icons/trash-2";
-  import { Badge } from "$lib/components/primitives/ui/badge";
-  import { Button } from "$lib/components/primitives/ui/button";
-  import { cn } from "$lib/utils/css.js";
-  import { relativeTime } from "$lib/utils/relative-time";
-  import { m } from "$lib/paraglide/messages.js";
-  import { toasts } from "$lib/stores/toast";
-  import type { ClarificationItem } from "$lib/stores/clarifications.svelte";
+  import { Badge } from "#lib/components/primitives/ui/badge/index.js";
+  import { Button } from "#lib/components/primitives/ui/button/index.js";
+  import { cn } from "#lib/utils/css.js";
+  import { relativeTime } from "#lib/utils/relative-time.js";
+  import { m } from "#lib/paraglide/messages.js";
+  import { toasts } from "#lib/stores/toast.js";
+  import type { ClarificationItem } from "#lib/stores/clarifications.svelte.js";
   import ClarificationStaffPanel from "./ClarificationStaffPanel.svelte";
-  import type { ClarificationsStore } from "$lib/stores/clarifications.svelte";
+  import type { ClarificationsStore } from "#lib/stores/clarifications.svelte.js";
 
   interface Props {
     item: ClarificationItem;

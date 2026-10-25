@@ -1,10 +1,10 @@
 <script lang="ts">
   import { type Language } from "@nojv/core";
-  import { m } from "$lib/paraglide/messages.js";
+  import { m } from "#lib/paraglide/messages.js";
   import WorkspaceFileList from "./WorkspaceFileList.svelte";
   import WorkspaceFileEditor, { type WorkspaceFile } from "./WorkspaceFileEditor.svelte";
   import type { WorkspaceMode } from "./WorkspaceModeSection.svelte";
-  import UploadDropZone from "$lib/components/features/problem/admin/UploadDropZone.svelte";
+  import UploadDropZone from "#lib/components/features/problem/admin/UploadDropZone.svelte";
 
   interface Props {
     mode: WorkspaceMode;

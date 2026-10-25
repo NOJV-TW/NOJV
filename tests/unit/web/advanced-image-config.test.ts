@@ -5,7 +5,7 @@ const {
   buildAdvancedConfigFromInput,
   createAdvancedImageConfigInputSchema,
   allowedImageRegistries,
-} = await import("$lib/server/advanced-image-config");
+} = await import("#lib/server/advanced-image-config.js");
 
 const advancedImageConfigInputSchema = createAdvancedImageConfigInputSchema({
   allowAnyPlatformRegistryNamespace: false,

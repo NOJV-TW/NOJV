@@ -1,8 +1,8 @@
 <script lang="ts">
-  import { Button } from "$lib/components/primitives/ui/button";
-  import { m } from "$lib/paraglide/messages.js";
-  import { toasts } from "$lib/stores/toast";
-  import type { ClarificationsStore } from "$lib/stores/clarifications.svelte";
+  import { Button } from "#lib/components/primitives/ui/button/index.js";
+  import { m } from "#lib/paraglide/messages.js";
+  import { toasts } from "#lib/stores/toast.js";
+  import type { ClarificationsStore } from "#lib/stores/clarifications.svelte.js";
 
   interface Props {
     store: ClarificationsStore;

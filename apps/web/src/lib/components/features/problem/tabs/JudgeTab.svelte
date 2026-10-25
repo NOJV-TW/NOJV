@@ -1,14 +1,14 @@
 <script lang="ts">
   import { untrack } from "svelte";
-  import { invalidateAll } from "$app/navigation";
-  import type { ProblemDetail } from "$lib/types";
+  import { refreshAll } from "$app/navigation";
+  import type { ProblemDetail } from "#lib/types/index.js";
   import type { JudgeScriptLanguage, JudgeType } from "@nojv/core";
-  import { inputClassName } from "$lib/utils/css";
-  import { m } from "$lib/paraglide/messages.js";
-  import MonacoScriptEditor from "$lib/components/primitives/ui/MonacoScriptEditor.svelte";
-  import UploadDropZone from "$lib/components/features/problem/admin/UploadDropZone.svelte";
-  import { toasts } from "$lib/stores/toast";
-  import { submitFormAction } from "$lib/utils/actions";
+  import { inputClassName } from "#lib/utils/css.js";
+  import { m } from "#lib/paraglide/messages.js";
+  import MonacoScriptEditor from "#lib/components/primitives/ui/MonacoScriptEditor.svelte";
+  import UploadDropZone from "#lib/components/features/problem/admin/UploadDropZone.svelte";
+  import { toasts } from "#lib/stores/toast.js";
+  import { submitFormAction } from "#lib/utils/actions.js";
   import {
     PYTHON_CHECKER_EXAMPLE,
     PYTHON_INTERACTOR_EXAMPLE,
@@ -87,7 +87,7 @@
       });
       initialConfig = snapshot;
       saveMessage = "saved";
-      await invalidateAll();
+      await refreshAll();
     } catch (err) {
       saveMessage = err instanceof Error ? err.message : m.admin_saveFailed();
     } finally {
@@ -133,7 +133,7 @@
     }
     initialConfig = dirtySnapshot();
     toasts.success(m.bundle_uploadSuccess());
-    await invalidateAll();
+    await refreshAll();
   }
 </script>
 

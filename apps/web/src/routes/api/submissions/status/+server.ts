@@ -1,8 +1,7 @@
-import { json } from "@sveltejs/kit";
 import { z } from "zod";
 import type { RequestHandler } from "./$types";
-import { requireApiAuth } from "$lib/server/auth";
-import { apiHandler } from "$lib/server/shared/api-handler";
+import { requireApiAuth } from "#lib/server/auth.js";
+import { apiHandler } from "#lib/server/shared/api-handler.js";
 import { submissionDomain } from "@nojv/application";
 
 export const GET: RequestHandler = apiHandler(async (event) => {
@@ -12,5 +11,5 @@ export const GET: RequestHandler = apiHandler(async (event) => {
     .min(1)
     .max(100)
     .parse(event.url.searchParams.get("ids")?.split(","));
-  return json(await submissionDomain.listSubmissionOperations(actor, ids));
+  return Response.json(await submissionDomain.listSubmissionOperations(actor, ids));
 });

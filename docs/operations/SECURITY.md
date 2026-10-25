@@ -14,7 +14,7 @@ Security controls as implemented: what must hold and where it is enforced. Attac
 - `packages/application/src/shared/permissions.ts`, `packages/application/src/problem/permissions.ts` — course and problem authorization
 - `packages/application/src/api-token/acl.ts` — API token route whitelist
 - `apps/web/src/lib/utils/markdown.ts` — DOMPurify sanitizer and remote-image rewrite
-- `apps/web/svelte.config.js` — CSP
+- `apps/web/vite.config.ts` — CSP
 - `apps/worker/src/sandbox/docker/args.ts`, `apps/worker/src/sandbox/kubernetes/pod-spec.ts` — sandbox hardening
 - `infra/charts/nojv/templates/{namespaces,sandbox-policy,worker-rbac,web.ingress,cloudflared.deployment}.yaml` — cluster-level controls
 - `packages/application/src/problem/judge-program.ts` — judge-program source access for browser Test
@@ -63,7 +63,7 @@ SvelteKit `csrf.checkOrigin` is disabled so `/api/registry/token` can accept the
 - `/api/*` rejects a foreign `Origin`, and outside `/api/auth` requires `X-Requested-With: fetch`.
 - Exempt: `/api/registry/token` (Basic/body credentials, no cookies) and API-token requests on whitelisted routes.
 
-`setSecurityHeaders` sets `nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: strict-origin-when-cross-origin`, COOP/COEP/CORP same-origin/`require-corp`/same-origin, a restrictive `Permissions-Policy`, and HSTS in production. CSP (`svelte.config.js`, nonce mode `auto`): `default-src 'self'`, `frame-ancestors 'none'`, `object-src 'none'`, `form-action 'self'`; `img-src` allows only `self`, `data:`, `blob:`, GitHub/Google avatar hosts and Google Analytics.
+`setSecurityHeaders` sets `nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: strict-origin-when-cross-origin`, COOP/COEP/CORP same-origin/`require-corp`/same-origin, a restrictive `Permissions-Policy`, and HSTS in production. CSP (`vite.config.ts`, nonce mode `auto`): `default-src 'self'`, `frame-ancestors 'none'`, `object-src 'none'`, `form-action 'self'`; `img-src` allows only `self`, `data:`, `blob:`, GitHub/Google avatar hosts and Google Analytics.
 
 ### Body size
 
@@ -134,7 +134,7 @@ Behavior specs: [Login and security verification](../features/login-security.md)
 
 ## Content and Uploads
 
-- User Markdown is sanitized with DOMPurify in `$lib/utils/markdown.ts`. KaTeX output is trusted only inside a per-render random nonce wrapper; never use author-controllable markup as a trust signal (SEC-10).
+- User Markdown is sanitized with DOMPurify in `#lib/utils/markdown.ts`. KaTeX output is trusted only inside a per-render random nonce wrapper; never use author-controllable markup as a trust signal (SEC-10).
 - Image uploads (`/api/problems/[id]/images` with problem-edit access and in-transaction recheck; `/api/uploads/image` for any signed-in user): file upload or explicit URL import, png/jpeg/gif/webp, ≤ 5 MiB, `detectImageMime(buffer)` magic bytes must match; the client `file.type` is never trusted alone. Keys are server-built. Permanent URL imports follow the same owner and quota checks as files.
 - Active testcases, checker, interactor, workspace files and catalogued images share a 50 MiB per-problem budget. Each user's content/discussion images share a 50 MiB budget. Owner locks serialize capacity reservations; pending image writes count until confirmed cleanup. Binary replacements are checked by their net size change under the problem lock; same-size and shrinking replacements remain allowed at or above quota. Staged and retired binary versions are reclaimed through durable cleanup and its reader grace period, outside the active-content budget. Existing objects are inventoried before new writes and existing over-quota content remains readable. Forks copy image ownership references. Avatars are WebP, ≤ 1 MiB, magic-byte checked, with one current version and at most one pending/retired replacement; obsolete versions are reclaimed through durable cleanup.
 - Bundles are ≤ 60 MiB uploaded, ≤ 50 MiB inflated, ≤ 200 entries and reject `..` and absolute paths (PRB-06). ZIP entry inflation is stopped and its upstream inflater destroyed immediately when the remaining byte budget is exceeded.
@@ -218,13 +218,11 @@ Advanced Mode (JDG-16, JDG-17, SEC-14, PRB-12):
 
 CI runs `pnpm audit --audit-level high` as a blocking gate alongside CodeQL (OPS-13). There is no suppression list; lagging upstream ranges are pinned to patched versions through `overrides` in `pnpm-workspace.yaml`. Review monthly and drop overrides once upstreams ship the fix.
 
-SvelteKit v2 remains subject to two low-severity package advisories. The request
-hook rejects parsed pathnames starting with `//` before auth and route resolution,
-following the [enhanced-form redirect advisory](https://github.com/advisories/GHSA-pfhg-q3qv-9q6r).
-The app does not prerender pages or forward untrusted `cache-control` values into
-`setHeaders`, so it does not expose the [prerender header injection](https://github.com/advisories/GHSA-27mw-82g8-phjj)
-condition. These findings remain visible in `pnpm audit`; the package-level fix
-requires SvelteKit v3. Migration is tracked in the [quality ledger](QUALITY_SCORE.md).
+The web app uses SvelteKit v3 with the upstream fixes for enhanced-form open
+redirects and prerender header injection. The request hook also rejects parsed
+pathnames starting with `//` before auth and route resolution (SEC-16). Private
+environment variables are explicitly declared without the public flag in
+`apps/web/src/env.ts`; only `PUBLIC_APP_VERSION` is exposed to browser code.
 
 ## Review Expectations
 

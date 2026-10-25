@@ -17,21 +17,20 @@
 
 <script lang="ts">
   import { tick, untrack } from "svelte";
-  import type { SubmitFunction } from "@sveltejs/kit";
-  import { enhance } from "$app/forms";
+  import { enhance, type SubmitFunction } from "$app/forms";
   import { Ban, CircleCheck, Trash2, UserCog, X } from "@lucide/svelte";
-  import * as Select from "$lib/components/primitives/ui/select";
-  import { Badge } from "$lib/components/primitives/ui/badge";
-  import { isReservedUsername } from "$lib/utils/school";
-  import { Button } from "$lib/components/primitives/ui/button";
-  import ConfirmDialog from "$lib/components/primitives/ui/ConfirmDialog.svelte";
-  import TableSelectColumnFilter from "$lib/components/primitives/ui/TableSelectColumnFilter.svelte";
-  import TableSortButton from "$lib/components/primitives/ui/TableSortButton.svelte";
-  import TableTextColumnFilter from "$lib/components/primitives/ui/TableTextColumnFilter.svelte";
-  import { m } from "$lib/paraglide/messages.js";
-  import { toasts } from "$lib/stores/toast";
-  import { formatDate } from "$lib/utils/datetime";
-  import { ariaSort } from "$lib/utils/table-sort";
+  import * as Select from "#lib/components/primitives/ui/select/index.js";
+  import { Badge } from "#lib/components/primitives/ui/badge/index.js";
+  import { isReservedUsername } from "#lib/utils/school.js";
+  import { Button } from "#lib/components/primitives/ui/button/index.js";
+  import ConfirmDialog from "#lib/components/primitives/ui/ConfirmDialog.svelte";
+  import TableSelectColumnFilter from "#lib/components/primitives/ui/TableSelectColumnFilter.svelte";
+  import TableSortButton from "#lib/components/primitives/ui/TableSortButton.svelte";
+  import TableTextColumnFilter from "#lib/components/primitives/ui/TableTextColumnFilter.svelte";
+  import { m } from "#lib/paraglide/messages.js";
+  import { toasts } from "#lib/stores/toast.js";
+  import { formatDate } from "#lib/utils/datetime.js";
+  import { ariaSort } from "#lib/utils/table-sort.js";
 
   interface Props {
     users: UsersTableUser[];
@@ -340,6 +339,7 @@
           {m.admin_usersBulkDelete()}
         </Button>
       </form>
+
       <Button variant="ghost" size="sm" onclick={() => (selected = new Set())}>
         <X aria-hidden="true" class="h-3.5 w-3.5" />
         {m.admin_usersBulkClear()}

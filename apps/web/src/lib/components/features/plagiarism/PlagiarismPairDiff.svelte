@@ -1,12 +1,12 @@
 <script lang="ts">
-  import SubmissionId from "$lib/components/features/submission/SubmissionId.svelte";
+  import SubmissionId from "#lib/components/features/submission/SubmissionId.svelte";
   import { onMount } from "svelte";
 
-  import { m } from "$lib/paraglide/messages.js";
-  import { Button } from "$lib/components/primitives/ui/button";
-  import { cn } from "$lib/utils/css.js";
-  import { flattenSourcesForDisplay } from "$lib/utils/submission-source-display";
-  import type { PlagiarismPairDiffData } from "$lib/types/plagiarism-pair";
+  import { m } from "#lib/paraglide/messages.js";
+  import { Button } from "#lib/components/primitives/ui/button/index.js";
+  import { cn } from "#lib/utils/css.js";
+  import { flattenSourcesForDisplay } from "#lib/utils/submission-source-display.js";
+  import type { PlagiarismPairDiffData } from "#lib/types/plagiarism-pair.js";
   import { createPlagiarismDiffLifecycle } from "./plagiarism-diff-lifecycle";
 
   interface Props {
@@ -68,7 +68,7 @@
       container: diffContainer,
       initialSources: currentSources(),
       loadMonaco: async () => {
-        const { loadMonaco } = await import("$lib/utils/monaco-loader");
+        const { loadMonaco } = await import("#lib/utils/monaco-loader.js");
         return loadMonaco();
       },
       onLoadError: () => {

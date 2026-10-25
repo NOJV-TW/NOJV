@@ -1,9 +1,9 @@
 <script lang="ts">
   import Trash2 from "@lucide/svelte/icons/trash-2";
   import type { Language } from "@nojv/core";
-  import { m } from "$lib/paraglide/messages.js";
-  import { inputClassName } from "$lib/utils/css";
-  import MonacoScriptEditor from "$lib/components/primitives/ui/MonacoScriptEditor.svelte";
+  import { m } from "#lib/paraglide/messages.js";
+  import { inputClassName } from "#lib/utils/css.js";
+  import MonacoScriptEditor from "#lib/components/primitives/ui/MonacoScriptEditor.svelte";
 
   export interface WorkspaceFile {
     path: string;

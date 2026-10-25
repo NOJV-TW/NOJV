@@ -3,7 +3,7 @@
 </script>
 
 <script lang="ts">
-  import { m } from "$lib/paraglide/messages.js";
+  import { m } from "#lib/paraglide/messages.js";
 
   interface Props {
     level: Difficulty;

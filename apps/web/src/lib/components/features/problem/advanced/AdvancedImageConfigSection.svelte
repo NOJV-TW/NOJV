@@ -2,11 +2,11 @@
   import { untrack } from "svelte";
   import type { AdvancedConfig } from "@nojv/core";
   import { deserialize } from "$app/forms";
-  import { invalidateAll } from "$app/navigation";
-  import { m } from "$lib/paraglide/messages.js";
-  import { inputClassName } from "$lib/utils/css";
-  import { Button } from "$lib/components/primitives/ui/button";
-  import { toasts } from "$lib/stores/toast";
+  import { refreshAll } from "$app/navigation";
+  import { m } from "#lib/paraglide/messages.js";
+  import { inputClassName } from "#lib/utils/css.js";
+  import { Button } from "#lib/components/primitives/ui/button/index.js";
+  import { toasts } from "#lib/stores/toast.js";
 
   interface Props {
     config: AdvancedConfig | null;
@@ -89,7 +89,7 @@
       const result = deserialize(await res.text());
       if (result.type === "success") {
         toasts.success(m.advancedImages_saveSuccess());
-        await invalidateAll();
+        await refreshAll();
       } else if (result.type === "failure") {
         toasts.error(
           typeof result.data?.error === "string" ? result.data.error : m.error_unexpected(),

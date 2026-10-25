@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { platformDomain } from "@nojv/application";
-  import { m } from "$lib/paraglide/messages.js";
+  import { m } from "#lib/paraglide/messages.js";
   import {
     BarChart3,
     CheckCircle2,
@@ -9,13 +9,13 @@
     PieChart,
     Users,
   } from "@lucide/svelte";
-  import EChart from "$lib/components/primitives/charts/EChart.svelte";
-  import StatCard from "$lib/components/primitives/ui/StatCard.svelte";
-  import { Card } from "$lib/components/primitives/ui/card";
-  import EmptyState from "$lib/components/primitives/ui/EmptyState.svelte";
-  import { formatVerdictLabel } from "$lib/utils/verdict-style";
-  import { formatProblemDisplayName } from "$lib/utils/format-problem-display-name";
-  import { formatChartSummary } from "$lib/utils/chart-summary";
+  import EChart from "#lib/components/primitives/charts/EChart.svelte";
+  import StatCard from "#lib/components/primitives/ui/StatCard.svelte";
+  import { Card } from "#lib/components/primitives/ui/card/index.js";
+  import EmptyState from "#lib/components/primitives/ui/EmptyState.svelte";
+  import { formatVerdictLabel } from "#lib/utils/verdict-style.js";
+  import { formatProblemDisplayName } from "#lib/utils/format-problem-display-name.js";
+  import { formatChartSummary } from "#lib/utils/chart-summary.js";
   import type { EChartsOption } from "echarts";
 
   interface ThemeColors {

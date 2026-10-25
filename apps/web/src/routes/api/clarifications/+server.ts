@@ -1,15 +1,13 @@
-import { json } from "@sveltejs/kit";
-
 import type { RequestHandler } from "./$types";
 
-import { requireApiAuth } from "$lib/server/auth";
+import { requireApiAuth } from "#lib/server/auth.js";
 import {
   apiHandler,
   writeApiHandler,
   assertJsonBodyWithinLimit,
   parseContextQuery,
   readJsonBody,
-} from "$lib/server/shared/api-handler";
+} from "#lib/server/shared/api-handler.js";
 import { clarificationDomain } from "@nojv/application";
 import {
   clarificationContextSchema,
@@ -28,7 +26,7 @@ export const GET: RequestHandler = apiHandler(async (event) => {
 
   const since = parsed.since ? new Date(parsed.since) : undefined;
   const items = await clarificationDomain.listForViewer(actor, parsed.context, since);
-  return json({ items });
+  return Response.json({ items });
 });
 
 export const POST: RequestHandler = writeApiHandler(async (event) => {
@@ -40,5 +38,5 @@ export const POST: RequestHandler = writeApiHandler(async (event) => {
     problemId: body.problemId ?? null,
     questionText: body.questionText,
   });
-  return json(row, { status: 201 });
+  return Response.json(row, { status: 201 });
 });

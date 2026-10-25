@@ -2,7 +2,7 @@
 
 import { mount, tick, unmount } from "svelte";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import ProblemSelectDialog from "$lib/components/features/problem/ProblemSelectDialog.svelte";
+import ProblemSelectDialog from "#lib/components/features/problem/ProblemSelectDialog.svelte";
 
 const candidateProblems = {
   personalProblems: [

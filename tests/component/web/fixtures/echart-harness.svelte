@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { EChartsOption } from "echarts";
-  import EChart from "$lib/components/primitives/charts/EChart.svelte";
+  import EChart from "#lib/components/primitives/charts/EChart.svelte";
 
   interface Props {
     initialOption: EChartsOption;

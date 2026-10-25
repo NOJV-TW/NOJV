@@ -10,14 +10,14 @@ vi.mock("@lucide/svelte", async () => {
   return { Download: Empty, Loader2: Empty, Search: Empty };
 });
 
-vi.mock("$lib/components/features/course/submissions/MatrixView.svelte", async () => ({
+vi.mock("#lib/components/features/course/submissions/MatrixView.svelte", async () => ({
   default: (await import("../../fixtures/web/empty-component.svelte")).default,
 }));
 
 describe("AssessmentGradesTab", () => {
   it("renders the score summary, grade matrix, and distribution as one grade workspace", async () => {
     const { default: AssessmentGradesTab } =
-      await import("$lib/components/features/coursework/AssessmentGradesTab.svelte");
+      await import("#lib/components/features/coursework/AssessmentGradesTab.svelte");
     const target = document.createElement("div");
     document.body.append(target);
     const component = mount(AssessmentGradesTab, {

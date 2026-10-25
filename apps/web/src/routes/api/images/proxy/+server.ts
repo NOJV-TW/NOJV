@@ -1,16 +1,16 @@
 import { error, redirect } from "@sveltejs/kit";
 import type { RequestHandler } from "./$types";
 
-import { getActorContext } from "$lib/server/auth";
+import { getActorContext } from "#lib/server/auth.js";
 import {
   RemoteImageError,
   fetchRemoteImage,
   normalizeRemoteImageUrl,
-} from "$lib/server/remote-image";
-import { apiHandler } from "$lib/server/shared/api-handler";
-import { detectImageMime } from "$lib/server/shared/file-validation";
-import { remoteAssetFetchRateLimiter } from "$lib/server/shared/rate-limiter";
-import { immutableImageResponse } from "$lib/server/storage/image-response";
+} from "#lib/server/remote-image.js";
+import { apiHandler } from "#lib/server/shared/api-handler.js";
+import { detectImageMime } from "#lib/server/shared/file-validation.js";
+import { remoteAssetFetchRateLimiter } from "#lib/server/shared/rate-limiter.js";
+import { immutableImageResponse } from "#lib/server/storage/image-response.js";
 
 function imageResponse(image: { body: Buffer; contentType: string }): Response {
   const contentType = detectImageMime(image.body);
@@ -41,7 +41,7 @@ export const GET: RequestHandler = apiHandler(async (event) => {
     const local = new URL(event.url.origin);
     local.pathname = remoteUrl.pathname;
     local.search = remoteUrl.search;
-    redirect(307, local.href);
+    redirect(307, local.href, { external: [event.url.origin] });
   }
 
   const canonicalUrl = remoteUrl.href;

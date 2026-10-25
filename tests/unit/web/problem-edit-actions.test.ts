@@ -7,11 +7,11 @@ const mocks = vi.hoisted(() => ({
   updateProblemWorkspace: vi.fn(),
 }));
 
-vi.mock("$lib/server/shared/rate-limiter", () => ({
+vi.mock("#lib/server/shared/rate-limiter.js", () => ({
   consumeFormRateLimitInternal: async () => null,
 }));
-vi.mock("$lib/server/logger", () => ({ createLogger: () => ({ error: vi.fn() }) }));
-vi.mock("$lib/server/auth", () => ({ requireAuth: mocks.requireAuth }));
+vi.mock("#lib/server/logger.js", () => ({ createLogger: () => ({ error: vi.fn() }) }));
+vi.mock("#lib/server/auth.js", () => ({ requireAuth: mocks.requireAuth }));
 vi.mock("sveltekit-superforms", () => import("sveltekit-superforms/server"));
 vi.mock("@nojv/application", async (original) => {
   const actual = await original<typeof import("@nojv/application")>();
@@ -27,7 +27,8 @@ vi.mock("@nojv/application", async (original) => {
 });
 
 const { ConflictError } = await import("@nojv/application");
-const { actions } = await import("$lib/../routes/(app)/problems/[problemId]/edit/+page.server");
+const { actions } =
+  await import("../../../apps/web/src/routes/(app)/problems/[problemId]/edit/+page.server.js");
 
 const actor = { userId: "usr_1", username: "author", platformRole: "teacher" as const };
 

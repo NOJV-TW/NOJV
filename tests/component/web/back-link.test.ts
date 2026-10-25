@@ -12,8 +12,8 @@ vi.mock("@lucide/svelte", async () => ({
   ArrowLeft: (await import("../../fixtures/web/empty-component.svelte")).default,
 }));
 
-import BackLink from "$lib/components/primitives/layout/BackLink.svelte";
-import { m } from "$lib/paraglide/messages.js";
+import BackLink from "#lib/components/primitives/layout/BackLink.svelte";
+import { m } from "#lib/paraglide/messages.js";
 
 const cleanup: (() => Promise<void>)[] = [];
 

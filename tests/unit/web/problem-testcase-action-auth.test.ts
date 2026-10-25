@@ -25,22 +25,21 @@ const {
   updateTestcaseSetRecord: vi.fn(),
 }));
 
-vi.mock("$lib/server/auth", () => ({ requireApiAuth, requireAuth }));
-vi.mock("$lib/server/shared/action-handlers", () => ({
+vi.mock("#lib/server/auth.js", () => ({ requireApiAuth, requireAuth }));
+vi.mock("#lib/server/shared/action-handlers.js", () => ({
   withAction: (handler: (event: RequestEvent) => Promise<unknown>) => handler,
 }));
-vi.mock("$lib/server/shared/api-handler", () => ({
+vi.mock("#lib/server/shared/api-handler.js", () => ({
   apiHandler: (handler: (event: RequestEvent) => Promise<unknown>) => handler,
   writeApiHandler: (handler: (event: RequestEvent) => Promise<unknown>) => handler,
 }));
-vi.mock("$lib/server/shared/load-wrapper", () => ({
+vi.mock("#lib/server/shared/load-wrapper.js", () => ({
   handleLoad: (handler: (event: RequestEvent) => Promise<unknown>) => handler,
 }));
-vi.mock("$app/stores", () => ({ page: { subscribe: vi.fn() } }));
 vi.mock("$app/navigation", () => ({
   beforeNavigate: vi.fn(),
   goto: vi.fn(),
-  invalidateAll: vi.fn(),
+  refreshAll: vi.fn(),
 }));
 vi.mock("$app/forms", () => ({
   applyAction: vi.fn(),
@@ -63,9 +62,10 @@ vi.mock("@nojv/application", () => ({
   registryDomain: {},
 }));
 
-const { actions } = await import("$lib/../routes/(app)/problems/[problemId]/edit/+page.server");
+const { actions } =
+  await import("../../../apps/web/src/routes/(app)/problems/[problemId]/edit/+page.server.js");
 const { POST: importProblemBundle } =
-  await import("$lib/../routes/api/problems/[id]/bundle/+server");
+  await import("../../../apps/web/src/routes/api/problems/[id]/bundle/+server.js");
 
 const actor = {
   emailVerified: true,

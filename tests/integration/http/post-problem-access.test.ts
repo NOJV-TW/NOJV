@@ -9,7 +9,7 @@ import {
 import { callRoute } from "./_harness";
 
 vi.setConfig({ testTimeout: 30_000 });
-vi.mock("$lib/auth.server", () => ({
+vi.mock("#lib/auth.server.js", () => ({
   getAuth: () => ({
     api: {
       getSession: async ({ headers }: { headers: Headers }) => {

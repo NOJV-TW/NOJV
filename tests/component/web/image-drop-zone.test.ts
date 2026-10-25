@@ -1,16 +1,16 @@
 import { mount, tick, unmount } from "svelte";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { m } from "$lib/paraglide/messages.js";
+import { m } from "#lib/paraglide/messages.js";
 
 vi.mock("@lucide/svelte", async () => {
   const Empty = (await import("../../fixtures/web/empty-component.svelte")).default;
   return { Eye: Empty, ImagePlus: Empty, Link: Empty, Pencil: Empty };
 });
-vi.mock("$lib/components/primitives/layout/MarkdownRenderer.svelte", async () => ({
+vi.mock("#lib/components/primitives/layout/MarkdownRenderer.svelte", async () => ({
   default: (await import("../../fixtures/web/empty-component.svelte")).default,
 }));
 
-import ImageDropZone from "$lib/components/primitives/ui/ImageDropZone.svelte";
+import ImageDropZone from "#lib/components/primitives/ui/ImageDropZone.svelte";
 
 const fetchMock = vi.fn();
 beforeEach(() => {

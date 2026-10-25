@@ -3,14 +3,14 @@
 import { afterEach, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({ invalidate: vi.fn().mockResolvedValue(undefined) }));
-vi.mock("$app/navigation", () => ({ invalidate: mocks.invalidate, invalidateAll: vi.fn() }));
+vi.mock("$app/navigation", () => ({ invalidate: mocks.invalidate, refreshAll: vi.fn() }));
 
 import { navigating } from "$app/state";
 import {
   onSubmissionRefresh,
   requestSubmissionRefresh,
   stopSubmissionTracking,
-} from "$lib/services/submission-tracker";
+} from "#lib/services/submission-tracker.js";
 
 const pendingNavigation = navigating as { to: unknown };
 

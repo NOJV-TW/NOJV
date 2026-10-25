@@ -1,13 +1,13 @@
 <script lang="ts">
-  import { m } from "$lib/paraglide/messages.js";
-  import { goto, invalidateAll } from "$app/navigation";
+  import { m } from "#lib/paraglide/messages.js";
+  import { goto, refreshAll } from "$app/navigation";
   import { page } from "$app/state";
   import { onMount } from "svelte";
   import { ChevronDown, Plus } from "@lucide/svelte";
-  import ConfirmDialog from "$lib/components/primitives/ui/ConfirmDialog.svelte";
-  import { Button } from "$lib/components/primitives/ui/button";
-  import { fetchWithCsrf } from "$lib/services/http";
-  import { toasts } from "$lib/stores/toast";
+  import ConfirmDialog from "#lib/components/primitives/ui/ConfirmDialog.svelte";
+  import { Button } from "#lib/components/primitives/ui/button/index.js";
+  import { fetchWithCsrf } from "#lib/services/http.js";
+  import { toasts } from "#lib/stores/toast.js";
   import { problemTabHref } from "./problem-tab-href";
   import type { problemDomain } from "@nojv/application";
   import PublicProblemsTab from "../listings/PublicProblemsTab.svelte";
@@ -43,7 +43,7 @@
   let menuToggleEl = $state<HTMLElement | null>(null);
   let menuEl = $state<HTMLDivElement | undefined>();
 
-  let currentUrl = $derived(page.url);
+  let currentUrl = $derived(new URL(page.url.href));
   let tab = $derived<"public" | "mine" | "all">(
     isAdmin && currentUrl.searchParams.get("tab") === "all"
       ? "all"
@@ -126,7 +126,7 @@
         const body = (await res.json().catch(() => null)) as { message?: string } | null;
         throw new Error(body?.message ?? m.problems_deleteFailed());
       }
-      await invalidateAll();
+      await refreshAll();
     } catch (e) {
       toasts.error(e instanceof Error ? e.message : m.problems_deleteFailed());
     } finally {

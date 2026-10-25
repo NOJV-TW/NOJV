@@ -1,5 +1,5 @@
 import type { DriveStep } from "driver.js";
-import { m } from "$lib/paraglide/messages.js";
+import { m } from "#lib/paraglide/messages.js";
 import { replayTour, step, type Intro } from "./engine";
 import { taIntros } from "./teacher-tour";
 

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { renderMarkdown } from "$lib/utils/markdown";
+  import { renderMarkdown } from "#lib/utils/markdown.js";
   import "katex/dist/katex.min.css";
 
   let { content = "" }: { content: string } = $props();

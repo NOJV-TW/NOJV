@@ -2,8 +2,8 @@
   import type { LatePenaltyRule } from "@nojv/core";
   type LatePenaltyOptionKey = "none" | LatePenaltyRule["type"];
 
-  import { m } from "$lib/paraglide/messages.js";
-  import { inputClassName, cn } from "$lib/utils/css.js";
+  import { m } from "#lib/paraglide/messages.js";
+  import { inputClassName, cn } from "#lib/utils/css.js";
 
   interface Props {
     value: LatePenaltyRule | null;

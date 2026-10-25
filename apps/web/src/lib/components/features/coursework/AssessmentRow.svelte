@@ -1,9 +1,9 @@
 <script lang="ts">
   import type { Snippet } from "svelte";
   import { Calendar, CalendarCheck2, CalendarClock, ChevronRight, Radio } from "@lucide/svelte";
-  import { m } from "$lib/paraglide/messages.js";
-  import { cn } from "$lib/utils/css.js";
-  import { getLocale } from "$lib/paraglide/runtime.js";
+  import { m } from "#lib/paraglide/messages.js";
+  import { cn } from "#lib/utils/css.js";
+  import { getLocale } from "#lib/paraglide/runtime.js";
   import { typeAccentVar } from "./type-accent.js";
   import type { CourseworkKind } from "./StatusPill.svelte";
 

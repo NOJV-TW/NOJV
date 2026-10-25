@@ -44,7 +44,7 @@ Every surface that can silently drift is checked by a test derived from its sing
 
 **Decided:** 2026-06 · **Source:** [2026-06-11-post-audit-next-phase](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-06-11-post-audit-next-phase.md)
 
-Route tests import the real `hooks.server.handle` and route handlers, drive them with a hand-built `RequestEvent`, and stub only `$env/*`, `$app/environment` and the auth-session seam. The nightly sandbox-isolation workflow runs separately and does not block PRs.
+Route tests import the real `hooks.server.handle` and route handlers, drive them with a hand-built `RequestEvent`, and stub only `$env/*`, `$app/env` and the auth-session seam. The nightly sandbox-isolation workflow runs separately and does not block PRs.
 
 - Rejected: `new Server(manifest)` (no stable public export, breaks on patch releases); a built node adapter on an ephemeral port (heavy, conflicts with the test DB model, duplicates Playwright); avoiding `@temporalio/testing` (reversed — it now backs `tests/integration/temporal/`).
 - Code: `tests/integration/http/_harness.ts`, `.github/workflows/nightly-sandbox.yml`

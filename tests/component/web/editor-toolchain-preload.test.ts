@@ -2,12 +2,12 @@
 
 import { mount, tick, unmount } from "svelte";
 import { afterEach, expect, it, vi } from "vitest";
-import type { ProblemDetail } from "$lib/types";
-import { m } from "$lib/paraglide/messages.js";
+import type { ProblemDetail } from "#lib/types/index.js";
+import { m } from "#lib/paraglide/messages.js";
 
 type Progress = { loadedBytes: number; totalBytes: number };
-type JudgeProgramProgress = import("$lib/services/judge-program").JudgeProgramProgress;
-type PreparedJudgeProgram = import("$lib/services/judge-program").PreparedJudgeProgram;
+type JudgeProgramProgress = import("#lib/services/judge-program.js").JudgeProgramProgress;
+type PreparedJudgeProgram = import("#lib/services/judge-program.js").PreparedJudgeProgram;
 
 const mocks = vi.hoisted(() => ({
   preload:
@@ -26,15 +26,15 @@ const mocks = vi.hoisted(() => ({
     markDestroyed: vi.fn(),
   },
 }));
-vi.mock("$lib/services/browser-local-run", () => ({
+vi.mock("#lib/services/browser-local-run.js", () => ({
   supportsBrowserLocalRun: () => true,
   prewarmBrowserLocalEngine: mocks.prewarm,
   preloadBrowserToolchain: mocks.preload,
   browserToolchainPercent: ({ loadedBytes, totalBytes }: Progress) =>
     Math.floor((loadedBytes / totalBytes) * 100),
 }));
-vi.mock("$lib/services/judge-program", () => ({ prepareJudgeProgram: mocks.prepare }));
-vi.mock("$lib/components/features/problem/editors/use-draft.svelte", () => ({
+vi.mock("#lib/services/judge-program.js", () => ({ prepareJudgeProgram: mocks.prepare }));
+vi.mock("#lib/components/features/problem/editors/use-draft.svelte.js", () => ({
   createDraftController: () => ({
     save: vi.fn(),
     hydrate: vi.fn(),
@@ -42,29 +42,29 @@ vi.mock("$lib/components/features/problem/editors/use-draft.svelte", () => ({
     dispose: vi.fn(),
   }),
 }));
-vi.mock("$lib/components/features/problem/editors/use-editor-run.svelte", () => ({
+vi.mock("#lib/components/features/problem/editors/use-editor-run.svelte.js", () => ({
   createEditorRunController: () => ({ ...mocks.run, submit: vi.fn(), run: vi.fn() }),
 }));
-vi.mock("$lib/components/features/problem/editors/EditorCore.svelte", async () => ({
+vi.mock("#lib/components/features/problem/editors/EditorCore.svelte", async () => ({
   default: (await import("../../fixtures/web/empty-component.svelte")).default,
 }));
-vi.mock("$lib/components/features/problem/editors/EditorBottomPanel.svelte", async () => ({
+vi.mock("#lib/components/features/problem/editors/EditorBottomPanel.svelte", async () => ({
   default: (await import("../../fixtures/web/empty-component.svelte")).default,
 }));
-vi.mock("$lib/components/features/problem/editors/StudentProblemView.svelte", async () => ({
+vi.mock("#lib/components/features/problem/editors/StudentProblemView.svelte", async () => ({
   default: (await import("../../fixtures/web/empty-component.svelte")).default,
 }));
-vi.mock("$lib/components/features/problem/editors/EditorTopBar.svelte", async () => ({
+vi.mock("#lib/components/features/problem/editors/EditorTopBar.svelte", async () => ({
   default: (await import("../../fixtures/web/empty-component.svelte")).default,
 }));
-vi.mock("$lib/components/features/problem/editors/EditorResizeHandle.svelte", async () => ({
+vi.mock("#lib/components/features/problem/editors/EditorResizeHandle.svelte", async () => ({
   default: (await import("../../fixtures/web/empty-component.svelte")).default,
 }));
-vi.mock("$lib/components/primitives/ui/ConfirmDialog.svelte", async () => ({
+vi.mock("#lib/components/primitives/ui/ConfirmDialog.svelte", async () => ({
   default: (await import("../../fixtures/web/empty-component.svelte")).default,
 }));
-import Editor from "$lib/components/features/problem/editors/Editor.svelte";
-import EditorActionBar from "$lib/components/features/problem/editors/EditorActionBar.svelte";
+import Editor from "#lib/components/features/problem/editors/Editor.svelte";
+import EditorActionBar from "#lib/components/features/problem/editors/EditorActionBar.svelte";
 
 let component: ReturnType<typeof mount> | undefined;
 let target: HTMLDivElement;

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { RequestEvent } from "@sveltejs/kit";
 import { courseMembershipAdminRepo, courseRepo } from "@nojv/db";
 
-import { getCoursePermissionRole, requireAuth } from "$lib/server/auth";
+import { getCoursePermissionRole, requireAuth } from "#lib/server/auth.js";
 import { load as loadCourseLayout } from "../../../apps/web/src/routes/(app)/courses/[courseId]/+layout.server";
 import { load as loadAssignmentLayout } from "../../../apps/web/src/routes/(app)/assignments/[assignmentId]/+layout.server";
 import { load as loadExamLayout } from "../../../apps/web/src/routes/(app)/exams/[examId]/+layout.server";

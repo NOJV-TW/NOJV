@@ -8,7 +8,7 @@ const mocked = vi.hoisted(() => ({
   states: new Set<{ ids: string[]; listener: (operation: SubmissionOperation) => void }>(),
   callbacks: new Set<(signal: AbortSignal) => Promise<void>>(),
 }));
-vi.mock("$lib/services/submission-tracker", () => ({
+vi.mock("#lib/services/submission-tracker.js", () => ({
   submissionRead: mocked.read,
   isNewerSubmission: (incoming: SubmissionOperation, current: SubmissionOperation) =>
     incoming.judgeGeneration > current.judgeGeneration ||
@@ -25,7 +25,7 @@ vi.mock("$lib/services/submission-tracker", () => ({
   },
 }));
 vi.mock("$app/navigation", () => ({ goto: vi.fn() }));
-vi.mock("$lib/components/primitives/ui/select/select-content.svelte", async () => ({
+vi.mock("#lib/components/primitives/ui/select/select-content.svelte", async () => ({
   default: (await import("../../fixtures/web/select-content.svelte")).default,
 }));
 vi.mock("@lucide/svelte", async () => ({

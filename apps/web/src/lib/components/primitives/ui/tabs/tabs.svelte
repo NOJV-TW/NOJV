@@ -1,8 +1,8 @@
 <script lang="ts" generics="K extends string">
   import type { Snippet } from "svelte";
   import { Tabs as TabsPrimitive } from "bits-ui";
-  import { cn } from "$lib/utils/css.js";
-  import GlassPanel from "$lib/components/primitives/visual/GlassPanel.svelte";
+  import { cn } from "#lib/utils/css.js";
+  import GlassPanel from "#lib/components/primitives/visual/GlassPanel.svelte";
 
   type TabItem = { key: K; label: string; count?: number };
 

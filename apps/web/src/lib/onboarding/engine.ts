@@ -1,6 +1,6 @@
 import { driver, type Config, type Driver, type DriveStep } from "driver.js";
 import "driver.js/dist/driver.css";
-import { m } from "$lib/paraglide/messages.js";
+import { m } from "#lib/paraglide/messages.js";
 
 type Side = "top" | "bottom" | "left" | "right";
 

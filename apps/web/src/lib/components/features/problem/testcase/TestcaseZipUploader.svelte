@@ -2,17 +2,17 @@
   import X from "@lucide/svelte/icons/x";
   import { MAX_TESTCASE_FILE_BYTES } from "@nojv/core";
   import JSZip from "jszip";
-  import { invalidateAll } from "$app/navigation";
-  import { m } from "$lib/paraglide/messages.js";
-  import ImageDropZone from "$lib/components/primitives/ui/ImageDropZone.svelte";
-  import HelpTooltip from "$lib/components/primitives/ui/HelpTooltip.svelte";
+  import { refreshAll } from "$app/navigation";
+  import { m } from "#lib/paraglide/messages.js";
+  import ImageDropZone from "#lib/components/primitives/ui/ImageDropZone.svelte";
+  import HelpTooltip from "#lib/components/primitives/ui/HelpTooltip.svelte";
   import {
     DEFAULT_TESTCASE_NAME_PATTERN,
     detectSubtasksFromFiles,
     type ParsedCase,
     type SubtaskConfig,
   } from "../detect-subtasks";
-  import { postProblemAction } from "$lib/utils/actions";
+  import { postProblemAction } from "#lib/utils/actions.js";
 
   interface Props {
     problemId: string;
@@ -158,7 +158,7 @@
       zipFileName = null;
     } finally {
       uploadSaving = false;
-      if (saved.size > 0) await invalidateAll();
+      if (saved.size > 0) await refreshAll();
     }
   }
 </script>

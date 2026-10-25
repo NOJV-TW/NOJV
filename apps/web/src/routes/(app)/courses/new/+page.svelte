@@ -1,13 +1,13 @@
 <script lang="ts">
   import { untrack } from "svelte";
   import { ArrowRight, ChevronLeft } from "@lucide/svelte";
-  import { appSuperForm } from "$lib/utils/super-form";
-  import { m } from "$lib/paraglide/messages.js";
-  import { Button } from "$lib/components/primitives/ui/button";
-  import FormError from "$lib/components/primitives/ui/FormError.svelte";
-  import PageContainer from "$lib/components/primitives/layout/PageContainer.svelte";
-  import StepCard from "$lib/components/features/coursework/StepCard.svelte";
-  import type { FormMessage } from "$lib/types/form-message";
+  import { appSuperForm } from "#lib/utils/super-form.js";
+  import { m } from "#lib/paraglide/messages.js";
+  import { Button } from "#lib/components/primitives/ui/button/index.js";
+  import FormError from "#lib/components/primitives/ui/FormError.svelte";
+  import PageContainer from "#lib/components/primitives/layout/PageContainer.svelte";
+  import StepCard from "#lib/components/features/coursework/StepCard.svelte";
+  import type { FormMessage } from "#lib/types/form-message.js";
   import type { PageData } from "./$types";
 
   let { data }: { data: PageData } = $props();

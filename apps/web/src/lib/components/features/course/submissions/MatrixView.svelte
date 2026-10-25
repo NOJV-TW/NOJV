@@ -57,9 +57,9 @@
 </script>
 
 <script lang="ts">
-  import { Button } from "$lib/components/primitives/ui/button";
-  import { cn } from "$lib/utils/css.js";
-  import { toggleSort, type TableSort } from "$lib/utils/table-sort";
+  import { Button } from "#lib/components/primitives/ui/button/index.js";
+  import { cn } from "#lib/utils/css.js";
+  import { toggleSort, type TableSort } from "#lib/utils/table-sort.js";
   import MatrixTable from "./MatrixTable.svelte";
   import MatrixLegend from "./MatrixLegend.svelte";
 

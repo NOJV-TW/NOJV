@@ -6,14 +6,14 @@
     supportedLanguages,
     type Language,
   } from "@nojv/core";
-  import { m } from "$lib/paraglide/messages.js";
+  import { m } from "#lib/paraglide/messages.js";
   import WorkspaceModeSection, {
     type WorkspaceMode,
-  } from "$lib/components/features/problem/workspace/WorkspaceModeSection.svelte";
-  import WorkspaceRuntimeSection from "$lib/components/features/problem/workspace/WorkspaceRuntimeSection.svelte";
-  import WorkspaceLanguagesSection from "$lib/components/features/problem/workspace/WorkspaceLanguagesSection.svelte";
-  import WorkspaceFilesSection from "$lib/components/features/problem/workspace/WorkspaceFilesSection.svelte";
-  import type { WorkspaceFile } from "$lib/components/features/problem/workspace/WorkspaceFileEditor.svelte";
+  } from "#lib/components/features/problem/workspace/WorkspaceModeSection.svelte";
+  import WorkspaceRuntimeSection from "#lib/components/features/problem/workspace/WorkspaceRuntimeSection.svelte";
+  import WorkspaceLanguagesSection from "#lib/components/features/problem/workspace/WorkspaceLanguagesSection.svelte";
+  import WorkspaceFilesSection from "#lib/components/features/problem/workspace/WorkspaceFilesSection.svelte";
+  import type { WorkspaceFile } from "#lib/components/features/problem/workspace/WorkspaceFileEditor.svelte";
 
   export type { WorkspaceMode };
 

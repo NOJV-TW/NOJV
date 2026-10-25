@@ -1,13 +1,13 @@
 <script lang="ts">
   import { Timer, Trophy } from "@lucide/svelte";
   import { enhance } from "$app/forms";
-  import { m } from "$lib/paraglide/messages.js";
-  import { Button } from "$lib/components/primitives/ui/button";
-  import Crumbs from "$lib/components/primitives/visual/Crumbs.svelte";
-  import Countdown from "$lib/components/primitives/visual/Countdown.svelte";
-  import GlassPanel from "$lib/components/primitives/visual/GlassPanel.svelte";
-  import PageContainer from "$lib/components/primitives/layout/PageContainer.svelte";
-  import EmptyState from "$lib/components/primitives/ui/EmptyState.svelte";
+  import { m } from "#lib/paraglide/messages.js";
+  import { Button } from "#lib/components/primitives/ui/button/index.js";
+  import Crumbs from "#lib/components/primitives/visual/Crumbs.svelte";
+  import Countdown from "#lib/components/primitives/visual/Countdown.svelte";
+  import GlassPanel from "#lib/components/primitives/visual/GlassPanel.svelte";
+  import PageContainer from "#lib/components/primitives/layout/PageContainer.svelte";
+  import EmptyState from "#lib/components/primitives/ui/EmptyState.svelte";
 
   let { data, form } = $props();
 

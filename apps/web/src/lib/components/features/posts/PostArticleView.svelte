@@ -1,12 +1,12 @@
 <script lang="ts">
   import { ArrowLeft, ChevronDown, ChevronUp, Flag, Pencil, Trash2 } from "@lucide/svelte";
   import type { ProblemPostType } from "@nojv/core";
-  import { m } from "$lib/paraglide/messages.js";
-  import ConfirmDialog from "$lib/components/primitives/ui/ConfirmDialog.svelte";
-  import MarkdownRenderer from "$lib/components/primitives/layout/MarkdownRenderer.svelte";
-  import { fetchWithCsrf } from "$lib/services/http";
-  import { toasts } from "$lib/stores/toast";
-  import { formatDate } from "$lib/utils/datetime";
+  import { m } from "#lib/paraglide/messages.js";
+  import ConfirmDialog from "#lib/components/primitives/ui/ConfirmDialog.svelte";
+  import MarkdownRenderer from "#lib/components/primitives/layout/MarkdownRenderer.svelte";
+  import { fetchWithCsrf } from "#lib/services/http.js";
+  import { toasts } from "#lib/stores/toast.js";
+  import { formatDate } from "#lib/utils/datetime.js";
   import CommentSection from "./CommentSection.svelte";
   import ReportDialog from "./ReportDialog.svelte";
   import type { PostDetail } from "./types";

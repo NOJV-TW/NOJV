@@ -22,7 +22,8 @@
         "build/**",
         "generated/**",
         "static/wasm-oj/**",
-        "static/_app/**"
+        "static/_app/**",
+        "node_modules/$app/**"
       ]
     },
     "dev": {

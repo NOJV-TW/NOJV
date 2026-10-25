@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { formatJudgeOutput } from "$lib/utils/judge-output";
+import { formatJudgeOutput } from "#lib/utils/judge-output.js";
 
 describe("formatJudgeOutput", () => {
   it("removes ANSI styling, normalizes paths, and preserves useful diagnostics", () => {

@@ -2,19 +2,19 @@
 
 import { mount, unmount, tick } from "svelte";
 import { expect, it, vi } from "vitest";
-import { m } from "$lib/paraglide/messages.js";
+import { m } from "#lib/paraglide/messages.js";
 
 vi.mock("@lucide/svelte", async () => {
   const icon = (await import("../../fixtures/web/empty-component.svelte")).default;
   return { Flag: icon, Trash2: icon };
 });
-vi.mock("$lib/components/primitives/ui/ConfirmDialog.svelte", async () => ({
+vi.mock("#lib/components/primitives/ui/ConfirmDialog.svelte", async () => ({
   default: (await import("../../fixtures/web/empty-component.svelte")).default,
 }));
-vi.mock("$lib/components/features/posts/ReportDialog.svelte", async () => ({
+vi.mock("#lib/components/features/posts/ReportDialog.svelte", async () => ({
   default: (await import("../../fixtures/web/empty-component.svelte")).default,
 }));
-import CommentSection from "$lib/components/features/posts/CommentSection.svelte";
+import CommentSection from "#lib/components/features/posts/CommentSection.svelte";
 
 it("reports a refresh failure after a successful comment submission", async () => {
   const fetch = vi

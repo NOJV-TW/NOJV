@@ -16,7 +16,7 @@ vi.mock("@nojv/mailer", () => ({
   renderEmail: (content: unknown) => JSON.stringify(content),
 }));
 
-vi.mock("$lib/server/logger", () => ({
+vi.mock("#lib/server/logger.js", () => ({
   createLogger: () => ({
     debug: vi.fn(),
     info: vi.fn(),
@@ -25,11 +25,11 @@ vi.mock("$lib/server/logger", () => ({
   }),
 }));
 
-vi.mock("$lib/server/shared/rate-limiter", () => ({
+vi.mock("#lib/server/shared/rate-limiter.js", () => ({
   consumeFormRateLimitInternal: vi.fn().mockResolvedValue(null),
 }));
 
-import { processSchoolVerification } from "$lib/server/shared/school-verification";
+import { processSchoolVerification } from "#lib/server/shared/school-verification.js";
 
 beforeEach(() => {
   vi.clearAllMocks();

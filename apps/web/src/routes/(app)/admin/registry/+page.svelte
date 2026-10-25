@@ -1,22 +1,22 @@
 <script lang="ts">
   import { enhance } from "$app/forms";
   import { Database, Trash2 } from "@lucide/svelte";
-  import { Button } from "$lib/components/primitives/ui/button";
-  import { Card } from "$lib/components/primitives/ui/card";
-  import ConfirmDialog from "$lib/components/primitives/ui/ConfirmDialog.svelte";
-  import EmptyState from "$lib/components/primitives/ui/EmptyState.svelte";
-  import TableTextColumnFilter from "$lib/components/primitives/ui/TableTextColumnFilter.svelte";
-  import TableSortButton from "$lib/components/primitives/ui/TableSortButton.svelte";
-  import PageContainer from "$lib/components/primitives/layout/PageContainer.svelte";
-  import { m } from "$lib/paraglide/messages.js";
-  import { toasts } from "$lib/stores/toast";
+  import { Button } from "#lib/components/primitives/ui/button/index.js";
+  import { Card } from "#lib/components/primitives/ui/card/index.js";
+  import ConfirmDialog from "#lib/components/primitives/ui/ConfirmDialog.svelte";
+  import EmptyState from "#lib/components/primitives/ui/EmptyState.svelte";
+  import TableTextColumnFilter from "#lib/components/primitives/ui/TableTextColumnFilter.svelte";
+  import TableSortButton from "#lib/components/primitives/ui/TableSortButton.svelte";
+  import PageContainer from "#lib/components/primitives/layout/PageContainer.svelte";
+  import { m } from "#lib/paraglide/messages.js";
+  import { toasts } from "#lib/stores/toast.js";
   import {
     ariaSort,
     sortDirection,
     sortRows,
     toggleSort,
     type TableSort,
-  } from "$lib/utils/table-sort";
+  } from "#lib/utils/table-sort.js";
 
   let { data } = $props();
 

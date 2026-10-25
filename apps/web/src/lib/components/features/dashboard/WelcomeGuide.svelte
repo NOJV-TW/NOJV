@@ -1,8 +1,8 @@
 <script lang="ts">
   import { Rocket } from "@lucide/svelte";
-  import { m } from "$lib/paraglide/messages.js";
-  import { Card } from "$lib/components/primitives/ui/card";
-  import EmptyState from "$lib/components/primitives/ui/EmptyState.svelte";
+  import { m } from "#lib/paraglide/messages.js";
+  import { Card } from "#lib/components/primitives/ui/card/index.js";
+  import EmptyState from "#lib/components/primitives/ui/EmptyState.svelte";
 
   interface Props {
     username?: string;

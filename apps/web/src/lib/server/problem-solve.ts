@@ -1,7 +1,7 @@
 import { problemDomain, submissionDomain } from "@nojv/application";
 import type { Language } from "@nojv/core";
 
-import type { CompletedActorContext } from "$lib/server/auth";
+import type { CompletedActorContext } from "#lib/server/auth.js";
 
 type ProblemSolveContext =
   | {

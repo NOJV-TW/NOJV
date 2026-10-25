@@ -8,7 +8,7 @@ const { apiConsume, writeConsume, registryConsume, formConsume } = vi.hoisted(()
   formConsume: vi.fn(),
 }));
 
-vi.mock("$lib/server/shared/rate-limiter", () => ({
+vi.mock("#lib/server/shared/rate-limiter.js", () => ({
   apiRateLimiter: { consume: apiConsume },
   writeApiRateLimiter: { consume: writeConsume },
   registryTokenRateLimiter: { consume: registryConsume },
@@ -19,8 +19,8 @@ import {
   apiHandler,
   registryTokenApiHandler,
   writeApiHandler,
-} from "$lib/server/shared/api-handler";
-import { withRateLimit, withRateLimitActions } from "$lib/server/shared/action-handlers";
+} from "#lib/server/shared/api-handler.js";
+import { withRateLimit, withRateLimitActions } from "#lib/server/shared/action-handlers.js";
 
 function makeEvent(): RequestEvent {
   return {

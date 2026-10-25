@@ -1,22 +1,22 @@
 <script lang="ts">
   import { enhance } from "$app/forms";
-  import * as Dialog from "$lib/components/primitives/ui/dialog";
-  import { Card } from "$lib/components/primitives/ui/card";
-  import PageContainer from "$lib/components/primitives/layout/PageContainer.svelte";
-  import PageHeader from "$lib/components/primitives/layout/PageHeader.svelte";
-  import EmptyState from "$lib/components/primitives/ui/EmptyState.svelte";
-  import TableSelectColumnFilter from "$lib/components/primitives/ui/TableSelectColumnFilter.svelte";
-  import TableTextColumnFilter from "$lib/components/primitives/ui/TableTextColumnFilter.svelte";
-  import TableSortButton from "$lib/components/primitives/ui/TableSortButton.svelte";
-  import { m } from "$lib/paraglide/messages.js";
-  import { formatDate } from "$lib/utils/datetime";
+  import * as Dialog from "#lib/components/primitives/ui/dialog/index.js";
+  import { Card } from "#lib/components/primitives/ui/card/index.js";
+  import PageContainer from "#lib/components/primitives/layout/PageContainer.svelte";
+  import PageHeader from "#lib/components/primitives/layout/PageHeader.svelte";
+  import EmptyState from "#lib/components/primitives/ui/EmptyState.svelte";
+  import TableSelectColumnFilter from "#lib/components/primitives/ui/TableSelectColumnFilter.svelte";
+  import TableTextColumnFilter from "#lib/components/primitives/ui/TableTextColumnFilter.svelte";
+  import TableSortButton from "#lib/components/primitives/ui/TableSortButton.svelte";
+  import { m } from "#lib/paraglide/messages.js";
+  import { formatDate } from "#lib/utils/datetime.js";
   import {
     ariaSort,
     sortDirection,
     sortRows,
     toggleSort,
     type TableSort,
-  } from "$lib/utils/table-sort";
+  } from "#lib/utils/table-sort.js";
   import { Flag } from "@lucide/svelte";
 
   let { data } = $props();

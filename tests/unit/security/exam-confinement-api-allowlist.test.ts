@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 
 import { describe, expect, it } from "vitest";
 
-import { isExamForbiddenApiRequest } from "$lib/server/exam-lock";
+import { isExamForbiddenApiRequest } from "#lib/server/exam-lock.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const apiRoot = path.resolve(__dirname, "../../../apps/web/src/routes/api");

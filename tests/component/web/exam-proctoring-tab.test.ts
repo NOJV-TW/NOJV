@@ -1,14 +1,14 @@
 // @vitest-environment jsdom
 import { mount, tick, unmount, type ComponentProps } from "svelte";
 import { afterEach, expect, it, vi } from "vitest";
-import { m } from "$lib/paraglide/messages.js";
+import { m } from "#lib/paraglide/messages.js";
 
 vi.mock("$app/forms", () => ({ enhance: () => ({ destroy() {} }) }));
-vi.mock("$lib/components/primitives/ui/select/select-content.svelte", async () => ({
+vi.mock("#lib/components/primitives/ui/select/select-content.svelte", async () => ({
   default: (await import("../../fixtures/web/select-content.svelte")).default,
 }));
 
-import ExamProctoringTab from "$lib/components/features/course/exam/ExamProctoringTab.svelte";
+import ExamProctoringTab from "#lib/components/features/course/exam/ExamProctoringTab.svelte";
 
 const student = (userId: string) => ({
   membershipId: `member_${userId}`,

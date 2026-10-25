@@ -2,7 +2,7 @@ import { lookup } from "node:dns/promises";
 import { request as httpsRequest } from "node:https";
 import { BlockList, isIP, type LookupFunction } from "node:net";
 
-import { MAX_IMAGE_SIZE, detectImageMime } from "$lib/server/shared/file-validation";
+import { MAX_IMAGE_SIZE, detectImageMime } from "#lib/server/shared/file-validation.js";
 
 const MAX_URL_LENGTH = 2048;
 const MAX_REDIRECTS = 3;

@@ -1,15 +1,13 @@
-import { json } from "@sveltejs/kit";
-
 import type { RequestHandler } from "./$types";
 
-import { requireApiAuth } from "$lib/server/auth";
+import { requireApiAuth } from "#lib/server/auth.js";
 import {
   apiHandler,
   writeApiHandler,
   assertJsonBodyWithinLimit,
   parseContextQuery,
   readJsonBody,
-} from "$lib/server/shared/api-handler";
+} from "#lib/server/shared/api-handler.js";
 import { feedbackUpsertSchema, scoreOverrideContextSchema as contextSchema } from "@nojv/core";
 import { feedbackDomain } from "@nojv/application";
 
@@ -22,7 +20,7 @@ export const GET: RequestHandler = apiHandler(async (event) => {
   await feedbackDomain.assertCanViewFeedback(actor, context);
 
   const items = await feedbackDomain.listFeedbackForContext(context);
-  return json({ items });
+  return Response.json({ items });
 });
 
 export const PUT: RequestHandler = writeApiHandler(async (event) => {
@@ -31,5 +29,5 @@ export const PUT: RequestHandler = writeApiHandler(async (event) => {
   const { context, ...input } = upsertSchema.parse(await readJsonBody(event));
 
   const row = await feedbackDomain.upsertFeedback(actor, { context, input });
-  return json(row);
+  return Response.json(row);
 });

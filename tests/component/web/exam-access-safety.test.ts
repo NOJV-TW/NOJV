@@ -1,17 +1,17 @@
 import { mount, tick, unmount } from "svelte";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import type { SubmitFunction } from "@sveltejs/kit";
-import { m } from "$lib/paraglide/messages.js";
-import ExamPasswordLogin from "$lib/components/features/auth/ExamPasswordLogin.svelte";
-import ExamProctoringTab from "$lib/components/features/course/exam/ExamProctoringTab.svelte";
-import ExamHandInPanel from "$lib/components/features/course/exam/ExamHandInPanel.svelte";
+import { m } from "#lib/paraglide/messages.js";
+import ExamPasswordLogin from "#lib/components/features/auth/ExamPasswordLogin.svelte";
+import ExamProctoringTab from "#lib/components/features/course/exam/ExamProctoringTab.svelte";
+import ExamHandInPanel from "#lib/components/features/course/exam/ExamHandInPanel.svelte";
 
 const mocks = vi.hoisted(() => ({
   goto: vi.fn().mockResolvedValue(undefined),
   enhanced: new Map<HTMLFormElement, SubmitFunction>(),
   waitForPendingSubmissions: vi.fn(),
 }));
-vi.mock("$lib/services/submission-service", () => ({
+vi.mock("#lib/services/submission-service.js", () => ({
   waitForPendingSubmissions: mocks.waitForPendingSubmissions,
 }));
 vi.mock("$app/navigation", () => ({ goto: mocks.goto }));
@@ -78,7 +78,7 @@ it("opens a password dialog and signs in with username to the returned exam", as
     .querySelector("form")!
     .dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
   await vi.waitFor(() =>
-    expect(mocks.goto).toHaveBeenCalledWith("/exams/exam_example", { invalidateAll: true }),
+    expect(mocks.goto).toHaveBeenCalledWith("/exams/exam_example", { refreshAll: true }),
   );
   expect(fetchMock).toHaveBeenCalledWith(
     "/api/auth/sign-in/exam-password",

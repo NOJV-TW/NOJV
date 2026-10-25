@@ -7,7 +7,7 @@ import {
   readThemeMode,
   resolveIsDark,
   toggleThemeMode,
-} from "$lib/stores/theme";
+} from "#lib/stores/theme.js";
 
 beforeEach(() => {
   localStorage.clear();

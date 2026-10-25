@@ -1,31 +1,31 @@
 <script lang="ts">
-  import { goto, invalidateAll } from "$app/navigation";
+  import { goto, refreshAll } from "$app/navigation";
   import { MAX_INLINE_TESTCASE_EDIT_BYTES } from "@nojv/core";
-  import { m } from "$lib/paraglide/messages.js";
-  import { formatProblemDisplayName } from "$lib/utils/format-problem-display-name";
-  import { formatBytes } from "$lib/utils/storage-budget-format";
-  import { fetchTestcaseContent, submitFormAction } from "$lib/utils/actions";
-  import ProblemSections from "$lib/components/features/problem/views/ProblemSections.svelte";
-  import EditRail from "$lib/components/features/problem/views/EditRail.svelte";
-  import BasicInfoTab from "$lib/components/features/problem/tabs/BasicInfoTab.svelte";
-  import TestcaseTab from "$lib/components/features/problem/tabs/TestcaseTab.svelte";
-  import JudgeTab from "$lib/components/features/problem/tabs/JudgeTab.svelte";
+  import { m } from "#lib/paraglide/messages.js";
+  import { formatProblemDisplayName } from "#lib/utils/format-problem-display-name.js";
+  import { formatBytes } from "#lib/utils/storage-budget-format.js";
+  import { fetchTestcaseContent, submitFormAction } from "#lib/utils/actions.js";
+  import ProblemSections from "#lib/components/features/problem/views/ProblemSections.svelte";
+  import EditRail from "#lib/components/features/problem/views/EditRail.svelte";
+  import BasicInfoTab from "#lib/components/features/problem/tabs/BasicInfoTab.svelte";
+  import TestcaseTab from "#lib/components/features/problem/tabs/TestcaseTab.svelte";
+  import JudgeTab from "#lib/components/features/problem/tabs/JudgeTab.svelte";
   import WorkspaceSection, {
     type WorkspaceSectionPayload,
-  } from "$lib/components/features/problem/sections/WorkspaceSection.svelte";
-  import AdvancedImageConfigSection from "$lib/components/features/problem/advanced/AdvancedImageConfigSection.svelte";
-  import RegistryCredentialCard from "$lib/components/features/problem/advanced/RegistryCredentialCard.svelte";
-  import ReferenceSolutionSection from "$lib/components/features/problem/reference/ReferenceSolutionSection.svelte";
-  import CodeBlock from "$lib/components/primitives/ui/CodeBlock.svelte";
-  import CopyButton from "$lib/components/primitives/ui/CopyButton.svelte";
-  import MarkdownRenderer from "$lib/components/primitives/layout/MarkdownRenderer.svelte";
-  import ConfirmDialog from "$lib/components/primitives/ui/ConfirmDialog.svelte";
-  import { Badge } from "$lib/components/primitives/ui/badge";
-  import { Button } from "$lib/components/primitives/ui/button";
-  import BreadcrumbBackLink from "$lib/components/primitives/layout/BreadcrumbBackLink.svelte";
-  import PageContainer from "$lib/components/primitives/layout/PageContainer.svelte";
-  import { toasts } from "$lib/stores/toast";
-  import { fetchWithCsrf } from "$lib/services/http";
+  } from "#lib/components/features/problem/sections/WorkspaceSection.svelte";
+  import AdvancedImageConfigSection from "#lib/components/features/problem/advanced/AdvancedImageConfigSection.svelte";
+  import RegistryCredentialCard from "#lib/components/features/problem/advanced/RegistryCredentialCard.svelte";
+  import ReferenceSolutionSection from "#lib/components/features/problem/reference/ReferenceSolutionSection.svelte";
+  import CodeBlock from "#lib/components/primitives/ui/CodeBlock.svelte";
+  import CopyButton from "#lib/components/primitives/ui/CopyButton.svelte";
+  import MarkdownRenderer from "#lib/components/primitives/layout/MarkdownRenderer.svelte";
+  import ConfirmDialog from "#lib/components/primitives/ui/ConfirmDialog.svelte";
+  import { Badge } from "#lib/components/primitives/ui/badge/index.js";
+  import { Button } from "#lib/components/primitives/ui/button/index.js";
+  import BreadcrumbBackLink from "#lib/components/primitives/layout/BreadcrumbBackLink.svelte";
+  import PageContainer from "#lib/components/primitives/layout/PageContainer.svelte";
+  import { toasts } from "#lib/stores/toast.js";
+  import { fetchWithCsrf } from "#lib/services/http.js";
 
   let { data } = $props();
 
@@ -146,7 +146,7 @@
 
   async function handleWorkspaceSave(payload: WorkspaceSectionPayload) {
     await submitFormAction("?/updateWorkspace", { data: JSON.stringify(payload) });
-    await invalidateAll();
+    await refreshAll();
   }
 
   function handlePublishClick() {
@@ -198,7 +198,7 @@
         await goto(`/problems/${publishedId}`);
         return;
       }
-      await invalidateAll();
+      await refreshAll();
       toasts.success(m.admin_publishSuccess());
     } catch (e) {
       toasts.error(e instanceof Error ? e.message : m.error_unexpected());

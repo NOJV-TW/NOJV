@@ -1,9 +1,9 @@
 <script lang="ts">
-  import { m } from "$lib/paraglide/messages.js";
-  import { getLocale } from "$lib/paraglide/runtime.js";
-  import { notifications, type NotificationItem } from "$lib/stores/notifications.svelte";
-  import { cn } from "$lib/utils/css.js";
-  import { relativeTime } from "$lib/utils/relative-time";
+  import { m } from "#lib/paraglide/messages.js";
+  import { getLocale } from "#lib/paraglide/runtime.js";
+  import { notifications, type NotificationItem } from "#lib/stores/notifications.svelte.js";
+  import { cn } from "#lib/utils/css.js";
+  import { relativeTime } from "#lib/utils/relative-time.js";
 
   let { item }: { item: NotificationItem } = $props();
 

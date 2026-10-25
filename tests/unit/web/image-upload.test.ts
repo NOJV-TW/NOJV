@@ -2,15 +2,15 @@ import type { RequestEvent } from "@sveltejs/kit";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const { fetchRemoteImage } = vi.hoisted(() => ({ fetchRemoteImage: vi.fn() }));
-vi.mock("$lib/server/remote-image", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("$lib/server/remote-image")>()),
+vi.mock("#lib/server/remote-image.js", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("#lib/server/remote-image.js")>()),
   fetchRemoteImage,
 }));
-vi.mock("$lib/server/shared/rate-limiter", () => ({}));
+vi.mock("#lib/server/shared/rate-limiter.js", () => ({}));
 
-import { readImageUpload } from "$lib/server/image-upload";
-import { RemoteImageError } from "$lib/server/remote-image";
-import { MAX_IMAGE_SIZE } from "$lib/server/shared/file-validation";
+import { readImageUpload } from "#lib/server/image-upload.js";
+import { RemoteImageError } from "#lib/server/remote-image.js";
+import { MAX_IMAGE_SIZE } from "#lib/server/shared/file-validation.js";
 
 const PNG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0, 0, 0, 0, 0, 0, 0, 0]);
 function event(form: FormData): RequestEvent {

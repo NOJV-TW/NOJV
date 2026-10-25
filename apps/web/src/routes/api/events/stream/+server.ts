@@ -1,10 +1,10 @@
 import type { RequestHandler } from "./$types";
-import { getActorContext, hasActorUsername } from "$lib/server/auth";
+import { getActorContext, hasActorUsername } from "#lib/server/auth.js";
 import { keys } from "@nojv/redis";
 import { clarificationDomain } from "@nojv/application";
 type ClarificationContext = clarificationDomain.ClarificationContext;
-import { createLogger } from "$lib/server/logger";
-import { createSseResponse } from "$lib/server/shared/sse-response";
+import { createLogger } from "#lib/server/logger.js";
+import { createSseResponse } from "#lib/server/shared/sse-response.js";
 
 const CLARIFICATION_CONTEXT_TYPES = new Set(["contest", "exam", "assignment"] as const);
 

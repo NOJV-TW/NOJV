@@ -3,8 +3,8 @@
   import { cubicOut } from "svelte/easing";
   import { X } from "@lucide/svelte";
   import type { Component } from "svelte";
-  import { m } from "$lib/paraglide/messages.js";
-  import { trapFocus } from "$lib/utils/focus-trap";
+  import { m } from "#lib/paraglide/messages.js";
+  import { trapFocus } from "#lib/utils/focus-trap.js";
 
   export interface MobileNavLink {
     href: string;

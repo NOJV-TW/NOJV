@@ -1,42 +1,27 @@
 // @vitest-environment jsdom
 import { mount, tick, unmount } from "svelte";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { SubmitFunction, ActionResult } from "@sveltejs/kit";
-import type { Writable } from "svelte/store";
-import { m } from "$lib/paraglide/messages.js";
+import type { SubmitFunction, ActionResult } from "$app/forms";
+import { page as testPage } from "./fixtures/app-state.svelte.js";
+import { m } from "#lib/paraglide/messages.js";
 
-interface TestPage {
-  status: number;
-  data: Record<string, unknown>;
-  form: unknown;
-  url: URL;
-}
 const mocks = vi.hoisted(() => ({
-  invalidateAll: vi.fn().mockResolvedValue(undefined),
+  refreshAll: vi.fn().mockResolvedValue(undefined),
   fetch: vi.fn(),
-  page: undefined as Writable<TestPage> | undefined,
   enhanced: new Map<HTMLFormElement, SubmitFunction>(),
 }));
-vi.mock("$app/environment", () => ({
+vi.mock("$app/env", () => ({
   browser: true,
   dev: true,
   building: false,
   version: "test",
 }));
-vi.mock("$app/stores", async () => {
-  const { writable } = await import("svelte/store");
-  mocks.page = writable({
-    status: 200,
-    data: {},
-    form: null,
-    url: new URL("http://localhost/assignments/assignment-A"),
-  });
-  return { page: mocks.page, navigating: writable(null) };
-});
+vi.mock("$app/state", () => import("./fixtures/app-state.svelte.js"));
 vi.mock("$app/navigation", () => ({
   beforeNavigate: vi.fn(),
   afterNavigate: vi.fn(),
-  invalidateAll: mocks.invalidateAll,
+  refreshAll: mocks.refreshAll,
+  invalidateAll: mocks.refreshAll,
   goto: vi.fn(),
 }));
 vi.mock("$app/forms", () => ({
@@ -51,14 +36,14 @@ vi.mock("$app/forms", () => ({
   },
   async applyAction(result: ActionResult) {
     if (result.type === "success" || result.type === "failure")
-      mocks.page?.update((page) => ({ ...page, status: result.status, form: result.data }));
+      Object.assign(testPage, { status: result.status, form: result.data });
     await tick();
   },
 }));
-vi.mock("$lib/components/features/problem/ProblemSelectDialog.svelte", async () => ({
+vi.mock("#lib/components/features/problem/ProblemSelectDialog.svelte", async () => ({
   default: (await import("../../fixtures/web/empty-component.svelte")).default,
 }));
-vi.mock("$lib/components/features/problem/admin/RejudgeDialog.svelte", async () => ({
+vi.mock("#lib/components/features/problem/admin/RejudgeDialog.svelte", async () => ({
   default: (await import("../../fixtures/web/empty-component.svelte")).default,
 }));
 
@@ -82,7 +67,7 @@ beforeEach(() => {
     .mockResolvedValue(
       new Response(JSON.stringify({ type: "success", status: 200, data: {} })),
     );
-  mocks.invalidateAll.mockClear();
+  mocks.refreshAll.mockClear();
   vi.stubGlobal("fetch", mocks.fetch);
 });
 afterEach(async () => {
@@ -253,6 +238,7 @@ describe("actual settings Superforms refresh behavior", () => {
       formElement,
       result: {
         type: "failure",
+        location: action.href,
         status: 429,
         data: { error: "Too many requests. Please try again later." },
       },
@@ -267,7 +253,7 @@ describe("actual settings Superforms refresh behavior", () => {
 
   it("keeps a typed draft during page-store refresh, accepts a successful action, and resets on a context key change", async () => {
     const { default: Settings } = await import("./fixtures/teacher-settings-refresh.svelte");
-    mocks.page!.set({
+    Object.assign(testPage, {
       status: 200,
       data: {},
       form: null,
@@ -287,10 +273,7 @@ describe("actual settings Superforms refresh behavior", () => {
     title().dispatchEvent(new Event("input", { bubbles: true }));
     await tick();
     component.refresh("assignment-A", "Background server title");
-    mocks.page!.update((page) => ({
-      ...page,
-      data: { settingsForm: settingsForm("Background server title") },
-    }));
+    testPage.data = { settingsForm: settingsForm("Background server title") };
     await tick();
     expect(title().value).toBe("Unsaved teacher title");
 
@@ -319,14 +302,14 @@ describe("actual settings Superforms refresh behavior", () => {
       action,
       formData,
       formElement,
-      result: { type: "success", status: 200, data: { form: saved } },
+      result: { type: "success", location: action.href, status: 200, data: { form: saved } },
       update: async () => {},
     });
     await tick();
     expect(title().value).toBe("Saved teacher title");
-    expect(mocks.invalidateAll).toHaveBeenCalled();
+    expect(mocks.refreshAll).toHaveBeenCalled();
 
-    mocks.page!.update((page) => ({ ...page, form: null, data: {} }));
+    Object.assign(testPage, { form: null, data: {} });
     component.refresh("assignment-B", "Different assignment title");
     await tick();
     expect(title().value).toBe("Different assignment title");

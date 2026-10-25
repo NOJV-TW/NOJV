@@ -7,14 +7,14 @@
     TrendingDown,
   } from "@lucide/svelte";
   import type { EChartsOption } from "echarts";
-  import { m } from "$lib/paraglide/messages.js";
-  import { Card } from "$lib/components/primitives/ui/card";
-  import { Badge } from "$lib/components/primitives/ui/badge";
-  import EChart from "$lib/components/primitives/charts/EChart.svelte";
-  import EmptyState from "$lib/components/primitives/ui/EmptyState.svelte";
-  import PageContainer from "$lib/components/primitives/layout/PageContainer.svelte";
-  import { formatVerdictLabel } from "$lib/utils/verdict-style";
-  import { stablePieChartOptions } from "$lib/utils/chart-options";
+  import { m } from "#lib/paraglide/messages.js";
+  import { Card } from "#lib/components/primitives/ui/card/index.js";
+  import { Badge } from "#lib/components/primitives/ui/badge/index.js";
+  import EChart from "#lib/components/primitives/charts/EChart.svelte";
+  import EmptyState from "#lib/components/primitives/ui/EmptyState.svelte";
+  import PageContainer from "#lib/components/primitives/layout/PageContainer.svelte";
+  import { formatVerdictLabel } from "#lib/utils/verdict-style.js";
+  import { stablePieChartOptions } from "#lib/utils/chart-options.js";
   import type { PageData } from "./$types";
 
   let { data }: { data: PageData } = $props();

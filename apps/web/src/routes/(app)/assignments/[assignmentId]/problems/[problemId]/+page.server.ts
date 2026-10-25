@@ -2,9 +2,9 @@ import { error, redirect } from "@sveltejs/kit";
 
 import type { PageServerLoad, PageServerLoadEvent } from "./$types";
 import { assignmentDomain, submissionDomain } from "@nojv/application";
-import { requireAuth } from "$lib/server/auth";
-import { handleLoad } from "$lib/server/shared/load-wrapper";
-import { loadProblemSolveData } from "$lib/server/problem-solve";
+import { requireAuth } from "#lib/server/auth.js";
+import { handleLoad } from "#lib/server/shared/load-wrapper.js";
+import { loadProblemSolveData } from "#lib/server/problem-solve.js";
 
 export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent) => {
   event.depends("submission:data");

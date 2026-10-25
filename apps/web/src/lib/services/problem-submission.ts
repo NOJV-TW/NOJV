@@ -1,5 +1,5 @@
 import { isSubmissionPending, type SubmissionOperation } from "@nojv/core";
-import type { ProblemSubmissionEntry } from "$lib/types";
+import type { ProblemSubmissionEntry } from "#lib/types/index.js";
 import {
   executeSubmission,
   type ExecuteSubmissionOptions,

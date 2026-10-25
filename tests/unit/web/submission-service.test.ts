@@ -5,14 +5,14 @@ import {
   buildSubmissionBody,
   executeSubmission,
   waitForPendingSubmissions,
-} from "$lib/services/submission-service";
+} from "#lib/services/submission-service.js";
 
-import { stopSubmissionTracking } from "$lib/services/submission-tracker";
+import { stopSubmissionTracking } from "#lib/services/submission-tracker.js";
 vi.mock("$app/navigation", () => ({
-  invalidateAll: vi.fn().mockResolvedValue(undefined),
+  refreshAll: vi.fn().mockResolvedValue(undefined),
   invalidate: vi.fn().mockResolvedValue(undefined),
 }));
-vi.mock("$lib/stores/toast", () => ({ toasts: { success: vi.fn(), info: vi.fn() } }));
+vi.mock("#lib/stores/toast.js", () => ({ toasts: { success: vi.fn(), info: vi.fn() } }));
 beforeEach(() => {
   vi.useFakeTimers();
   Object.defineProperty(document, "visibilityState", { configurable: true, value: "visible" });

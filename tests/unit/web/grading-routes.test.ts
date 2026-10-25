@@ -18,17 +18,17 @@ vi.mock("@nojv/application", async (importOriginal) => {
     feedbackDomain: { ...actual.feedbackDomain, upsertFeedback: mocks.upsertFeedback },
   };
 });
-vi.mock("$lib/server/auth", () => ({ requireApiAuth: () => mocks.actor }));
-vi.mock("$lib/server/shared/rate-limiter", () => ({
+vi.mock("#lib/server/auth.js", () => ({ requireApiAuth: () => mocks.actor }));
+vi.mock("#lib/server/shared/rate-limiter.js", () => ({
   apiRateLimiter: { consume: async () => "allowed" },
   writeApiRateLimiter: { consume: async () => "allowed" },
   registryTokenRateLimiter: { consume: async () => "allowed" },
 }));
-vi.mock("$lib/server/logger", () => ({ createLogger: () => ({ error: vi.fn() }) }));
+vi.mock("#lib/server/logger.js", () => ({ createLogger: () => ({ error: vi.fn() }) }));
 
 import { POST } from "../../../apps/web/src/routes/api/overrides/+server";
 import { PUT } from "../../../apps/web/src/routes/api/feedback/+server";
-import { internalSchemas } from "$lib/server/openapi/internal/schemas";
+import { internalSchemas } from "#lib/server/openapi/internal/schemas.js";
 
 function event(method: string, body: unknown): RequestEvent {
   const url = new URL(`https://nojv.test/api/${method === "POST" ? "overrides" : "feedback"}`);

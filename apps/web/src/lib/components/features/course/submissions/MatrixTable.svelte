@@ -1,9 +1,9 @@
 <script lang="ts">
-  import TableSortButton from "$lib/components/primitives/ui/TableSortButton.svelte";
-  import TableTextColumnFilter from "$lib/components/primitives/ui/TableTextColumnFilter.svelte";
-  import { m } from "$lib/paraglide/messages.js";
-  import { cn } from "$lib/utils/css.js";
-  import { ariaSort, sortDirection, type TableSort } from "$lib/utils/table-sort";
+  import TableSortButton from "#lib/components/primitives/ui/TableSortButton.svelte";
+  import TableTextColumnFilter from "#lib/components/primitives/ui/TableTextColumnFilter.svelte";
+  import { m } from "#lib/paraglide/messages.js";
+  import { cn } from "#lib/utils/css.js";
+  import { ariaSort, sortDirection, type TableSort } from "#lib/utils/table-sort.js";
   import type {
     MatrixCell,
     MatrixProblemColumn,

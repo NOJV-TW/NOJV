@@ -1,12 +1,12 @@
 <script lang="ts">
   import { deserialize } from "$app/forms";
-  import { invalidateAll } from "$app/navigation";
-  import { m } from "$lib/paraglide/messages.js";
-  import { Button } from "$lib/components/primitives/ui/button";
-  import ConfirmDialog from "$lib/components/primitives/ui/ConfirmDialog.svelte";
-  import CopyButton from "$lib/components/primitives/ui/CopyButton.svelte";
-  import { toasts } from "$lib/stores/toast";
-  import { formatDateTime } from "$lib/utils/datetime";
+  import { refreshAll } from "$app/navigation";
+  import { m } from "#lib/paraglide/messages.js";
+  import { Button } from "#lib/components/primitives/ui/button/index.js";
+  import ConfirmDialog from "#lib/components/primitives/ui/ConfirmDialog.svelte";
+  import CopyButton from "#lib/components/primitives/ui/CopyButton.svelte";
+  import { toasts } from "#lib/stores/toast.js";
+  import { formatDateTime } from "#lib/utils/datetime.js";
 
   interface Props {
     registryHost: string;
@@ -37,7 +37,7 @@
         typeof result.data?.password === "string"
       ) {
         issued = { username: result.data.username, password: result.data.password };
-        await invalidateAll();
+        await refreshAll();
       } else if (result.type === "failure") {
         toasts.error(
           typeof result.data?.error === "string" ? result.data.error : m.error_unexpected(),

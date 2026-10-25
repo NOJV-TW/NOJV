@@ -1,11 +1,11 @@
 <script lang="ts">
   import { page } from "$app/state";
   import Plus from "@lucide/svelte/icons/plus";
-  import { m } from "$lib/paraglide/messages.js";
-  import { Button } from "$lib/components/primitives/ui/button";
-  import PageContainer from "$lib/components/primitives/layout/PageContainer.svelte";
-  import ExamRow from "$lib/components/features/course/exam/ExamRow.svelte";
-  import AssessmentGroupHeading from "$lib/components/features/coursework/AssessmentGroupHeading.svelte";
+  import { m } from "#lib/paraglide/messages.js";
+  import { Button } from "#lib/components/primitives/ui/button/index.js";
+  import PageContainer from "#lib/components/primitives/layout/PageContainer.svelte";
+  import ExamRow from "#lib/components/features/course/exam/ExamRow.svelte";
+  import AssessmentGroupHeading from "#lib/components/features/coursework/AssessmentGroupHeading.svelte";
   import type { PageData } from "./$types";
 
   let { data }: { data: PageData } = $props();

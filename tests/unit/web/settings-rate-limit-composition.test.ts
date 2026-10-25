@@ -36,21 +36,21 @@ const {
   };
 });
 
-vi.mock("$lib/server/shared/rate-limiter", () => ({
+vi.mock("#lib/server/shared/rate-limiter.js", () => ({
   consumeFormRateLimitInternal: formLimitMock,
 }));
 
-vi.mock("$lib/../routes/(app)/settings/two-factor-actions", () => ({
+vi.mock("../../../apps/web/src/routes/(app)/settings/two-factor-actions.js", () => ({
   loadTwoFactor: vi.fn(),
   twoFactorActions: rawTwoFactorActions,
 }));
 
-vi.mock("$lib/server/shared/school-verification", () => ({
+vi.mock("#lib/server/shared/school-verification.js", () => ({
   handleSendVerificationAction: vi.fn(),
 }));
 
-vi.mock("$lib/auth.server", () => ({ getAuth: getAuthMock }));
-vi.mock("$lib/server/auth", () => ({ requireAuth: requireAuthMock }));
+vi.mock("#lib/auth.server.js", () => ({ getAuth: getAuthMock }));
+vi.mock("#lib/server/auth.js", () => ({ requireAuth: requireAuthMock }));
 vi.mock("@nojv/application", () => ({
   notificationDomain: {
     getNotificationPreferences: vi.fn(),
@@ -64,7 +64,7 @@ vi.mock("sveltekit-superforms/server", () => ({
 }));
 vi.mock("sveltekit-superforms/adapters", () => ({ zod4: vi.fn() }));
 
-const { actions } = await import("$lib/../routes/(app)/settings/+page.server");
+const { actions } = await import("../../../apps/web/src/routes/(app)/settings/+page.server.js");
 
 const GUARDED_ACTIONS = [
   "sendSecuritySetupOtp",

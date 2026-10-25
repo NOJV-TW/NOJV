@@ -4,7 +4,7 @@ import { getAppBaseUrl, getMailer, renderEmail } from "@nojv/mailer";
 
 import { createLogger } from "../logger";
 import { withAction } from "./action-handlers";
-import { extractStudentId, parseSchoolEmail } from "$lib/utils/school";
+import { extractStudentId, parseSchoolEmail } from "#lib/utils/school.js";
 
 const logger = createLogger("school-verification");
 

@@ -1,14 +1,14 @@
 <script lang="ts">
   import { untrack } from "svelte";
-  import { m } from "$lib/paraglide/messages.js";
-  import { appSuperForm } from "$lib/utils/super-form";
+  import { m } from "#lib/paraglide/messages.js";
+  import { appSuperForm } from "#lib/utils/super-form.js";
   import type { SuperValidated } from "sveltekit-superforms";
   import { Check, EyeOff, Pencil, X } from "@lucide/svelte";
-  import AvatarUploader from "$lib/components/features/account/AvatarUploader.svelte";
-  import { Card } from "$lib/components/primitives/ui/card";
-  import { Badge } from "$lib/components/primitives/ui/badge";
-  import { toasts } from "$lib/stores/toast";
-  import type { FormMessage } from "$lib/types/form-message";
+  import AvatarUploader from "#lib/components/features/account/AvatarUploader.svelte";
+  import { Card } from "#lib/components/primitives/ui/card/index.js";
+  import { Badge } from "#lib/components/primitives/ui/badge/index.js";
+  import { toasts } from "#lib/stores/toast.js";
+  import type { FormMessage } from "#lib/types/form-message.js";
 
   interface Owner {
     platformRole: string;

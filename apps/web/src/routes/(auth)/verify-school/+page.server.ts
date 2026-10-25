@@ -1,10 +1,10 @@
 import { fail } from "@sveltejs/kit";
 import { userDomain } from "@nojv/application";
 
-import { m } from "$lib/paraglide/messages.js";
+import { m } from "#lib/paraglide/messages.js";
 
 import type { Actions, PageServerLoad } from "./$types";
-import { withAction } from "$lib/server/shared/action-handlers";
+import { withAction } from "#lib/server/shared/action-handlers.js";
 
 const { peekSchoolVerification, processSchoolVerification } = userDomain;
 

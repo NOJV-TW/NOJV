@@ -1,13 +1,13 @@
 <script lang="ts">
   import { untrack } from "svelte";
   import { enhance } from "$app/forms";
-  import { m } from "$lib/paraglide/messages.js";
-  import * as Dialog from "$lib/components/primitives/ui/dialog";
-  import { Input } from "$lib/components/primitives/ui/input";
-  import FormField from "$lib/components/primitives/ui/FormField.svelte";
-  import FormError from "$lib/components/primitives/ui/FormError.svelte";
-  import ImageDropZone from "$lib/components/primitives/ui/ImageDropZone.svelte";
-  import { serializeDateTimeFormData } from "$lib/utils/datetime-form";
+  import { m } from "#lib/paraglide/messages.js";
+  import * as Dialog from "#lib/components/primitives/ui/dialog/index.js";
+  import { Input } from "#lib/components/primitives/ui/input/index.js";
+  import FormField from "#lib/components/primitives/ui/FormField.svelte";
+  import FormError from "#lib/components/primitives/ui/FormError.svelte";
+  import ImageDropZone from "#lib/components/primitives/ui/ImageDropZone.svelte";
+  import { serializeDateTimeFormData } from "#lib/utils/datetime-form.js";
 
   interface AnnouncementInitial {
     id: string;

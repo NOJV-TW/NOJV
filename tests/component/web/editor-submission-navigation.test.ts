@@ -1,12 +1,12 @@
-import { stopSubmissionTracking } from "$lib/services/submission-tracker";
+import { stopSubmissionTracking } from "#lib/services/submission-tracker.js";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { createEditorRunController } from "$lib/components/features/problem/editors/use-editor-run.svelte";
+import { createEditorRunController } from "#lib/components/features/problem/editors/use-editor-run.svelte.js";
 
 const mocks = vi.hoisted(() => ({ refresh: vi.fn().mockResolvedValue(undefined) }));
-vi.mock("$app/navigation", () => ({ invalidateAll: mocks.refresh, invalidate: mocks.refresh }));
-vi.mock("$lib/services/browser-local-run", () => ({}));
-vi.mock("$lib/stores/sse", () => ({ watchSubmissionVerdict: () => () => undefined }));
-vi.mock("$lib/stores/toast", () => ({
+vi.mock("$app/navigation", () => ({ refreshAll: mocks.refresh, invalidate: mocks.refresh }));
+vi.mock("#lib/services/browser-local-run.js", () => ({}));
+vi.mock("#lib/stores/sse.js", () => ({ watchSubmissionVerdict: () => () => undefined }));
+vi.mock("#lib/stores/toast.js", () => ({
   toasts: { error: vi.fn(), success: vi.fn(), info: vi.fn() },
 }));
 

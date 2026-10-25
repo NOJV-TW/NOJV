@@ -3,11 +3,11 @@ import { NotFoundError, userDomain } from "@nojv/application";
 import { fail } from "@sveltejs/kit";
 import { message, superValidate } from "sveltekit-superforms";
 import { zod4 } from "sveltekit-superforms/adapters";
-import { requireAuth } from "$lib/server/auth";
-import { withRateLimit } from "$lib/server/shared/action-handlers";
-import { handleLoad } from "$lib/server/shared/load-wrapper";
-import { isReservedUsername } from "$lib/utils/school";
-import type { FormMessage } from "$lib/types/form-message";
+import { requireAuth } from "#lib/server/auth.js";
+import { withRateLimit } from "#lib/server/shared/action-handlers.js";
+import { handleLoad } from "#lib/server/shared/load-wrapper.js";
+import { isReservedUsername } from "#lib/utils/school.js";
+import type { FormMessage } from "#lib/types/form-message.js";
 import { nameSchema } from "./schemas";
 
 const { canViewProfile, getPublicProfile } = userDomain;

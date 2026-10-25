@@ -14,13 +14,13 @@ const {
   requireAuth: vi.fn(),
 }));
 
-vi.mock("$lib/server/auth", () => ({ requireAuth }));
+vi.mock("#lib/server/auth.js", () => ({ requireAuth }));
 vi.mock("@nojv/application", () => ({
   platformDomain: { getPlatformOverview },
   userDomain: { getDashboardView, getSubmissionActivity, getUserById },
 }));
 
-const { load } = await import("$lib/../routes/(app)/dashboard/+page.server");
+const { load } = await import("../../../apps/web/src/routes/(app)/dashboard/+page.server.js");
 
 const actor = {
   displayName: "Student",

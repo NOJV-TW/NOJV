@@ -1,7 +1,7 @@
 <script lang="ts">
-  import Header from "$lib/components/features/layout/Header.svelte";
-  import Footer from "$lib/components/primitives/layout/Footer.svelte";
-  import { m } from "$lib/paraglide/messages.js";
+  import Header from "#lib/components/features/layout/Header.svelte";
+  import Footer from "#lib/components/primitives/layout/Footer.svelte";
+  import { m } from "#lib/paraglide/messages.js";
 
   let { children, data } = $props();
 </script>

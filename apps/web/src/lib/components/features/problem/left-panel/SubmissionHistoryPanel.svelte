@@ -1,31 +1,31 @@
 <script lang="ts">
-  import SubmissionId from "$lib/components/features/submission/SubmissionId.svelte";
+  import SubmissionId from "#lib/components/features/submission/SubmissionId.svelte";
   import RotateCcw from "@lucide/svelte/icons/rotate-ccw";
-  import type { ProblemSubmissionEntry } from "$lib/types";
+  import type { ProblemSubmissionEntry } from "#lib/types/index.js";
   import {
     isSubmissionPending,
     type SubmissionResult,
     type SubmissionContext,
     type SubmissionOperation,
   } from "@nojv/core";
-  import { applySubmissionState } from "$lib/services/problem-submission";
+  import { applySubmissionState } from "#lib/services/problem-submission.js";
   import {
     submissionRead,
     watchRejudge,
     requestSubmissionRefresh,
-  } from "$lib/services/submission-tracker";
+  } from "#lib/services/submission-tracker.js";
   import { onDestroy, untrack } from "svelte";
-  import { formatSmartTimestamp } from "$lib/utils/datetime";
-  import { formatJudgeOutput, formatMemoryKb } from "$lib/utils/judge-output";
-  import { formatVerdictLabel, verdictTone } from "$lib/utils/verdict-style";
-  import { m } from "$lib/paraglide/messages.js";
-  import { fetchWithCsrf } from "$lib/services/http";
-  import { flattenSourcesForDisplay } from "$lib/utils/submission-source-display";
-  import CodeBlock from "$lib/components/primitives/ui/CodeBlock.svelte";
-  import { Badge } from "$lib/components/primitives/ui/badge";
-  import SubtaskResultTree from "$lib/components/features/submission/SubtaskResultTree.svelte";
-  import CaseResultGrid from "$lib/components/features/submission/CaseResultGrid.svelte";
-  import { toasts } from "$lib/stores/toast";
+  import { formatSmartTimestamp } from "#lib/utils/datetime.js";
+  import { formatJudgeOutput, formatMemoryKb } from "#lib/utils/judge-output.js";
+  import { formatVerdictLabel, verdictTone } from "#lib/utils/verdict-style.js";
+  import { m } from "#lib/paraglide/messages.js";
+  import { fetchWithCsrf } from "#lib/services/http.js";
+  import { flattenSourcesForDisplay } from "#lib/utils/submission-source-display.js";
+  import CodeBlock from "#lib/components/primitives/ui/CodeBlock.svelte";
+  import { Badge } from "#lib/components/primitives/ui/badge/index.js";
+  import SubtaskResultTree from "#lib/components/features/submission/SubtaskResultTree.svelte";
+  import CaseResultGrid from "#lib/components/features/submission/CaseResultGrid.svelte";
+  import { toasts } from "#lib/stores/toast.js";
 
   function contextLabel(kind: ProblemSubmissionEntry["context"]): string | null {
     switch (kind) {

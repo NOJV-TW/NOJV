@@ -9,7 +9,7 @@ const superFormPaths = ["sveltekit-superforms", "sveltekit-superforms/client"].m
   name,
   importNames: ["superForm"],
   message:
-    "Use appSuperForm from $lib/utils/super-form so action results without a form (rate limits, unexpected errors) still show an error.",
+    "Use appSuperForm from #lib/utils/super-form so action results without a form (rate limits, unexpected errors) still show an error.",
 }));
 
 const componentSandboxRule = [
@@ -131,7 +131,7 @@ const primitivesNoFeaturesRule = [
           "@nojv/application value-imports pull Prisma/ioredis into the client bundle. Svelte components may only `import type` from it — move runtime calls to a +page.server.ts / API route and pass data through.",
       },
       {
-        group: ["$lib/components/features/*", "**/components/features/**"],
+        group: ["#lib/components/features/*", "**/components/features/**"],
         message:
           "Primitives must not import from features (architectural layer rule). Primitives are domain-agnostic; if you need domain shape, move the component to features/.",
       },

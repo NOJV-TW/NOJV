@@ -1,8 +1,8 @@
 <script lang="ts">
   import type { TeacherProblemSnapshot } from "./teacher-refresh-data";
   import { untrack } from "svelte";
-  import AssignmentProblemsTab from "$lib/components/features/course/assignment/AssignmentProblemsTab.svelte";
-  import ExamProblemsTab from "$lib/components/features/course/exam/ExamProblemsTab.svelte";
+  import AssignmentProblemsTab from "#lib/components/features/course/assignment/AssignmentProblemsTab.svelte";
+  import ExamProblemsTab from "#lib/components/features/course/exam/ExamProblemsTab.svelte";
   let { kind, initial }: { kind: "assignment" | "exam"; initial: TeacherProblemSnapshot } =
     $props();
   let snapshot = $state(untrack(() => initial));

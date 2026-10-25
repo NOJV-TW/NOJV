@@ -1,8 +1,8 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import type { ECharts, EChartsOption } from "echarts";
-  import { m } from "$lib/paraglide/messages.js";
-  import { Skeleton } from "$lib/components/primitives/ui/skeleton";
+  import { m } from "#lib/paraglide/messages.js";
+  import { Skeleton } from "#lib/components/primitives/ui/skeleton/index.js";
 
   interface Props {
     option: EChartsOption;

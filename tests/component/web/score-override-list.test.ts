@@ -1,9 +1,9 @@
 import { mount, tick, unmount } from "svelte";
 import { afterEach, expect, it, vi } from "vitest";
-import { m } from "$lib/paraglide/messages.js";
-import FeedbackList from "$lib/components/features/score-override/FeedbackList.svelte";
-import ScoreOverrideDrawer from "$lib/components/features/score-override/ScoreOverrideDrawer.svelte";
-import ScoreOverrideList from "$lib/components/features/score-override/ScoreOverrideList.svelte";
+import { m } from "#lib/paraglide/messages.js";
+import FeedbackList from "#lib/components/features/score-override/FeedbackList.svelte";
+import ScoreOverrideDrawer from "#lib/components/features/score-override/ScoreOverrideDrawer.svelte";
+import ScoreOverrideList from "#lib/components/features/score-override/ScoreOverrideList.svelte";
 
 vi.mock("@lucide/svelte", async () => {
   const Empty = (await import("../../fixtures/web/empty-component.svelte")).default;

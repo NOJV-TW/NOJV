@@ -1,8 +1,8 @@
 import { redirect } from "@sveltejs/kit";
 import type { PageServerLoad, PageServerLoadEvent } from "./$types";
 import { examDomain } from "@nojv/application";
-import { requireAuth } from "$lib/server/auth";
-import { handleLoad } from "$lib/server/shared/load-wrapper";
+import { requireAuth } from "#lib/server/auth.js";
+import { handleLoad } from "#lib/server/shared/load-wrapper.js";
 
 const { listExamsAcrossCoursesForUser } = examDomain;
 type ExamAcrossStatusFilter = examDomain.ExamAcrossStatusFilter;

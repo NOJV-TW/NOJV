@@ -2,7 +2,7 @@
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { createDraftAutosaveQueue, type DraftSnapshot } from "$lib/stores/draft-autosave";
+import { createDraftAutosaveQueue, type DraftSnapshot } from "#lib/stores/draft-autosave.js";
 
 function snapshot(language: string, code: string): DraftSnapshot {
   return {

@@ -1,22 +1,27 @@
 <script lang="ts">
-  import { createSubmissionHistory } from "$lib/services/submission-history.svelte";
+  import { createSubmissionHistory } from "#lib/services/submission-history.svelte.js";
   import { page } from "$app/state";
-  import { goto, replaceState } from "$app/navigation";
-  import { m } from "$lib/paraglide/messages.js";
-  import { formatDateTime } from "$lib/utils/datetime";
-  import { formatVerdictLabel } from "$lib/utils/verdict-style";
-  import TableSelectColumnFilter from "$lib/components/primitives/ui/TableSelectColumnFilter.svelte";
-  import TableSortButton from "$lib/components/primitives/ui/TableSortButton.svelte";
-  import TableTextColumnFilter from "$lib/components/primitives/ui/TableTextColumnFilter.svelte";
-  import VerdictBadge from "$lib/components/primitives/ui/VerdictBadge.svelte";
-  import { ariaSort, sortDirection, toggleSort, type TableSort } from "$lib/utils/table-sort";
+  import { goto } from "$app/navigation";
+  import { m } from "#lib/paraglide/messages.js";
+  import { formatDateTime } from "#lib/utils/datetime.js";
+  import { formatVerdictLabel } from "#lib/utils/verdict-style.js";
+  import TableSelectColumnFilter from "#lib/components/primitives/ui/TableSelectColumnFilter.svelte";
+  import TableSortButton from "#lib/components/primitives/ui/TableSortButton.svelte";
+  import TableTextColumnFilter from "#lib/components/primitives/ui/TableTextColumnFilter.svelte";
+  import VerdictBadge from "#lib/components/primitives/ui/VerdictBadge.svelte";
+  import {
+    ariaSort,
+    sortDirection,
+    toggleSort,
+    type TableSort,
+  } from "#lib/utils/table-sort.js";
   import { isSubmissionPending, languageLabel, type Language } from "@nojv/core";
   import {
     parseSubmissionHistoryFilters,
     submissionHistoryReturnTo,
     submissionHistoryUrl,
     type SubmissionHistoryFilters,
-  } from "$lib/utils/submission-history";
+  } from "#lib/utils/submission-history.js";
 
   interface SubmissionRow {
     id: string;
@@ -42,7 +47,7 @@
     visibleCount = $bindable(rows.length),
     totalCount = $bindable(rows.length),
   }: Props = $props();
-  const initialFilters = parseSubmissionHistoryFilters(page.url);
+  const initialFilters = parseSubmissionHistoryFilters(new URL(page.url.href));
   let verdictFilter = $state(initialFilters.verdict);
   let languageFilter = $state(initialFilters.language);
   let problemFilter = $state(initialFilters.problem);
@@ -100,7 +105,7 @@
     const currentPath = `${currentUrl.pathname}${currentUrl.search}${currentUrl.hash}`;
     const nextPath = `${nextUrl.pathname}${nextUrl.search}${nextUrl.hash}`;
     if (currentPath !== nextPath) {
-      replaceState(nextPath, {});
+      goto(nextPath, { shallow: true, replace: true });
     }
   });
 

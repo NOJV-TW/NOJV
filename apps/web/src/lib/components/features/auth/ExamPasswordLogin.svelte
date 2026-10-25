@@ -1,12 +1,12 @@
 <script lang="ts">
   import { goto } from "$app/navigation";
   import KeyRound from "@lucide/svelte/icons/key-round";
-  import { Button, buttonVariants } from "$lib/components/primitives/ui/button";
-  import * as Dialog from "$lib/components/primitives/ui/dialog";
-  import FormField from "$lib/components/primitives/ui/FormField.svelte";
-  import { Input } from "$lib/components/primitives/ui/input";
-  import { fetchWithCsrf } from "$lib/services/http";
-  import { m } from "$lib/paraglide/messages.js";
+  import { Button, buttonVariants } from "#lib/components/primitives/ui/button/index.js";
+  import * as Dialog from "#lib/components/primitives/ui/dialog/index.js";
+  import FormField from "#lib/components/primitives/ui/FormField.svelte";
+  import { Input } from "#lib/components/primitives/ui/input/index.js";
+  import { fetchWithCsrf } from "#lib/services/http.js";
+  import { m } from "#lib/paraglide/messages.js";
 
   let open = $state(false);
   let username = $state("");
@@ -37,7 +37,7 @@
         return;
       }
       password = "";
-      await goto(`/exams/${encodeURIComponent(result.examId)}`, { invalidateAll: true });
+      await goto(`/exams/${encodeURIComponent(result.examId)}`, { refreshAll: true });
       open = false;
     } catch {
       error = m.auth_examPasswordUnavailable();

@@ -2,7 +2,7 @@ import { isIP } from "node:net";
 
 import { error, type RequestEvent } from "@sveltejs/kit";
 
-import { getWebEnv, type WebEnv } from "$lib/server/env";
+import { getWebEnv, type WebEnv } from "#lib/server/env.js";
 
 function isValidIp(value: string): boolean {
   return isIP(value) !== 0;

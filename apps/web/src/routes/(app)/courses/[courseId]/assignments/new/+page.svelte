@@ -1,21 +1,21 @@
 <script lang="ts">
-  import ActivityWeights from "$lib/components/features/course/ActivityWeights.svelte";
+  import ActivityWeights from "#lib/components/features/course/ActivityWeights.svelte";
   import { untrack } from "svelte";
   import { ChevronRight } from "@lucide/svelte";
-  import { appSuperForm } from "$lib/utils/super-form";
+  import { appSuperForm } from "#lib/utils/super-form.js";
   import { supportedLanguages, type Language } from "@nojv/core";
-  import { m } from "$lib/paraglide/messages.js";
-  import { minutesToHHMM, hhmmToMinutes } from "$lib/utils/attempt-reset-time";
-  import { restoreDateTimeFields, serializeDateTimeFields } from "$lib/utils/datetime-form";
-  import { Button } from "$lib/components/primitives/ui/button";
-  import FormError from "$lib/components/primitives/ui/FormError.svelte";
-  import PageContainer from "$lib/components/primitives/layout/PageContainer.svelte";
-  import LateSubmissionFields from "$lib/components/features/course/LateSubmissionFields.svelte";
-  import HelpTooltip from "$lib/components/primitives/ui/HelpTooltip.svelte";
-  import ProblemPicker from "$lib/components/features/course/exam/ProblemPicker.svelte";
-  import type { FormMessage } from "$lib/types/form-message";
-  import { inputClassName } from "$lib/utils/css";
-  import { toggleArrayItem } from "$lib/utils";
+  import { m } from "#lib/paraglide/messages.js";
+  import { minutesToHHMM, hhmmToMinutes } from "#lib/utils/attempt-reset-time.js";
+  import { restoreDateTimeFields, serializeDateTimeFields } from "#lib/utils/datetime-form.js";
+  import { Button } from "#lib/components/primitives/ui/button/index.js";
+  import FormError from "#lib/components/primitives/ui/FormError.svelte";
+  import PageContainer from "#lib/components/primitives/layout/PageContainer.svelte";
+  import LateSubmissionFields from "#lib/components/features/course/LateSubmissionFields.svelte";
+  import HelpTooltip from "#lib/components/primitives/ui/HelpTooltip.svelte";
+  import ProblemPicker from "#lib/components/features/course/exam/ProblemPicker.svelte";
+  import type { FormMessage } from "#lib/types/form-message.js";
+  import { inputClassName } from "#lib/utils/css.js";
+  import { toggleArrayItem } from "#lib/utils/index.js";
   import type { PageData } from "./$types";
 
   let { data }: { data: PageData } = $props();

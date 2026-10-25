@@ -10,7 +10,7 @@ const mocks = vi.hoisted(() => ({
   actor: { userId: "owner", platformRole: "teacher" },
 }));
 
-vi.mock("$lib/server/logger", () => ({ createLogger: () => ({ error: mocks.logError }) }));
+vi.mock("#lib/server/logger.js", () => ({ createLogger: () => ({ error: mocks.logError }) }));
 
 vi.mock("@nojv/db", () => ({
   durableWorkRepo: {
@@ -20,11 +20,11 @@ vi.mock("@nojv/db", () => ({
   },
   prismaAdapterClient: { judgeExecution: { findMany: mocks.findJudgeExecutions } },
 }));
-vi.mock("$lib/server/auth", async () => ({
+vi.mock("#lib/server/auth.js", async () => ({
   HttpError: (await import("@nojv/application")).HttpError,
   requireApiAuth: () => mocks.actor,
 }));
-vi.mock("$lib/server/shared/rate-limiter", () => ({
+vi.mock("#lib/server/shared/rate-limiter.js", () => ({
   apiRateLimiter: { consume: async () => "allowed" },
   writeApiRateLimiter: { consume: async () => "allowed" },
   registryTokenRateLimiter: { consume: async () => "allowed" },

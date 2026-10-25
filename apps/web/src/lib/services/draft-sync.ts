@@ -1,6 +1,6 @@
 import type { Language, SubmissionContext } from "@nojv/core";
 
-import { fetchWithCsrf } from "$lib/services/http";
+import { fetchWithCsrf } from "#lib/services/http.js";
 
 export interface DraftSourceFile {
   path: string;
