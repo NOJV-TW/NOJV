@@ -1,3 +1,4 @@
+import { isHttpError, isRedirect } from "@sveltejs/kit";
 import { metrics, type Attributes, type Counter, type Histogram } from "@opentelemetry/api";
 
 const REQUEST_SECONDS = [0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10];
@@ -58,6 +59,10 @@ export interface HealthProbeLabels {
 
 export function statusClass(status: number): string {
   return `${String(Math.floor(status / 100))}xx`;
+}
+
+export function thrownStatus(error: unknown): number {
+  return isRedirect(error) || isHttpError(error) ? error.status : 500;
 }
 
 export const sseConnectionDuration = lazyHistogram(

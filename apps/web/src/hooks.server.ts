@@ -33,6 +33,7 @@ import {
   apiRequestDuration,
   healthProbeDuration,
   statusClass,
+  thrownStatus,
   type ApiRequestLabels,
   type HealthProbeLabels,
 } from "#lib/server/metrics.js";
@@ -96,6 +97,9 @@ export const handle: Handle = async ({ event, resolve }) => {
     setSecurityHeaders(response);
     recordedStatus = response.status;
     return response;
+  } catch (err) {
+    recordedStatus = thrownStatus(err);
+    throw err;
   } finally {
     const routeId = event.route.id ?? "unmatched";
     if (probe) {
