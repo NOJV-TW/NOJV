@@ -1,7 +1,12 @@
 // @vitest-environment jsdom
 
 import { flushSync, mount, unmount } from "svelte";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+
+vi.mock("@lucide/svelte", async () => {
+  const Empty = (await import("../../fixtures/web/empty-component.svelte")).default;
+  return { Eye: Empty, ImagePlus: Empty, Link: Empty, Pencil: Empty };
+});
 
 import SamplesEditor from "#lib/components/features/problem/statement/SamplesEditor.svelte";
 import { m } from "#lib/paraglide/messages.js";
@@ -10,7 +15,12 @@ function mountEditor(judgeType: "interactive" | "standard") {
   const target = document.createElement("div");
   document.body.append(target);
   let samples = [
-    { input: "1 1000000", output: "? 500000", interactorInput: "424242" },
+    {
+      input: "1 1000000",
+      output: "? 500000",
+      interactorInput: "424242",
+      explanation: "**$n$** is small",
+    },
     { input: "1 1000000", output: "? 1", interactorInput: "1" },
   ];
   const component = mount(SamplesEditor, {
@@ -72,6 +82,30 @@ describe("SamplesEditor", () => {
     expect(labelled(target, m.admin_sampleInput())).toBeDefined();
     expect(labelled(target, m.admin_sampleOutput())).toBeDefined();
     expect(target.querySelectorAll("textarea")).toHaveLength(6);
+
+    await unmount(component);
+    target.remove();
+  });
+
+  it("edits the explanation as markdown with a preview toggle but no image upload", async () => {
+    const { target, component, samples } = mountEditor("standard");
+
+    const label = labelled(target, m.admin_sampleExplanation())!;
+    const field = label.querySelector("textarea")!;
+    expect(field.value).toBe("**$n$** is small");
+
+    expect(label.querySelector(`button[aria-label="${m.imageUpload_button()}"]`)).toBeNull();
+    expect(label.querySelector(`button[aria-label="${m.imageUpload_fromUrl()}"]`)).toBeNull();
+    label
+      .querySelector<HTMLButtonElement>(`button[aria-label="${m.imageUpload_preview()}"]`)!
+      .click();
+    flushSync();
+    expect(label.querySelector(`[role="region"]`)?.textContent).toContain("is small");
+
+    field.value = "updated";
+    field.dispatchEvent(new Event("input", { bubbles: true }));
+    flushSync();
+    expect(samples()[0]?.explanation).toBe("updated");
 
     await unmount(component);
     target.remove();

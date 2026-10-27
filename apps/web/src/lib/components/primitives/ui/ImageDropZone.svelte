@@ -9,10 +9,12 @@
     name,
     value = $bindable(),
     class: className = "",
+    imageUpload = true,
     ...restProps
   }: {
     problemId?: string;
-    name: string;
+    name?: string;
+    imageUpload?: boolean;
     value: string;
     class?: string;
     [key: string]: unknown;
@@ -42,7 +44,7 @@
   }
 
   async function handleFiles(files: FileList | null) {
-    if (!files || isUploading) return;
+    if (!imageUpload || !files || isUploading) return;
     const images = [...files].filter((f) => f.type.startsWith("image/"));
     if (!images.length) return;
 
@@ -98,6 +100,7 @@
   }
 
   function onPaste(e: ClipboardEvent) {
+    if (!imageUpload) return;
     const files = e.clipboardData?.files;
     if (files?.length) {
       e.preventDefault();
@@ -118,6 +121,7 @@
     bind:value
     ondrop={onDrop}
     ondragover={(e) => {
+      if (!imageUpload) return;
       e.preventDefault();
       isDragOver = true;
     }}
@@ -164,7 +168,7 @@
     {/if}
   </button>
 
-  {#if !isPreviewing}
+  {#if imageUpload && !isPreviewing}
     <button
       type="button"
       onclick={() => (showUrlImport = !showUrlImport)}

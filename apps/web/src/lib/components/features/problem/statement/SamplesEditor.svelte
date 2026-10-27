@@ -3,6 +3,7 @@
   import type { JudgeType } from "@nojv/core";
   import { inputClassName, monoTextareaClassName } from "#lib/utils/css.js";
   import { m } from "#lib/paraglide/messages.js";
+  import ImageDropZone from "#lib/components/primitives/ui/ImageDropZone.svelte";
 
   interface Sample {
     input: string;
@@ -136,13 +137,15 @@
           </div>
           <label class="mt-3 block text-caption text-muted-foreground">
             <span>{m.admin_sampleExplanation()}</span>
-            <textarea
+            <ImageDropZone
               class="{inputClassName} min-h-16 resize-y"
+              imageUpload={false}
               maxlength={5000}
               placeholder={m.admin_sampleExplanationPlaceholder()}
-              value={sample.explanation ?? ""}
-              oninput={(e) => updateExplanation(index, (e.target as HTMLTextAreaElement).value)}
-            ></textarea>
+              bind:value={
+                () => sample.explanation ?? "", (value) => updateExplanation(index, value)
+              }
+            />
           </label>
         </div>
       {/each}
