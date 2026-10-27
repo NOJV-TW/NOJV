@@ -44,10 +44,10 @@ vi.mock("#lib/paraglide/server.js", () => ({
     throw new Error("paraglide must not run for health probes");
   }),
 }));
-vi.mock("#lib/server/metrics.js", () => ({
+vi.mock("#lib/server/metrics.js", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("#lib/server/metrics.js")>()),
   apiRequestDuration: { record: apiRequestRecord },
   healthProbeDuration: { record: healthProbeRecord },
-  statusClass: (status: number) => `${String(Math.floor(status / 100))}xx`,
 }));
 vi.mock("@nojv/application", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@nojv/application")>();
