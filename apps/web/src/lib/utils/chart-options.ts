@@ -1,4 +1,5 @@
 import type { EChartsOption } from "echarts";
+import type { PieSeriesOption } from "echarts/charts";
 
 /**
  * Keep pie charts stable while the pointer moves across a slice.
@@ -17,4 +18,4 @@ export const stablePieChartOptions = {
     transitionDuration: 0,
   },
   series: [{ type: "pie", emphasis: { disabled: true } }],
-} satisfies Pick<EChartsOption, "animation" | "tooltip" | "series">;
+} satisfies Pick<EChartsOption, "animation" | "tooltip"> & { series: PieSeriesOption[] };
