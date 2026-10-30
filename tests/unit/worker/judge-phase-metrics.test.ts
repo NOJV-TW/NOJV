@@ -8,7 +8,7 @@ const instruments = vi.hoisted(() => ({
 vi.mock("../../../apps/worker/src/logger", () => ({
   createLogger: () => ({ info: instruments.info }),
 }));
-vi.mock("../../../apps/worker/node_modules/@opentelemetry/api", () => ({
+vi.mock("@opentelemetry/api", () => ({
   metrics: {
     getMeter: () => ({
       createHistogram: (name: string) => ({

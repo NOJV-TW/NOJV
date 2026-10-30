@@ -15,6 +15,7 @@ const requireFromTemporal = createRequire(
 );
 
 const sharedAliases = {
+  "@opentelemetry/api": requireFromWorker.resolve("@opentelemetry/api"),
   "#lib": path.resolve(__dirname, "apps/web/src/lib"),
   nodemailer: requireFromMailer.resolve("nodemailer"),
   "@aws-sdk/client-s3": requireFromStorage.resolve("@aws-sdk/client-s3"),
