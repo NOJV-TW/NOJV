@@ -38,7 +38,7 @@ test("staff can enroll all school username formats and manage pending membership
       await expect(row.locator('a[href^="/users/"]')).toHaveCount(0);
     }
     const row = page.locator(`[data-membership-id="${memberships[3]}"]`);
-    const roleButton = row.getByRole("button", { name: /Change role for/ });
+    const roleButton = row.getByRole("combobox", { name: /Change role for/ });
     const changed = page.waitForRequest((request) => request.url().includes("?/changeRole"));
     await roleButton.click();
     await page.getByRole("option", { name: "Teaching Assistant", exact: true }).click();

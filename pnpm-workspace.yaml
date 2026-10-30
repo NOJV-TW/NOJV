@@ -63,13 +63,12 @@ allowBuilds:
   tree-sitter-compat: true
 
 patchedDependencies:
-  tree-sitter@0.25.0: patches/tree-sitter@0.25.0.patch
-  "@dodona/dolos-parsers@1.4.1": patches/@dodona__dolos-parsers@1.4.1.patch
+  "@dodona/dolos-parsers@1.5.0": patches/@dodona__dolos-parsers@1.5.0.patch
   marked-katex-extension@5.1.13: patches/marked-katex-extension@5.1.13.patch
 
 catalog:
   # Cross-package shared core deps — must stay version-consistent.
-  "@opentelemetry/api": ^1.9.1
+  "@opentelemetry/api": ^1.10.0
   "@playwright/test": ^1.63.0
   "@prisma/adapter-pg": ^7.10.0
 

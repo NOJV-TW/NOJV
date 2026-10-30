@@ -1,7 +1,8 @@
 import { readFileSync } from "node:fs";
 
 import { metrics as metricsApi } from "@opentelemetry/api";
-import { NodeSDK, metrics } from "@opentelemetry/sdk-node";
+import { NodeSDK } from "@opentelemetry/sdk-node";
+import { PeriodicExportingMetricReader } from "@opentelemetry/sdk-metrics";
 import { OTLPMetricExporter } from "@opentelemetry/exporter-metrics-otlp-http";
 import { getNodeAutoInstrumentations } from "@opentelemetry/auto-instrumentations-node";
 import { resourceFromAttributes } from "@opentelemetry/resources";
@@ -87,10 +88,12 @@ function startOtel(): void {
       "service.version": process.env.npm_package_version ?? "0.0.0",
       "deployment.environment.name": process.env.NODE_ENV ?? "development",
     }),
-    metricReader: new metrics.PeriodicExportingMetricReader({
-      exporter,
-      exportIntervalMillis: 30_000,
-    }),
+    metricReaders: [
+      new PeriodicExportingMetricReader({
+        exporter,
+        exportIntervalMillis: 30_000,
+      }),
+    ],
     spanProcessors: [],
     instrumentations: [
       getNodeAutoInstrumentations({

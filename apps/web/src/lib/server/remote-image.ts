@@ -126,7 +126,7 @@ export function normalizeRemoteImageUrl(rawUrl: string, forbiddenHostname?: stri
 const resolveHostname: RemoteImageResolver = async (hostname) => {
   const family = isIP(hostname);
   if (family === 4 || family === 6) return [{ address: hostname, family }];
-  const addresses = await lookup(hostname, { all: true, verbatim: true });
+  const addresses = await lookup(hostname, { all: true, order: "verbatim" });
   return addresses.map(({ address, family }) => {
     if (family !== 4 && family !== 6) {
       throw new RemoteImageError("upstream", "Remote image host returned an unknown address");
