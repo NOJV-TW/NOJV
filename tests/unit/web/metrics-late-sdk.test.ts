@@ -11,9 +11,9 @@ const webRequire = createRequire(new URL("../../../apps/web/package.json", impor
 const { metrics: metricsApi } = webRequire(
   "@opentelemetry/api",
 ) as typeof import("@opentelemetry/api");
-const { metrics } = webRequire(
-  "@opentelemetry/sdk-node",
-) as typeof import("@opentelemetry/sdk-node");
+const metrics = webRequire(
+  "@opentelemetry/sdk-metrics",
+) as typeof import("@opentelemetry/sdk-metrics");
 
 afterEach(() => {
   metricsApi.disable();

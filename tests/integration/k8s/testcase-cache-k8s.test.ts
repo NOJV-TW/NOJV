@@ -294,9 +294,15 @@ describe("K8s judge — cached testcase payloads", () => {
         expect(result.compilationError).toBeUndefined();
         expect(result.testcaseResults).toHaveLength(CASES);
         const expected = id.includes("-wa") ? "WA" : "AC";
-        expect(result.testcaseResults.map(({ verdict }) => verdict)).toEqual(
-          Array.from({ length: CASES }, () => expected),
-        );
+        expect(
+          result.testcaseResults.map(({ verdict }) => verdict),
+          JSON.stringify(
+            result.testcaseResults
+              .filter(({ verdict }) => verdict === "SE")
+              .slice(0, 1)
+              .map(({ index, staffFeedback, stderr }) => ({ index, staffFeedback, stderr })),
+          ),
+        ).toEqual(Array.from({ length: CASES }, () => expected));
       }
 
       const cacheCreates = recording.creates.filter(({ name }) => name.startsWith("tc-"));
