@@ -96,7 +96,7 @@ test.describe("Problems", () => {
 
     await page.goto(`/problems/${id}/edit`);
     await expect(page.getByRole("button", { name: /Open account menu/ })).toBeEnabled();
-    const visibility = page.getByRole("button", { name: "Private", exact: true });
+    const visibility = page.getByRole("combobox", { name: "Private", exact: true });
     await visibility.click();
     await expect(page.getByRole("option", { name: "Private", exact: true })).toBeVisible();
     await expect(page.getByRole("option", { name: /Allow admin/ })).toBeVisible();

@@ -16,5 +16,5 @@ export const stablePieChartOptions = {
     extraCssText: "pointer-events:none;",
     transitionDuration: 0,
   },
-  series: [{ emphasis: { disabled: true } }],
+  series: [{ type: "pie", emphasis: { disabled: true } }],
 } satisfies Pick<EChartsOption, "animation" | "tooltip" | "series">;

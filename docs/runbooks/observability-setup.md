@@ -6,7 +6,9 @@ the alert catalog are in [Reliability](../operations/RELIABILITY.md#service-leve
 env var reference is in the [Deployment Guide](../operations/DEPLOYMENT.md).
 
 Metrics only (OPS-14): traces are not exported (`spanProcessors: []`) and logs
-stay in the container log pipeline.
+stay in the container log pipeline. Web and worker use the OpenTelemetry 3 metrics
+SDK with one periodic OTLP HTTP reader in `metricReaders`, exporting every
+30 seconds.
 
 ## Key code
 
