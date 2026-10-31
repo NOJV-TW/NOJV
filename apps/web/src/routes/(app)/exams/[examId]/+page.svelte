@@ -175,7 +175,7 @@
   >
     {#snippet aside(accent)}
       <HeroSchedule
-        {accent}
+        accent={liveStatus === "draft" ? "var(--muted-foreground)" : accent}
         startIso={detail.startsAt}
         endIso={detail.dueAt ?? detail.endsAt}
         startLabel={m.schedule_starts()}
@@ -296,12 +296,18 @@
             {m.examDetail_draftPublishDescription()}
           </p>
         </div>
-        <a
-          href={assessmentSubTabHref(new URL(page.url.href), "settings")}
-          class="mt-4 inline-flex shrink-0 items-center justify-center rounded-md bg-primary px-4 py-2.5 text-body-sm font-semibold text-primary-foreground no-underline transition-opacity hover:opacity-95 sm:mt-0"
-        >
-          {m.examDetail_draftPublishAction()}
-        </a>
+        {#if writable}
+          <a
+            href={assessmentSubTabHref(new URL(page.url.href), "settings")}
+            class="mt-4 inline-flex shrink-0 items-center justify-center rounded-md bg-primary px-4 py-2.5 text-body-sm font-semibold text-primary-foreground no-underline transition-opacity hover:opacity-95 sm:mt-0"
+          >
+            {m.examDetail_draftPublishAction()}
+          </a>
+        {:else}
+          <span class="mt-4 shrink-0 text-body-sm text-muted-foreground sm:mt-0">
+            {m.course_archivedReadOnly()}
+          </span>
+        {/if}
       </GlassPanel>
     </div>
   {/if}
