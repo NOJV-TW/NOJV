@@ -7,7 +7,6 @@ export const env: Record<string, string | undefined> = {
 };
 
 export const NODE_ENV = env.NODE_ENV;
-export const DEV_ADMIN_MODE_USERNAME = env.DEV_ADMIN_MODE_USERNAME;
 export const DATABASE_URL = env.DATABASE_URL;
 export const REDIS_URL = env.REDIS_URL;
 export const ADVANCED_IMAGE_ALLOWED_REGISTRIES = env.ADVANCED_IMAGE_ALLOWED_REGISTRIES;

@@ -9,7 +9,6 @@ const {
   pendingRegularAdminSignIn,
   readSuperAdminPasswordProof,
   getSuperAdminSecurityUser,
-  signInUsername,
 } = vi.hoisted(() => ({
   findAdminSignInUser: vi.fn(),
   getSecurityFactorState: vi.fn(),
@@ -18,7 +17,6 @@ const {
   pendingRegularAdminSignIn: vi.fn(),
   readSuperAdminPasswordProof: vi.fn(),
   getSuperAdminSecurityUser: vi.fn(),
-  signInUsername: vi.fn(),
 }));
 
 vi.mock("@nojv/application", async (original) => ({
@@ -29,7 +27,7 @@ vi.mock("@nojv/application", async (original) => ({
   getSuperAdminSecurityUser,
 }));
 vi.mock("#lib/auth.server.js", () => ({
-  getAuth: () => ({ api: { signInEmail, signInUsername } }),
+  getAuth: () => ({ api: { signInEmail } }),
 }));
 vi.mock("#lib/server/shared/rate-limiter.js", () => ({
   consumeFormRateLimitInternal: async () => null,
@@ -39,9 +37,6 @@ vi.mock("#lib/server/shared/rate-limiter.js", () => ({
 }));
 
 vi.mock("#lib/server/admin-signin-state.js", () => ({ pendingRegularAdminSignIn }));
-vi.mock("#lib/server/env.js", () => ({
-  getWebEnv: () => ({ NODE_ENV: "development", DEV_ADMIN_MODE_USERNAME: "admin-test" }),
-}));
 vi.mock("#lib/server/super-admin-password-proof.js", async (original) => ({
   ...(await original<typeof import("#lib/server/super-admin-password-proof.js")>()),
   readSuperAdminPasswordProof,
@@ -50,14 +45,14 @@ vi.mock("#lib/server/super-admin-password-proof.js", async (original) => ({
 const { actions, load } =
   await import("../../../apps/web/src/routes/(auth)/admin-signin/+page.server.js");
 
-function passwordEvent(identity = "admin@example.test"): RequestEvent {
+function passwordEvent(): RequestEvent {
   const url = new URL("http://localhost/admin-signin?/password&returnTo=/admin");
   return {
     url,
     request: new Request(url, {
       method: "POST",
       headers: { accept: "text/html" },
-      body: new URLSearchParams({ identity, password: "password" }),
+      body: new URLSearchParams({ identity: "admin@example.test", password: "password" }),
     }),
     locals: {},
     cookies: { set: vi.fn(), get: vi.fn() },
@@ -74,8 +69,6 @@ beforeEach(() => {
     id: "regular-admin",
     platformRole: "admin",
     isSuperAdmin: false,
-    username: "other-admin",
-    disabled: false,
   });
   getSecurityFactorState.mockResolvedValue({
     hasPasskey: false,
@@ -104,33 +97,10 @@ describe("regular-admin password action", () => {
 
   it("keeps password-only sign-in on the same dashboard destination", async () => {
     signInEmail.mockResolvedValue({ headers: new Headers(), response: { token: "session" } });
-    signInUsername.mockResolvedValue({
-      headers: new Headers(),
-      response: { token: "session" },
-    });
 
     const result = await actions.password!(passwordEvent());
 
     expect(result).toEqual({ destination: "/dashboard", phase: "complete" });
-  });
-
-  it("sends the configured local admin account straight to the requested admin page", async () => {
-    findAdminSignInUser.mockResolvedValue({
-      id: "dev-admin",
-      platformRole: "admin",
-      isSuperAdmin: false,
-      username: "admin-test",
-      disabled: false,
-    });
-    signInEmail.mockResolvedValue({ headers: new Headers(), response: { token: "session" } });
-    signInUsername.mockResolvedValue({
-      headers: new Headers(),
-      response: { token: "session" },
-    });
-
-    const result = await actions.password!(passwordEvent("admin-test"));
-
-    expect(result).toEqual({ destination: "/admin", phase: "complete" });
   });
 });
 

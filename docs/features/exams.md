@@ -43,6 +43,9 @@ Decision: ASM-22. Security model: [Security](../operations/SECURITY.md).
 
 ### Create, publish, delete
 
+- Course managers see unpublished exams in a dedicated `Draft` section of the course exam list. Their detail page uses a neutral draft status, suppresses the active countdown, and shows manager-only guidance linking to Settings to publish. Archived courses retain the guidance but hide the publish action.
+- Successful settings saves and publication show the shared success toast in the current locale.
+
 - Problem selection follows [Assignments — problem ownership and forks](assignments.md#problem-ownership-and-forks) (PRB-10); detaching keeps the library relation.
 - Management requires a bound, active course teacher/TA membership or effective admin access; the creator alone, pending usernames and removed memberships grant nothing; an active TA who is a platform student is allowed. Archived courses are read-only (ASM-26): exam mutations, grading, rejudges, clarifications, plagiarism runs and flags, session release, IP binding resets and temporary password changes fail with `ValidationError("Archived courses are read-only.")` for every role, and the manage tabs hide or disable those controls.
 - Auto-close is ensured only after the create or publish transaction commits.
@@ -119,7 +122,6 @@ Exams follow the [activity allocation and official score contract](assignments.m
 
 ### Drafts
 
-- Course managers see unpublished exams in a dedicated `Draft` section of the course exam list. Their detail page uses a neutral draft status, suppresses the active countdown, and shows manager-only guidance linking to Settings to publish. Archived courses retain the guidance but hide the publish action.
 - With an active session on a running exam, `PUT /api/drafts` stores drafts under the `exam:<examId>` context key per problem and language (WEB-05).
 - Reads and writes rerun the full exam gate with the trusted client IP: publication, active course membership, unarchived course, start/end window and IP rules. Without an active session, after the exam ended, or for a problem outside the exam, saving fails with `ForbiddenError` or `NotFoundError` and stores nothing.
 - During an active session, reading drafts for any other context is `ForbiddenError`; exam drafts never start from homework or practice drafts. Drafts are never graded and are visible only to their owner.
