@@ -483,6 +483,11 @@ judge program's source. **Submit** always uses the server pipeline above.
   files count toward the submission size limit, and `readonly` teacher files are
   added locally.
 - Shares the 16 MiB combined output limit.
+- C/C++ contestant, checker and interactor builds explicitly request an 8 MiB
+  linear-memory stack through Forge's `stackSizeBytes` compile option, matching
+  the current native environment's inherited 8 MiB stack soft limit. The
+  reservation counts toward the browser's total memory limit; native and Wasm
+  call-stack layouts and recursion limits are not equivalent.
 - Results are previews: WASI toolchains, logical time, linear memory and filesystem
   caps differ from native judging; passing samples implies nothing about hidden tests.
 - Opening the editor or switching language preloads that language's pinned toolchain
