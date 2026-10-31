@@ -20,6 +20,24 @@ export async function seedUsers(prisma: PrismaClient) {
     where: { username: adminEnv.username },
   });
 
+  const devAdmin = await prisma.user.upsert({
+    create: {
+      name: "Local Test Admin",
+      email: "admin-test@nojv.local",
+      username: "admin-test",
+      platformRole: "admin",
+      isSuperAdmin: false,
+      emailVerified: true,
+    },
+    update: {
+      platformRole: "admin",
+      isSuperAdmin: false,
+      emailVerified: true,
+      disabled: false,
+    },
+    where: { username: "admin-test" },
+  });
+
   const teacher = await prisma.user.upsert({
     create: {
       name: "Teacher",
@@ -72,6 +90,7 @@ export async function seedUsers(prisma: PrismaClient) {
   const adminPasswordHash = bcrypt.hashSync(adminEnv.password, 10);
   const credentialedUsers = [
     { user: admin, hash: adminPasswordHash },
+    { user: devAdmin, hash: passwordHash },
     { user: teacher, hash: passwordHash },
     { user: taStudent, hash: passwordHash },
     { user: student, hash: passwordHash },

@@ -17,6 +17,7 @@
 
   import { Button } from "#lib/components/primitives/ui/button/index.js";
   import FormError from "#lib/components/primitives/ui/FormError.svelte";
+  import { toasts } from "#lib/stores/toast.js";
   import { cn } from "#lib/utils/css.js";
   import {
     isoDateTimeToLocal,
@@ -77,6 +78,11 @@
       },
       onUpdated: ({ form: updatedForm }) => {
         if (!updatedForm.valid || updatedForm.message?.kind !== "success") return;
+        toasts.success(
+          updatedForm.message.text === "Published."
+            ? m.examDetail_settingsPublishSuccess()
+            : m.examDetail_settingsSaveSuccess(),
+        );
         form.update((data) => ({
           ...data,
           startsAt: isoDateTimeToLocal(detail.startsAt),
@@ -133,10 +139,6 @@
     >
       {lockMsg}
     </div>
-  {/if}
-
-  {#if $formMessage?.kind === "success"}
-    <p class="text-body-sm text-success">{$formMessage.text}</p>
   {/if}
 
   <form method="POST" action="?/updateSettings" use:enhance>

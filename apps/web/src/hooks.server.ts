@@ -54,6 +54,10 @@ import {
   setSecurityHeaders,
 } from "#lib/server/hooks/request-security.js";
 import { isProfileExempt, stripLocalePrefix } from "#lib/server/hooks/route-paths.js";
+import {
+  DEV_ADMIN_MODE_COOKIE,
+  isDevAdminModeBypassEnabled,
+} from "#lib/server/dev-admin-mode.js";
 
 getWebEnv();
 
@@ -343,11 +347,13 @@ function enforceSuperAdminVerification(event: HandleEvent, cleanPath: string): R
 async function resolveRequestAdminAccess(event: HandleEvent): Promise<void> {
   const user = event.locals.sessionUser;
   const sessionId = event.locals.session?.id;
+  const bypassDisabled = event.cookies.get(DEV_ADMIN_MODE_COOKIE) === "off";
 
   event.locals.adminAccessActive =
-    user?.platformRole === "admin" &&
-    !!sessionId &&
-    (await resolveAdminAccess(sessionId, adminAccessPrincipal(user)));
+    (!!user && isDevAdminModeBypassEnabled(user, getWebEnv(), bypassDisabled)) ||
+    (user?.platformRole === "admin" &&
+      !!sessionId &&
+      (await resolveAdminAccess(sessionId, adminAccessPrincipal(user))));
 }
 
 async function enforceSuperAdminSessionAge(event: HandleEvent): Promise<Response | null> {

@@ -2,6 +2,7 @@ import { defineEnvVars } from "@sveltejs/kit/env";
 
 export const variables = defineEnvVars({
   NODE_ENV: { schema: (input: string | undefined) => input },
+  DEV_ADMIN_MODE_USERNAME: { schema: (input: string | undefined) => input },
   DATABASE_URL: { schema: (input: string | undefined) => input },
   REDIS_URL: { schema: (input: string | undefined) => input },
   ADVANCED_IMAGE_ALLOWED_REGISTRIES: { schema: (input: string | undefined) => input },

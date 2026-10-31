@@ -25,6 +25,7 @@ import type { RequestEvent } from "@sveltejs/kit";
 import { getAuth } from "#lib/auth.server.js";
 import { pendingRegularAdminSignIn } from "#lib/server/admin-signin-state.js";
 import { getWebEnv } from "#lib/server/env.js";
+import { isDevAdminModeBypassEnabled } from "#lib/server/dev-admin-mode.js";
 import { createLogger } from "#lib/server/logger.js";
 import { getClientIp } from "#lib/server/shared/client-ip.js";
 import { withRateLimitActions } from "#lib/server/shared/action-handlers.js";
@@ -231,15 +232,25 @@ const actionHandlers = {
     const state = await getSecurityFactorState(user.id);
     if (!state) return fail(403, { error: "Administrator account not found." });
     if (!user.isSuperAdmin) {
+      const destination = isDevAdminModeBypassEnabled(
+        {
+          ...user,
+          disabled: false,
+          username: identity.includes("@") ? null : identity,
+        },
+        getWebEnv(),
+      )
+        ? safeReturnTo(event.url.searchParams.get("returnTo"))
+        : "/dashboard";
       return "twoFactorRedirect" in signInResponse && signInResponse.twoFactorRedirect
         ? {
-            destination: "/dashboard",
+            destination,
             hasPasskey: state.hasPasskey,
             hasTotp: state.hasTotp,
             phase: "verify-factor" as const,
             regularAdmin: true,
           }
-        : { destination: "/dashboard", phase: "complete" as const };
+        : { destination, phase: "complete" as const };
     }
 
     const token =
