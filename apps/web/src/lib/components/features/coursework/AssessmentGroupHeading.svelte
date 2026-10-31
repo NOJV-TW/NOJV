@@ -22,6 +22,8 @@
       <Radio class="size-4 text-primary" aria-hidden="true" />
     {:else if icon === "ended"}
       <CalendarCheck2 class="size-4 text-muted-foreground" aria-hidden="true" />
+    {:else if icon === "draft"}
+      <CalendarClock class="size-4 text-muted-foreground" aria-hidden="true" />
     {:else}
       <CalendarClock class="size-4 text-primary" aria-hidden="true" />
     {/if}

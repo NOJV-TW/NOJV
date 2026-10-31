@@ -24,4 +24,3 @@ Make the lifecycle of an exam obvious to course teachers and teaching assistants
 - The existing detail page remains the editing surface; the draft state is communicated by the status pill, a prominent guidance panel, and a top-level publish action that links to settings.
 - Published exams keep the current schedule and countdown presentation.
 - Draft detail pages use a non-countdown label in the hero and a neutral draft schedule treatment while retaining configured times for editing context.
-

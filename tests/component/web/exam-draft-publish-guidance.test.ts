@@ -88,9 +88,9 @@ it("shows draft publish guidance to managers and uses the draft status", async (
   expect(target.textContent).toContain(m.statusPill_exam_draft());
   expect(target.textContent).toContain(m.examDetail_draftPublishTitle());
   expect(target.textContent).toContain(m.examDetail_draftPublishDescription());
-  expect(target.querySelector('a[href="/exams/exam_draft?tab=settings"]')?.textContent).toContain(
-    m.examDetail_draftPublishAction(),
-  );
+  expect(
+    target.querySelector('a[href="/exams/exam_draft?tab=settings"]')?.textContent,
+  ).toContain(m.examDetail_draftPublishAction());
 
   await unmount(component);
   target.remove();

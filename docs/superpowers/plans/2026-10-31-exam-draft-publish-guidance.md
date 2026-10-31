@@ -27,11 +27,13 @@
 ### Task 1: Draft status and course list presentation
 
 **Files:**
+
 - Modify: `apps/web/src/routes/(app)/courses/[courseId]/exams/+page.svelte`
 - Modify: `apps/web/src/lib/components/features/course/exam/ExamRow.svelte` only if the shared row needs a draft-specific treatment
 - Test: `tests/component/web/exam-draft-publish-guidance.test.ts` (new)
 
 **Interfaces:**
+
 - Consumes: `PageData.exams` rows with `status: "draft" | "upcoming" | "running" | "ended"`.
 - Produces: separate `draft` group and draft row status text exposed to staff.
 
@@ -43,12 +45,14 @@
 ### Task 2: Detail hero status and publish guidance
 
 **Files:**
+
 - Modify: `apps/web/src/routes/(app)/exams/[examId]/+page.svelte`
 - Modify: `apps/web/messages/zh-TW.json`
 - Modify: `apps/web/messages/en.json`
 - Test: `tests/component/web/exam-draft-publish-guidance.test.ts`
 
 **Interfaces:**
+
 - Consumes: `data.isManager`, `detail.status`, `activeSubTabKey`, and `assessmentSubTabHref`.
 - Produces: draft-specific hero status and manager-only guidance panel with a settings-tab publish link.
 
@@ -61,10 +65,10 @@
 ### Task 3: Verification and commit
 
 **Files:**
+
 - Modify: generated Paraglide output only if the repository workflow requires it.
 
 - [ ] Run formatting/lint checks for touched files.
 - [ ] Run the focused test and the repository CI verification command available in the environment.
 - [ ] Review the diff for scope, copy parity, and manager-only visibility.
 - [ ] Commit with `feat: clarify exam draft publish state`.
-
