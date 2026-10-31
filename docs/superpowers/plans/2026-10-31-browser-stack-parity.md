@@ -18,4 +18,4 @@ Goal: let NOJV select the current native environment's 8 MiB stack capacity thro
 
 The current published/locked `@wasm-oj/browser@0.2.5` does not expose this option. This draft must not merge until the upstream PR is merged and released, then NOJV's dependency and lockfile must pin that published version and verification must be repeated. Local candidate testing used a temporary node_modules symlink only; no fork, package patch, or file dependency is committed.
 
-When shipping, update JDG-15's Source link to the NOJV PR and delete this plan in the same PR.
+NOJV integration draft: [#668](https://github.com/NOJV-TW/NOJV/pull/668). Delete this plan when the published dependency is pinned and the PR is ready to ship.
