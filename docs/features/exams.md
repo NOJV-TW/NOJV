@@ -43,6 +43,9 @@ Decision: ASM-22. Security model: [Security](../operations/SECURITY.md).
 
 ### Create, publish, delete
 
+- Course managers see unpublished exams in a dedicated `Draft` section of the course exam list. Their detail page uses a neutral draft status, suppresses the active countdown, and shows manager-only guidance linking to Settings to publish. Archived courses retain the guidance but hide the publish action.
+- Successful settings saves and publication show the shared success toast in the current locale.
+
 - Problem selection follows [Assignments — problem ownership and forks](assignments.md#problem-ownership-and-forks) (PRB-10); detaching keeps the library relation.
 - Management requires a bound, active course teacher/TA membership or effective admin access; the creator alone, pending usernames and removed memberships grant nothing; an active TA who is a platform student is allowed. Archived courses are read-only (ASM-26): exam mutations, grading, rejudges, clarifications, plagiarism runs and flags, session release, IP binding resets and temporary password changes fail with `ValidationError("Archived courses are read-only.")` for every role, and the manage tabs hide or disable those controls.
 - Auto-close is ensured only after the create or publish transaction commits.

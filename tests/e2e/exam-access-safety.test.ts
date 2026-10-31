@@ -119,7 +119,9 @@ test("teacher regenerates the exam password and student signs in through the new
     await teacherPage.locator('label[for="settings-exam-password-enabled"]').click();
     await expect(settingsSwitch).not.toBeChecked();
     await teacherPage.getByRole("button", { name: "Save", exact: true }).click();
-    await expect(teacherPage.getByText("Saved.", { exact: true })).toBeVisible();
+    await expect(
+      teacherPage.getByRole("status").filter({ hasText: "Settings saved." }),
+    ).toBeVisible();
 
     await teacherPage.goto(`/exams/${id}?tab=proctoring`);
     await expect(
@@ -131,7 +133,9 @@ test("teacher regenerates the exam password and student signs in through the new
     await settingsSwitch.press("Space");
     await expect(settingsSwitch).toBeChecked();
     await teacherPage.getByRole("button", { name: "Save", exact: true }).click();
-    await expect(teacherPage.getByText("Saved.", { exact: true })).toBeVisible();
+    await expect(
+      teacherPage.getByRole("status").filter({ hasText: "Settings saved." }),
+    ).toBeVisible();
     await db.exam.update({ where: { id }, data: { examPasswordLockedAt: new Date() } });
     await teacherPage.goto(`/exams/${id}?tab=settings`);
     await expect(teacherPage.locator("#settings-exam-password-description")).toContainText(

@@ -71,7 +71,7 @@
   function pillStatus(s: LiveStatus): string {
     if (s === "running") return "in_progress";
     if (s === "upcoming") return "scheduled";
-    if (s === "draft") return "scheduled";
+    if (s === "draft") return "draft";
     return "ended";
   }
 
@@ -175,7 +175,7 @@
   >
     {#snippet aside(accent)}
       <HeroSchedule
-        {accent}
+        accent={liveStatus === "draft" ? "var(--muted-foreground)" : accent}
         startIso={detail.startsAt}
         endIso={detail.dueAt ?? detail.endsAt}
         startLabel={m.schedule_starts()}
@@ -205,13 +205,17 @@
           embedded
           label={past
             ? m.examDetail_clockHeld()
-            : liveStatus === "running"
-              ? m.examDetail_clockRunning()
-              : m.examDetail_clockUntilStart()}
+            : liveStatus === "draft"
+              ? m.examDetail_clockDraft()
+              : liveStatus === "running"
+                ? m.examDetail_clockRunning()
+                : m.examDetail_clockUntilStart()}
         >
           {#snippet value()}
             {#if past}
               <span class="font-mono">{fmtDate(detail.startsAt)}</span>
+            {:else if liveStatus === "draft"}
+              <span class="text-title-sm">{m.examDetail_clockDraftValue()}</span>
             {:else if liveStatus === "running"}
               <Countdown iso={detail.endsAt} />
             {:else}
@@ -276,6 +280,35 @@
       class="rounded-lg border border-warning/30 bg-warning/10 px-4 py-3 text-body-sm text-warning"
     >
       {form.error}
+    </div>
+  {/if}
+
+  {#if isManager && liveStatus === "draft"}
+    <div role="status">
+      <GlassPanel
+        class="border-warning/35 bg-warning/[0.04] p-5 shadow-rest sm:flex sm:items-center sm:justify-between sm:gap-6"
+      >
+        <div class="min-w-0">
+          <h2 class="text-title-sm font-semibold text-foreground">
+            {m.examDetail_draftPublishTitle()}
+          </h2>
+          <p class="mt-1 max-w-3xl text-body-sm text-muted-foreground">
+            {m.examDetail_draftPublishDescription()}
+          </p>
+        </div>
+        {#if writable}
+          <a
+            href={assessmentSubTabHref(new URL(page.url.href), "settings")}
+            class="mt-4 inline-flex shrink-0 items-center justify-center rounded-md bg-primary px-4 py-2.5 text-body-sm font-semibold text-primary-foreground no-underline transition-opacity hover:opacity-95 sm:mt-0"
+          >
+            {m.examDetail_draftPublishAction()}
+          </a>
+        {:else}
+          <span class="mt-4 shrink-0 text-body-sm text-muted-foreground sm:mt-0">
+            {m.course_archivedReadOnly()}
+          </span>
+        {/if}
+      </GlassPanel>
     </div>
   {/if}
 

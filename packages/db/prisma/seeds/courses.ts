@@ -162,6 +162,35 @@ export async function seedCourses(
     where: { id: "exam_midterm-systems-lab" },
   });
 
+  const draftPublishDemoExam = await prisma.exam.upsert({
+    create: {
+      id: "exam_demo_draft_publish",
+      allowedLanguages: ["c", "cpp", "python"],
+      courseId: osLabCourse.id,
+      createdByUserId: teacher.id,
+      startsAt: new Date(now + 3 * DAY),
+      endsAt: new Date(now + 3 * DAY + 2 * HOUR),
+      pageLockEnabled: false,
+      ipBindingEnabled: false,
+      ipWhitelistEnabled: false,
+      scoreboardMode: "hidden",
+      status: "draft",
+      summary: "展示發布前狀態的測試考試；確認內容後請按下發布。",
+      title: "Demo: Draft Exam（尚未發布）",
+    },
+    update: {
+      allowedLanguages: ["c", "cpp", "python"],
+      courseId: osLabCourse.id,
+      createdByUserId: teacher.id,
+      startsAt: new Date(now + 3 * DAY),
+      endsAt: new Date(now + 3 * DAY + 2 * HOUR),
+      status: "draft",
+      summary: "展示發布前狀態的測試考試；確認內容後請按下發布。",
+      title: "Demo: Draft Exam（尚未發布）",
+    },
+    where: { id: "exam_demo_draft_publish" },
+  });
+
   const assessmentProblemLinks = [
     { assessmentId: hw1.id, problemId: courseProblemId("problem_warmup-sum"), ordinal: 1 },
     {
@@ -237,6 +266,29 @@ export async function seedCourses(
         examId_problemId: {
           examId: link.examId,
           problemId: problem.id,
+        },
+      },
+    });
+  }
+
+  const draftPublishDemoProblems = [
+    courseProblemId("problem_warmup-sum"),
+    courseProblemId("problem_add-two-numbers"),
+    courseProblemId("problem_graph-docking"),
+  ];
+  for (const [index, problemId] of draftPublishDemoProblems.entries()) {
+    await prisma.examProblem.upsert({
+      create: {
+        examId: draftPublishDemoExam.id,
+        ordinal: index + 1,
+        points: 100,
+        problemId,
+      },
+      update: { ordinal: index + 1, points: 100 },
+      where: {
+        examId_problemId: {
+          examId: draftPublishDemoExam.id,
+          problemId,
         },
       },
     });
@@ -487,6 +539,7 @@ export async function seedCourses(
       id: {
         in: [
           midterm.id,
+          draftPublishDemoExam.id,
           gradebookDemoExam.id,
           examUpcomingDemo.id,
           activeAdvancedExam.id,

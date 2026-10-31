@@ -14,6 +14,46 @@ const db = new PrismaClient({
 test.afterAll(async () => db.$disconnect());
 
 test.describe("Exams — list, detail, problem visibility", () => {
+  test("teacher publishes a draft through its guidance and students see only published information", async ({
+    browser,
+  }) => {
+    const teacher = await browser.newContext({ storageState: teacherAuth });
+    const student = await browser.newContext({ storageState: studentAuth });
+    const teacherPage = await teacher.newPage();
+    const studentPage = await student.newPage();
+    const examId = "exam_demo_draft_publish";
+    const coursePath = "/courses/course_os-lab-spring-2026/exams";
+    try {
+      await studentPage.goto(coursePath);
+      await expect(studentPage.locator(`a[href="/exams/${examId}"]`)).toHaveCount(0);
+      await teacherPage.goto(coursePath);
+      await expect(teacherPage.getByText("Draft", { exact: true }).first()).toBeVisible();
+      await teacherPage.locator(`a[href="/exams/${examId}"]`).click();
+      await expect(
+        teacherPage.getByRole("heading", { name: "This exam is not published" }),
+      ).toBeVisible();
+      await expect(teacherPage.getByText("Not active", { exact: true })).toBeVisible();
+      await teacherPage.getByRole("link", { name: "Open settings to publish" }).click();
+      await expect(teacherPage).toHaveURL(/tab=settings/);
+      await teacherPage.getByRole("button", { name: "Publish", exact: true }).click();
+      await expect(
+        teacherPage.getByRole("status").filter({ hasText: "Exam published." }),
+      ).toBeVisible();
+      await expect(
+        teacherPage.getByRole("heading", { name: "This exam is not published" }),
+      ).toHaveCount(0);
+      await studentPage.goto(`/exams/${examId}`);
+      await expect(
+        studentPage.getByRole("heading", { name: "Demo: Draft Exam（尚未發布）", exact: true }),
+      ).toBeVisible();
+      await expect(studentPage.getByText("Warmup: Sum", { exact: true })).toHaveCount(0);
+    } finally {
+      await db.exam.update({ where: { id: examId }, data: { status: "draft" } });
+      await teacher.close();
+      await student.close();
+    }
+  });
+
   test("student sees the exams listing page", async ({ browser }) => {
     const context = await browser.newContext({ storageState: studentAuth });
     const page = await context.newPage();

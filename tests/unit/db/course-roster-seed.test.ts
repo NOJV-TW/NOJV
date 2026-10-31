@@ -14,32 +14,42 @@ afterEach(() => {
 });
 
 describe("course roster demo seed", () => {
-  it("creates only credentialed Users and preserves the existing login handles", async () => {
-    vi.stubEnv("SEED_ADMIN_USERNAME", "admin");
-    vi.stubEnv("SEED_ADMIN_EMAIL", "admin@nojv.local");
-    vi.stubEnv("SEED_ADMIN_PASSWORD", "test-password-123");
-    vi.spyOn(console, "log").mockImplementation(() => undefined);
-    const upsertUser = vi.fn(({ create }: { create: { username: string } }) => ({
-      ...create,
-      id: `user_${create.username}`,
-    }));
-    const upsertAccount = vi.fn();
-    await seedUsers({
-      user: { upsert: upsertUser },
-      account: { upsert: upsertAccount },
-    } as unknown as PrismaClient);
-    expect(upsertUser.mock.calls.map(([args]) => args.create.username)).toEqual([
-      "admin",
-      "teacher",
-      "ta-student",
-      "student",
-      "new-student",
-    ]);
-    expect(upsertAccount).toHaveBeenCalledTimes(5);
-    for (const [args] of upsertUser.mock.calls) {
-      expect(args.create).not.toHaveProperty("status");
-    }
-  });
+  it.each(["admin", "admin-test"])(
+    "preserves the configured super admin %s and existing login handles",
+    async (username) => {
+      vi.stubEnv("SEED_ADMIN_USERNAME", username);
+      vi.stubEnv("SEED_ADMIN_EMAIL", "admin@nojv.local");
+      vi.stubEnv("SEED_ADMIN_PASSWORD", "test-password-123");
+      vi.spyOn(console, "log").mockImplementation(() => undefined);
+      const upsertUser = vi.fn(({ create }: { create: { username: string } }) => ({
+        ...create,
+        id: `user_${create.username}`,
+      }));
+      const upsertAccount = vi.fn();
+      await seedUsers({
+        user: { upsert: upsertUser },
+        account: { upsert: upsertAccount },
+      } as unknown as PrismaClient);
+      expect(upsertUser.mock.calls.map(([args]) => args.create.username)).toEqual([
+        username,
+        "teacher",
+        "ta-student",
+        "student",
+        "new-student",
+      ]);
+      expect(upsertAccount).toHaveBeenCalledTimes(5);
+      expect(upsertUser).toHaveBeenNthCalledWith(
+        1,
+        expect.objectContaining({
+          create: expect.objectContaining({ username, isSuperAdmin: true }),
+          update: { isSuperAdmin: true },
+        }),
+      );
+      for (const [args] of upsertUser.mock.calls) {
+        expect(args.create).not.toHaveProperty("status");
+      }
+    },
+  );
 
   it("seeds a stable pending membership and keeps existing course/activity links", async () => {
     vi.spyOn(console, "log").mockImplementation(() => undefined);
