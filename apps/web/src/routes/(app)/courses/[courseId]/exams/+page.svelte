@@ -5,6 +5,7 @@
   import { Button } from "#lib/components/primitives/ui/button/index.js";
   import PageContainer from "#lib/components/primitives/layout/PageContainer.svelte";
   import ExamRow from "#lib/components/features/course/exam/ExamRow.svelte";
+  import { groupExamRows } from "#lib/components/features/course/exam/exam-list-groups.js";
   import AssessmentGroupHeading from "#lib/components/features/coursework/AssessmentGroupHeading.svelte";
   import type { PageData } from "./$types";
 
@@ -14,25 +15,17 @@
   const courseId = $derived(page.params.courseId ?? "");
 
   const groups = $derived(
-    (
-      [
-        {
-          key: "running",
-          label: m.examsTop_filterRunning(),
-          items: exams.filter((e) => e.status === "running"),
-        },
-        {
-          key: "upcoming",
-          label: m.examsTop_filterUpcoming(),
-          items: exams.filter((e) => e.status === "upcoming" || e.status === "draft"),
-        },
-        {
-          key: "ended",
-          label: m.examsTop_filterEnded(),
-          items: exams.filter((e) => e.status === "ended"),
-        },
-      ] as const
-    ).filter((g) => g.items.length > 0),
+    groupExamRows(exams).map((group) => ({
+      ...group,
+      label:
+        group.key === "draft"
+          ? m.examsTop_filterDraft()
+          : group.key === "running"
+            ? m.examsTop_filterRunning()
+            : group.key === "upcoming"
+              ? m.examsTop_filterUpcoming()
+              : m.examsTop_filterEnded(),
+    })),
   );
 </script>
 

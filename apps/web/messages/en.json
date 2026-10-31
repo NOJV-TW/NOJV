@@ -1361,6 +1361,7 @@
   "examsTop_emptyDescription": "When your courses publish exams they will show up here.",
   "examsTop_filterAll": "All",
   "examsTop_filterEnded": "Ended",
+  "examsTop_filterDraft": "Draft",
   "examsTop_filterRunning": "Running",
   "examsTop_filterUpcoming": "Upcoming",
   "feedback_staff_commentHint": "Shown to the student after the assessment closes",

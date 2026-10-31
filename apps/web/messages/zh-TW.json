@@ -1361,6 +1361,7 @@
   "examsTop_emptyDescription": "當你所在的課程發布考試後，這裡就會看到。",
   "examsTop_filterAll": "全部",
   "examsTop_filterEnded": "已結束",
+  "examsTop_filterDraft": "草稿",
   "examsTop_filterRunning": "進行中",
   "examsTop_filterUpcoming": "即將開始",
   "feedback_staff_commentHint": "評量結束後會顯示給學生",
