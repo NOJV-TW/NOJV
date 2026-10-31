@@ -30,12 +30,13 @@ describe("course roster demo seed", () => {
     } as unknown as PrismaClient);
     expect(upsertUser.mock.calls.map(([args]) => args.create.username)).toEqual([
       "admin",
+      "admin-test",
       "teacher",
       "ta-student",
       "student",
       "new-student",
     ]);
-    expect(upsertAccount).toHaveBeenCalledTimes(5);
+    expect(upsertAccount).toHaveBeenCalledTimes(6);
     for (const [args] of upsertUser.mock.calls) {
       expect(args.create).not.toHaveProperty("status");
     }
