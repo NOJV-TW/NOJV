@@ -1,0 +1,118 @@
+{{- if and .Values.observability.prometheus.enabled .Values.observability.prometheus.remoteWrite.url }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "nojv.fullname" . }}-prometheus-cloud
+  namespace: {{ include "nojv.namespace" . }}
+  labels:
+    {{- include "nojv.labels" . | nindent 4 }}
+    app.kubernetes.io/component: prometheus-cloud
+data:
+  cloud.yml: |
+{{- include "nojv.prometheusCloudConfig" . | nindent 4 }}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  annotations:
+    helm.sh/resource-policy: keep
+  name: {{ include "nojv.fullname" . }}-prometheus-cloud
+  namespace: {{ include "nojv.namespace" . }}
+  labels:
+    {{- include "nojv.labels" . | nindent 4 }}
+    app.kubernetes.io/component: prometheus-cloud
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+  {{- with .Values.observability.prometheus.storageClass }}
+  storageClassName: {{ . }}
+  {{- end }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "nojv.fullname" . }}-prometheus-cloud
+  namespace: {{ include "nojv.namespace" . }}
+  labels:
+    {{- include "nojv.labels" . | nindent 4 }}
+    app.kubernetes.io/component: prometheus-cloud
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: nojv-prometheus-cloud
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: nojv-prometheus-cloud
+      annotations:
+        checksum/config: {{ include "nojv.prometheusCloudConfig" . | sha256sum }}
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65534
+        fsGroup: 65534
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: cloud-agent
+          image: {{ .Values.observability.prometheus.image }}
+          args:
+            - --agent
+            - --config.file=/etc/prometheus/cloud.yml
+            - --storage.agent.path=/prometheus-agent
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          ports:
+            - containerPort: 9090
+              name: http
+          volumeMounts:
+            - name: config
+              mountPath: /etc/prometheus
+              readOnly: true
+            - name: data
+              mountPath: /prometheus-agent
+            - name: remote-write-secret
+              mountPath: /etc/prometheus-secrets
+              readOnly: true
+          livenessProbe:
+            httpGet:
+              path: /-/healthy
+              port: 9090
+            initialDelaySeconds: 10
+            periodSeconds: 15
+          readinessProbe:
+            httpGet:
+              path: /-/ready
+              port: 9090
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+      volumes:
+        - name: config
+          configMap:
+            name: {{ include "nojv.fullname" . }}-prometheus-cloud
+        - name: data
+          persistentVolumeClaim:
+            claimName: {{ include "nojv.fullname" . }}-prometheus-cloud
+        - name: remote-write-secret
+          secret:
+            secretName: {{ include "nojv.runtimeSecretName" . }}
+            items:
+              - key: GRAFANA_CLOUD_PROM_PASSWORD
+                path: remote-write-password
+{{- end }}

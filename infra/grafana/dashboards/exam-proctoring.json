@@ -36,7 +36,7 @@
       "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
       "targets": [
         {
-          "expr": "sum(rate(sse_connection_duration_seconds_count[1m])) * 60",
+          "expr": "sum(rate(sse_connection_duration_seconds_count[5m])) * 60",
           "legendFormat": "closes/min",
           "refId": "A"
         }
