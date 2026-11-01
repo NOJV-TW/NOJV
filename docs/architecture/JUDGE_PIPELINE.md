@@ -484,7 +484,7 @@ judge program's source. **Submit** always uses the server pipeline above.
   added locally.
 - Shares the 16 MiB combined output limit.
 - C/C++ contestant, checker and interactor builds explicitly request an 8 MiB
-  linear-memory stack through Forge's `stackSizeBytes` compile option, matching
+  linear-memory stack through Forge 0.2.6's `stackSizeBytes` compile option, matching
   the current native environment's inherited 8 MiB stack soft limit. The
   reservation counts toward the browser's total memory limit; native and Wasm
   call-stack layouts and recursion limits are not equivalent.
