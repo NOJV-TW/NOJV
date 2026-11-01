@@ -245,30 +245,41 @@ Prometheus kept serving its old config until someone restarted it by hand.
 global:
   scrape_interval: 30s
 scrape_configs:
-  - job_name: otel-collector
-    static_configs:
-      - targets:
-          - {{ printf "%s-otel-collector.%s.svc:8889" (include "nojv.fullname" .) (include "nojv.namespace" .) | quote }}
-  {{- if .Values.observability.prometheus.nodeExporter.enabled }}
-  - job_name: node-exporter
-    static_configs:
-      - targets:
-          - {{ printf "%s-node-exporter.%s.svc:9100" (include "nojv.fullname" .) (include "nojv.namespace" .) | quote }}
-  {{- end }}
-  {{- if .Values.edge.cloudflared.enabled }}
-  - job_name: cloudflared
-    dns_sd_configs:
-      - names:
-          - {{ printf "%s-cloudflared-metrics.%s.svc" (include "nojv.fullname" .) (include "nojv.namespace" .) | quote }}
-        type: A
-        port: 2000
-  {{- end }}
-  {{- if eq .Values.postgres.mode "cnpg" }}
-  - job_name: cnpg-postgres
-    static_configs:
-      - targets:
-          - {{ printf "%s-metrics.%s.svc:9187" (include "nojv.cnpgClusterName" .) (include "nojv.namespace" .) | quote }}
-  {{- end }}
+{{ include "nojv.prometheusScrapeJobs" . | indent 2 }}
+{{- end }}
+
+{{- define "nojv.prometheusScrapeJobs" -}}
+- job_name: otel-collector
+  static_configs:
+    - targets:
+        - {{ printf "%s-otel-collector.%s.svc:8889" (include "nojv.fullname" .) (include "nojv.namespace" .) | quote }}
+{{- if .Values.observability.prometheus.nodeExporter.enabled }}
+- job_name: node-exporter
+  static_configs:
+    - targets:
+        - {{ printf "%s-node-exporter.%s.svc:9100" (include "nojv.fullname" .) (include "nojv.namespace" .) | quote }}
+{{- end }}
+{{- if .Values.edge.cloudflared.enabled }}
+- job_name: cloudflared
+  dns_sd_configs:
+    - names:
+        - {{ printf "%s-cloudflared-metrics.%s.svc" (include "nojv.fullname" .) (include "nojv.namespace" .) | quote }}
+      type: A
+      port: 2000
+{{- end }}
+{{- if eq .Values.postgres.mode "cnpg" }}
+- job_name: cnpg-postgres
+  static_configs:
+    - targets:
+        - {{ printf "%s-metrics.%s.svc:9187" (include "nojv.cnpgClusterName" .) (include "nojv.namespace" .) | quote }}
+{{- end }}
+{{- end }}
+
+{{- define "nojv.prometheusCloudConfig" -}}
+global:
+  scrape_interval: 60s
+scrape_configs:
+{{ include "nojv.prometheusScrapeJobs" . | indent 2 }}
 {{- with .Values.observability.prometheus.remoteWrite.url }}
 remote_write:
   - url: {{ . | quote }}

@@ -57,7 +57,7 @@ The JSON files are the source of truth for panel PromQL. Auto-instrumentation me
 
 ## Grafana Cloud setup
 
-Grafana Cloud holds dashboards only; alerts are evaluated in-cluster. Production pushes the in-cluster Prometheus to it with `remote_write` (about 3.2k active series against the free tier's 10k).
+Grafana Cloud holds dashboards only; alerts are evaluated in-cluster. The dedicated Cloud Agent sends metrics with `remote_write`; local Prometheus serves in-cluster dashboards and alerts.
 
 1. Stack: `https://grafana.nojv.tw`, owned by the `nojv.tw@gmail.com` Grafana account (region `prod-ap-northeast-0`, stack ID `1845138`). The custom domain is a DNS-only (unproxied) Cloudflare CNAME `grafana` → `brightholly2440.grafana.net`, the stack's fixed Grafana Cloud name; Grafana Cloud issues its Let's Encrypt certificate, so the record must stay unproxied.
 2. Provisioning token: Administration → Users and access → Service accounts → `nojv-provision` with **Admin** role (Editor lacks `dashboards:create`, `dashboards:write`, `folders:create`) → add a token and copy the `glsa_*` value.
@@ -70,7 +70,36 @@ Grafana Cloud holds dashboards only; alerts are evaluated in-cluster. Production
    GRAFANA_SA_TOKEN=glsa_...
    ```
 
-6. Verify: `prometheus_remote_storage_samples_total` rises and `prometheus_remote_storage_samples_failed_total` stays 0 on the Prometheus `/metrics`, and the stack's `grafanacloud-prom` datasource answers `count(node_filesystem_avail_bytes)`.
+6. Verify: `prometheus_remote_storage_samples_total` rises and `prometheus_remote_storage_samples_failed_total` stays 0 on `deploy/nojv-prometheus-cloud` port 9090 `/metrics`, and the stack's `grafanacloud-prom` datasource answers `count(node_filesystem_avail_bytes)`.
+
+Cloud export uses the same pinned Prometheus image in Agent mode in a separate Deployment, scraping the
+same targets every 60 seconds. Local Prometheus keeps its 30-second interval and
+never remote-writes. Both configs use one shared scrape-job template, preserving
+metric labels and dashboard queries. The agent has its own 1 GiB WAL PVC (using
+the Prometheus storage class); Helm retains it if export is disabled. The WAL
+survives pod replacement, but remote-write buffering is finite, not an archive.
+In pinned Prometheus 3.15.0, the remote-write watcher skips samples older than
+its startup time; persistent WAL does not guarantee queued samples are resent
+after an Agent restart. Local Prometheus retains the 30-second history. After
+an outage or restart, check actual sample timestamps in Cloud, not only an empty
+queue and zero failed samples.
+
+Grafana Cloud counts both active series and data points per minute (DPM), using
+the billing-period 95th percentile. A plan including 1 DPM per series can exceed
+its 10,000-series allowance with about 5,000 series scraped every 30 seconds.
+Check `grafanacloud_instance_samples_per_second * 60` and
+`grafanacloud_org_metrics_billable_series` in the `grafanacloud-usage` datasource;
+billing-period usage need not fall immediately after reducing the cadence.
+
+For live validation, port-forward port 9090 from each of
+`deploy/nojv-prometheus` and `deploy/nojv-prometheus-cloud` to distinct local ports.
+The local `/api/v1/targets` must report 30s intervals; the Cloud agent must
+report 1m intervals and the same targets. Check the agent's remote-write counters
+and latest sent timestamp, then confirm fresh Cloud samples. Existing local
+Grafana alerts continue to use the local Prometheus Service; Cloud-agent failure
+does not remove its ready endpoint. Dashboard rate windows are at least 5 minutes
+so the 60-second samples can produce rates. Changing only remote-write queue batch
+settings does not reduce DPM.
 
 ## In-cluster stack (no external cloud)
 
@@ -80,7 +109,7 @@ Grafana Cloud holds dashboards only; alerts are evaluated in-cluster. Production
 | ------------- | ----------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Collector     | `observability.collector.enabled`               | OTLP HTTP `http://<release>-otel-collector.<ns>.svc:4318`; `:8889/metrics`, or remote-writes when `collector.remoteWriteUrl` is set                                                                                                                                                                   |
 | Prometheus    | `observability.prometheus.enabled`              | Scrapes every 30s: `otel-collector`, `node-exporter`, `cloudflared`, `cnpg-postgres` (`<release>-pg-metrics:9187`); PVC, 15d retention                                                                                                                                                                |
-| Remote write  | `observability.prometheus.remoteWrite.url`      | Optional push to Grafana Cloud; `username` = instance ID, password from runtime secret key `GRAFANA_CLOUD_PROM_PASSWORD`                                                                                                                                                                              |
+| Remote write  | `observability.prometheus.remoteWrite.url`      | Optional 60s Agent scrape and push to Grafana Cloud; `username` = instance ID, password from runtime secret key `GRAFANA_CLOUD_PROM_PASSWORD`                                                                                                                                                         |
 | Node exporter | `observability.prometheus.nodeExporter.enabled` | DaemonSet feeding `nojv-node-disk-usage`                                                                                                                                                                                                                                                              |
 | Grafana       | `observability.grafana.enabled`                 | ClusterIP Service `:3000` (reach it with `kubectl -n nojv port-forward svc/nojv-grafana 3000`) or `observability.grafana.ingress`; provisioned Prometheus datasource (`uid: prometheus`) and chart dashboards                                                                                         |
 | Alerting      | `observability.grafana.alerting.enabled`        | Evaluates the chart copy of `slo-alerts.json` in this Grafana every minute and emails the runtime secret's `SMTP_USER` through `SMTP_HOST`/`SMTP_USER`/`SMTP_PASS` and `mailer.smtpPort`; `nojv-pg-dump-stale` and `nojv-object-mirror-stale` are rendered only while their backup CronJob is enabled |

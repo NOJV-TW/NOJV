@@ -86,7 +86,7 @@
       "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
       "targets": [
         {
-          "expr": "sum by (verdict) (rate(judge_latency_seconds_count[1m])) * 60",
+          "expr": "sum by (verdict) (rate(judge_latency_seconds_count[5m])) * 60",
           "legendFormat": "{{verdict}}",
           "refId": "A"
         }

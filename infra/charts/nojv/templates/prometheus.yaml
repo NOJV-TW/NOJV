@@ -78,11 +78,6 @@ spec:
               readOnly: true
             - name: data
               mountPath: /prometheus
-            {{- if .Values.observability.prometheus.remoteWrite.url }}
-            - name: remote-write-secret
-              mountPath: /etc/prometheus-secrets
-              readOnly: true
-            {{- end }}
           livenessProbe:
             httpGet:
               path: /-/healthy
@@ -104,14 +99,6 @@ spec:
         - name: data
           persistentVolumeClaim:
             claimName: {{ include "nojv.fullname" . }}-prometheus
-        {{- if .Values.observability.prometheus.remoteWrite.url }}
-        - name: remote-write-secret
-          secret:
-            secretName: {{ include "nojv.runtimeSecretName" . }}
-            items:
-              - key: GRAFANA_CLOUD_PROM_PASSWORD
-                path: remote-write-password
-        {{- end }}
 ---
 apiVersion: v1
 kind: Service

@@ -224,8 +224,8 @@ observability:
     retention: "15d"
     storageSize: 10Gi
     storageClass: ""
-    # Push scraped series to Grafana Cloud Prometheus. OPT-IN: leave url empty to
-    # disable (no remote_write block rendered). When set, username is the Grafana
+    # Scrape the same targets every 60s in an optional Prometheus agent; local
+    # monitoring stays at 30s. Leave url empty to disable. username is the Grafana
     # Cloud instance ID (not secret) and the password is read from the runtime
     # secret key GRAFANA_CLOUD_PROM_PASSWORD, mounted as a file (never templated).
     remoteWrite:
