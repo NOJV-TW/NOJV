@@ -57,7 +57,7 @@ The JSON files are the source of truth for panel PromQL. Auto-instrumentation me
 
 ## Grafana Cloud setup
 
-Grafana Cloud holds dashboards only; alerts are evaluated in-cluster. Production pushes the in-cluster Prometheus to it with `remote_write` (about 3.2k active series against the free tier's 10k).
+Grafana Cloud holds dashboards only; alerts are evaluated in-cluster. The dedicated Cloud Agent sends metrics with `remote_write`; local Prometheus serves in-cluster dashboards and alerts.
 
 1. Stack: `https://grafana.nojv.tw`, owned by the `nojv.tw@gmail.com` Grafana account (region `prod-ap-northeast-0`, stack ID `1845138`). The custom domain is a DNS-only (unproxied) Cloudflare CNAME `grafana` → `brightholly2440.grafana.net`, the stack's fixed Grafana Cloud name; Grafana Cloud issues its Let's Encrypt certificate, so the record must stay unproxied.
 2. Provisioning token: Administration → Users and access → Service accounts → `nojv-provision` with **Admin** role (Editor lacks `dashboards:create`, `dashboards:write`, `folders:create`) → add a token and copy the `glsa_*` value.
