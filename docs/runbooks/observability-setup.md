@@ -78,6 +78,11 @@ never remote-writes. Both configs use one shared scrape-job template, preserving
 metric labels and dashboard queries. The agent has its own 1 GiB WAL PVC (using
 the Prometheus storage class); Helm retains it if export is disabled. The WAL
 survives pod replacement, but remote-write buffering is finite, not an archive.
+In pinned Prometheus 3.15.0, the remote-write watcher skips samples older than
+its startup time; persistent WAL does not guarantee queued samples are resent
+after an Agent restart. Local Prometheus retains the 30-second history. After
+an outage or restart, check actual sample timestamps in Cloud, not only an empty
+queue and zero failed samples.
 
 Grafana Cloud counts both active series and data points per minute (DPM), using
 the billing-period 95th percentile. A plan including 1 DPM per series can exceed
