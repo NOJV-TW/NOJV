@@ -1,5 +1,7 @@
 import { expect, it, vi } from "vitest";
 import {
+  compileBrowserLocally,
+  compileBrowserJudgeProgram,
   runBrowserCases,
   runBrowserChecker,
   runBrowserInteraction,
@@ -674,3 +676,36 @@ it("caps each transcript direction at 64 KiB and the contestant's stderr", async
   expect(result.transcript.toContestant).toBe("a".repeat(65_535));
   expect(result.stderr).toBe("e".repeat(100_000));
 });
+
+it.each(["c", "cpp", "python", "rust", "go", "java", "javascript", "typescript"] as const)(
+  "sets the native stack capacity only for C/C++ student builds: %s",
+  async (language) => {
+    await compileBrowserLocally(
+      { context: { type: "practice" }, language, problemId: "stack", sourceCode: "source" },
+      "stack",
+      new AbortController().signal,
+    );
+    const input = engine.compile.mock.calls.at(-1)![0];
+    if (language === "c" || language === "cpp") {
+      expect(input).toHaveProperty("stackSizeBytes", 8 * 1024 * 1024);
+    } else {
+      expect(input).not.toHaveProperty("stackSizeBytes");
+    }
+  },
+);
+
+it.each(["checker", "interactor"] as const)(
+  "sets the same stack capacity for %s builds",
+  async (role) => {
+    for (const language of ["cpp", "python"] as const) {
+      await compileBrowserJudgeProgram(
+        "stack",
+        { role, language, source: "source" },
+        new AbortController().signal,
+      );
+      const input = engine.compile.mock.calls.at(-1)![0];
+      if (language === "python") expect(input).not.toHaveProperty("stackSizeBytes");
+      else expect(input).toHaveProperty("stackSizeBytes", 8 * 1024 * 1024);
+    }
+  },
+);

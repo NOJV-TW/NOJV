@@ -31,6 +31,7 @@ import {
   type BrowserToolchainPrefetchProgress,
   type BuildArtifact,
   type BuildResult,
+  type CompileInput,
   type Engine,
   type RunResult,
 } from "@wasm-oj/browser";
@@ -43,6 +44,10 @@ import { browserSource as rustSource } from "@wasm-oj/toolchain-rust";
 import { m } from "#lib/paraglide/messages.js";
 import { formatJudgeOutput } from "#lib/utils/judge-output.js";
 import type { SubmissionRequest } from "./submission-service";
+
+const C_CPP_STACK_OPTIONS = {
+  stackSizeBytes: 8 * 1024 * 1024,
+} satisfies Partial<CompileInput>;
 
 const BROWSER_TOOLCHAIN_BASE_URL = "/wasm-oj/toolchains/";
 const BROWSER_TOOLCHAINS = [
@@ -387,6 +392,7 @@ export async function compileBrowserLocally(
     const build = await browserEngine.compile(
       {
         language: request.language,
+        ...(request.language === "c" || request.language === "cpp" ? C_CPP_STACK_OPTIONS : {}),
         target: "wasip1",
         optimization: "release",
         entry,
@@ -425,6 +431,7 @@ export async function compileBrowserJudgeProgram(
       const build = await browserEngine.compile(
         {
           ...judgeProgramCompileInput(program, WASM_OJ_LIBCXX_PCH_HEADER),
+          ...(program.language === "cpp" ? C_CPP_STACK_OPTIONS : {}),
           target: "wasip1",
           optimization: "release",
           name: `NOJV ${program.role} ${problemId}`,
