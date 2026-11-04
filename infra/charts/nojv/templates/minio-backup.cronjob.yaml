@@ -30,7 +30,8 @@ only when storage.inCluster AND storage.minio.backup.enabled — disabled =
 nothing here, so no dangling reference to the credentials Secret. Each source
 bucket lands under <destinationBucket>/<bucket>/ via `rclone copy --metadata`
 (never sync: objects deleted from the source are kept in the mirror as an extra
-safety net). The destination bucket must already exist; the job never creates
+safety net). `--fast-list` lists each side with one ListObjectsV2 per 1,000
+objects instead of one per directory; R2 bills every list as a Class A op. The destination bucket must already exist; the job never creates
 it, so a bucket-scoped R2 token is enough. See docs/runbooks/backup-restore.md.
 */}}
 apiVersion: batch/v1
@@ -80,7 +81,7 @@ spec:
                 - |
                   set -eu
                   for bucket in $SRC_BUCKETS; do
-                    rclone copy --metadata "src:$bucket" "dst:$DST_BUCKET/$bucket"
+                    rclone copy --metadata --fast-list "src:$bucket" "dst:$DST_BUCKET/$bucket"
                   done
               volumeMounts:
                 - name: rclone-home

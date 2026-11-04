@@ -60,7 +60,9 @@ describe("production backup fail-closed contract", () => {
 
     expect(cronJob).toMatch(/image: ghcr\.io\/rclone\/rclone:\S+@sha256:[a-f0-9]{64}/u);
     expect(cronJob).toMatch(/name: SRC_BUCKETS\n\s+value: "nojv nojv-registry"/u);
-    expect(cronJob).toContain('rclone copy --metadata "src:$bucket" "dst:$DST_BUCKET/$bucket"');
+    expect(cronJob).toContain(
+      'rclone copy --metadata --fast-list "src:$bucket" "dst:$DST_BUCKET/$bucket"',
+    );
     expect(cronJob).not.toMatch(/rclone sync|--delete|\bmc\b/u);
     expect(cronJob).toMatch(/RCLONE_CONFIG_DST_NO_CHECK_BUCKET\n\s+value: "true"/u);
     expect(cronJob).toContain("readOnlyRootFilesystem: true");

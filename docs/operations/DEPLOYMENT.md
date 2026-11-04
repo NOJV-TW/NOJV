@@ -574,7 +574,7 @@ sequence need no patch.
   CronJob are enabled, and the chart refuses to render without their
   destinations and credential Secrets (OPS-06). The chart configures no CNPG
   base backups or WAL archiving. The mirror runs
-  `rclone copy --metadata` (never `sync`) from the `storage.active` store for
+  `rclone copy --metadata --fast-list` (never `sync`) from the `storage.active` store for
   `storage.bucket` and, with the registry on, `registry.bucket`, each under
   `<destinationBucket>/<bucket>/`. The destination is Cloudflare R2
   (`destinationProvider: Cloudflare`); the bucket must exist, since the job
