@@ -55,7 +55,7 @@ export interface AssignmentDueSoonInput extends LifecycleScheduleIdentity {
 export interface PlagiarismCheckInput {
   targetId: string;
   targetType: "assessment" | "exam" | "contest";
-  triggeredById: string;
+  triggeredById: string | null;
 }
 
 export interface RegistryGarbageCollectInput {

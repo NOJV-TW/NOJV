@@ -5,6 +5,7 @@ import type { TransactionClient } from "../transaction";
 type TxClient = TransactionClient;
 
 export interface PlagiarismTriggerLogCreateData {
+  id?: string;
   contextType: PlagiarismContext;
   contextId: string;
   triggeredByUserId: string | null;
@@ -14,6 +15,10 @@ export interface PlagiarismTriggerLogCreateData {
 export const plagiarismTriggerLogRepo = {
   create(tx: TxClient, data: PlagiarismTriggerLogCreateData) {
     return tx.plagiarismTriggerLog.create({ data });
+  },
+
+  findById(tx: TxClient, id: string) {
+    return tx.plagiarismTriggerLog.findUnique({ where: { id }, select: { id: true } });
   },
 
   listForContext(contextType: PlagiarismContext, contextId: string, limit = 50) {

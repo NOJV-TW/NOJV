@@ -25,7 +25,7 @@ import {
   toIsoOrUndefined,
   tryParseJsonField,
 } from "#lib/server/shared/form-utils.js";
-import { buildAssignmentResults } from "#lib/server/results/assignment.js";
+import { buildAssessmentResults } from "#lib/server/results/assessment.js";
 
 const {
   deleteAssignmentDraft,
@@ -88,7 +88,7 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
 
   return {
     ...view,
-    results: buildAssignmentResults(matrix),
+    results: buildAssessmentResults(matrix),
     settingsForm,
     plagiarism: serializePlagiarismReport(view.plagiarism),
     plagiarismFlags: serializePlagiarismFlags(view.plagiarismFlags),

@@ -5,6 +5,7 @@ export {
   updateContestScores,
   updateExamScores,
   closeActiveSessionsForExam,
+  triggerClosedExamReport,
   sweepStaleSubmissions,
   reconcileLifecycleWorkflows,
   publishVerdict,

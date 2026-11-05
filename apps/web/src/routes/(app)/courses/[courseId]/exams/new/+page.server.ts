@@ -1,3 +1,4 @@
+import { localDateTimeToIso } from "#lib/utils/datetime-form.js";
 import { activityProblemsSchema } from "@nojv/core";
 import { z } from "zod";
 import { fail, redirect } from "@sveltejs/kit";
@@ -126,10 +127,7 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
 });
 
 function toIsoOrEmpty(local: string): string {
-  if (!local) return "";
-  const date = new Date(local);
-  if (Number.isNaN(date.getTime())) return "";
-  return date.toISOString();
+  return localDateTimeToIso(local) ?? "";
 }
 
 function buildCreatePayload(form: ExamFormData, status: ExamPublishStatus): ExamCreate {

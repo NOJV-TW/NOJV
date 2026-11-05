@@ -1,11 +1,10 @@
 <script lang="ts">
   import { m } from "#lib/paraglide/messages.js";
   import AssessmentGradesTab from "#lib/components/features/coursework/AssessmentGradesTab.svelte";
-  import type { AssignmentResults } from "#lib/server/results/assignment.js";
-  import type { courseDomain } from "@nojv/application";
+  import type { courseDomain, ScoreStats } from "@nojv/application";
 
   interface Props {
-    data: AssignmentResults;
+    data: ScoreStats;
     matrix: courseDomain.SubmissionsMatrix;
     assignmentId: string;
     oncellclick?: ((rowId: string, problemId: string) => void) | undefined;

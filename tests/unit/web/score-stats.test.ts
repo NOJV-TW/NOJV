@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { buildAssignmentResults } from "#lib/server/results/assignment.js";
-import { buildExamResults } from "#lib/server/results/exam.js";
+import { buildAssessmentResults } from "#lib/server/results/assessment.js";
 
 import { buildScoreStats } from "../../../packages/application/src/shared/score-stats";
 
@@ -38,7 +37,7 @@ describe("buildScoreStats", () => {
 });
 
 it("keeps pending manual grades in course statistics without fabricating submissions", () => {
-  const matrix: Parameters<typeof buildAssignmentResults>[0] = {
+  const matrix: Parameters<typeof buildAssessmentResults>[0] = {
     problems: [{ problemId: "problem", letter: "A", ordinal: 1, title: "A", points: 100 }],
     rows: [
       {
@@ -81,14 +80,9 @@ it("keeps pending manual grades in course statistics without fabricating submiss
     studentCount: 2,
     totalPoints: 100,
   };
-  for (const stats of [buildAssignmentResults(matrix), buildExamResults(matrix, "user")]) {
-    expect(stats.submitted).toBe(1);
-    expect(stats.total).toBe(2);
-    expect(stats.classAvg).toBe(40);
-    expect(stats.max).toBe(80);
-  }
-  expect(buildExamResults(matrix, "user").rows[0]).toMatchObject({
-    user: "Pending Student",
-    me: false,
-  });
+  const stats = buildAssessmentResults(matrix);
+  expect(stats.submitted).toBe(1);
+  expect(stats.total).toBe(2);
+  expect(stats.classAvg).toBe(40);
+  expect(stats.max).toBe(80);
 });

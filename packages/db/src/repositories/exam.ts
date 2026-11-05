@@ -255,8 +255,16 @@ export const examRepo = {
 
   withTx(tx: TxClient) {
     return {
+      findCourseId(id: string) {
+        return tx.exam.findUnique({ where: { id }, select: { courseId: true } });
+      },
+
       findById(id: string) {
         return tx.exam.findUnique({ where: { id } });
+      },
+
+      lockForShare(examId: string) {
+        return tx.$queryRaw`SELECT id FROM "Exam" WHERE id = ${examId} FOR SHARE`;
       },
 
       lockForUpdate(examId: string) {

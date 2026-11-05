@@ -7,6 +7,7 @@ export {
 export {
   boundaryMarkerFor,
   createPlagiarismReport,
+  currentExamReportRun,
   findPlagiarismReport,
   getPlagiarismSourceCode,
   getPlagiarismTarget,
@@ -14,6 +15,7 @@ export {
   listSubmissionsForCheck,
   markReportFailed,
   saveResults,
+  triggerClosedExamReport,
   updateReportStatus,
   type PlagiarismSubmission,
   type ResolvedPlagiarismTarget,

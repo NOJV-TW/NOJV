@@ -1,6 +1,7 @@
 import {
   contestDomain,
   examDomain,
+  plagiarismDomain,
   notificationDomain,
   reconcileLifecycleTimers,
   submissionDomain,
@@ -48,6 +49,10 @@ export async function closeActiveSessionsForExam(
   input: ExamAutoCloseInput,
 ): Promise<{ closed: number }> {
   return examDomain.session.autoCloseForExam(input);
+}
+
+export function triggerClosedExamReport(input: ExamAutoCloseInput) {
+  return plagiarismDomain.triggerClosedExamReport(input);
 }
 
 export async function sweepStaleSubmissions(): Promise<submissionDomain.SweepStaleSubmissionsResult> {

@@ -263,6 +263,7 @@ export async function createQueuedSubmissionRecord(
     if (payload.context.type === "exam") {
       const lockKey = `exam-session:${actor.userId}`;
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${lockKey}, 0))`;
+      await examRepo.withTx(tx).lockForShare(payload.context.examId);
     }
 
     const isReferenceSolution = payload.referenceSolution === true;

@@ -1,6 +1,6 @@
 # Feature: Plagiarism Detection
 
-Acceptance spec for staff-triggered Dolos similarity checks on assignments, exams and contests. Report state is stored inline on the parent row; a Temporal workflow runs Dolos in the worker with no network egress (ASM-23). Staff can mark pairs as false positives and every run leaves a trigger receipt (ASM-24).
+Acceptance spec for automatic exam checks and staff-triggered Dolos similarity checks on assignments, exams and contests. Report state is stored inline on the parent row; a Temporal workflow runs Dolos in the worker with no network egress (ASM-23). Staff can mark pairs as false positives and every run leaves a trigger receipt (ASM-24).
 
 ## Key code
 
@@ -16,7 +16,7 @@ Acceptance spec for staff-triggered Dolos similarity checks on assignments, exam
 - Schema: `Assessment`/`Exam`/`Contest` columns `plagiarismStatus`, `plagiarismResults` (JSON), `plagiarismReportUrl`, `plagiarismTriggeredAt`, `plagiarismCompletedAt`, `plagiarismTriggeredById`; `packages/db/prisma/schema/plagiarism.prisma` (`PlagiarismPairFlag`, `PlagiarismTriggerLog`, `PlagiarismContext`); `PlagiarismReportStatus` in `ops.prisma`
 - Tests: `tests/unit/application/plagiarism-queries.test.ts`, `plagiarism-flags.test.ts`, `plagiarism-trigger-log.test.ts`; `tests/unit/temporal/plagiarism-activity.test.ts`; `tests/integration/api/plagiarism.test.ts`
 
-Out of scope: student-visible results, automatic penalties (use rejudge or score overrides), cross-activity or cross-language comparison, scheduled triggers, completion notifications (the UI polls).
+Out of scope: student-visible results, automatic penalties (use rejudge or score overrides), cross-activity or cross-language comparison, completion notifications (the UI polls).
 
 ## Acceptance criteria
 
@@ -35,6 +35,7 @@ Out of scope: student-visible results, automatic penalties (use rejudge or score
 ### Trigger and lifecycle
 
 - `POST /api/plagiarism/[id]/reports` writes a `PlagiarismTriggerLog` row (who, when, `priorPairCount`) and, in the same transaction, sets `plagiarismStatus = pending`, clears results, report URL and completion time, records trigger time and user, dispatches the workflow, and returns 202 with a `Location` poll URL.
+- At the final exam deadline the existing auto-close workflow waits for in-window, non-sample submissions to finish judging, then triggers a report with a system receipt. The receipt is unique to the exam schedule revision. A replaced worker cannot publish results over a newer exam report. Stale timers and archived courses skip it. Staff can still trigger fresh reports manually.
 - Workflow id `plagiarism-${targetType}-${targetId}` on the platform task queue with `workflowIdConflictPolicy: TERMINATE_EXISTING`: re-triggering terminates an in-flight run and starts a fresh one.
 - The activity sets `running`, then `completed` with `{ pairs }` and `plagiarismCompletedAt`, or `failed` on any error and rethrows. Activity options: `startToCloseTimeout: "10m"`, `maximumAttempts: 3`.
 - `plagiarismReportUrl` is always null for Dolos runs.
@@ -42,7 +43,7 @@ Out of scope: student-visible results, automatic penalties (use rejudge or score
 
 ### Analysis
 
-- Input: `accepted` submissions of the target; per `(userId, problemId)` only the highest-scoring one is kept. Before Dolos tokenization, a multi-file submission is concatenated in sorted path order, each file preceded by a separator line `// === <path> ===` (`# === <path> ===` for Python) (`boundaryMarkerFor`).
+- Input: `accepted` submissions of the target; exam reports and their source views restrict submissions to the exam context, non-sample runs and server receipt times `startsAt <= createdAt < endsAt`; per `(userId, problemId)` only the highest-scoring one is kept. Before Dolos tokenization, a multi-file submission is concatenated in sorted path order, each file preceded by a separator line `// === <path> ===` (`# === <path> ===` for Python) (`boundaryMarkerFor`).
 - Groups are `(problemId, language)`; each supported language (`c`, `cpp`, `go`, `java`, `javascript`, `python`, `rust`, `typescript`) uses its own tree-sitter parser and a fresh `Dolos` instance. Pairs never cross groups.
 - An unknown language value fails the report (no skip, no fallback). A native addon load failure fails the report; fix by rebuilding the worker image for the target.
 - Groups with fewer than two submissions are skipped. No accepted submissions → `completed` with `{ pairs: [] }`.
@@ -60,6 +61,6 @@ Out of scope: student-visible results, automatic penalties (use rejudge or score
 
 ### UI
 
-- Never triggered: a "Run plagiarism check" CTA. `pending`/`running`: spinner and status, polled client-side.
+- Staff see whether a report exists and can run a check on writable activities. The tab polls active checks. A visible exam tab also fetches the final report after the deadline even when no check was running when the tab opened.
 - `completed`: pairs bucketed High (≥ 70), Medium (50–69) and Low (< 50) as histogram and table; flagged pairs are hidden unless the "show flagged" toggle is on.
 - Each pair opens a side-by-side source dialog and links to the Monaco diff page `/plagiarism/pairs/[pairId]`, which resolves the pair for assignment, exam or contest targets.

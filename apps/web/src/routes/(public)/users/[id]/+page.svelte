@@ -3,6 +3,7 @@
   import { enhance } from "$app/forms";
   import { Check, EyeOff, LineChart, PieChart, Share2 } from "@lucide/svelte";
   import type { EChartsOption } from "echarts";
+  import { formatDate } from "#lib/utils/datetime.js";
   import { m } from "#lib/paraglide/messages.js";
   import { Card } from "#lib/components/primitives/ui/card/index.js";
   import { Button } from "#lib/components/primitives/ui/button/index.js";
@@ -56,7 +57,8 @@
   const hasHeatmapData = $derived(activityModel.heatmapDays.some((d) => d.submissionCount > 0));
 
   const joinedDate = $derived(
-    new Date(user.createdAt).toLocaleDateString(undefined, {
+    formatDate(user.createdAt, {
+      day: undefined,
       year: "numeric",
       month: "long",
     }),

@@ -106,7 +106,7 @@ Exams follow the [activity allocation and official score contract](assignments.m
 
 ### Auto-close and instructor release
 
-- At `endsAt` the auto-close workflow calls `autoCloseForExam`, which checks the exam's schedule revision and fingerprint and then sets `endedAt`, `releaseReason = time_up` and an `auto_close` event on every active session. Re-runs are no-ops.
+- At `endsAt` the auto-close workflow calls `autoCloseForExam`, which checks the exam's schedule revision and fingerprint and then sets `endedAt`, `releaseReason = time_up` and an `auto_close` event on every active session. Re-runs are no-ops. The workflow then schedules the [final plagiarism report](plagiarism.md#trigger-and-lifecycle).
 - `releaseSessionAsInstructor({ examId, targetUserId })` by a course manager (active teacher/TA or effective admin) ends the session with `released_by_instructor` and a `release` event carrying `{ reason, endedByUserId }`. Non-staff get `"Only course staff can release exam sessions."`; no active session gives `NotFoundError`.
 - `resetStudentIpBinding`, for the same managers, clears the student's IP pin, grants a 10-minute IP-gate exemption and always records an `ip_reset` event with `{ resetByUserId, clearedIpPin, exemptUntil }`, under the student's session lock. A student who never entered gets a closed session row (`endedAt` set, no `releaseReason`) to hold the event; `endSession` treats that row as no session, and the next start reopens it.
 

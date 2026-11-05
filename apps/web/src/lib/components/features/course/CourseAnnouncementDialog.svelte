@@ -7,7 +7,7 @@
   import FormField from "#lib/components/primitives/ui/FormField.svelte";
   import FormError from "#lib/components/primitives/ui/FormError.svelte";
   import ImageDropZone from "#lib/components/primitives/ui/ImageDropZone.svelte";
-  import { serializeDateTimeFormData } from "#lib/utils/datetime-form.js";
+  import { isoDateTimeToLocal, serializeDateTimeFormData } from "#lib/utils/datetime-form.js";
 
   interface AnnouncementInitial {
     id: string;
@@ -24,14 +24,6 @@
   }
 
   let { open = $bindable(false), mode, initial = null }: Props = $props();
-
-  function toLocalInput(iso: string | null): string {
-    if (!iso) return "";
-    const d = new Date(iso);
-    if (Number.isNaN(d.getTime())) return "";
-    const pad = (n: number) => String(n).padStart(2, "0");
-    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-  }
 
   let submitting = $state(false);
   let errorMessage = $state<string | null>(null);
@@ -119,7 +111,7 @@
           id="ann-expires"
           name="expiresAt"
           type="datetime-local"
-          value={toLocalInput(initial?.expiresAt ?? null)}
+          value={isoDateTimeToLocal(initial?.expiresAt ?? null)}
         />
       </FormField>
 

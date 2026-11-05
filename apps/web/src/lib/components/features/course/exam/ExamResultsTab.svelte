@@ -1,46 +1,10 @@
-<script lang="ts" module>
-  export interface ResultsProblemCol {
-    id: string;
-    letter: string;
-    title: string;
-    max: number;
-  }
-
-  export interface ResultsRow {
-    rank: number;
-    user: string;
-    sid: string;
-    total: number;
-    scores: number[];
-    me: boolean;
-  }
-
-  export interface ResultsBucket {
-    label: string;
-    count: number;
-  }
-
-  export interface ExamResultsTabData {
-    problems: ResultsProblemCol[];
-    rows: ResultsRow[];
-    classAvg: number;
-    median: number;
-    max: number;
-    min: number;
-    submitted: number;
-    total: number;
-    maxScore: number;
-    buckets: ResultsBucket[];
-  }
-</script>
-
 <script lang="ts">
   import { m } from "#lib/paraglide/messages.js";
   import AssessmentGradesTab from "#lib/components/features/coursework/AssessmentGradesTab.svelte";
-  import type { examDomain } from "@nojv/application";
+  import type { examDomain, ScoreStats } from "@nojv/application";
 
   interface Props {
-    data: ExamResultsTabData;
+    data: ScoreStats;
     matrix: examDomain.ExamSubmissionsMatrix;
     examId: string;
     oncellclick?: ((rowId: string, problemId: string) => void) | undefined;

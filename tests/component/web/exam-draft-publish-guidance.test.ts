@@ -99,7 +99,8 @@ it("shows draft publish guidance to managers and uses the draft status", async (
   expect(target.textContent).toContain(m.examDetail_clockDraftValue());
   expect(target.querySelector(".text-title.font-bold")).toBeNull();
   expect(
-    target.querySelector('a[href="/exams/exam_draft?tab=settings"]')?.textContent,
+    target.querySelector('[role="status"] a[href="/exams/exam_draft?tab=settings"]')
+      ?.textContent,
   ).toContain(m.examDetail_draftPublishAction());
 
   await unmount(component);
@@ -138,7 +139,9 @@ it("does not offer a publish action for drafts in archived courses", async () =>
 
   expect(target.textContent).toContain(m.examDetail_draftPublishTitle());
   expect(target.textContent).toContain(m.course_archivedReadOnly());
-  expect(target.querySelector('a[href="/exams/exam_draft?tab=settings"]')).toBeNull();
+  expect(
+    target.querySelector('[role="status"] a[href="/exams/exam_draft?tab=settings"]'),
+  ).toBeNull();
 
   await unmount(component);
   target.remove();

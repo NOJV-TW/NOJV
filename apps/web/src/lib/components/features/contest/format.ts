@@ -1,12 +1,14 @@
+import { serverNow } from "#lib/utils/datetime.js";
+
 export function contestStatusFor(
   startsAt: string | Date,
   endsAt: string | Date,
-  now: Date = new Date(),
+  now: Date = new Date(serverNow()),
 ): "upcoming" | "live" | "ended" {
   const s = typeof startsAt === "string" ? new Date(startsAt) : startsAt;
   const e = typeof endsAt === "string" ? new Date(endsAt) : endsAt;
   if (now < s) return "upcoming";
-  if (now <= e) return "live";
+  if (now < e) return "live";
   return "ended";
 }
 

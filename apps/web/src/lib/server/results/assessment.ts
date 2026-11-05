@@ -1,10 +1,6 @@
 import { buildScoreStats, type courseDomain, type ScoreStats } from "@nojv/application";
 
-export type AssignmentResults = ScoreStats;
-
-export function buildAssignmentResults(
-  matrix: courseDomain.SubmissionsMatrix,
-): AssignmentResults {
+export function buildAssessmentResults(matrix: courseDomain.SubmissionsMatrix): ScoreStats {
   const totals = matrix.rows.map((r) => r.total);
   return {
     ...buildScoreStats(totals, matrix.studentCount, matrix.totalPoints),

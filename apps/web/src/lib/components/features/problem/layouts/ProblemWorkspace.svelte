@@ -104,7 +104,11 @@
     return fromCookie.success ? fromCookie.data : undefined;
   })();
 
-  function handleSubmissionDispatched(submissionId: string, language: string) {
+  function handleSubmissionDispatched(
+    submissionId: string,
+    language: string,
+    submittedAt: string,
+  ) {
     submissions = [
       {
         id: submissionId,
@@ -112,7 +116,7 @@
         status: "queued",
         judgeGeneration: 0,
         updatedAt: "1970-01-01T00:00:00.000Z",
-        submittedAt: new Date().toISOString(),
+        submittedAt,
         context: context.type,
       },
       ...submissions,
@@ -124,6 +128,7 @@
     result: SubmissionResult,
     language: string,
     sourceCode: string,
+    submittedAt: string,
   ) {
     const index = submissions.findIndex((s) => s.id === submissionId);
     if (index >= 0) {
@@ -139,7 +144,7 @@
         updatedAt: "1970-01-01T00:00:00.000Z",
         result,
         sourceCode,
-        submittedAt: new Date().toISOString(),
+        submittedAt,
         context: context.type,
       },
       ...submissions,

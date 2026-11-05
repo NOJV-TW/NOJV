@@ -1,9 +1,11 @@
+import { serverNow } from "#lib/utils/datetime.js";
+
 import { getLocale } from "#lib/paraglide/runtime.js";
 import { formatDate } from "#lib/utils/datetime.js";
 
 export function relativeTime(value: Date | string | number): string {
   const then = typeof value === "number" ? value : new Date(value).getTime();
-  const diff = Math.max(0, Date.now() - then);
+  const diff = Math.max(0, serverNow() - then);
   const sec = Math.floor(diff / 1000);
   const rtf = new Intl.RelativeTimeFormat(getLocale(), { numeric: "auto", style: "narrow" });
   if (sec < 60) return rtf.format(-sec, "second");

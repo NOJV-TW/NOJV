@@ -51,7 +51,12 @@ const result = {
 };
 const dispatch = () =>
   new Response(
-    JSON.stringify({ submissionId: "submission_a", pollUrl: "/poll", status: "queued" }),
+    JSON.stringify({
+      submissionId: "submission_a",
+      submittedAt: "2026-11-05T16:05:00.000Z",
+      pollUrl: "/poll",
+      status: "queued",
+    }),
     { status: 202 },
   );
 const operation = {

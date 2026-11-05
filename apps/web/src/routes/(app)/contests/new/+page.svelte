@@ -206,6 +206,9 @@
       <div class="flex items-center gap-2 text-sm font-medium text-muted-foreground">
         <ClockIcon aria-hidden="true" class="h-4 w-4" />
         <span>{m.common_timeline()}</span>
+        <span class="text-caption font-normal text-muted-foreground"
+          >{m.schedule_timeZoneHint()}</span
+        >
       </div>
       <div class="grid gap-4 sm:grid-cols-2">
         <div>

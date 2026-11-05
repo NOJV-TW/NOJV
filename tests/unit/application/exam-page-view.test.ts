@@ -117,42 +117,14 @@ beforeEach(() => {
 });
 
 describe("getExamPageView", () => {
-  it("assembles the manager view without student-only reads", async () => {
-    const view = await getExamPageView(actor, { examId: "e1", isManager: true });
-
-    expect(view).toMatchObject({
-      detail,
-      hasActiveSession: false,
-      hasSubmitted: false,
-      submittedProblemIds: [],
-      matrix: { problems: [], rows: [] },
-      activeSessions: [{ userId: "s1" }],
-      canSetOverride: true,
-      clarification: { canAsk: false, canAnswer: true, canView: true },
-      plagiarism: { status: "completed" },
-      plagiarismFlags: [{ id: "f1" }],
-      ipViolations: [
-        {
-          id: "v1",
-          userId: "s1",
-          handle: "s1@example.com",
-          displayName: "S1",
-          violationType: "ip_mismatch",
-          expectedIp: "1.1.1.1",
-          actualIp: "2.2.2.2",
-          createdAt: "2026-09-01T01:00:00.000Z",
-        },
-      ],
-      feedback: [],
-      auditEvents: [{ kind: "lifecycle", actorUserId: "u1" }],
-      auditActorNames: { u1: "U1" },
-      candidateProblems: { personalProblems: [{ id: "p2" }], publicProblems: [] },
-      recentSubmissions: [{ id: "sub1" }],
-      examCredentials: [{ userId: "s1" }],
-      studentProctoring: [{ userId: "s1", leaveAttempts: 2 }],
+  it("loads grades without fetching data from other management tabs", async () => {
+    const view = await getExamPageView(actor, {
+      examId: "e1",
+      isManager: true,
+      tab: "results",
     });
-    expect(m.audit).toHaveBeenCalledWith({ type: "exam", examId: "e1" });
-    expect(m.picker).toHaveBeenCalledWith(actor, "c1", ["p1"]);
+    expect(view.matrix).toEqual({ problems: [], rows: [] });
+    expect(view.canSetOverride).toBe(true);
     expect(m.matrix).toHaveBeenCalledWith({
       examId: "e1",
       courseId: "c1",
@@ -160,13 +132,52 @@ describe("getExamPageView", () => {
       endsAt: new Date(detail.endsAt),
       problems: [{ problemId: "p1", ordinal: 1, title: "A", points: 100 }],
     });
-    expect(m.feedback).not.toHaveBeenCalled();
-    expect(m.sessionState).not.toHaveBeenCalled();
-    expect(m.submitted).not.toHaveBeenCalled();
+    for (const read of [
+      m.report,
+      m.flags,
+      m.credentials,
+      m.ipViolations,
+      m.activeSessions,
+      m.studentProctoring,
+      m.audit,
+      m.recent,
+      m.picker,
+      m.feedback,
+      m.sessionState,
+      m.submitted,
+    ]) {
+      expect(read).not.toHaveBeenCalled();
+    }
+  });
+
+  it("loads the selected management section", async () => {
+    const view = (tab: Parameters<typeof getExamPageView>[1]["tab"]) =>
+      getExamPageView(actor, { examId: "e1", isManager: true, tab });
+    expect((await view("problems")).candidateProblems.personalProblems).toEqual([{ id: "p2" }]);
+    expect((await view("submissions")).recentSubmissions).toEqual([{ id: "sub1" }]);
+    expect(await view("plagiarism")).toMatchObject({
+      plagiarism: { status: "completed" },
+      plagiarismFlags: [{ id: "f1" }],
+      matrix: { rows: [] },
+    });
+    expect(await view("proctoring")).toMatchObject({
+      activeSessions: [{ userId: "s1" }],
+      studentProctoring: [{ userId: "s1", leaveAttempts: 2 }],
+      examCredentials: [{ userId: "s1" }],
+      ipViolations: [{ id: "v1", createdAt: "2026-09-01T01:00:00.000Z" }],
+    });
+    expect((await view("audit")).auditActorNames).toEqual({ u1: "U1" });
+    expect(m.credentials).toHaveBeenCalledTimes(1);
+    expect(m.audit).toHaveBeenCalledTimes(1);
+    expect(m.picker).toHaveBeenCalledTimes(1);
   });
 
   it("assembles the student view without manager-only reads", async () => {
-    const view = await getExamPageView(actor, { examId: "e1", isManager: false });
+    const view = await getExamPageView(actor, {
+      examId: "e1",
+      isManager: false,
+      tab: "proctoring",
+    });
 
     expect(view).toEqual({
       detail,
@@ -207,7 +218,11 @@ describe("getExamPageView", () => {
 
   it("skips detail-dependent reads when the exam is hidden", async () => {
     m.detail.mockResolvedValue(null);
-    const view = await getExamPageView(actor, { examId: "e1", isManager: true });
+    const view = await getExamPageView(actor, {
+      examId: "e1",
+      isManager: true,
+      tab: "results",
+    });
     expect(view.detail).toBeNull();
     expect(view.matrix).toBeNull();
     expect(m.picker).not.toHaveBeenCalled();

@@ -165,6 +165,7 @@ export const submissionResultSchema = z.object({
 export const submissionDispatchResponseSchema = z.object({
   cooldownSec: z.number().int().nonnegative().default(0),
   pollUrl: z.string().min(1),
+  submittedAt: z.iso.datetime(),
   status: submissionOperationStatusSchema,
   submissionId: z.string().min(1),
 });

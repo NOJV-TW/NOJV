@@ -42,9 +42,9 @@ describe("deriveAssignmentWindowState", () => {
     );
   });
 
-  it("marks exactly at closesAt as grace", () => {
+  it("closes at the exact final deadline", () => {
     expect(deriveAssignmentWindowState({ ...base, now: "2026-03-22T12:00:00.000Z" })).toBe(
-      "grace",
+      "closed",
     );
   });
 

@@ -645,7 +645,7 @@
           />
         {/if}
       {/snippet}
-      {#if activeSubTabKey === "submissions" && data.matrix}
+      {#if activeSubTabKey === "submissions"}
         <LiveSubmissionsFeed
           rows={data.recentSubmissions}
           refreshUrl={`/api/submissions?context=exam&id=${detail.id}`}
@@ -661,6 +661,8 @@
         />
       {:else if activeSubTabKey === "plagiarism"}
         <AssignmentPlagiarismReport
+          closedExamAt={past ? endsAtMs : undefined}
+          readOnly={!writable}
           report={data.plagiarism}
           flags={data.plagiarismFlags ?? []}
           diffContext={{ type: "exam", id: detail.id }}

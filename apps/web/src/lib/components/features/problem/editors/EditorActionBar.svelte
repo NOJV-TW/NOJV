@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { serverNow } from "#lib/utils/datetime.js";
   import { m } from "#lib/paraglide/messages.js";
 
   interface Props {
@@ -39,17 +40,17 @@
 
   let disabled = $derived(availableLanguageCount === 0 || !hasSubmittableSource);
 
-  let now = $state(Date.now());
+  let now = $state(serverNow());
   let cooldownRemaining = $derived(
     cooldownUntil != null ? Math.max(0, Math.ceil((cooldownUntil - now) / 1000)) : 0,
   );
 
   $effect(() => {
     const until = cooldownUntil;
-    if (until == null || until <= Date.now()) return;
-    now = Date.now();
+    if (until == null || until <= serverNow()) return;
+    now = serverNow();
     const id = setInterval(() => {
-      now = Date.now();
+      now = serverNow();
       if (until <= now) clearInterval(id);
     }, 250);
     return () => clearInterval(id);

@@ -2,14 +2,21 @@
   import "../app.css";
   import { m } from "#lib/paraglide/messages.js";
   import ToastProvider from "#lib/components/primitives/ui/ToastProvider.svelte";
-  import { onNavigate } from "$app/navigation";
+  import { invalidate, onNavigate } from "$app/navigation";
   import { navigating } from "$app/state";
   import { onMount } from "svelte";
+  import { serverClockNeedsRefresh } from "#lib/utils/datetime.js";
   import { initializeGoogleAnalytics } from "#lib/analytics.js";
 
   let { children } = $props();
 
   onMount(() => initializeGoogleAnalytics(document));
+
+  function refreshClockAfterWake() {
+    if (document.visibilityState === "visible" && serverClockNeedsRefresh()) {
+      void invalidate("nojv:clock");
+    }
+  }
 
   let showProgress = $state(false);
 
@@ -41,6 +48,9 @@
     });
   });
 </script>
+
+<svelte:document onvisibilitychange={refreshClockAfterWake} />
+<svelte:window onpageshow={refreshClockAfterWake} />
 
 <svelte:head>
   <title>NOJV</title>

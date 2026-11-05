@@ -1,3 +1,5 @@
+import { serverNow } from "#lib/utils/datetime.js";
+
 export type AssignmentWindowState = "upcoming" | "open" | "grace" | "closed";
 
 interface AssignmentWindowStateInput {
@@ -13,7 +15,7 @@ export function deriveAssignmentWindowState({
   now,
   opensAt,
 }: AssignmentWindowStateInput): AssignmentWindowState {
-  const currentTime = now ? new Date(now) : new Date();
+  const currentTime = now ? new Date(now) : new Date(serverNow());
   const opensDate = new Date(opensAt);
   const closesDate = new Date(closesAt);
   const dueDate = dueAt ? new Date(dueAt) : closesDate;
@@ -22,15 +24,13 @@ export function deriveAssignmentWindowState({
     return "upcoming";
   }
 
+  if (currentTime >= closesDate) return "closed";
+
   if (currentTime <= dueDate) {
     return "open";
   }
 
-  if (currentTime <= closesDate) {
-    return "grace";
-  }
-
-  return "closed";
+  return "grace";
 }
 
 const windowStateColors: Record<AssignmentWindowState, string> = {

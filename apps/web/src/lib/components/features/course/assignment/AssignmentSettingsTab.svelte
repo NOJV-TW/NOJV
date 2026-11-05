@@ -64,7 +64,7 @@
       invalidateAll: true,
       onSubmit: ({ jsonData }) => {
         jsonData(
-          serializeDateTimeFields($form, ["opensAt", "dueAt", "closesAt"], undefined, {
+          serializeDateTimeFields($form, ["opensAt", "dueAt", "closesAt"], {
             opensAt: initialSchedule.opensAt,
             dueAt: initialSchedule.dueAt ?? initialSchedule.closesAt,
             closesAt: initialSchedule.closesAt,

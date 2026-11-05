@@ -1,3 +1,4 @@
+import { serializeDateTimeFields } from "#lib/utils/datetime-form.js";
 import { contestCreateSchema } from "@nojv/core";
 import { fail, redirect } from "@sveltejs/kit";
 import { message, superValidate } from "sveltekit-superforms";
@@ -43,7 +44,7 @@ export const actions = {
     if (!form.valid) return fail(400, { form });
 
     const { startsAt, endsAt, frozenAt, freezeMinutes, inviteCode, isPublic, ...rest } =
-      form.data;
+      serializeDateTimeFields(form.data, ["startsAt", "endsAt", "frozenAt"]);
 
     try {
       let frozenAtIso: string | undefined;

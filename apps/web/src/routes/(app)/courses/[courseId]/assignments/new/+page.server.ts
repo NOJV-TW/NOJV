@@ -1,3 +1,4 @@
+import { serializeDateTimeFields } from "#lib/utils/datetime-form.js";
 import { courseAssignmentFormSchema } from "@nojv/core";
 import { courseDomain } from "@nojv/application";
 import { fail, redirect, type RequestEvent } from "@sveltejs/kit";
@@ -44,7 +45,7 @@ function submitAssignment(status: "draft" | "published") {
 
     try {
       await createCourseAssignmentRecord(actor, courseId, {
-        ...form.data,
+        ...serializeDateTimeFields(form.data, ["opensAt", "dueAt", "closesAt"]),
         status,
       });
     } catch (err) {

@@ -1,6 +1,7 @@
 import { beforeEach, expect, it, vi } from "vitest";
 import type { JudgeType, Language } from "@nojv/core";
 import { m } from "#lib/paraglide/messages.js";
+import { SubmissionRequestError } from "#lib/services/submission-service.js";
 import type { PreparedJudgeProgram } from "#lib/services/judge-program.js";
 import type { ProblemDetail } from "#lib/types/index.js";
 
@@ -420,4 +421,26 @@ it("ignores a second Test press while one is running", async () => {
   finish(null);
   await first;
   expect(mocks.run).toHaveBeenCalledOnce();
+});
+
+it("keeps the server rejection visible until a new submission starts", async () => {
+  const editor = controller("standard");
+  mocks.execute.mockRejectedValueOnce(
+    new SubmissionRequestError("This course is archived.", "submit_rejected", null),
+  );
+  await editor.submit();
+  expect(editor.submitError).toBe("This course is archived.");
+  expect(mocks.toast).toHaveBeenCalledWith(editor.submitError);
+  mocks.execute.mockRejectedValueOnce(
+    new SubmissionRequestError(
+      "An active session for this exam is required.",
+      "session_required",
+      null,
+    ),
+  );
+  await editor.submit();
+  expect(editor.submitError).toBe(m.submit_error_sessionRequired());
+  mocks.execute.mockResolvedValueOnce(null);
+  await editor.submit();
+  expect(editor.submitError).toBeNull();
 });

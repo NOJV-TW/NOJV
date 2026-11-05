@@ -46,6 +46,8 @@ import { actions as assignmentSettings } from "../../../apps/web/src/routes/(app
 
 const dueAt = "2030-01-01T01:00";
 const finalAt = "2030-01-01T02:00";
+const dueIso = "2029-12-31T17:00:00.000Z";
+const finalIso = "2029-12-31T18:00:00.000Z";
 const rule = { type: "daily_late_penalty", perDayPct: 10 } as const;
 function event(allowLateSubmissions: boolean, final = finalAt) {
   const url = new URL("http://localhost/courses/course_1?/updateSettings");
@@ -80,8 +82,8 @@ describe("late submission form actions", () => {
     expect(mocks.createExam).toHaveBeenCalledWith(
       expect.anything(),
       expect.objectContaining({
-        dueAt: new Date(dueAt).toISOString(),
-        endsAt: new Date(allowed ? finalAt : dueAt).toISOString(),
+        dueAt: dueIso,
+        endsAt: allowed ? finalIso : dueIso,
         adjustmentRules: allowed ? [rule] : [],
       }),
     );
@@ -93,7 +95,7 @@ describe("late submission form actions", () => {
       await examSettings.updateSettings(event(allowed, allowed ? finalAt : ""));
       await assignmentSettings.updateSettings(event(allowed, allowed ? finalAt : ""));
       const expected = {
-        dueAt: new Date(dueAt).toISOString(),
+        dueAt: dueIso,
         adjustmentRules: allowed ? [rule] : [],
       };
       expect(mocks.updateExam).toHaveBeenCalledWith(
@@ -101,16 +103,16 @@ describe("late submission form actions", () => {
         "exam_1",
         expect.objectContaining({
           ...expected,
-          endsAt: new Date(allowed ? finalAt : dueAt).toISOString(),
+          endsAt: allowed ? finalIso : dueIso,
         }),
       );
       expect(mocks.updateAssignment).toHaveBeenCalledWith(
         expect.anything(),
         "assignment_1",
         expect.objectContaining({
-          dueAt: new Date(dueAt).toISOString(),
+          dueAt: dueIso,
           latePenalty: allowed ? rule : null,
-          closesAt: new Date(allowed ? finalAt : dueAt).toISOString(),
+          closesAt: allowed ? finalIso : dueIso,
         }),
       );
       expect(mocks.updateAssignment.mock.calls[0]?.[2]).not.toHaveProperty("adjustmentRules");

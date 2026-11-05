@@ -210,7 +210,7 @@ export const submissionStatistics = {
         sourceStorage: true,
         userId: true,
       },
-      orderBy: { score: "desc" },
+      orderBy: [{ score: "desc" }, { id: "asc" }],
     });
   },
 

@@ -1,4 +1,9 @@
-export function contestNotStarted(startsAt: string | Date, now: Date = new Date()): boolean {
+import { serverNow } from "#lib/utils/datetime.js";
+
+export function contestNotStarted(
+  startsAt: string | Date,
+  now: Date = new Date(serverNow()),
+): boolean {
   return new Date(startsAt).getTime() > now.getTime();
 }
 
