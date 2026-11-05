@@ -461,6 +461,7 @@
         />
       {:else if activeSubTab === "plagiarism"}
         <AssignmentPlagiarismReport
+          readOnly={!writable}
           report={data.plagiarism}
           flags={data.plagiarismFlags ?? []}
           diffContext={{ type: "assessment", id: detail.id }}

@@ -114,7 +114,14 @@ describe("executeSubmission", () => {
     await vi.advanceTimersByTimeAsync(0);
     expect(postSignal?.aborted).toBe(false);
     expect(waited).toBe(false);
-    respond(response({ submissionId: "s", pollUrl: "/detail", status: "queued" }));
+    respond(
+      response({
+        submissionId: "s",
+        submittedAt: "2026-11-05T16:05:00.000Z",
+        pollUrl: "/detail",
+        status: "queued",
+      }),
+    );
     await wait;
     await pending;
     expect(waited).toBe(true);
@@ -123,7 +130,12 @@ describe("executeSubmission", () => {
     let reads = 0;
     const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
       if (init?.method === "POST")
-        return response({ submissionId: "s", pollUrl: "/detail", status: "queued" });
+        return response({
+          submissionId: "s",
+          submittedAt: "2026-11-05T16:05:00.000Z",
+          pollUrl: "/detail",
+          status: "queued",
+        });
       if (url === "/detail") return response(operation);
       if (reads++ === 0) throw new TypeError("network");
       return response({ items: [operation], unavailableIds: [] });
@@ -140,7 +152,12 @@ describe("executeSubmission", () => {
       "fetch",
       vi.fn(async (url: string, init?: RequestInit) => {
         if (init?.method === "POST")
-          return response({ submissionId: "s", pollUrl: "/detail", status: "queued" });
+          return response({
+            submissionId: "s",
+            submittedAt: "2026-11-05T16:05:00.000Z",
+            pollUrl: "/detail",
+            status: "queued",
+          });
         if (url === "/detail") return response(operation);
         return response({ items: [{ ...operation, status }], unavailableIds: [] });
       }),
@@ -162,7 +179,12 @@ describe("executeSubmission", () => {
         "fetch",
         vi.fn(async (url: string, init?: RequestInit) => {
           if (init?.method === "POST")
-            return response({ submissionId: "s", pollUrl: "/detail", status: "queued" });
+            return response({
+              submissionId: "s",
+              submittedAt: "2026-11-05T16:05:00.000Z",
+              pollUrl: "/detail",
+              status: "queued",
+            });
           if (url === "/detail") return response(operation);
           return response({
             items: [
@@ -198,7 +220,12 @@ describe("executeSubmission", () => {
       "fetch",
       vi.fn(async (_url: string, init?: RequestInit) =>
         init?.method === "POST"
-          ? response({ submissionId: "s", pollUrl: "/detail", status: "queued" })
+          ? response({
+              submissionId: "s",
+              submittedAt: "2026-11-05T16:05:00.000Z",
+              pollUrl: "/detail",
+              status: "queued",
+            })
           : new Response("unavailable", { status: 503 }),
       ),
     );

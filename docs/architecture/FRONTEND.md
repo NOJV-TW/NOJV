@@ -165,7 +165,9 @@ Security headers, CSP and exam rules are specified in [Security Requirements](..
 - Markdown: `MarkdownRenderer` → `lib/utils/markdown.ts` (`marked` + KaTeX + DOMPurify); remote HTTPS images rewrite to `/api/images/proxy` at render time.
 - Charts: ECharts, lazily imported by `primitives/charts/EChart.svelte`.
 - Dates: `formatDateTime` / `formatDate` / `formatTime` in `lib/utils/datetime.ts` bind `Intl.DateTimeFormat` to the active locale; do not call bare `toLocale*`.
-- Clock: time-window UI (exam overview status and start button, `WorkspaceTimer`, contest and virtual-contest pages, `Countdown`, `AssignmentCard`) reads `serverNow()` from `lib/utils/datetime.ts`, never `Date.now()`. The root `+layout.ts` calls `syncServerClock` with the root layout's `serverNow` whenever that server data loads, so a wrong device clock or time zone does not open, block or end a window early. The server still enforces every window.
+- Assessment schedule inputs and institutional timestamps use Taiwan time (UTC+8) on both server and browser. Localized date-time displays include the UTC offset. Personal activity heatmaps group events by the viewer’s local calendar day (WEB-06).
+- The standard and advanced solving workspaces show the stored submission receipt timestamp returned by the POST. They display submission rejections inline until the next attempt. Closed-window, missing-session, and IP denials have localized explanations.
+- Clock: time-window UI (exam overview status and start button, `WorkspaceTimer`, contest and virtual-contest pages, `Countdown`, `AssignmentCard`) reads `serverNow()` from `lib/utils/datetime.ts`, never `Date.now()`. The root `+layout.ts` calls `syncServerClock` with the root layout's `serverNow` whenever that server data loads. Elapsed time uses the monotonic clock; returning to a visible page refreshes the server sample if sleep or a device clock change caused those clocks to diverge. The server still enforces every window.
 - `(app)/+layout.svelte` starts the submission tracker, SSE, notifications and onboarding tours.
 
 ## Submission tracking
@@ -187,7 +189,7 @@ Security headers, CSP and exam rules are specified in [Security Requirements](..
 ## Shared UI contracts
 
 - `ProblemWorkspace.svelte` (`features/problem/layouts/`): resizable split pane (left 42% default, 20–80%, persisted, arrow-key resizable `role="separator"`); `ProblemLeftPanel` tabs; editor with bottom test/results panel.
-- `AssessmentManageTabs`: Problems (default) / Submissions / Results (Grades, Plagiarism, Audit) / Proctoring (exam only: Credentials, IP records) / Clarifications when allowed / Settings, persisted in `?tab=` (UI-17).
+- `AssessmentManageTabs`: Problems (default) / Submissions / Results (Grades, Plagiarism, Audit) / Proctoring (exam only: Credentials, IP records) / Clarifications when allowed / Settings, persisted in `?tab=` (UI-17). Management tabs render links so a cold page can navigate before hydration. The exam manager load reads the selected tab’s data. Grades returns the grade matrix and summary statistics; monitoring credentials and IP records load only on Proctoring.
 - `MatrixView`: one grade matrix for contests, assignments and exams. Assignments and exams open `ScoreOverrideDrawer` (override + feedback lists/forms) from a cell; contests are read-only (ASM-17).
 - `AuditTimeline`: merged lifecycle, override and rejudge feed on the Audit tab (contests: rejudge only).
 - `ExamProctoringTab`: exam proctoring roster (sessions, IP violations, temporary passwords) with column-header filters (Bound IP when IP binding is on) and, when page lock is on, a leave-attempts sort (most first by default). `PlagiarismPairDiff`: pair diff page.

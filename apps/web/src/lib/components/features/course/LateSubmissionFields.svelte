@@ -39,6 +39,7 @@
 </script>
 
 <div class="@container space-y-6" data-slot="late-submission-fields">
+  <p class="text-caption text-muted-foreground">{m.schedule_timeZoneHint()}</p>
   <div class="grid gap-5 @xl:grid-cols-2">
     {@render startField?.()}
     <div class="min-w-0">

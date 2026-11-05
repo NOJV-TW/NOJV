@@ -11,7 +11,7 @@ for (const kind of ["assignments", "exams"] as const) {
     const context = await browser.newContext({
       storageState: teacherAuth,
       locale: "en-US",
-      timezoneId: "Asia/Taipei",
+      timezoneId: "America/Los_Angeles",
     });
     const page = await context.newPage();
     await page.goto(`/courses/${courseId}/${kind}/new`);
@@ -100,6 +100,14 @@ for (const kind of ["assignments", "exams"] as const) {
     });
     try {
       const id = new URL(page.url()).pathname.split("/").at(-1)!;
+      const persisted =
+        kind === "assignments"
+          ? await database.assessment.findUniqueOrThrow({
+              where: { id },
+              select: { dueAt: true },
+            })
+          : await database.exam.findUniqueOrThrow({ where: { id }, select: { dueAt: true } });
+      expect(persisted.dueAt?.toISOString()).toBe("2030-01-02T01:00:00.000Z");
       if (kind === "assignments") {
         await database.assessment.update({ where: { id }, data: { dueAt: null } });
       } else {
@@ -141,7 +149,10 @@ test("student exam workspace remains open and shows the late collection countdow
       problems: { create: { problemId: "problem_warmup-sum", ordinal: 1, points: 100 } },
     },
   });
-  const context = await browser.newContext({ storageState: studentAuth });
+  const context = await browser.newContext({
+    storageState: studentAuth,
+    timezoneId: "America/Los_Angeles",
+  });
   const page = await context.newPage();
   try {
     const response = await page.request.post(`/exams/${examId}?/startExam`, {
@@ -163,6 +174,26 @@ test("student exam workspace remains open and shows the late collection countdow
       .poll(() => countdown.textContent(), { timeout: 15_000 })
       .not.toBe(initialCountdown);
     await timer.screenshot({ path: "output/late-policy-workspace-desktop.png" });
+    const editor = page.locator(".monaco-editor").first();
+    await editor.click();
+    await page.keyboard.insertText("int main() {}");
+    const submit = page.getByRole("button", { name: "Submit", exact: true });
+    await expect(submit).toBeEnabled();
+    const release = await page.request.post(`/exams/${examId}?/releaseSession`, {
+      form: {},
+      headers: apiWriteHeaders,
+    });
+    expect((await release.json()).type).toBe("success");
+    const rejection = page.waitForResponse(
+      (response) =>
+        response.request().method() === "POST" &&
+        new URL(response.url()).pathname === "/api/submissions",
+    );
+    await submit.click();
+    expect((await (await rejection).json()).code).toBe("session_required");
+    await expect(
+      page.getByRole("alert").filter({ hasText: "You need an active exam session" }).first(),
+    ).toBeVisible();
   } finally {
     await page.request.post(`/exams/${examId}?/releaseSession`, {
       form: {},

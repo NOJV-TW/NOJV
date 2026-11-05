@@ -7,12 +7,14 @@ import type {
   SubmissionRunCase,
 } from "@nojv/core";
 import type { BuildArtifact } from "@wasm-oj/browser";
+import { serverNow } from "#lib/utils/datetime.js";
 import { m } from "#lib/paraglide/messages.js";
 import {
   submissionRequestValidationError,
   SubmissionRequestError,
   type SubmissionRequest,
 } from "#lib/services/submission-service.js";
+import { messageForSubmitError } from "#lib/services/submission-error.js";
 import { submitProblem } from "#lib/services/problem-submission.js";
 import { toasts } from "#lib/stores/toast.js";
 import {
@@ -53,13 +55,15 @@ interface EditorRunArgs {
   workspaceFiles: () => WorkspaceFile[];
   context: () => SubmissionContext;
   judgeProgram: () => Promise<PreparedJudgeProgram>;
-  onSubmissionDispatched?: ((submissionId: string, language: string) => void) | undefined;
+  onSubmissionDispatched?:
+    ((submissionId: string, language: string, submittedAt: string) => void) | undefined;
   onSubmissionComplete?:
     | ((
         submissionId: string,
         result: SubmissionResult,
         language: string,
         sourceCode: string,
+        submittedAt: string,
       ) => void)
     | undefined;
 }
@@ -71,6 +75,7 @@ export interface EditorRunController {
   readonly runResult: TestRunResult | null;
   readonly runSource: "local" | null;
   readonly runStatus: string | null;
+  readonly submitError: string | null;
   readonly runError: string | null;
   readonly cooldownUntil: number | null;
   panelRunCases: SubmissionRunCase[];
@@ -78,35 +83,6 @@ export interface EditorRunController {
   run: () => Promise<void>;
   submit: () => Promise<void>;
   markDestroyed: () => void;
-}
-
-function messageForSubmitError(code: string | null): string {
-  switch (code) {
-    case "client_test_custom_image":
-      return m.editor_clientTestCustomImage();
-    case "client_test_language":
-      return m.editor_clientTestLanguage();
-    case "browser_toolchain_unavailable":
-      return m.editor_toolchainUnavailable();
-    case "invalid_source":
-      return m.editor_invalidSource();
-    case "invalid_run_cases":
-      return m.editor_invalidRunCases();
-    case "request_too_large":
-      return m.editor_requestTooLarge();
-    case "SUBMISSION_TIMEOUT":
-      return m.editor_requestTimedOut();
-    case "daily_limit":
-      return m.submit_error_dailyLimit();
-    case "window_closed":
-      return m.submit_error_windowClosed();
-    case "ip_blocked":
-      return m.submit_error_ipBlocked();
-    case "language_not_allowed":
-      return m.submit_error_languageNotAllowed();
-    default:
-      return m.editor_submitFailed();
-  }
 }
 
 function initialRunCases(
@@ -124,6 +100,7 @@ function initialRunCases(
 export function createEditorRunController(args: EditorRunArgs): EditorRunController {
   let isRunning = $state(false);
   let isSubmitting = $state(false);
+  let submitError = $state<string | null>(null);
   let bottomTab = $state<"testcase" | "result">("testcase");
   let runResult = $state<TestRunResult | null>(null);
   let runSource = $state<"local" | null>(null);
@@ -323,7 +300,7 @@ export function createEditorRunController(args: EditorRunArgs): EditorRunControl
       if (destroyed) return;
       const message =
         err instanceof SubmissionRequestError
-          ? messageForSubmitError(err.code)
+          ? messageForSubmitError(err)
           : m.editor_runFailed();
       runError = message;
       toasts.error(message);
@@ -335,6 +312,7 @@ export function createEditorRunController(args: EditorRunArgs): EditorRunControl
 
   async function submit() {
     isSubmitting = true;
+    submitError = null;
 
     const language = args.language();
     const source = projectSubmittedSource({
@@ -356,23 +334,25 @@ export function createEditorRunController(args: EditorRunArgs): EditorRunControl
       workspaceFiles: args.workspaceFiles(),
     });
 
-    const dispatched: { submissionId: string | null } = { submissionId: null };
+    let submissionId: string | undefined;
+    let submittedAt: string | undefined;
     try {
       const validationError = submissionRequestValidationError(request);
       if (validationError)
         throw new SubmissionRequestError("Invalid submission input.", validationError, null);
       const result = await submitProblem(request, {
         onDispatched: (dispatch) => {
-          dispatched.submissionId = dispatch.submissionId;
+          submissionId = dispatch.submissionId;
+          submittedAt = dispatch.submittedAt;
           if (destroyed) return;
           isSubmitting = false;
           if (dispatch.cooldownSec > 0)
-            cooldownUntil = Date.now() + dispatch.cooldownSec * 1000;
-          args.onSubmissionDispatched?.(dispatch.submissionId, language);
+            cooldownUntil = serverNow() + dispatch.cooldownSec * 1000;
+          args.onSubmissionDispatched?.(dispatch.submissionId, language, dispatch.submittedAt);
         },
       });
-      if (!destroyed && result && dispatched.submissionId) {
-        args.onSubmissionComplete?.(dispatched.submissionId, result, language, source);
+      if (!destroyed && result && submissionId && submittedAt) {
+        args.onSubmissionComplete?.(submissionId, result, language, source, submittedAt);
       }
     } catch (err) {
       if (
@@ -381,13 +361,14 @@ export function createEditorRunController(args: EditorRunArgs): EditorRunControl
         err.retryAfterSec != null &&
         err.retryAfterSec > 0
       ) {
-        cooldownUntil = Date.now() + err.retryAfterSec * 1000;
-      } else {
-        toasts.error(
+        cooldownUntil = serverNow() + err.retryAfterSec * 1000;
+      }
+      if (!destroyed) {
+        submitError =
           err instanceof SubmissionRequestError
-            ? messageForSubmitError(err.code)
-            : m.editor_submitFailed(),
-        );
+            ? messageForSubmitError(err)
+            : m.editor_submitFailed();
+        toasts.error(submitError);
       }
     } finally {
       isSubmitting = false;
@@ -412,6 +393,9 @@ export function createEditorRunController(args: EditorRunArgs): EditorRunControl
     },
     get runStatus() {
       return runStatus;
+    },
+    get submitError() {
+      return submitError;
     },
     get runError() {
       return runError;

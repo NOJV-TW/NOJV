@@ -48,13 +48,15 @@
     context: SubmissionContext;
     draftContext: DraftContext;
     initialLanguage?: Language | undefined;
-    onSubmissionDispatched?: ((submissionId: string, language: string) => void) | undefined;
+    onSubmissionDispatched?:
+      ((submissionId: string, language: string, submittedAt: string) => void) | undefined;
     onSubmissionComplete?:
       | ((
           submissionId: string,
           result: SubmissionResult,
           language: string,
           sourceCode: string,
+          submittedAt: string,
         ) => void)
       | undefined;
     attemptsExhausted?: boolean | undefined;
@@ -259,9 +261,10 @@
     workspaceFiles: () => workspaceFilesForLanguage,
     context: () => context,
     judgeProgram: prepareProblemJudgeProgram,
-    onSubmissionDispatched: (id, lang) => onSubmissionDispatched?.(id, lang),
-    onSubmissionComplete: (id, result, lang, src) =>
-      onSubmissionComplete?.(id, result, lang, src),
+    onSubmissionDispatched: (id, lang, submittedAt) =>
+      onSubmissionDispatched?.(id, lang, submittedAt),
+    onSubmissionComplete: (id, result, lang, src, submittedAt) =>
+      onSubmissionComplete?.(id, result, lang, src, submittedAt),
   });
 
   $effect(() => () => runController.markDestroyed());
@@ -358,6 +361,14 @@
     {/if}
   </div>
 
+  {#if runController.submitError}
+    <div
+      role="alert"
+      class="shrink-0 bg-destructive/10 px-3 py-2 text-body-sm text-destructive"
+    >
+      {runController.submitError}
+    </div>
+  {/if}
   <EditorActionBar
     isRunning={runController.isRunning}
     toolchainPercent={testToolchainPercent}

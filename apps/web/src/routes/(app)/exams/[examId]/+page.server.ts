@@ -22,7 +22,8 @@ import {
   serializePlagiarismReport,
 } from "#lib/server/shared/plagiarism-view.js";
 import { toDateTimeLocal, toIsoOrUndefined } from "#lib/server/shared/form-utils.js";
-import { buildExamResults, type ExamResults } from "#lib/server/results/exam.js";
+import { buildAssessmentResults } from "#lib/server/results/assessment.js";
+import { parseAssessmentSubTab } from "#lib/components/features/coursework/assessment-tab-state.js";
 import type { FormMessage } from "#lib/types/form-message.js";
 
 const { deleteExamDraft, getExamPageView, publishExam, updateExamRecord } = examDomain;
@@ -35,17 +36,21 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
   const actor = requireAuth(event);
   const examId = event.params.examId;
 
-  const view = await getExamPageView(actor, { examId, isManager });
+  const tab = parseAssessmentSubTab(
+    isManager ? event.url.searchParams.get("tab") : null,
+    "exam",
+  );
+  const view = await getExamPageView(actor, { examId, isManager, tab });
   const { detail, matrix } = view;
 
-  const results: ExamResults | null = matrix ? buildExamResults(matrix, actor.userId) : null;
+  const results = tab === "results" && matrix ? buildAssessmentResults(matrix) : null;
 
   if (detail?.courseId !== examHeader.courseId) {
     error(404, "Exam not found");
   }
 
   const settingsForm =
-    isManager && detail.manager
+    isManager && tab === "settings" && detail.manager
       ? await superValidate<ExamSettingsForm, FormMessage>(
           {
             title: detail.title,
@@ -78,7 +83,6 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
     ...view,
     detail,
     isManager,
-    activeSessionCount: view.activeSessions.length,
     courseId: examHeader.courseId,
     settingsForm,
     results,

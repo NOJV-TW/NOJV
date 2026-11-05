@@ -3,6 +3,7 @@
   import { Calendar, CalendarCheck2, CalendarClock, ChevronRight, Radio } from "@lucide/svelte";
   import { m } from "#lib/paraglide/messages.js";
   import { cn } from "#lib/utils/css.js";
+  import { taipeiWallDate, TAIPEI_ZONE } from "#lib/utils/taipei-time.js";
   import { getLocale } from "#lib/paraglide/runtime.js";
   import { typeAccentVar } from "./type-accent.js";
   import type { CourseworkKind } from "./StatusPill.svelte";
@@ -44,11 +45,15 @@
   function dateParts(dateIso: string | null | undefined) {
     if (!dateIso) return null;
     const date = new Date(dateIso);
+    const day = taipeiWallDate(date);
     const pad2 = (value: number) => String(value).padStart(2, "0");
     return {
-      month: new Intl.DateTimeFormat(getLocale(), { month: "short" }).format(date),
-      day: pad2(date.getDate()),
-      time: `${pad2(date.getHours())}:${pad2(date.getMinutes())}`,
+      month: new Intl.DateTimeFormat(getLocale(), {
+        month: "short",
+        timeZone: TAIPEI_ZONE,
+      }).format(date),
+      day: pad2(day.getUTCDate()),
+      time: `${pad2(day.getUTCHours())}:${pad2(day.getUTCMinutes())}`,
     };
   }
 

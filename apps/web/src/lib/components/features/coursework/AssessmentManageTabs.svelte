@@ -1,6 +1,5 @@
 <script lang="ts">
   import type { Snippet } from "svelte";
-  import { goto } from "$app/navigation";
   import { m } from "#lib/paraglide/messages.js";
   import { cn } from "#lib/utils/css.js";
   import { Tabs } from "#lib/components/primitives/ui/tabs/index.js";
@@ -50,18 +49,12 @@
         ]
       : [],
   );
-
-  function selectTab(next: AssessmentSubTab): void {
-    const nextUrl = assessmentSubTabHref(url, next);
-    if (nextUrl === `${url.pathname}${url.search}${url.hash}`) return;
-    void goto(nextUrl, { reset: false, replace: true });
-  }
 </script>
 
 <Tabs
   {tabs}
   value={primaryTab}
-  onValueChange={selectTab}
+  hrefFor={(tab) => assessmentSubTabHref(url, tab)}
   label={kind === "exam"
     ? m.examDetail_subTabsLabel()
     : kind === "contest"
@@ -80,18 +73,8 @@
         <a
           href={assessmentSubTabHref(url, tab.key)}
           aria-current={value === tab.key ? "page" : undefined}
-          onclick={(event) => {
-            if (
-              event.button !== 0 ||
-              event.metaKey ||
-              event.ctrlKey ||
-              event.shiftKey ||
-              event.altKey
-            )
-              return;
-            event.preventDefault();
-            selectTab(tab.key);
-          }}
+          data-sveltekit-reset="false"
+          data-sveltekit-replacestate
           class={cn(
             "focus-ring inline-flex min-h-11 items-center rounded-md px-3 text-body-sm font-medium transition-colors",
             value === tab.key

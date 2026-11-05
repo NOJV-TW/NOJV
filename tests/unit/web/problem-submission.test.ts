@@ -160,6 +160,18 @@ it("ignores older generations and clears a previous AC when a newer run starts",
   expect(applySubmissionState(pending, operation("s", "accepted", 1))).toBe(pending);
   expect(mergeSubmissionEntries([row], [{ ...pending }])[0]?.result).toBeUndefined();
 });
+it("reconciles the displayed receipt time even when the judged status already matches", () => {
+  const row = {
+    id: "s",
+    language: "python",
+    submittedAt: "2026-09-20T16:30:00Z",
+    status: "accepted" as const,
+    judgeGeneration: 0,
+    updatedAt: operation().updatedAt,
+  };
+  const stored = { ...row, submittedAt: "2026-09-21T00:30:00Z" };
+  expect(mergeSubmissionEntries([row], [stored])[0]?.submittedAt).toBe(stored.submittedAt);
+});
 it("reconnect and foreground perform reconciliation without waiting for another event", async () => {
   const fetchMock = vi.fn(async () => json({ items: [], nextCursor: null }));
   vi.stubGlobal("fetch", fetchMock);

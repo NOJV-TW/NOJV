@@ -107,7 +107,7 @@ vi.mock("@nojv/db", () => ({
     withTx: () => ({ findActiveForUser: examSessionFindActiveForUser }),
   },
   examRepo: {
-    withTx: () => ({ findById: examFindById }),
+    withTx: () => ({ findById: examFindById, lockForShare: vi.fn() }),
   },
   examProblemRepo: {
     withTx: () => ({ exists: examProblemExists }),

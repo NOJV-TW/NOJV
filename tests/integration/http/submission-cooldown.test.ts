@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import * as submissionsRoute from "../../../apps/web/src/routes/api/submissions/+server";
-import { createTestProblem, createTestUser } from "../../fixtures/factories";
+import { createTestProblem, createTestUser, testPrisma } from "../../fixtures/factories";
 import { callRoute } from "./_harness";
 
 vi.mock("#lib/auth.server.js", () => ({
@@ -54,7 +54,16 @@ describe("POST /api/submissions cooldown", () => {
 
     const accepted = await submit();
     expect(accepted.status).toBe(202);
-    await expect(accepted.json()).resolves.toMatchObject({ cooldownSec: 30 });
+    const receipt = (await accepted.json()) as {
+      submissionId: string;
+      submittedAt: string;
+      cooldownSec: number;
+    };
+    const stored = await testPrisma.submission.findUniqueOrThrow({
+      where: { id: receipt.submissionId },
+    });
+    expect(receipt.submittedAt).toBe(stored.createdAt.toISOString());
+    expect(receipt.cooldownSec).toBe(30);
 
     const rejected = await submit();
     expect(rejected.status).toBe(403);

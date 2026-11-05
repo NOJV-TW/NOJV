@@ -43,6 +43,9 @@
 </script>
 
 <script lang="ts">
+  import { Button } from "#lib/components/primitives/ui/button/index.js";
+  import { fetchWithCsrf } from "#lib/services/http.js";
+  import { formatDateTime } from "#lib/utils/datetime.js";
   import { m } from "#lib/paraglide/messages.js";
   import { cn } from "#lib/utils/css.js";
   import PlagiarismFlagPanel from "./PlagiarismFlagPanel.svelte";
@@ -54,17 +57,100 @@
     students: PlagiarismStudentEntry[];
     flags?: PlagiarismFlagEntry[];
     diffContext?: { type: "assessment" | "contest" | "exam"; id: string };
+    closedExamAt?: number | undefined;
+    readOnly?: boolean;
     class?: string;
   }
 
   let {
-    report,
+    report: initialReport,
     problems,
     students,
     flags = [],
     diffContext,
+    closedExamAt,
+    readOnly = false,
     class: className,
   }: Props = $props();
+
+  let report = $derived(initialReport);
+  const reportsUrl = $derived(
+    diffContext
+      ? `/api/plagiarism/${encodeURIComponent(diffContext.id)}/reports?type=${diffContext.type}`
+      : null,
+  );
+  let submitting = $state(false);
+  let requestError = $state("");
+  const working = $derived(report?.status === "running" || report?.status === "pending");
+
+  const awaitingFinal = $derived(
+    !readOnly &&
+      closedExamAt !== undefined &&
+      (!report?.triggeredAt || Date.parse(report.triggeredAt) < closedExamAt),
+  );
+  const pollDelay = $derived(working ? 2000 : awaitingFinal ? 15000 : null);
+
+  async function checkedResponse(response: Response) {
+    if (!response.ok) {
+      const body = (await response.json().catch(() => null)) as { message?: string } | null;
+      throw new Error(body?.message ?? `HTTP ${String(response.status)}`);
+    }
+    return response;
+  }
+
+  async function runReport() {
+    const url = reportsUrl;
+    if (!url || submitting) return;
+    submitting = true;
+    requestError = "";
+    try {
+      await checkedResponse(await fetchWithCsrf(url, { method: "POST" }));
+      if (reportsUrl === url) {
+        report = {
+          status: "pending",
+          triggeredAt: null,
+          completedAt: null,
+          reportUrl: null,
+          results: null,
+        };
+      }
+    } catch (error) {
+      if (reportsUrl === url)
+        requestError = error instanceof Error ? error.message : String(error);
+    } finally {
+      submitting = false;
+    }
+  }
+
+  $effect(() => {
+    const url = reportsUrl;
+    const delay = pollDelay;
+    if (!url || delay === null) return;
+    const abort = new AbortController();
+    let timer = setTimeout(poll, delay);
+    async function poll() {
+      if (!url || delay === null) return;
+      if (document.visibilityState === "hidden") {
+        timer = setTimeout(poll, delay);
+        return;
+      }
+      try {
+        const response = await checkedResponse(await fetch(url, { signal: abort.signal }));
+        const { reports } = (await response.json()) as { reports: PlagiarismReportData[] };
+        if (abort.signal.aborted) return;
+        report = reports[0] ?? null;
+        requestError = "";
+      } catch (error) {
+        if (abort.signal.aborted) return;
+        requestError = error instanceof Error ? error.message : String(error);
+      }
+      timer = setTimeout(poll, delay);
+    }
+    return () => {
+      abort.abort();
+      clearTimeout(timer);
+    };
+  });
 
   let showFlagged = $state(false);
 
@@ -148,15 +234,6 @@
   const problemLetter = (problemId: string) => problemsById.get(problemId)?.letter ?? "?";
   const problemTitle = (problemId: string) => problemsById.get(problemId)?.title ?? "";
 
-  function formatDate(iso: string | null): string {
-    if (!iso) return "";
-    const d = new Date(iso);
-    return `${d.getFullYear()}/${d.getMonth() + 1}/${d.getDate()} ${d
-      .getHours()
-      .toString()
-      .padStart(2, "0")}:${d.getMinutes().toString().padStart(2, "0")}`;
-  }
-
   let expandedPairKeys = $state<Set<string>>(new Set());
   function pairKey(p: PlagiarismReportPair): string {
     return `${p.userId1}-${p.userId2}-${p.problemId}`;
@@ -172,18 +249,28 @@
 
 <section data-slot="assignment-plagiarism" class={cn("space-y-5", className)}>
   <PlagiarismFlagPanel
-    lastRunLabel={formatDate(report?.completedAt ?? null)}
+    lastRunLabel={formatDateTime(report?.completedAt ?? "")}
     {showFlagged}
     showToggle={report?.status === "completed" && (flags.length > 0 || flaggedHiddenCount > 0)}
     {flaggedHiddenCount}
     onShowFlaggedChange={(next) => (showFlagged = next)}
   />
 
+  {#if !readOnly && reportsUrl}
+    <Button variant="outline" size="sm" onclick={runReport} disabled={submitting}>
+      {m.plagiarism_run()}
+    </Button>
+  {/if}
+  {#if requestError}
+    <p class="text-body-sm text-destructive" role="alert">{requestError}</p>
+  {/if}
   {#if !report}
     <div
       class="rounded-md border border-dashed border-border-strong bg-[color:var(--color-panel)]/60 px-8 py-12 text-center text-body-sm text-muted-foreground"
     >
-      {m.assignmentDetail_plagNone()}
+      {diffContext?.type === "exam" && !readOnly
+        ? m.plagiarism_examNotRun()
+        : m.plagiarism_notRun()}
     </div>
   {:else if report.status === "pending"}
     <div

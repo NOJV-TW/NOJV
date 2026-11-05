@@ -79,6 +79,24 @@ test.describe("Exams — list, detail, problem visibility", () => {
     await context.close();
   });
 
+  test("teacher can open grades from exam problems before scripts run", async ({ browser }) => {
+    const context = await browser.newContext({
+      storageState: teacherAuth,
+      javaScriptEnabled: false,
+    });
+    try {
+      const page = await context.newPage();
+      await page.goto(`/exams/${MIDTERM_ID}`);
+      await page.locator("#exam-manage-tab-results").click();
+      await expect(page).toHaveURL(/\?tab=results$/);
+      await expect(
+        page.locator('[data-slot="exam-grade-matrix"] tbody tr').first(),
+      ).toBeVisible();
+    } finally {
+      await context.close();
+    }
+  });
+
   test("exam tabs follow client navigation and survive refresh", async ({ browser }) => {
     const context = await browser.newContext({ storageState: teacherAuth });
     const page = await context.newPage();
@@ -86,6 +104,9 @@ test.describe("Exams — list, detail, problem visibility", () => {
       await page.goto(`/exams/${MIDTERM_ID}?tab=results`);
       const selectedTab = page.locator('[role="tab"][aria-selected="true"]');
       await expect(selectedTab).toHaveAttribute("id", "exam-manage-tab-results");
+      await expect(
+        page.locator('[data-slot="exam-grade-matrix"] tbody tr').first(),
+      ).toBeVisible();
       await page.locator("#exam-manage-tab-submissions").click();
       await expect(page).toHaveURL(/\?tab=submissions$/);
       await page.evaluate((href) => {

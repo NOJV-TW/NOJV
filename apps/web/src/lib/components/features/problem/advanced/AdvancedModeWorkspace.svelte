@@ -29,6 +29,7 @@
     applySubmissionState,
     mergeSubmissionEntries,
   } from "#lib/services/problem-submission.js";
+  import { messageForSubmitError } from "#lib/services/submission-error.js";
   import { toasts } from "#lib/stores/toast.js";
 
   interface Props {
@@ -97,6 +98,7 @@
     result: SubmissionResult,
     language: string,
     sourceCode: string,
+    submittedAt: string,
   ) {
     const index = submissions.findIndex((entry) => entry.id === submissionId);
     if (index >= 0) {
@@ -112,14 +114,18 @@
         updatedAt: "1970-01-01T00:00:00.000Z",
         result,
         sourceCode,
-        submittedAt: new Date().toISOString(),
+        submittedAt,
         context: context.type,
       },
       ...submissions,
     ];
   }
 
-  function handleSubmissionDispatched(submissionId: string, language: string) {
+  function handleSubmissionDispatched(
+    submissionId: string,
+    language: string,
+    submittedAt: string,
+  ) {
     submissions = [
       {
         id: submissionId,
@@ -127,7 +133,7 @@
         status: "queued",
         judgeGeneration: 0,
         updatedAt: "1970-01-01T00:00:00.000Z",
-        submittedAt: new Date().toISOString(),
+        submittedAt,
         context: context.type,
       },
       ...submissions,
@@ -214,7 +220,8 @@
     }
 
     try {
-      let submissionId: string | null = null;
+      let submissionId: string | undefined;
+      let submittedAt: string | undefined;
       const result = await submitProblem(
         {
           context,
@@ -227,26 +234,35 @@
         {
           onDispatched: (dispatch) => {
             submissionId = dispatch.submissionId;
+            submittedAt = dispatch.submittedAt;
             if (destroyed) return;
-            handleSubmissionDispatched(dispatch.submissionId, uploadLanguage);
+            handleSubmissionDispatched(
+              dispatch.submissionId,
+              uploadLanguage,
+              dispatch.submittedAt,
+            );
           },
         },
       );
 
-      if (destroyed || !result || !submissionId) return;
+      if (destroyed || !result || !submissionId || !submittedAt) return;
 
       const previewSource = staged.sourceFiles
         .map((f) => `// --- ${f.path} ---\n${f.content}`)
         .join("\n\n");
-      handleSubmissionComplete(submissionId, result, uploadLanguage, previewSource);
+      handleSubmissionComplete(
+        submissionId,
+        result,
+        uploadLanguage,
+        previewSource,
+        submittedAt,
+      );
       staged = null;
     } catch (err) {
       if ((err as { name?: string }).name === "AbortError") return;
       const message =
-        err instanceof SubmissionRequestError &&
-        err.code === "submit_cooldown" &&
-        err.retryAfterSec != null
-          ? m.submit_error_cooldown({ seconds: err.retryAfterSec })
+        err instanceof SubmissionRequestError
+          ? messageForSubmitError(err)
           : err instanceof Error
             ? err.message
             : m.editor_submitFailed();

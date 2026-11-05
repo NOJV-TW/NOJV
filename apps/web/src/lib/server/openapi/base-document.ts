@@ -537,6 +537,8 @@ export const baseOpenApiDocument = {
               "submit_cooldown",
               "daily_limit",
               "window_closed",
+              "window_not_open",
+              "session_required",
               "ip_blocked",
               "language_not_allowed",
               "submit_rejected",

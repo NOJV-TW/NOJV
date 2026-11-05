@@ -3,9 +3,6 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { m } from "#lib/paraglide/messages.js";
 import AssessmentManageTabs from "#lib/components/features/coursework/AssessmentManageTabs.svelte";
 
-const mocks = vi.hoisted(() => ({ goto: vi.fn().mockResolvedValue(undefined) }));
-vi.mock("$app/navigation", () => ({ goto: mocks.goto }));
-
 let target: HTMLDivElement;
 let component: ReturnType<typeof mount>;
 beforeEach(() => {
@@ -39,7 +36,7 @@ it.each(["assignment", "exam", "contest"] as const)(
           ? m.contestDetail_subTabsLabel()
           : m.assignmentDetail_sectionsNavLabel(),
     );
-    const tabs = [...target.querySelectorAll<HTMLButtonElement>('[role="tab"]')];
+    const tabs = [...target.querySelectorAll<HTMLAnchorElement>('[role="tab"]')];
     expect(tabs.map((tab) => tab.textContent?.trim())).toEqual([
       m.assessmentNav_problems(),
       m.assessmentNav_submissions(),
@@ -59,17 +56,19 @@ it.each(["assignment", "exam", "contest"] as const)(
     ]);
     expect(links[2]?.getAttribute("aria-current")).toBe("page");
     expect(target.querySelector('[role="tabpanel"]')?.textContent).toContain("Audit entries");
-    links[1]!.click();
-    expect(mocks.goto).toHaveBeenCalledWith(`/${kind}s/example?tab=plagiarism&view=compact`, {
-      reset: false,
-      replace: true,
-    });
-
-    tabs[0]!.dispatchEvent(new KeyboardEvent("keydown", { key: "End", bubbles: true }));
-    expect(mocks.goto).toHaveBeenLastCalledWith(
-      `/${kind}s/example?tab=settings&view=compact`,
-      expect.any(Object),
+    expect(links[1]?.getAttribute("href")).toBe(
+      `/${kind}s/example?tab=plagiarism&view=compact`,
     );
+    expect(tabs[2]?.getAttribute("href")).toBe(`/${kind}s/example?tab=results&view=compact`);
+    const navigate = vi.fn();
+    target.addEventListener("click", (event) => {
+      navigate((event.target as HTMLAnchorElement).getAttribute("href"));
+      event.preventDefault();
+    });
+    tabs[0]!.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "End", bubbles: true, cancelable: true }),
+    );
+    expect(navigate).toHaveBeenCalledWith(`/${kind}s/example?tab=settings&view=compact`);
     expect(document.activeElement?.id).toBe(`${kind}-manage-tab-settings`);
   },
 );
@@ -122,5 +121,4 @@ it("leaves modified clicks on child views to the browser", async () => {
   );
   target.querySelector<HTMLAnchorElement>('a[href$="tab=audit"]')!.dispatchEvent(modifiedClick);
   expect(preventedByNavigation).toBe(false);
-  expect(mocks.goto).not.toHaveBeenCalled();
 });

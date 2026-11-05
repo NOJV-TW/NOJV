@@ -1,3 +1,4 @@
+import { TAIPEI_ZONE, taipeiWallDate } from "./taipei-time";
 import { m } from "#lib/paraglide/messages.js";
 import { getLocale } from "#lib/paraglide/runtime.js";
 
@@ -13,22 +14,27 @@ function toDate(value: DateInput): Date | null {
 }
 
 const DATE_TIME_DEFAULTS: Intl.DateTimeFormatOptions = {
+  timeZone: TAIPEI_ZONE,
   year: "numeric",
   month: "numeric",
   day: "numeric",
   hour: "numeric",
   minute: "2-digit",
+  timeZoneName: "shortOffset",
 };
 
 const DATE_DEFAULTS: Intl.DateTimeFormatOptions = {
+  timeZone: TAIPEI_ZONE,
   year: "numeric",
   month: "numeric",
   day: "numeric",
 };
 
 const TIME_DEFAULTS: Intl.DateTimeFormatOptions = {
+  timeZone: TAIPEI_ZONE,
   hour: "numeric",
   minute: "2-digit",
+  timeZoneName: "shortOffset",
 };
 
 export function formatDateTime(value: DateInput, opts?: Intl.DateTimeFormatOptions): string {
@@ -49,14 +55,19 @@ export function formatTime(value: DateInput, opts?: Intl.DateTimeFormatOptions):
   return new Intl.DateTimeFormat(getLocale(), { ...TIME_DEFAULTS, ...opts }).format(d);
 }
 
-export function formatSmartTimestamp(value: DateInput, now: Date = new Date()): string {
+export function formatSmartTimestamp(
+  value: DateInput,
+  now: Date = new Date(serverNow()),
+): string {
   const d = toDate(value);
   if (!d) return "";
   const locale = getLocale();
+  const day = taipeiWallDate(d);
+  const today = taipeiWallDate(now);
   const sameDay =
-    d.getFullYear() === now.getFullYear() &&
-    d.getMonth() === now.getMonth() &&
-    d.getDate() === now.getDate();
+    day.getUTCFullYear() === today.getUTCFullYear() &&
+    day.getUTCMonth() === today.getUTCMonth() &&
+    day.getUTCDate() === today.getUTCDate();
   if (sameDay) {
     return new Intl.DateTimeFormat(locale, TIME_DEFAULTS).format(d);
   }
@@ -65,14 +76,15 @@ export function formatSmartTimestamp(value: DateInput, now: Date = new Date()): 
     day: "numeric",
     ...TIME_DEFAULTS,
   };
-  if (d.getFullYear() !== now.getFullYear()) opts.year = "numeric";
+  if (day.getUTCFullYear() !== today.getUTCFullYear()) opts.year = "numeric";
   return new Intl.DateTimeFormat(locale, opts).format(d);
 }
 
-function formatPart(date: Date): string {
-  const month = String(date.getMonth() + 1);
-  const day = String(date.getDate());
-  return `${month}/${day} ${pad2(date.getHours())}:${pad2(date.getMinutes())}`;
+function formatPart(instant: Date): string {
+  const date = taipeiWallDate(instant);
+  const month = String(date.getUTCMonth() + 1);
+  const day = String(date.getUTCDate());
+  return `${month}/${day} ${pad2(date.getUTCHours())}:${pad2(date.getUTCMinutes())}`;
 }
 
 export function formatTimeRangeCompact(start: string | Date, end: string | Date): string {
@@ -92,21 +104,32 @@ export interface FmtDateOptions {
 
 export function fmtDate(iso: string | Date, opts: FmtDateOptions = {}): string {
   const d = typeof iso === "string" ? new Date(iso) : iso;
-  if (opts.dateOnly) return `${String(d.getMonth() + 1)}/${String(d.getDate())}`;
+  if (opts.dateOnly) {
+    const day = taipeiWallDate(d);
+    return `${String(day.getUTCMonth() + 1)}/${String(day.getUTCDate())}`;
+  }
   return formatDateTimeCompact(d);
 }
 
-let serverClockOffsetMs = 0;
+let clockSample: { server: number; wall: number; monotonic: number } | undefined;
 
 export function syncServerClock(serverNowMs: number): void {
-  serverClockOffsetMs = serverNowMs - Date.now();
+  clockSample = { server: serverNowMs, wall: Date.now(), monotonic: performance.now() };
 }
 
 export function serverNow(): number {
-  return Date.now() + serverClockOffsetMs;
+  if (!clockSample) return Date.now();
+  return clockSample.server + performance.now() - clockSample.monotonic;
 }
 
-export function diffMs(iso: string | Date, now: Date = new Date()): number {
+export function serverClockNeedsRefresh(): boolean {
+  if (!clockSample) return true;
+  const elapsedWall = Date.now() - clockSample.wall;
+  const elapsedMonotonic = performance.now() - clockSample.monotonic;
+  return Math.abs(elapsedWall - elapsedMonotonic) > 1000;
+}
+
+export function diffMs(iso: string | Date, now: Date = new Date(serverNow())): number {
   const d = typeof iso === "string" ? new Date(iso) : iso;
   return d.getTime() - now.getTime();
 }

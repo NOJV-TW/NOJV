@@ -25,9 +25,24 @@ import { buildExamSubmissionsMatrix } from "./submissions-matrix";
 
 export async function getExamPageView(
   actor: ActorContext,
-  options: { examId: string; isManager: boolean },
+  options: {
+    examId: string;
+    isManager: boolean;
+    tab:
+      | "problems"
+      | "submissions"
+      | "results"
+      | "plagiarism"
+      | "audit"
+      | "proctoring"
+      | "clarifications"
+      | "settings";
+  },
 ) {
-  const { examId, isManager } = options;
+  const { examId, isManager, tab } = options;
+  const showPlagiarism = isManager && tab === "plagiarism";
+  const showResults = isManager && tab === "results";
+  const showProctoring = isManager && tab === "proctoring";
   const noAudit = { auditEvents: [] as AuditEvent[], auditActorNames: {} };
 
   const [
@@ -49,29 +64,31 @@ export async function getExamPageView(
     studentProctoring,
   ] = await Promise.all([
     getExamDetailPage(examId, { viewerUserId: actor.userId, isManager }),
-    isManager ? canSetScoreOverride(actor, { type: "exam", examId }) : Promise.resolve(false),
+    showResults ? canSetScoreOverride(actor, { type: "exam", examId }) : Promise.resolve(false),
     canAskClarification(actor, { type: "exam", examId }),
     canAnswerInContext(actor, { type: "exam", examId }),
     canViewClarifications(actor, { type: "exam", examId }),
-    isManager ? findPlagiarismReport({ type: "exam", id: examId }) : Promise.resolve(null),
-    isManager ? listFlagsForContext("exam", examId) : Promise.resolve([]),
-    isManager ? listExamIpViolations({ examId }) : Promise.resolve([]),
-    isManager ? listActiveSessions(examId) : Promise.resolve([]),
+    showPlagiarism ? findPlagiarismReport({ type: "exam", id: examId }) : Promise.resolve(null),
+    showPlagiarism ? listFlagsForContext("exam", examId) : Promise.resolve([]),
+    showProctoring ? listExamIpViolations({ examId }) : Promise.resolve([]),
+    showProctoring ? listActiveSessions(examId) : Promise.resolve([]),
     isManager
       ? Promise.resolve([])
       : getFeedbackForStudent(actor.userId, { type: "exam", examId }),
-    isManager ? getAuditTimelineView({ type: "exam", examId }) : Promise.resolve(noAudit),
+    isManager && tab === "audit"
+      ? getAuditTimelineView({ type: "exam", examId })
+      : Promise.resolve(noAudit),
     isManager ? Promise.resolve(null) : getSessionState(actor.userId, examId),
     isManager ? Promise.resolve([]) : listSubmittedProblemIds(actor.userId, examId),
-    isManager
+    isManager && tab === "submissions"
       ? listRecentContextSubmissions({ actor, context: { type: "exam", id: examId } })
       : Promise.resolve([]),
-    isManager ? credentials.list(actor, examId) : Promise.resolve([]),
-    isManager ? listStudentProctoring(examId) : Promise.resolve([]),
+    showProctoring ? credentials.list(actor, examId) : Promise.resolve([]),
+    showProctoring ? listStudentProctoring(examId) : Promise.resolve([]),
   ]);
 
   const candidateProblems: ProblemPickerGroups =
-    isManager && detail
+    isManager && detail && (tab === "problems" || (tab === "clarifications" && !canView))
       ? await listCourseProblemPickerGroups(
           actor,
           detail.courseId,
@@ -80,7 +97,7 @@ export async function getExamPageView(
       : { personalProblems: [], publicProblems: [] };
 
   const matrix =
-    isManager && detail
+    (showResults || showPlagiarism) && detail
       ? await buildExamSubmissionsMatrix({
           examId,
           courseId: detail.courseId,

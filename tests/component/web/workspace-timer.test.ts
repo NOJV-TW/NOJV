@@ -4,7 +4,7 @@ import { mount, tick, unmount } from "svelte";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { m } from "#lib/paraglide/messages.js";
 import WorkspaceTimer from "#lib/components/features/problem/layouts/WorkspaceTimer.svelte";
-import { syncServerClock } from "#lib/utils/datetime.js";
+import { serverNow, serverClockNeedsRefresh, syncServerClock } from "#lib/utils/datetime.js";
 
 const mocks = vi.hoisted(() => ({ goto: vi.fn() }));
 vi.mock("$app/navigation", () => ({ goto: mocks.goto }));
@@ -79,7 +79,7 @@ describe("WorkspaceTimer", () => {
   );
 
   it.each([8, -8])(
-    "counts down on server time when the local clock is off by %i hours",
+    "counts down across a device clock change after an initial %i-hour skew",
     async (skewHours) => {
       vi.setSystemTime(due - 1000 + skewHours * 3_600_000);
       syncServerClock(due - 1000);
@@ -91,8 +91,14 @@ describe("WorkspaceTimer", () => {
       });
       await tick();
       expect(target.textContent).toContain("00:00:01");
+      expect(serverClockNeedsRefresh()).toBe(false);
+      vi.setSystemTime(due + 12 * 3_600_000);
+      expect(serverClockNeedsRefresh()).toBe(true);
+      expect(serverNow()).toBe(due - 1000);
       expect(mocks.goto).not.toHaveBeenCalled();
-      await vi.advanceTimersByTimeAsync(1000);
+      await vi.advanceTimersByTimeAsync(500);
+      expect(mocks.goto).not.toHaveBeenCalled();
+      await vi.advanceTimersByTimeAsync(500);
       await tick();
       expect(mocks.goto).toHaveBeenCalledExactlyOnceWith("/exams/exam_1");
     },

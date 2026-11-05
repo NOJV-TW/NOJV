@@ -29,7 +29,10 @@ const {
 vi.mock("@nojv/db", () => ({
   examRepo: {
     findByIdWithCourse: examFindByIdWithCourse,
-    withTx: () => ({ findById: () => Promise.resolve({ courseId: "crs_1" }) }),
+    withTx: () => ({
+      lockForUpdate: vi.fn(),
+      findById: () => Promise.resolve({ courseId: "crs_1" }),
+    }),
   },
   assessmentRepo: {
     findByIdWithCourseId: assessmentFindByIdWithCourseId,

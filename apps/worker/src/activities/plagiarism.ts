@@ -111,7 +111,10 @@ export async function runPlagiarismCheck(
   targetId: string,
   targetType: PlagiarismTargetType,
 ): Promise<void> {
-  const target: plagiarismDomain.PlagiarismTarget = { type: targetType, id: targetId };
+  const target =
+    targetType === "exam"
+      ? await plagiarismDomain.currentExamReportRun(targetId)
+      : { type: targetType, id: targetId };
   await plagiarismDomain.updateReportStatus(target, "running");
 
   try {

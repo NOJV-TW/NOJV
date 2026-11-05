@@ -2,6 +2,7 @@
   import { untrack } from "svelte";
   import { enhance, type SubmitFunction } from "$app/forms";
   import { page } from "$app/state";
+  import { formatDate } from "#lib/utils/datetime.js";
   import { m } from "#lib/paraglide/messages.js";
   import {
     Bell,
@@ -121,7 +122,6 @@
   const connectionError = $derived(oauthError || redirectError);
 
   const linkedCount = $derived(data.accounts.length);
-  const dateFormat = new Intl.DateTimeFormat(undefined, { dateStyle: "medium" });
 
   function oauthSubmit(provider: string): SubmitFunction {
     return () => {
@@ -424,7 +424,7 @@
                     <span class="text-caption text-muted-foreground">
                       {#if email}{providerLabel[provider]} ·
                       {/if}{m.account_connections_linkedOn({
-                        date: dateFormat.format(new Date(createdAt)),
+                        date: formatDate(createdAt, { month: "short" }),
                       })}
                     </span>
                   </div>

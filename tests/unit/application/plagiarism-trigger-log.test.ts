@@ -27,7 +27,7 @@ const {
 }));
 
 vi.mock("@nojv/db", () => ({
-  examRepo: { withTx: () => ({ findById: activityFindById }) },
+  examRepo: { withTx: () => ({ lockForUpdate: vi.fn(), findById: activityFindById }) },
   assessmentRepo: { withTx: () => ({ findById: activityFindById }) },
   courseRepo: {
     withTx: () => ({

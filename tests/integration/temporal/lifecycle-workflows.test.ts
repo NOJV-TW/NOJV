@@ -38,7 +38,7 @@ async function runWorkflow(
     connection: env.nativeConnection,
     taskQueue: "lifecycle-test",
     workflowsPath,
-    activities,
+    activities: { triggerClosedExamReport: () => Promise.resolve("done"), ...activities },
   });
   const workflowId = `${workflowType}-${String(Date.now())}-${Math.random().toString(36).slice(2)}`;
   const history = await worker.runUntil(async () => {
@@ -136,13 +136,20 @@ describe("lifecycle workflows (TestWorkflowEnvironment)", () => {
         timerFingerprint: "exam:v1:exam_1:window_a",
       };
 
+      const triggerClosedExamReport = vi
+        .fn()
+        .mockResolvedValueOnce("wait")
+        .mockResolvedValue("done");
       const { history } = await runWorkflow("examAutoCloseWorkflow", input, {
+        triggerClosedExamReport,
         closeActiveSessionsForExam,
         fanoutExamStartingSoon: vi.fn(() => Promise.resolve()),
       });
 
       expect(closeActiveSessionsForExam).toHaveBeenCalledOnce();
       expect(closeActiveSessionsForExam).toHaveBeenCalledWith(input);
+      expect(triggerClosedExamReport).toHaveBeenCalledTimes(2);
+      expect(triggerClosedExamReport).toHaveBeenCalledWith(input);
       await expect(
         Worker.runReplayHistory({ workflowsPath }, history),
       ).resolves.toBeUndefined();

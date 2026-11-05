@@ -76,7 +76,13 @@
       applyAction: "never",
       invalidateAll: true,
       onSubmit: ({ jsonData }) => {
-        jsonData(serializeDateTimeFields($form, ["startsAt", "endsAt", "frozenAt"]));
+        jsonData(
+          serializeDateTimeFields($form, ["startsAt", "endsAt", "frozenAt"], {
+            startsAt: initialSchedule.startsAt,
+            endsAt: initialSchedule.endsAt,
+            frozenAt: initialSchedule.frozenAt ?? "",
+          }),
+        );
       },
       onUpdate: ({ form }) => {
         form.data = restoreDateTimeFields(form.data, ["startsAt", "endsAt", "frozenAt"]);
@@ -252,6 +258,7 @@
             disabled={!editableBasics}></textarea>
         </div>
 
+        <p class="text-caption text-muted-foreground">{m.schedule_timeZoneHint()}</p>
         <div class="grid gap-4 md:grid-cols-2">
           <div>
             <label class="text-sm font-medium" for="contest-settings-starts">

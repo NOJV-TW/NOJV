@@ -1,3 +1,4 @@
+import { localDateTimeToIso } from "#lib/utils/datetime-form.js";
 import { fail } from "@sveltejs/kit";
 import { announcementDomain, assertCourseManager, courseDomain } from "@nojv/application";
 
@@ -63,8 +64,8 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
 function readExpiresAt(formData: FormData): Date | null {
   const raw = formData.get("expiresAt");
   if (typeof raw !== "string" || raw.trim() === "") return null;
-  const date = new Date(raw);
-  return Number.isNaN(date.getTime()) ? null : date;
+  const iso = localDateTimeToIso(raw);
+  return iso ? new Date(iso) : null;
 }
 
 export const actions = {

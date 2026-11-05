@@ -72,28 +72,44 @@ const clearInput: PlagiarismUpsertInput = {
 };
 
 export const plagiarismRepo = {
-  async findByExamId(examId: string): Promise<PlagiarismReportSummary | null> {
-    const row = await prisma.exam.findUnique({
+  async findByExamId(
+    examId: string,
+    tx?: TransactionClient,
+  ): Promise<PlagiarismReportSummary | null> {
+    const row = await (tx ?? prisma).exam.findUnique({
       where: { id: examId },
       select: plagiarismSelect,
     });
     return toSummary(row);
   },
 
-  async findByAssessmentId(assessmentId: string): Promise<PlagiarismReportSummary | null> {
-    const row = await prisma.assessment.findUnique({
+  async findByAssessmentId(
+    assessmentId: string,
+    tx?: TransactionClient,
+  ): Promise<PlagiarismReportSummary | null> {
+    const row = await (tx ?? prisma).assessment.findUnique({
       where: { id: assessmentId },
       select: plagiarismSelect,
     });
     return toSummary(row);
   },
 
-  async findByContestId(contestId: string): Promise<PlagiarismReportSummary | null> {
-    const row = await prisma.contest.findUnique({
+  async findByContestId(
+    contestId: string,
+    tx?: TransactionClient,
+  ): Promise<PlagiarismReportSummary | null> {
+    const row = await (tx ?? prisma).contest.findUnique({
       where: { id: contestId },
       select: plagiarismSelect,
     });
     return toSummary(row);
+  },
+
+  updateExamRun(examId: string, triggeredAt: Date | null, input: PlagiarismUpsertInput) {
+    return prisma.exam.updateMany({
+      where: { id: examId, plagiarismTriggeredAt: triggeredAt },
+      data: buildPlagiarismUpdate(input),
+    });
   },
 
   upsertForExam(examId: string, input: PlagiarismUpsertInput, tx?: TransactionClient) {

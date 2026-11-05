@@ -97,7 +97,10 @@ function submitRejectionBody(err: HttpError): { code: string; retryAfterSec?: nu
       : { code: "submit_cooldown" };
   }
   if (/daily submission limit/i.test(message)) return { code: "daily_limit" };
-  if (/(has ended|has not opened)/i.test(message)) return { code: "window_closed" };
+  if (message === "An active session for this exam is required.")
+    return { code: "session_required" };
+  if (/has ended/i.test(message)) return { code: "window_closed" };
+  if (/has not (opened|started)/i.test(message)) return { code: "window_not_open" };
   if (/(network does not match|network is not permitted|ip restrictions)/i.test(message)) {
     return { code: "ip_blocked" };
   }
@@ -126,6 +129,7 @@ export const POST: RequestHandler = writeApiHandler(async (event) => {
     return Response.json(
       {
         cooldownSec: submission.cooldownSec,
+        submittedAt: submission.createdAt.toISOString(),
         pollUrl: `/api/submissions/${submission.id}`,
         status: submission.status,
         submissionId: submission.id,

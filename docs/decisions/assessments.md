@@ -266,6 +266,7 @@ Each published exam issues one credential per active bound student membership, 2
 
 Staff (course staff, contest owner, admins) can flag a pair as a false positive via `PlagiarismPairFlag`, unique on (context type, context ID, sorted `userA|userB|problemId` key); flagged pairs are hidden by default and pairs open in a side-by-side diff. Each re-run first writes a `PlagiarismTriggerLog` receipt (who, when, `priorPairCount`) before overwriting the previous result, answering "did someone wipe evidence?".
 
+- Rule: Exam auto-close triggers one system receipt per schedule revision after eligible submissions finish judging. Both automatic and manual exam reports use the final collection window.
 - Rejected: the original "no review UI" non-goal; a JSON snapshot of the wiped result (YAGNI); a trigger-log UI.
 - Code: `packages/db/prisma/schema/plagiarism.prisma`, `packages/application/src/plagiarism/flags.ts`, `packages/application/src/plagiarism/queries.ts`
 

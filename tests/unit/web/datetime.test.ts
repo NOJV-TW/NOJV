@@ -23,6 +23,8 @@ vi.mock("#lib/paraglide/messages.js", () => ({
 import {
   formatDate,
   formatDateTime,
+  formatDateTimeCompact,
+  formatSmartTimestamp,
   formatTime,
 } from "../../../apps/web/src/lib/utils/datetime";
 
@@ -42,16 +44,25 @@ describe("formatDateTime", () => {
     expect(enOut).toMatch(/2026/);
   });
 
-  it("omits the timezone marker by default", () => {
+  it("shows Taiwan time and its offset regardless of the host timezone", () => {
     const value = new Date("2026-05-20T10:30:00Z");
     const out = formatDateTime(value);
-    expect(out).not.toMatch(/GMT|UTC|[+-]\d/);
+    expect(out).toMatch(/6:30.*PM.*GMT\+8/);
   });
 
   it("lets caller options override defaults", () => {
     const value = new Date("2026-05-20T10:30:00Z");
     const out = formatDateTime(value, { timeZoneName: undefined, year: undefined });
     expect(out).not.toMatch(/2026/);
+  });
+
+  it("uses the same Taiwan calendar day across compact and smart formats", () => {
+    const instant = "2026-12-31T16:05:00.000Z";
+    expect(formatDateTimeCompact(instant)).toBe("1/1 00:05");
+    expect(formatSmartTimestamp(instant, new Date("2027-01-01T01:00:00Z"))).toBe(
+      formatTime(instant),
+    );
+    expect(formatSmartTimestamp("2026-12-31T15:55:00Z", new Date(instant))).toContain("2026");
   });
 
   it("returns empty string on invalid input", () => {

@@ -55,7 +55,7 @@ export function mergeSubmissionEntries(
       next.updatedAt === entry.updatedAt &&
       next.status === entry.status
     ) {
-      return { ...next, ...entry };
+      return { ...next, ...entry, submittedAt: next.submittedAt };
     }
     return { ...old, ...next };
   });

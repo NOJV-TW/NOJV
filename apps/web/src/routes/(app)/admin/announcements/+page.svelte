@@ -13,7 +13,7 @@
   import { Input } from "#lib/components/primitives/ui/input/index.js";
   import { m } from "#lib/paraglide/messages.js";
   import { formatDate } from "#lib/utils/datetime.js";
-  import { serializeDateTimeFormData } from "#lib/utils/datetime-form.js";
+  import { isoDateTimeToLocal, serializeDateTimeFormData } from "#lib/utils/datetime-form.js";
   import { markdownToPlainText } from "@nojv/core";
   import { Megaphone, Pencil, Pin, Plus, Send, Trash2 } from "@lucide/svelte";
 
@@ -61,14 +61,6 @@
     if (audience === "students") return m.admin_announcement_audience_students();
     if (audience === "teachers") return m.admin_announcement_audience_teachers();
     return m.admin_announcement_audience_all();
-  }
-
-  function toLocalInput(iso: string | null): string {
-    if (!iso) return "";
-    const d = new Date(iso);
-    if (Number.isNaN(d.getTime())) return "";
-    const pad = (n: number) => String(n).padStart(2, "0");
-    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
   }
 </script>
 
@@ -269,7 +261,7 @@
                     id="edit-expiresAt-{ann.id}"
                     type="datetime-local"
                     name="expiresAt"
-                    value={toLocalInput(ann.expiresAt)}
+                    value={isoDateTimeToLocal(ann.expiresAt)}
                   />
                 </FormField>
                 <div class="flex flex-wrap items-center gap-4">

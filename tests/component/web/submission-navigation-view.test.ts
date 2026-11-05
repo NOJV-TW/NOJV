@@ -66,6 +66,7 @@ it.each([false, true])(
           return new Response(
             JSON.stringify({
               submissionId: "submission_a",
+              submittedAt: "2026-11-05T16:05:00.000Z",
               pollUrl: "/api/submissions/submission_a",
               status: "queued",
             }),

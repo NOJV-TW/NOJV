@@ -19,7 +19,14 @@ const request = {
   sourceCode: "print(42)",
 };
 const dispatch = () =>
-  new Response(JSON.stringify({ submissionId: "s1", pollUrl: "/poll", status: "queued" }));
+  new Response(
+    JSON.stringify({
+      submissionId: "s1",
+      submittedAt: "2026-11-05T16:05:00.000Z",
+      pollUrl: "/poll",
+      status: "queued",
+    }),
+  );
 const pending = () =>
   new Response(
     JSON.stringify({
