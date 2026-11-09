@@ -5,7 +5,7 @@ export const submissionExportPaths = {
       summary: "Export all submissions for one activity",
       operationId: "exportContextSubmissions",
       description:
-        "Requires the activity's submission-history management permission. Exports every page without UI filters. CSV uses UTF-8 BOM and UTC timestamps. ZIP preserves source paths under user ID/problem ID/submission ID. New submissions after the initial history boundary are excluded; results reflect the time each page is read. Submissions without a source pointer receive SOURCE_UNAVAILABLE.txt; missing referenced objects abort the ZIP download. Blocked during exam confinement.",
+        "Requires the activity's submission-history management permission. Exports every page without UI filters. The all format bundles submissions.csv with the sources in one ZIP. CSV uses UTF-8 BOM and UTC timestamps. ZIP preserves source paths under user ID/problem ID/submission ID. New submissions after the initial history boundary are excluded; results reflect the time each page is read. Submissions without a source pointer receive SOURCE_UNAVAILABLE.txt; missing referenced objects abort the ZIP download. Blocked during exam confinement.",
       parameters: [
         {
           name: "context",
@@ -23,7 +23,7 @@ export const submissionExportPaths = {
           name: "format",
           in: "query",
           required: true,
-          schema: { type: "string", enum: ["csv", "zip"] },
+          schema: { type: "string", enum: ["all", "csv", "zip"] },
         },
       ],
       responses: {

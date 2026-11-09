@@ -1,6 +1,9 @@
 {
-  "submissions_exportCsv": "匯出所有提交紀錄（CSV）",
-  "submissions_exportZip": "下載所有原始碼（ZIP）",
+  "submissions_exportOptions": "匯出選項",
+  "submissions_exportBoth": "紀錄與原始碼",
+  "submissions_export": "匯出",
+  "submissions_exportCsv": "紀錄 CSV",
+  "submissions_exportZip": "原始碼 ZIP",
   "submissions_newRecordsAvailable": "有新提交，查看最新紀錄",
   "submissions_loadingMore": "正在載入較早的提交紀錄…",
   "submissions_newRecords": "有 {count} 筆新提交，查看最新紀錄",

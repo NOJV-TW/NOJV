@@ -50,7 +50,7 @@ function folderSegment(value: string): string {
 export async function exportContextSubmissions(
   actor: ActorContext,
   context: Context,
-  format: "csv" | "zip",
+  format: "csv" | "zip" | "all",
 ): Promise<{ fileName: string; body: ReadableStream<Uint8Array> }> {
   const first = await listContextSubmissionsPaged({ actor, context, limit: 50 });
   async function* rows() {
@@ -67,29 +67,29 @@ export async function exportContextSubmissions(
       yield* current.items;
     }
   }
-  const fileName = `${context.type}-${folderSegment(context.id)}-submissions.${format}`;
+  const fileName = `${context.type}-${folderSegment(context.id)}-submissions.${format === "csv" ? "csv" : "zip"}`;
+  async function* csv() {
+    yield Buffer.from(
+      "\uFEFF" +
+        csvLine([
+          "submission_id",
+          "user_id",
+          "username",
+          "name",
+          "problem_id",
+          "problem_number",
+          "problem_title",
+          "submitted_at_utc",
+          "language",
+          "status",
+          "score",
+          "runtime_ms",
+          "memory_kb",
+        ]),
+    );
+    for await (const row of rows()) yield Buffer.from(rowCsv(row));
+  }
   if (format === "csv") {
-    async function* csv() {
-      yield Buffer.from(
-        "\uFEFF" +
-          csvLine([
-            "submission_id",
-            "user_id",
-            "username",
-            "name",
-            "problem_id",
-            "problem_number",
-            "problem_title",
-            "submitted_at_utc",
-            "language",
-            "status",
-            "score",
-            "runtime_ms",
-            "memory_kb",
-          ]),
-      );
-      for await (const row of rows()) yield Buffer.from(rowCsv(row));
-    }
     return {
       fileName,
       body: Readable.toWeb(Readable.from(csv())) as ReadableStream<Uint8Array>,
@@ -109,6 +109,13 @@ export async function exportContextSubmissions(
 
   void (async () => {
     try {
+      if (format === "all") {
+        const records = Readable.from(csv());
+        records.on("error", (err) => output.destroy(err));
+        output.once("close", () => records.destroy());
+        archive.append(records, { name: "submissions.csv" });
+        await once(archive, "entry", { signal: closed.signal });
+      }
       for await (const row of rows()) {
         closed.signal.throwIfAborted();
         const prefix = [row.user.id, row.problem.id, row.id].map(folderSegment).join("/");

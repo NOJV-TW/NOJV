@@ -95,7 +95,7 @@ it.each(["../escape", "/absolute", "back\\slash", "a/../../escape"])(
   },
 );
 
-it.each(["csv", "zip"] as const)(
+it.each(["all", "csv", "zip"] as const)(
   "rejects unauthorized %s before any source read",
   async (format) => {
     list.mockRejectedValue(new Error("Not authorized"));
@@ -154,4 +154,14 @@ it("includes an explicit marker for submissions whose source upload never comple
     "int main() {}\n",
   );
   expect(sources).toHaveBeenCalledTimes(1);
+});
+
+it("bundles CSV and source files in one ZIP for the default export", async () => {
+  const { body, fileName } = await exportContextSubmissions(actor, context, "all");
+  expect(fileName).toBe("exam-exam1-submissions.zip");
+  const zip = await JSZip.loadAsync(await new Response(body).arrayBuffer());
+  expect(await zip.file("submissions.csv")!.async("string")).toContain('"sub1"');
+  expect(await zip.file("student1/problem1/sub1/src/main.cpp")!.async("string")).toBe(
+    "int main() {}\n",
+  );
 });

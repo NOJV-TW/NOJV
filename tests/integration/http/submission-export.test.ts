@@ -111,11 +111,16 @@ it.each(["assignment", "exam", "contest"] as const)(
         .file(`${student.id}/${problem.id}/${submissions[0]!.id}/main.py`)!
         .async("string"),
     ).toBe("print(0)");
-    for (const format of ["csv", "zip"]) {
+    for (const format of ["all", "csv", "zip"]) {
       expect((await read(format, student)).status).toBe(403);
       expect((await read(format, outsider)).status).toBe(403);
       expect((await read(format, null)).status).toBe(401);
     }
+    const combined = await read("all");
+    expect(combined.status).toBe(200);
+    const bundle = await JSZip.loadAsync(await combined.arrayBuffer());
+    expect(await bundle.file("submissions.csv")!.async("string")).toContain(submissions[0]!.id);
+    expect(Object.values(bundle.files).filter((file) => !file.dir)).toHaveLength(52);
     expect((await read("pdf")).status).toBe(400);
   },
   30000,

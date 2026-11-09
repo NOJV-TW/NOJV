@@ -11,7 +11,7 @@ const querySchema = z.object({
     .min(1)
     .max(128)
     .regex(/^[a-zA-Z0-9_-]+$/),
-  format: z.enum(["csv", "zip"]),
+  format: z.enum(["all", "csv", "zip"]),
 });
 
 export const GET: RequestHandler = apiHandler(async (event) => {
