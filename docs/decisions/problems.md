@@ -253,3 +253,14 @@ In every context (practice, assignment, exam, contest, virtual) a user's non-sam
 - Rule: sample-only runs, reference solutions and `system_error` submissions neither wait nor count; other contexts never count.
 - Rule: the 202 response carries `cooldownSec` so clients count down without a rejected request.
 - Code: `packages/application/src/shared/submit-cooldown.ts`, `packages/application/src/submission/creation.ts`, `infra/charts/nojv/values.yaml` (`web.submitCooldownMinSec`)
+
+### PRB-23 Activity exports preserve all submission attempts
+
+**Decided:** 2026-11 · **Source:** [PR #679](https://github.com/NOJV-TW/NOJV/pull/679)
+
+Assignment, exam and contest managers export the entire activity history through the existing context-read permission and snapshot boundary. The primary Export action bundles records and sources in one ZIP; its split-menu choices download CSV or source ZIP independently. The current transport and file contract lives in [Frontend Surface](../architecture/FRONTEND.md).
+
+- Rejected: exporting only the visible page, filtered rows or best attempts; starting two automatic browser downloads for the default action.
+- Rule: use stable user/problem/submission IDs for archive folders so repeated attempts and duplicate display names cannot overwrite each other.
+- Rule: an absent source pointer is represented explicitly; corruption of a referenced object must fail the download instead of silently dropping an attempt.
+- Code: `packages/application/src/submission/export.ts`, `apps/web/src/lib/components/features/coursework/SubmissionHistoryActions.svelte`
