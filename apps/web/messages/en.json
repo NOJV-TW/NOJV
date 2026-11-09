@@ -1,4 +1,9 @@
 {
+  "submissions_exportOptions": "Export options",
+  "submissions_exportBoth": "Records and sources",
+  "submissions_export": "Export",
+  "submissions_exportCsv": "Records CSV",
+  "submissions_exportZip": "Sources ZIP",
   "submissions_newRecordsAvailable": "New submissions — view latest",
   "submissions_loadingMore": "Loading older submissions…",
   "submissions_newRecords": "{count} new submissions — view latest",

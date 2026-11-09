@@ -146,7 +146,7 @@ export async function getVerdictDetail(submissionId: string): Promise<Submission
   return readVerdictDetail(submission.verdictDetailStorage);
 }
 
-async function readSubmissionSources(pointer: unknown): Promise<SubmissionSource[]> {
+export async function readSubmissionSources(pointer: unknown): Promise<SubmissionSource[]> {
   if (pointer === null) {
     throw new ConflictError("Submission source is not available.");
   }

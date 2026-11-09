@@ -51,6 +51,7 @@ export function isExamForbiddenApiRequest(cleanPath: string, method: string): bo
   }
   if (EXAM_FORBIDDEN_PROBLEM_POSTS_PATTERN.test(cleanPath)) return true;
 
+  if (cleanPath === "/api/submissions/export") return true;
   if (!cleanPath.startsWith("/api/submissions")) return false;
   if (cleanPath === "/api/submissions") return method !== "GET" && method !== "POST";
   if (SUBMISSION_POINT_PATTERN.test(cleanPath)) return method !== "GET";
