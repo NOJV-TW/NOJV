@@ -49,6 +49,7 @@ const REVIEWED_GET_ROUTES: Record<string, ExamClassification> = {
   "/api/storage/avatars/[userId]/[filename]": "exam-safe",
   "/api/storage/problem-images/[problemId]/[filename]": "exam-safe",
   "/api/storage/user-content-images/[userId]/[filename]": "exam-safe",
+  "/api/submissions/export": "exam-confined",
   "/api/submissions": "exam-scoped",
   "/api/submissions/pending": "exam-scoped",
   "/api/submissions/status": "exam-scoped",

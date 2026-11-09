@@ -1,4 +1,6 @@
 {
+  "submissions_exportCsv": "Export all submissions (CSV)",
+  "submissions_exportZip": "Download all sources (ZIP)",
   "submissions_newRecordsAvailable": "New submissions — view latest",
   "submissions_loadingMore": "Loading older submissions…",
   "submissions_newRecords": "{count} new submissions — view latest",

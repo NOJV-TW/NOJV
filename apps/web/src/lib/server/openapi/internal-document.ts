@@ -15,8 +15,11 @@ import { uploadsPaths } from "./internal/paths/uploads";
 import { withInternalAuthMetadata } from "./internal/auth-metadata";
 import { internalSchemas } from "./internal/schemas";
 
+import { submissionExportPaths } from "./internal/paths/submission-export";
+
 const internalPaths = withInternalAuthMetadata({
   ...systemPaths,
+  ...submissionExportPaths,
   ...accountPaths,
   ...notificationsPaths,
   ...clarificationsPaths,

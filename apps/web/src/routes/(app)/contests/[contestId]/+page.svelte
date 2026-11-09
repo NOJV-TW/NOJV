@@ -220,6 +220,7 @@
       {#snippet actions()}
         {#if activeSubTab === "submissions"}
           <SubmissionHistoryActions
+            context={{ type: "contest", id: contest.id }}
             visibleCount={visibleSubmissionCount}
             totalCount={totalSubmissionCount}
           />
