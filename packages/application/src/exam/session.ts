@@ -113,6 +113,7 @@ async function openSessionInTx(
     entityId: examId,
     userId: actor.userId,
     ip: gate.ip,
+    recordIpViolation: true,
     now: gate.now,
   });
   if (!verdict.ok) return { ok: false, reason: verdict.reason };

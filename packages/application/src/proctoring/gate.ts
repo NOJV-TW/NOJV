@@ -31,6 +31,7 @@ export interface ProctoringGateInput {
   userId: string;
   ip?: string | null;
   now?: Date;
+  recordIpViolation?: boolean;
 }
 
 export async function checkProctoringGate(
@@ -115,7 +116,11 @@ async function checkExamGate(
       },
       input.ip,
       participation,
-      { userId: input.userId, examId: input.entityId },
+      {
+        userId: input.userId,
+        examId: input.entityId,
+        recordViolation: input.recordIpViolation ?? false,
+      },
       now,
     );
 

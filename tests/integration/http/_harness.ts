@@ -12,6 +12,7 @@ function isHttpErrorThrow(e: unknown): e is { status: number; body: { message: s
 
 export interface CallRouteOptions {
   path: string;
+  isDataRequest?: boolean;
   method?: string;
   module: Record<string, unknown>;
   params?: Record<string, string>;
@@ -76,7 +77,7 @@ export async function callRoute(opts: CallRouteOptions): Promise<Response> {
     getClientAddress: () => opts.ip ?? "127.0.0.1",
     setHeaders: () => undefined,
     platform: undefined,
-    isDataRequest: false,
+    isDataRequest: opts.isDataRequest ?? false,
     isSubRequest: false,
   } as unknown as RequestEvent;
 
