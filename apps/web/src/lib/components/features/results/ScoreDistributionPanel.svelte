@@ -11,39 +11,32 @@
 
   interface Props {
     buckets: DistributionBucket[];
-    submitted: number;
     class?: string;
   }
 
-  let { buckets, submitted, class: className = "" }: Props = $props();
+  let { buckets, class: className = "" }: Props = $props();
 
-  const bucketColors = [
-    "var(--success)",
-    "var(--chart-1)",
-    "var(--chart-2)",
-    "var(--chart-4)",
-    "var(--destructive)",
-  ];
+  const population = $derived(buckets.reduce((sum, bucket) => sum + bucket.count, 0));
 </script>
 
 <GlassPanel class={`p-5 ${className}`}>
   <div class="font-mono text-micro uppercase tracking-wider text-muted-foreground">
     {m.results_distributionHeading()}
   </div>
+  <p class="mt-1 text-caption text-muted-foreground">
+    {m.results_distributionPopulation({ count: population })}
+  </p>
   <div class="mt-3 space-y-1.5">
-    {#each buckets as b, i (b.label)}
-      {@const pct = submitted > 0 ? (b.count / submitted) * 100 : 0}
+    {#each buckets as b (b.label)}
+      {@const pct = population > 0 ? (b.count / population) * 100 : 0}
       <div class="flex items-center gap-2 text-caption">
-        <div class="w-14 font-mono text-muted-foreground">{b.label}</div>
+        <div class="w-24 shrink-0 font-mono text-muted-foreground">{b.label}</div>
         <div class="h-4 flex-1 overflow-hidden rounded-sm" style="background: var(--muted);">
-          <div
-            class="h-full"
-            style:width={`${pct}%`}
-            style:background={bucketColors[i] ?? "var(--muted-foreground)"}
-            style:opacity="0.55"
-          ></div>
+          <div class="h-full" style:width={`${pct}%`} style:background="var(--chart-1)"></div>
         </div>
-        <div class="w-6 text-right font-mono tabular-nums">{b.count}</div>
+        <div class="w-24 shrink-0 text-right font-mono tabular-nums">
+          {m.results_distributionCount({ count: b.count })} · {pct.toFixed(1)}%
+        </div>
       </div>
     {/each}
     {#if buckets.length === 0}

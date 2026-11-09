@@ -1672,6 +1672,8 @@
   "rejudge_toast_error": "Rejudge failed",
   "rejudge_toast_queuedSingle": "Submission queued for rejudge",
   "results_avgLabel": "Average",
+  "results_distributionPopulation": "All {count} students/participants; percentages include those without submissions.",
+  "results_distributionCount": "{count} people",
   "results_distributionHeading": "Score distribution",
   "results_emptyState": "No student scores yet.",
   "results_medianLabel": "Median",

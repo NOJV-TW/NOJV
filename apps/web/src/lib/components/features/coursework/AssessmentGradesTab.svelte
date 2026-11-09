@@ -33,7 +33,7 @@
 <div class="space-y-5">
   <div
     data-slot="grades-overview"
-    class="grid items-stretch gap-5 xl:grid-cols-[minmax(0,1fr)_320px]"
+    class="grid items-stretch gap-5 xl:grid-cols-[minmax(0,1fr)_400px]"
   >
     <GlassPanel class="h-full p-4 lg:p-5">
       <div class="grid h-full grid-cols-2 content-center gap-4 sm:grid-cols-4">
@@ -77,11 +77,7 @@
         </div>
       </div>
     </GlassPanel>
-    <ScoreDistributionPanel
-      buckets={stats.buckets}
-      submitted={stats.submitted}
-      class="h-full"
-    />
+    <ScoreDistributionPanel buckets={stats.buckets} class="h-full" />
   </div>
 
   <GlassPanel class="min-w-0 p-5">
