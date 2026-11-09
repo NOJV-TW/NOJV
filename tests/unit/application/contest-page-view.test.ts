@@ -107,6 +107,21 @@ beforeEach(() => {
 });
 
 describe("getContestPageView", () => {
+  it("counts zero-score submissions without counting inactive participants", async () => {
+    m.participants.mockResolvedValue([{ score: "0" }, { score: "0" }]);
+    m.matrix.mockResolvedValue({
+      rows: [{ cells: [{ attempts: 1 }] }, { cells: [{ attempts: 0 }] }],
+    });
+    const view = await getContestPageView({
+      contestId: "c1",
+      viewer: { userId: "u1", platformRole: "teacher" },
+      actor,
+      now,
+    });
+    expect(view.results).toMatchObject({ submitted: 1, total: 2 });
+    expect(view.results?.buckets[9]?.count).toBe(2);
+  });
+
   it("assembles the manager view with results, audit and candidates", async () => {
     const view = await getContestPageView({
       contestId: "c1",
