@@ -292,3 +292,13 @@ Archiving freezes a course for every role, admins included. Course info, announc
 - Rule: System and lifecycle work without a user actor is never blocked: Temporal workflows, durable work, judging and already-dispatched rejudges, exam auto-close, scheduled credential issuance and revocation, notifications, and roster binding on identity changes.
 - Rule: While a course is archived, unarchiving, deleting (subject to the submission guard) and copying it are its only course-level writes; a copy is a new, unarchived course.
 - Code: `packages/application/src/shared/course-writable.ts`, `packages/application/src/course/mutations.ts`, `packages/application/src/course/problem-library.ts`, `apps/web/src/routes/(app)/courses/[courseId]/+layout.svelte`
+
+### ASM-27 Score distributions use fixed activity-scale intervals and the full population
+
+**Decided:** 2026-11 · **Source:** [#677](https://github.com/NOJV-TW/NOJV/pull/677)
+
+Grade distributions use ten equal-width intervals anchored to the activity maximum, so low scores remain distinguishable and boundaries do not shift with the best result. Counts and percentages use the same full population. Submission participation is independently measured from recorded attempts, including zero-score submissions.
+
+- Rejected: highest-achieved-score boundaries; combining all scores below 60% into one band; dividing full-population counts by submitted counts; inferring submission from positive scores.
+- Rule: Bonus scores remain in the top interval with an explicit open-ended label; do not discard or clamp earned grades. The full display contract lives in [Frontend Surface](../architecture/FRONTEND.md#assessment-score-distribution).
+- Code: `packages/application/src/shared/score-stats.ts`, `apps/web/src/lib/components/features/results/ScoreDistributionPanel.svelte`
