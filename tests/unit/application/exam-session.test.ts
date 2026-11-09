@@ -315,6 +315,7 @@ describe("examDomain.session.startSessionWithGate", () => {
         entityId: gatedExam.id,
         userId: fakeActor.userId,
         ip: "198.51.100.20",
+        recordIpViolation: true,
         now,
       });
       expect(participationUpsertExamActive).not.toHaveBeenCalled();
