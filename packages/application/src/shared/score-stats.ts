@@ -33,57 +33,31 @@ export function buildScoreStats(
   scores: number[],
   studentCount: number,
   maxScore: number,
+  submitted: number,
 ): ScoreStats {
   const totals = scores;
-  const submitted = totals.filter((t) => t > 0).length;
   const classAvg = averageActivityScores(totals);
   const med = median(totals);
   const max = totals.length > 0 ? Math.max(...totals) : 0;
   const min = totals.length > 0 ? Math.min(...totals) : 0;
 
-  const fallbackRangeMax = maxScore > 0 ? maxScore : 100;
-  const rangeMax = max > 0 ? max : fallbackRangeMax;
-  const fractional = ![maxScore, ...totals].every(Number.isInteger);
-  const discrete = rangeMax < 5 && !fractional;
-  const thresholds = [90, 80, 70, 60].map((percent) =>
-    fractional
-      ? Number(((rangeMax * percent) / 100).toFixed(2))
-      : Math.ceil((rangeMax * percent) / 100),
-  );
-  const upperBoundLabel = (threshold: number | undefined) =>
-    fractional ? `<${String(threshold)}` : String((threshold ?? 1) - 1);
-  const buckets: ScoreBucket[] = discrete
-    ? Array.from({ length: rangeMax + 1 }, (_, index) => ({
-        label: String(rangeMax - index),
-        count: 0,
-      }))
-    : [
-        { label: `${String(thresholds[0])}-${String(rangeMax)}`, count: 0 },
-        {
-          label: `${String(thresholds[1])}-${upperBoundLabel(thresholds[0])}`,
-          count: 0,
-        },
-        {
-          label: `${String(thresholds[2])}-${upperBoundLabel(thresholds[1])}`,
-          count: 0,
-        },
-        {
-          label: `${String(thresholds[3])}-${upperBoundLabel(thresholds[2])}`,
-          count: 0,
-        },
-        { label: `<${String(thresholds[3])}`, count: 0 },
-      ];
-  for (const t of totals) {
-    let idx: number;
-    if (discrete) idx = rangeMax - t;
-    else if (t >= (thresholds[0] ?? 0)) idx = 0;
-    else if (t >= (thresholds[1] ?? 0)) idx = 1;
-    else if (t >= (thresholds[2] ?? 0)) idx = 2;
-    else if (t >= (thresholds[3] ?? 0)) idx = 3;
-    else idx = 4;
-    const bucket = buckets[idx];
-    if (bucket) bucket.count++;
-  }
+  const step = new Prisma.Decimal(maxScore).div(10);
+  const buckets: ScoreBucket[] =
+    maxScore > 0
+      ? Array.from({ length: 10 }, (_, index) => {
+          const lower = step.mul(index);
+          const upper = step.mul(index + 1);
+          return {
+            label:
+              index === 9 && max > maxScore
+                ? `${lower.toString()}+`
+                : `${lower.toString()}–${index === 9 ? "" : "<"}${upper.toString()}`,
+            count: totals.filter(
+              (score) => lower.lte(score) && (index === 9 || upper.gt(score)),
+            ).length,
+          };
+        }).reverse()
+      : [];
 
   return {
     buckets,

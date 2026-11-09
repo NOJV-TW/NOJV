@@ -10,11 +10,13 @@ Acceptance spec for exam access controls: page lock, IP whitelist, IP binding an
 - `packages/application/src/submission/creation.ts` — gate on exam and contest submissions
 - `apps/web/src/hooks.server.ts` — `enforceExamGate` (page lock, IP gate, `visibility_lost`)
 - `apps/web/src/lib/server/exam-lock.ts` — `isAllowedPathForExam`, `isExamForbiddenApiRequest`, `resolveExamGateDenial`
+- `apps/web/src/lib/utils/exam-navigation.ts`, `apps/web/src/routes/api/exams/[examId]/entry-attempt/+server.ts` — explicit client navigation audit
+- `apps/web/src/routes/(app)/exam-access-denied/+page.server.ts` — content-free denial destination for data loads
 - `apps/web/src/lib/server/shared/client-ip.ts` — `getClientIp`
 - `apps/web/src/lib/components/features/course/exam/ExamProctoringTab.svelte`, `IpWhitelistField.svelte`
 - `packages/core/src/types.ts` — `ipLockFields`, `ipLockFormFields`, `parseIpWhitelistText`, `ipViolationModeSchema`
 - `packages/db/prisma/schema/contest.prisma` — `Exam` proctoring fields, `Participation.ipPin` / `ipGateExemptUntil`, `IpViolationLog`, `ActiveExamSession`, `ExamSessionEvent`
-- Tests: `tests/unit/application/ip-utils.test.ts`, `proctoring-gate.test.ts`, `exam-session.test.ts`, `exam-session-mutations.test.ts`, `submission-mutations-boundaries.test.ts`; `tests/unit/db/participation-ip-pin.test.ts`; `tests/unit/web/exam-lock.test.ts`; `tests/unit/security/exam-confinement-api-allowlist.test.ts`; `tests/unit/core/schemas.test.ts` (whitelist parser)
+- Tests: `tests/unit/application/ip-utils.test.ts`, `proctoring-gate.test.ts`, `exam-session.test.ts`, `exam-session-mutations.test.ts`, `submission-mutations-boundaries.test.ts`; `tests/unit/db/participation-ip-pin.test.ts`; `tests/unit/web/exam-lock.test.ts`; `tests/unit/security/exam-confinement-api-allowlist.test.ts`; `tests/unit/core/schemas.test.ts` (whitelist parser); `tests/integration/http/submission-exam-confinement.test.ts`, `tests/e2e/exam-ip-audit.test.ts` (entry audit versus background traffic)
 
 Out of scope: contest or assignment IP rules, course-wide or per-problem locks, remote proctoring (webcam, screen recording, lockdown browser), detecting tab/window switches, fullscreen changes or navigation outside NOJV.
 
@@ -27,7 +29,7 @@ The global hook reads the user's active session and the exam's current `pageLock
 - `pageLockEnabled: true`, request outside `/exams/[examId]` (not an API path, not `/signin` or `/signout`): record `visibility_lost` with `metadata.attemptedPath`, then redirect 307 to `/exams/[examId]`. A failing event write logs a warning and still redirects.
 - `pageLockEnabled: true`, API requests: `/api/contests/*`, `/api/posts/*`, `/api/comments/*`, `/api/problems/[id]/posts` and submission endpoints other than `GET`/`POST /api/submissions`, `GET /api/submissions/[id]` and `GET /api/submissions/[id]/source` return 403 `exam_api_scope`.
 - `pageLockEnabled: false`: requests outside the exam proceed under normal authorization and the session stays active; the hook runs the IP gate only on exam paths.
-- Exam pages, exam submissions and draft reads/writes always enforce membership, time window and IP rules, whatever the page-lock setting. An IP denial returns 403 `exam_ip_blocked`; on API paths, `not_enrolled`, `course_archived`, `not_published`, `not_found` and `not_started` return 403 `exam_<reason>`.
+- Exam pages, exam submissions and draft reads/writes always enforce membership, time window and IP rules, whatever the page-lock setting. An IP denial returns 403 `exam_ip_blocked` (SvelteKit data loads redirect to the content-free 403 page); on API paths, `not_enrolled`, `course_archived`, `not_published`, `not_found` and `not_started` return 403 `exam_<reason>`.
 
 ### Composite gate
 
@@ -53,7 +55,10 @@ The global hook reads the user's active session and the exam's current `pageLock
 ### Violation mode and logging
 
 - `block`: a violation denies the request (`ip_whitelist` or `ip_binding`). `notify`: it is allowed.
-- In both modes a violation writes an `IpViolationLog` row, throttled to one per (exam, user, violation type) per 60 seconds. Denied exam entries and denied exam submissions commit the transaction holding the gate's writes and raise the denial afterwards, so the row survives the rejection.
+- Given a disallowed IP, when the student starts or re-enters an exam, opens an exam/problem page, or reloads that page, both modes record an `IpViolationLog` row, throttled to one per (exam, user, violation type) per 60 seconds. Denied entry commits the audit row before raising the rejection.
+- Given the same IP, when SSE reconnects, polling, draft autosave, submission requests, data preloads or background invalidation run, the normal gate still applies but no IP violation row is written. Repeated background checks do not consume the audit throttle window.
+- Document navigation with browser user activation (`Sec-Fetch-User: ?1`) is recorded by the server hook or exam layout. Denied data loads redirect to `/exam-access-denied`, a content-free 403 page, so SvelteKit cannot retry them as an exam document navigation. Before SvelteKit client navigation, the browser explicitly posts to the session-only `/api/exams/[examId]/entry-attempt` endpoint; a data load alone is not evidence of navigation. The endpoint uses the trusted request IP and the normal gate, never opens a session, and exempts course managers. An audit signal does not grant access; every protected request still enforces its own gate.
+- Existing violation rows are retained; historical rows cannot distinguish background traffic from deliberate entry.
 - Row fields: `userId`, `examId` (both cascade on delete), `violationType` (`whitelist | binding`), `actualIp`, `expectedIp` (joined whitelist for whitelist violations, the pin for binding violations), `createdAt`.
 - Mode changes apply from the student's next request.
 - Managers see each student's exam state, leave attempts (`visibility_lost` events, page lock only), bound IP (binding only) and violations in the exam's Proctoring roster table. With page lock on the roster sorts by leave attempts (most first by default; the header flips it); with binding on, a Bound IP header filter matches the pinned address. "Reset IP" shows on students with a bound IP or violations; "Lift page lock" (instructor release) shows only when page lock is on, since without it a release only sends the student back to the start screen.

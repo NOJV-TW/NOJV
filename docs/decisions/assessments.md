@@ -212,16 +212,17 @@ With page lock on, starting an exam creates an `ActiveExamSession` and `hooks.se
 
 ### ASM-20 Exam IP rules: whitelist and first-binding, gated on every request, fail closed
 
-**Decided:** 2026-05 · **Source:** [2026-03-20-page-lock-ip-lock-design](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-03-20-page-lock-ip-lock-design.md), [2026-05-26-exam-ip-gating-hardening-design](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-05-26-exam-ip-gating-hardening-design.md), [2026-05-18-feature-completion-batch](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-05-18-feature-completion-batch.md), [Security remediation PR #628](https://github.com/NOJV-TW/NOJV/pull/628)
+**Decided:** 2026-05 · **Source:** [2026-03-20-page-lock-ip-lock-design](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-03-20-page-lock-ip-lock-design.md), [2026-05-26-exam-ip-gating-hardening-design](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-05-26-exam-ip-gating-hardening-design.md), [2026-05-18-feature-completion-batch](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-05-18-feature-completion-batch.md), [Security remediation PR #628](https://github.com/NOJV-TW/NOJV/pull/628), [#678](https://github.com/NOJV-TW/NOJV/pull/678)
 
-A CIDR whitelist and first-visit IP binding are independent toggles sharing `ipViolationMode`: `block` denies, `notify` allows and logs. During an active exam session the hook runs `checkProctoringGate` on exam paths and, with page lock enabled, every page and `/api` request. Exam submission and draft boundaries always recheck the complete gate. Violations are logged in both modes, throttled to one per 60s per (exam, user, type), and capped at the newest 2000 rows per exam, pruned in the insert transaction. Teachers can reset one student's binding (clears the pin, 10-minute grace, next machine re-pins).
+A CIDR whitelist and first-visit IP binding are independent toggles sharing `ipViolationMode`: `block` denies, `notify` allows and logs. During an active exam session the hook runs `checkProctoringGate` on exam paths and, with page lock enabled, every page and `/api` request. Exam submission and draft boundaries always recheck the complete gate. Explicit entry and page-navigation violations are logged in both modes; background enforcement never records an entry attempt. Logs are throttled to one per 60s per (exam, user, type), and capped at the newest 2000 rows per exam, pruned in the insert transaction. Teachers can reset one student's binding (clears the pin, 10-minute grace, next machine re-pins).
 
 - Rejected: a single unenforced `ipLockEnabled` flag; Earlier: fail-open active-exam context lookup for availability (2026-05) — now fails closed with 503; a whole-exam IP kill switch; extra anti-spoofing beyond the `CF-Connecting-IP` trust model.
 - Rule: The IP decision is the pure `evaluateIpLock`; CIDR matching handles IPv4, IPv6 and IPv4-mapped IPv6; only trust `CF-Connecting-IP` in production (see SEC-09 in security.md).
-- Rule: Notify mode never silently drops a violation; path matching uses strict prefixes.
+- Rejected: Earlier: every IP-gate check writes a throttled violation (2026-05) — SSE reconnects and automatic refreshes inflated the audit; recording now requires explicit entry or page navigation (2026-11).
+- Rule: Both modes record explicit entry attempts; SSE, polling, autosave, submissions, prefetch and invalidation enforce the gate without recording. Client navigation sends a separate authenticated attempt signal because SvelteKit data loads also represent background refreshes; path matching uses strict prefixes.
 - Rule: The first IP pin is a conditional write (`ipPin IS NULL` with a count check); a request that loses is evaluated against the winner's pin, never re-pins.
 - Rule: Exam entry runs the proctoring gate before any session or participation write; a denied entry creates no session. Entry never precedes `startsAt`; problem pages, submission admission and draft reads/writes reject every gate denial regardless of page lock.
-- Rule: Gate denials inside a transaction are returned and raised after commit, so violation rows survive a rejected entry or submission; every binding reset writes an `ip_reset` session event.
+- Rule: Gate denials inside a transaction are returned and raised after commit, so entry violation rows survive a rejected entry; every binding reset writes an `ip_reset` session event.
 - Code: `packages/application/src/shared/ip.ts`, `packages/application/src/proctoring/violation-logger.ts`, `packages/db/src/repositories/ip-violation.ts`, `packages/application/src/exam/session.ts`
 
 ### ASM-21 Exam submissions are scoped to the exam and final after hand-in
@@ -292,3 +293,13 @@ Archiving freezes a course for every role, admins included. Course info, announc
 - Rule: System and lifecycle work without a user actor is never blocked: Temporal workflows, durable work, judging and already-dispatched rejudges, exam auto-close, scheduled credential issuance and revocation, notifications, and roster binding on identity changes.
 - Rule: While a course is archived, unarchiving, deleting (subject to the submission guard) and copying it are its only course-level writes; a copy is a new, unarchived course.
 - Code: `packages/application/src/shared/course-writable.ts`, `packages/application/src/course/mutations.ts`, `packages/application/src/course/problem-library.ts`, `apps/web/src/routes/(app)/courses/[courseId]/+layout.svelte`
+
+### ASM-27 Score distributions use fixed activity-scale intervals and the full population
+
+**Decided:** 2026-11 · **Source:** [#677](https://github.com/NOJV-TW/NOJV/pull/677)
+
+Grade distributions use ten equal-width intervals anchored to the activity maximum, so low scores remain distinguishable and boundaries do not shift with the best result. Counts and percentages use the same full population. Submission participation is independently measured from recorded attempts, including zero-score submissions.
+
+- Rejected: highest-achieved-score boundaries; combining all scores below 60% into one band; dividing full-population counts by submitted counts; inferring submission from positive scores.
+- Rule: Bonus scores remain in the top interval with an explicit open-ended label; do not discard or clamp earned grades. The full display contract lives in [Frontend Surface](../architecture/FRONTEND.md#assessment-score-distribution).
+- Code: `packages/application/src/shared/score-stats.ts`, `apps/web/src/lib/components/features/results/ScoreDistributionPanel.svelte`

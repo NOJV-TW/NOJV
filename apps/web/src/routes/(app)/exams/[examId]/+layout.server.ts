@@ -1,4 +1,4 @@
-import { error } from "@sveltejs/kit";
+import { error, redirect } from "@sveltejs/kit";
 import {
   courseDomain,
   examDomain,
@@ -10,6 +10,7 @@ import {
 import type { LayoutServerLoad, LayoutServerLoadEvent } from "./$types";
 import { m } from "#lib/paraglide/messages.js";
 import { isCourseManager, requireAuth } from "#lib/server/auth.js";
+import { isExamEntryAttempt } from "#lib/server/exam-lock.js";
 import { getClientIp } from "#lib/server/shared/client-ip.js";
 import { handleLoad } from "#lib/server/shared/load-wrapper.js";
 
@@ -43,6 +44,7 @@ export const load: LayoutServerLoad = handleLoad(async (event: LayoutServerLoadE
             entityId: examId,
             userId: actor.userId,
             ip: getClientIp(event),
+            recordIpViolation: isExamEntryAttempt(event, examId),
           });
 
     if (!verdict.ok) {
@@ -55,6 +57,7 @@ export const load: LayoutServerLoad = handleLoad(async (event: LayoutServerLoadE
           throw new ForbiddenError("This course has been archived.");
         case "ip_whitelist":
         case "ip_binding":
+          if (event.isDataRequest) redirect(303, "/exam-access-denied");
           error(403, m.examShell_ipBlocked());
           break;
         case "not_started":

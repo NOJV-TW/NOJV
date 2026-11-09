@@ -97,7 +97,7 @@ export async function checkIpLock(
   config: IpLockConfig,
   clientIp: string,
   participation: { id: string; ipPin: string | null; ipGateExemptUntil?: Date | null } | null,
-  context: { userId: string; examId: string },
+  context: { userId: string; examId: string; recordViolation?: boolean },
   now: Date = new Date(),
 ): Promise<IpCheckResult> {
   const opts = { exemptUntil: participation?.ipGateExemptUntil ?? null, now };
@@ -115,7 +115,7 @@ export async function checkIpLock(
     }
   }
 
-  if (decision.violationType) {
+  if (decision.violationType && context.recordViolation) {
     await logViolationThrottledInTx(
       tx,
       {

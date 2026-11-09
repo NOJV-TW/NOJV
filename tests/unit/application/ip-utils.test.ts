@@ -20,7 +20,7 @@ vi.mock("@nojv/db", () => ({
 import { checkIpLock, isIpInCidr, isIpInWhitelist } from "@nojv/application";
 
 const fakeTx = {} as never;
-const fakeContext = { userId: "usr_test", examId: "exm_test" };
+const fakeContext = { userId: "usr_test", examId: "exm_test", recordViolation: true };
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -94,6 +94,18 @@ const whitelistBlock = {
 };
 
 describe("checkIpLock — whitelist", () => {
+  it.each(["block", "notify"])("does not audit background checks in %s mode", async (mode) => {
+    const result = await checkIpLock(
+      fakeTx,
+      { ...whitelistBlock, ipViolationMode: mode },
+      "1.2.3.4",
+      null,
+      { userId: "usr_test", examId: "exm_test" },
+    );
+    expect(result.allowed).toBe(mode === "notify");
+    expect(findLastViolationAt).not.toHaveBeenCalled();
+    expect(violationLogCreate).not.toHaveBeenCalled();
+  });
   it("matching whitelist allows without logging", async () => {
     const result = await checkIpLock(fakeTx, whitelistBlock, "10.1.2.3", null, fakeContext);
     expect(result).toEqual({ allowed: true });

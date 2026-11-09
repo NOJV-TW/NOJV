@@ -637,7 +637,7 @@ describe("createQueuedSubmissionRecord — active exam lockout", () => {
     expect(submissionCreate).not.toHaveBeenCalled();
   });
 
-  it("commits the gate's violation writes before rejecting a wrong-IP submission", async () => {
+  it("commits the gate transaction before rejecting a wrong-IP submission", async () => {
     examSessionFindActiveForUser.mockResolvedValue({
       examId: "exam_42",
       exam: { pageLockEnabled: false },

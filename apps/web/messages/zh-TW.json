@@ -1661,6 +1661,8 @@
   "rejudge_toast_error": "重判失敗",
   "rejudge_toast_queuedSingle": "已排入重判",
   "results_avgLabel": "平均",
+  "results_distributionPopulation": "全體 {count} 人；比例包含未提交者。",
+  "results_distributionCount": "{count} 人",
   "results_distributionHeading": "分數分布",
   "results_emptyState": "尚無學生成績。",
   "results_medianLabel": "中位數",

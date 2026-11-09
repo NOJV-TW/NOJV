@@ -85,7 +85,12 @@ export async function getContestPageView(options: {
     const totalPoints = (contest.problems ?? []).reduce((sum, p) => sum + p.points, 0);
     const maxScore =
       contest.scoringMode === "problem_count" ? (contest.problems ?? []).length : totalPoints;
-    results = buildScoreStats(scores, scores.length, maxScore);
+    results = buildScoreStats(
+      scores,
+      scores.length,
+      maxScore,
+      matrix.rows.filter((row) => row.cells.some((cell) => cell.attempts > 0)).length,
+    );
   }
 
   let canAsk = false;
