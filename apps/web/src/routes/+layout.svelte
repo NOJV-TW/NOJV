@@ -2,10 +2,11 @@
   import "../app.css";
   import { m } from "#lib/paraglide/messages.js";
   import ToastProvider from "#lib/components/primitives/ui/ToastProvider.svelte";
-  import { invalidate, onNavigate } from "$app/navigation";
+  import { beforeNavigate, invalidate, onNavigate } from "$app/navigation";
   import { navigating } from "$app/state";
   import { onMount } from "svelte";
   import { serverClockNeedsRefresh } from "#lib/utils/datetime.js";
+  import { recordExamNavigationAttempt } from "#lib/utils/exam-navigation.js";
   import { initializeGoogleAnalytics } from "#lib/analytics.js";
 
   let { children } = $props();
@@ -30,6 +31,8 @@
     }, 150);
     return () => clearTimeout(timer);
   });
+
+  beforeNavigate(recordExamNavigationAttempt);
 
   onNavigate((navigation) => {
     if (navigation.shallow && navigation.type === "goto") return;

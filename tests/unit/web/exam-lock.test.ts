@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   isAllowedPathForExam,
+  isExamEntryAttempt,
   isExamForbiddenApiRequest,
   resolveExamGateDenial,
   type ActiveExamContext,
@@ -189,5 +190,46 @@ describe("resolveExamGateDenial", () => {
     expect(
       resolveExamGateDenial({ ok: false, reason: "ended" }, "/api/submissions"),
     ).toBeNull();
+  });
+});
+
+describe("isExamEntryAttempt", () => {
+  it.each([
+    ["/exams/exam-1", "GET", false, true],
+    ["/zh-TW/exams/exam-1/problems/p1", "GET", false, true],
+    ["/exams/exam-1", "GET", true, false],
+    ["/exams/exam-1?/startExam", "POST", false, true],
+    ["/exams/exam-1?/releaseSession", "POST", false, false],
+    ["/api/exams/exam-1/entry-attempt", "POST", false, true],
+    ["/api/notifications/stream", "GET", false, false],
+    ["/exams/exam-10", "GET", false, false],
+    ["/dashboard", "GET", false, false],
+  ])("classifies %s %s (data=%s)", (path, method, isDataRequest, expected) => {
+    const url = new URL(path, "http://localhost");
+    expect(
+      isExamEntryAttempt(
+        {
+          request: new Request(url, { method, headers: { "sec-fetch-user": "?1" } }),
+          url,
+          isDataRequest,
+          isSubRequest: false,
+        },
+        "exam-1",
+      ),
+    ).toBe(expected);
+  });
+  it("excludes document prefetch and internal requests", () => {
+    const url = new URL("http://localhost/exams/exam-1");
+    const event = {
+      url,
+      request: new Request(url, { headers: { "sec-purpose": "prefetch" } }),
+      isDataRequest: false,
+      isSubRequest: false,
+    };
+    expect(isExamEntryAttempt(event, "exam-1")).toBe(false);
+    expect(isExamEntryAttempt({ ...event, request: new Request(url) }, "exam-1")).toBe(false);
+    expect(
+      isExamEntryAttempt({ ...event, request: new Request(url), isSubRequest: true }, "exam-1"),
+    ).toBe(false);
   });
 });

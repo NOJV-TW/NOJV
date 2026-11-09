@@ -1,7 +1,9 @@
+import * as examLayout from "../../../apps/web/src/routes/(app)/exams/[examId]/+layout.server";
+import * as entryAttemptRoute from "../../../apps/web/src/routes/api/exams/[examId]/entry-attempt/+server";
 import { describe, expect, it, vi } from "vitest";
 
 import type { ActorContext } from "@nojv/application";
-import { feedbackDomain } from "@nojv/application";
+import { examDomain, feedbackDomain } from "@nojv/application";
 
 import * as submissionStatusRoute from "../../../apps/web/src/routes/api/submissions/status/+server";
 import * as submissionPendingRoute from "../../../apps/web/src/routes/api/submissions/pending/+server";
@@ -793,4 +795,166 @@ describe("unified tracking at the real hooks/API boundary", () => {
     expect(pending.status).toBe(200);
     await expect(pending.json()).resolves.toEqual({ items: [], nextCursor: null });
   }, 30_000);
+});
+
+describe("exam entry IP audit", () => {
+  it.each(["block", "notify"] as const)(
+    "keeps background traffic out of the audit in %s mode",
+    async (mode) => {
+      const { student, currentExam } = await createActiveExamFixture();
+      await testPrisma.exam.update({
+        where: { id: currentExam.id },
+        data: {
+          ipWhitelistEnabled: true,
+          ipWhitelist: ["192.0.2.0/24"],
+          ipViolationMode: mode,
+        },
+      });
+      const auditWhere = { examId: currentExam.id, userId: student.id };
+      const page = `/exams/${currentExam.id}`;
+      const backgroundRequests = [
+        { path: "/api/notifications/stream" },
+        { path: "/api/submissions/pending" },
+        { path: "/api/drafts", method: "PUT" },
+        { path: page, isDataRequest: true },
+        { path: page },
+        { path: page, headers: { "sec-purpose": "prefetch" } },
+      ];
+      async function background() {
+        for (const request of backgroundRequests) {
+          const response = await callRoute({
+            ...request,
+            headers: { origin: "http://localhost:5173", ...request.headers },
+            user: student,
+            module: {
+              GET: () => new Response(null, { status: 204 }),
+              PUT: () => new Response(null, { status: 204 }),
+            },
+          });
+          expect(response.status).toBe(
+            mode === "block"
+              ? "isDataRequest" in request && request.isDataRequest
+                ? 303
+                : 403
+              : 204,
+          );
+        }
+      }
+      await background();
+      expect(await testPrisma.ipViolationLog.count({ where: auditWhere })).toBe(0);
+
+      const document = await callRoute({
+        path: page,
+        headers: { "sec-fetch-user": "?1" },
+        user: student,
+        module: { GET: () => new Response(null, { status: 204 }) },
+      });
+      expect(document.status).toBe(mode === "block" ? 403 : 204);
+      expect(await testPrisma.ipViolationLog.count({ where: auditWhere })).toBe(1);
+      await testPrisma.ipViolationLog.updateMany({
+        where: auditWhere,
+        data: { createdAt: new Date(Date.now() - 120_000) },
+      });
+      await background();
+      expect(await testPrisma.ipViolationLog.count({ where: auditWhere })).toBe(1);
+
+      const navigation = await callRoute({
+        path: `/api/exams/${currentExam.id}/entry-attempt`,
+        method: "POST",
+        headers: { origin: "http://localhost:5173" },
+        module: entryAttemptRoute,
+        params: { examId: currentExam.id },
+        user: student,
+      });
+      expect(navigation.status).toBe(mode === "block" ? 403 : 204);
+      expect(await testPrisma.ipViolationLog.count({ where: auditWhere })).toBe(2);
+    },
+    30_000,
+  );
+
+  it("records a denied entry before a session exists, without creating a session", async () => {
+    const student = await createTestUser();
+    const course = await createTestCourse();
+    await testPrisma.courseMembership.create({
+      data: { courseId: course.id, userId: student.id, role: "student", status: "active" },
+    });
+    const exam = await createTestExam({
+      courseId: course.id,
+      ipWhitelistEnabled: true,
+      ipWhitelist: ["192.0.2.0/24"],
+    });
+    await expect(
+      examDomain.session.startSessionWithGate(actorOf(student), {
+        examId: exam.id,
+        ip: "198.51.100.1",
+      }),
+    ).rejects.toThrow("Exam entry blocked");
+    expect(await testPrisma.ipViolationLog.count({ where: { examId: exam.id } })).toBe(1);
+    expect(await testPrisma.activeExamSession.count({ where: { examId: exam.id } })).toBe(0);
+  });
+
+  it("records document entry but not a data preload before a session exists", async () => {
+    const student = await createTestUser();
+    const course = await createTestCourse();
+    await testPrisma.courseMembership.create({
+      data: { courseId: course.id, userId: student.id, role: "student", status: "active" },
+    });
+    const exam = await createTestExam({
+      courseId: course.id,
+      ipWhitelistEnabled: true,
+      ipWhitelist: ["192.0.2.0/24"],
+    });
+    const request = (isDataRequest: boolean) =>
+      callRoute({
+        path: `/exams/${exam.id}`,
+        params: { examId: exam.id },
+        user: student,
+        isDataRequest,
+        headers: { "sec-fetch-user": "?1" },
+        module: {
+          GET: async (event: Parameters<typeof examLayout.load>[0]) => {
+            await examLayout.load(event);
+            return new Response(null, { status: 204 });
+          },
+        },
+      });
+    expect((await request(true)).status).toBe(303);
+    expect(await testPrisma.ipViolationLog.count({ where: { examId: exam.id } })).toBe(0);
+    expect((await request(false)).status).toBe(403);
+    expect(await testPrisma.ipViolationLog.count({ where: { examId: exam.id } })).toBe(1);
+  });
+
+  it("audits client navigation before entry and excludes staff", async () => {
+    const student = await createTestUser();
+    const teacher = await createTestUser({ platformRole: "teacher" });
+    const course = await createTestCourse({ ownerId: teacher.id });
+    await testPrisma.courseMembership.createMany({
+      data: [
+        { courseId: course.id, userId: student.id, role: "student", status: "active" },
+        { courseId: course.id, userId: teacher.id, role: "teacher", status: "active" },
+      ],
+    });
+    const exam = await createTestExam({
+      courseId: course.id,
+      ipWhitelistEnabled: true,
+      ipWhitelist: ["192.0.2.0/24"],
+    });
+    const request = (user: { id: string } | null, ip = "198.51.100.1") =>
+      callRoute({
+        path: `/api/exams/${exam.id}/entry-attempt`,
+        method: "POST",
+        headers: { origin: "http://localhost:5173" },
+        module: entryAttemptRoute,
+        params: { examId: exam.id },
+        user,
+        ip,
+      });
+    expect((await request(null)).status).toBe(401);
+    expect((await request(teacher)).status).toBe(204);
+    expect((await request(student, "192.0.2.1")).status).toBe(204);
+    expect(await testPrisma.ipViolationLog.count({ where: { examId: exam.id } })).toBe(0);
+    expect((await request(student)).status).toBe(403);
+    expect(await testPrisma.ipViolationLog.count({ where: { examId: exam.id } })).toBe(1);
+    expect(await testPrisma.activeExamSession.count({ where: { examId: exam.id } })).toBe(0);
+  });
 });

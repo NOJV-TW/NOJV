@@ -1,3 +1,5 @@
+import type { RequestEvent } from "@sveltejs/kit";
+import { stripLocalePrefix } from "./hooks/route-paths.js";
 import { examDomain, type proctoringDomain } from "@nojv/application";
 
 export type ActiveExamContext = NonNullable<
@@ -67,4 +69,27 @@ export function isAllowedPathForExam(pathname: string, ctx: ActiveExamContext): 
   if (pathname.startsWith(examPrefix + "/")) return true;
 
   return false;
+}
+
+export function isExamEntryAttempt(
+  event: Pick<RequestEvent, "request" | "url" | "isDataRequest" | "isSubRequest">,
+  examId: string,
+): boolean {
+  if (event.isSubRequest || event.isDataRequest) return false;
+  const path = stripLocalePrefix(event.url.pathname);
+  const examPath = `/exams/${examId}`;
+  if (event.request.method === "POST") {
+    return (
+      path === `/api/exams/${examId}/entry-attempt` ||
+      (path === examPath && event.url.searchParams.has("/startExam"))
+    );
+  }
+  const purpose =
+    event.request.headers.get("sec-purpose") ?? event.request.headers.get("purpose") ?? "";
+  return (
+    event.request.method === "GET" &&
+    event.request.headers.get("sec-fetch-user") === "?1" &&
+    !purpose.includes("prefetch") &&
+    (path === examPath || path.startsWith(`${examPath}/`))
+  );
 }

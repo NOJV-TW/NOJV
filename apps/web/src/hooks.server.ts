@@ -21,6 +21,7 @@ import { m } from "#lib/paraglide/messages.js";
 import { paraglideMiddleware } from "#lib/paraglide/server.js";
 import {
   getActiveExamContext,
+  isExamEntryAttempt,
   isAllowedPathForExam,
   isExamForbiddenApiRequest,
   resolveExamGateDenial,
@@ -404,7 +405,7 @@ async function enforceExamGate(
   cleanPath: string,
 ): Promise<Response | null> {
   const sessionUser = event.locals.sessionUser;
-  if (!sessionUser) {
+  if (!sessionUser || cleanPath === "/exam-access-denied") {
     return null;
   }
 
@@ -440,6 +441,7 @@ async function enforceExamGate(
     verdict = await proctoringDomain.checkProctoringGate({
       entityKind: "exam",
       entityId: examCtx.exam.id,
+      recordIpViolation: isExamEntryAttempt(event, examCtx.exam.id),
       userId: sessionUser.id,
       ip,
     });
@@ -462,6 +464,9 @@ async function enforceExamGate(
 
   const denial = resolveExamGateDenial(verdict, cleanPath);
   if (denial) {
+    if (event.isDataRequest && denial.code === "exam_ip_blocked") {
+      redirect(303, "/exam-access-denied");
+    }
     return denyExamGate({
       cleanPath,
       requestId: event.locals.requestId,

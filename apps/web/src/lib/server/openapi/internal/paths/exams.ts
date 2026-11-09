@@ -1,4 +1,22 @@
 export const examsPaths = {
+  "/api/exams/{examId}/entry-attempt": {
+    post: {
+      tags: ["Exams / Proctoring"],
+      summary: "Record an explicit exam navigation attempt",
+      operationId: "recordExamEntryAttempt",
+      description:
+        "Session-only client navigation audit. Applies the exam gate and records throttled IP violations without opening a session. Background refreshes must not call this endpoint. Course managers are exempt.",
+      parameters: [{ name: "examId", in: "path", required: true, schema: { type: "string" } }],
+      responses: {
+        "204": { description: "Attempt checked" },
+        "401": { description: "Authentication required" },
+        "403": { description: "Exam access denied or CSRF validation failed" },
+        "404": { description: "Exam not found" },
+        "429": { description: "Too many requests" },
+        "503": { description: "Gate or rate limiter unavailable" },
+      },
+    },
+  },
   "/api/exams/{examId}/ip-violations": {
     get: {
       tags: ["Exams / Proctoring"],
