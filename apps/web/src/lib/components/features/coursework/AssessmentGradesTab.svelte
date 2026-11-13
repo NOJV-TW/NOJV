@@ -31,14 +31,13 @@
 </script>
 
 <div class="space-y-5">
-  <div
-    data-slot="grades-overview"
-    class="grid items-stretch gap-5 xl:grid-cols-[minmax(0,1fr)_400px]"
-  >
-    <GlassPanel class="h-full p-4 lg:p-5">
-      <div class="grid h-full grid-cols-2 content-center gap-4 sm:grid-cols-4">
+  <div data-slot="grades-overview">
+    <GlassPanel>
+      <div
+        class="grid grid-cols-2 gap-x-4 gap-y-5 border-b border-border-subtle px-5 py-4 sm:grid-cols-4 sm:px-6"
+      >
         <div>
-          <div class="font-mono text-micro uppercase tracking-wider text-muted-foreground">
+          <div class="text-caption font-medium text-muted-foreground">
             {m.results_submittedLabel()}
           </div>
           <div class="mt-1 text-title font-semibold tabular-nums">
@@ -46,7 +45,7 @@
           </div>
         </div>
         <div>
-          <div class="font-mono text-micro uppercase tracking-wider text-muted-foreground">
+          <div class="text-caption font-medium text-muted-foreground">
             {m.results_avgLabel()}
           </div>
           <div class="mt-1 text-title font-semibold tabular-nums">
@@ -56,7 +55,7 @@
           </div>
         </div>
         <div>
-          <div class="font-mono text-micro uppercase tracking-wider text-muted-foreground">
+          <div class="text-caption font-medium text-muted-foreground">
             {m.results_medianLabel()}
           </div>
           <div class="mt-1 text-title font-semibold tabular-nums">
@@ -66,7 +65,7 @@
           </div>
         </div>
         <div>
-          <div class="font-mono text-micro uppercase tracking-wider text-muted-foreground">
+          <div class="text-caption font-medium text-muted-foreground">
             {m.results_minMaxLabel()}
           </div>
           <div class="mt-1 text-title font-semibold tabular-nums">
@@ -76,8 +75,8 @@
           </div>
         </div>
       </div>
+      <ScoreDistributionPanel buckets={stats.buckets} />
     </GlassPanel>
-    <ScoreDistributionPanel buckets={stats.buckets} class="h-full" />
   </div>
 
   <GlassPanel class="min-w-0 p-5">
