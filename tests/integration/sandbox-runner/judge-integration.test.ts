@@ -185,8 +185,7 @@ const mlePrograms: Record<string, LangEntry> = {
   c: {
     language: "c",
     source: `#include <signal.h>
-#include <unistd.h>
-int main() { kill(getpid(), SIGKILL); return 0; }`,
+int main(void) { return raise(SIGKILL); }`,
   },
   cpp: {
     language: "cpp",
