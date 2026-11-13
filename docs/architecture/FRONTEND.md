@@ -222,4 +222,6 @@ Security headers, CSP and exam rules are specified in [Security Requirements](..
 
 Assignment, exam and contest grade summaries include the entire roster/participant population, including zero scores and students without submissions. Submitted counts come from matrix submission attempts, never from positive scores; manual grades do not imply submission.
 
+The grade summary places the metrics above the distribution in one panel. Score intervals read down two columns on wider screens and one column on narrow screens.
+
 The distribution uses ten equal-width intervals from zero to the activity maximum, independent of achieved scores. Intervals include their lower bound and exclude their upper bound, except the last interval includes the maximum and any bonus scores above it. When bonus scores exceed the activity maximum, the top label uses a `+` suffix rather than claiming an upper limit. Decimal boundaries retain their precision, including for small problem-count totals. Empty intervals remain visible; an activity with no available points has no distribution. Bars and percentages use the sum of bucket counts as their denominator and a single chart color.
