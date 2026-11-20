@@ -8,15 +8,15 @@ engineStrict: true
 
 overrides:
   kysely: 0.28.17
-  "@temporalio/activity": 1.25.0
-  "@temporalio/client": 1.25.0
-  "@temporalio/common": 1.25.0
-  "@temporalio/core-bridge": 1.25.0
-  "@temporalio/nexus": 1.25.0
-  "@temporalio/proto": 1.25.0
-  "@temporalio/testing": 1.25.0
-  "@temporalio/worker": 1.25.0
-  "@temporalio/workflow": 1.25.0
+  "@temporalio/activity": 1.26.0
+  "@temporalio/client": 1.26.0
+  "@temporalio/common": 1.26.0
+  "@temporalio/core-bridge": 1.26.0
+  "@temporalio/nexus": 1.26.0
+  "@temporalio/proto": 1.26.0
+  "@temporalio/testing": 1.26.0
+  "@temporalio/worker": 1.26.0
+  "@temporalio/workflow": 1.26.0
   ws: ">=8.21.0"
   form-data: ">=4.0.6"
   "postcss@<=8.5.17": ^8.5.18
@@ -36,8 +36,8 @@ overrides:
   brace-expansion@>=2.0.0 <2.1.4: ^2.1.4
   brace-expansion@>=4.0.0 <5.0.8: ^5.0.8
   brace-expansion@>=4.0.0 <5.0.9: ^5.0.9
-  dompurify@<3.4.17: 3.4.17
-  browserslist@<=4.28.6: 4.29.5
+  dompurify@<3.4.17: 3.4.18
+  browserslist@<=4.28.6: 4.29.6
   fast-uri@>=3.0.0 <3.1.9: 3.1.9
   "@grpc/grpc-js@<1.14.5": ^1.14.5
   devalue@<5.9.3: ^5.9.4
@@ -94,7 +94,7 @@ catalog:
   # Build / test tooling shared across packages.
   tsdown: ^0.23.0
   typescript: ^6.0.3
-  vitest: 5.1.0
+  vitest: 5.1.1
   zod: ^4.6.5
 
 minimumReleaseAgeExclude:
